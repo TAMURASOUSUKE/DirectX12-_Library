@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Src">
+      <UniqueIdentifier>{44a1f25d-79dc-4d1d-8ce2-93b3c6f0cd6b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Src\Math">
+      <UniqueIdentifier>{f0ba6e22-4771-426c-802b-2da2d78aca68}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Src\Math\Vector">
+      <UniqueIdentifier>{0cc6ffee-426f-4a7a-b9e3-9f6050ac2889}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Src\Math\Matrix">
+      <UniqueIdentifier>{c0d5308d-8704-4730-af23-84d05d6a429e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Src\Tests">
+      <UniqueIdentifier>{9f6ae750-514f-4800-9092-7294236fd820}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Src\Math\Quaternion">
+      <UniqueIdentifier>{1a07a160-e566-4198-9b4a-ea9c72bce348}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Src\Transform">
+      <UniqueIdentifier>{ed6071d0-dc70-4f47-9f75-e4a1d5b95f0f}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Src\Math\MathConstant.h">
+      <Filter>Src\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\Vector\Vector2.h">
+      <Filter>Src\Math\Vector</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\Vector\Vector2Int.h">
+      <Filter>Src\Math\Vector</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\Vector\Vector3.h">
+      <Filter>Src\Math\Vector</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\Vector\Vector3Int.h">
+      <Filter>Src\Math\Vector</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\Vector\Vector4.h">
+      <Filter>Src\Math\Vector</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\Matrix\Mat4x4.h">
+      <Filter>Src\Math\Matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\Quaternion\Quaternion.h">
+      <Filter>Src\Math\Quaternion</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Transform\Transform.h">
+      <Filter>Src\Transform</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\TSMath.h">
+      <Filter>Src\Math</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Src\Math\Vector\Vector2.cpp">
+      <Filter>Src\Math\Vector</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Math\Vector\Vector2Int.cpp">
+      <Filter>Src\Math\Vector</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Math\Vector\Vector3.cpp">
+      <Filter>Src\Math\Vector</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Math\Vector\Vector3Int.cpp">
+      <Filter>Src\Math\Vector</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Math\Vector\Vector4.cpp">
+      <Filter>Src\Math\Vector</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Math\Matrix\Mat4x4.cpp">
+      <Filter>Src\Math\Matrix</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Test\main.cpp">
+      <Filter>Src\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Math\Quaternion\Quaternion.cpp">
+      <Filter>Src\Math\Quaternion</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Transform\Transform.cpp">
+      <Filter>Src\Transform</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
