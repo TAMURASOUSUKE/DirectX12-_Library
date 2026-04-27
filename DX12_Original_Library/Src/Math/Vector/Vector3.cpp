@@ -1,4 +1,4 @@
-#include <cmath>
+﻿#include <cmath>
 #include <algorithm>
 #include "../MathConstant.h"
 #include "Vector3.h"

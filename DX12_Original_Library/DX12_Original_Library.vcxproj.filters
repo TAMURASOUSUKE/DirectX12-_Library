@@ -19,8 +19,11 @@
     <Filter Include="Src\Math\Quaternion">
       <UniqueIdentifier>{1a07a160-e566-4198-9b4a-ea9c72bce348}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Src\Transform">
+    <Filter Include="Src\Component">
       <UniqueIdentifier>{ed6071d0-dc70-4f47-9f75-e4a1d5b95f0f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Src\Graphics">
+      <UniqueIdentifier>{ac980da8-65df-414c-92b8-cbd1499a075a}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -48,11 +51,17 @@
     <ClInclude Include="Src\Math\Quaternion\Quaternion.h">
       <Filter>Src\Math\Quaternion</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Transform\Transform.h">
-      <Filter>Src\Transform</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Math\TSMath.h">
       <Filter>Src\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Graphics\GraphicsDevice.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Graphics\GraphicsConstant.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Component\Transform.h">
+      <Filter>Src\Component</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -80,8 +89,11 @@
     <ClCompile Include="Src\Math\Quaternion\Quaternion.cpp">
       <Filter>Src\Math\Quaternion</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Transform\Transform.cpp">
-      <Filter>Src\Transform</Filter>
+    <ClCompile Include="Src\Graphics\GraphicsDevice.cpp">
+      <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Component\Transform.cpp">
+      <Filter>Src\Component</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

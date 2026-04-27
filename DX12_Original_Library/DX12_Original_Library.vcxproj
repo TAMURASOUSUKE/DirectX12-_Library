@@ -131,6 +131,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Src\Component\Transform.h" />
+    <ClInclude Include="Src\Graphics\GraphicsConstant.h" />
+    <ClInclude Include="Src\Graphics\GraphicsDevice.h" />
     <ClInclude Include="Src\Math\MathConstant.h" />
     <ClInclude Include="Src\Math\Matrix\Mat4x4.h" />
     <ClInclude Include="Src\Math\Quaternion\Quaternion.h" />
@@ -140,9 +143,10 @@
     <ClInclude Include="Src\Math\Vector\Vector3.h" />
     <ClInclude Include="Src\Math\Vector\Vector3Int.h" />
     <ClInclude Include="Src\Math\Vector\Vector4.h" />
-    <ClInclude Include="Src\Transform\Transform.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Src\Component\Transform.cpp" />
+    <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />
     <ClCompile Include="Src\Math\Matrix\Mat4x4.cpp" />
     <ClCompile Include="Src\Math\Quaternion\Quaternion.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector2.cpp" />
@@ -151,7 +155,6 @@
     <ClCompile Include="Src\Math\Vector\Vector3Int.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector4.cpp" />
     <ClCompile Include="Src\Test\main.cpp" />
-    <ClCompile Include="Src\Transform\Transform.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

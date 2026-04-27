@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 /// <summary>
 /// 二次元座標や二次元ベクトルについての機能をまとめた構造体です。

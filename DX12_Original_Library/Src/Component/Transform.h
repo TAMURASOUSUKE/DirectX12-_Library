@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "TSMath.h"
 
 // TRSの機能を持ったデータ群を提供するダーティフラグを用いて動きがあった時にのみ計算するようにする
