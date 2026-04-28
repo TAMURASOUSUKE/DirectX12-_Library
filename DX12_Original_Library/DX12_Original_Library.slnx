@@ -3,6 +3,6 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="../GraphicsTest/GraphicsTest.vcxproj" Id="806203b0-000e-4855-a108-20e1e4333790" />
   <Project Path="DX12_Original_Library.vcxproj" Id="52cb1240-45e6-4b46-88fa-14088c51322a" />
+  <Project Path="GraphicsTest/GraphicsTest.vcxproj" Id="806203b0-000e-4855-a108-20e1e4333790" />
 </Solution>
