@@ -1,9 +1,5 @@
 #include <iostream>
-#include "../Math/MathConstant.h"
-#include "../Math/Vector/Vector3.h"
-#include "../Math/Vector/Vector4.h"
-#include "../Math/Matrix/Mat4x4.h"
-#include "../Math/Quaternion/Quaternion.h"
+#include "TSMath.h"
 
 int testCount{ 0 };
 int passCount{ 0 };
