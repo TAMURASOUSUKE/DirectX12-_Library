@@ -1,12 +1,23 @@
 ﻿#include "GraphicsDevice.h"
 
+// カスタムのウィンドウプロシージャ
+LRESULT CALLBACK WindowProc(HWND _hwnd, UINT _msg, WPARAM _wp, LPARAM _lp)
+{
+	if (_msg == WM_DESTROY)
+	{
+		PostQuitMessage(0); // WM_QUITをメッセージキューに投げる
+		return 0;
+	}
+	return DefWindowProc(_hwnd, _msg, _wp, _lp);
+}
+
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
 	// ウィンドウクラスの設定
 	WNDCLASSEX wc{}; // ウィンドウクラス
 	wc.cbSize = sizeof(WNDCLASSEX);
-	wc.lpfnWndProc = DefWindowProc; //　メッセージ処理(今はデフォルト)
+	wc.lpfnWndProc = WindowProc; //　メッセージ処理(今はデフォルト)
 	wc.hInstance = GetModuleHandle(nullptr);
 	wc.lpszClassName = L"GraphicsTest"; // クラス名
 

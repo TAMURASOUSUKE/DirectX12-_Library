@@ -13,9 +13,6 @@
     <Filter Include="Src\Math\Matrix">
       <UniqueIdentifier>{c0d5308d-8704-4730-af23-84d05d6a429e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Src\Tests">
-      <UniqueIdentifier>{9f6ae750-514f-4800-9092-7294236fd820}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Src\Math\Quaternion">
       <UniqueIdentifier>{1a07a160-e566-4198-9b4a-ea9c72bce348}</UniqueIdentifier>
     </Filter>
@@ -82,9 +79,6 @@
     </ClCompile>
     <ClCompile Include="Src\Math\Matrix\Mat4x4.cpp">
       <Filter>Src\Math\Matrix</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Test\MathTest.cpp">
-      <Filter>Src\Tests</Filter>
     </ClCompile>
     <ClCompile Include="Src\Math\Quaternion\Quaternion.cpp">
       <Filter>Src\Math\Quaternion</Filter>

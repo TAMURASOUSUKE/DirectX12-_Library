@@ -133,6 +133,11 @@
   <ItemGroup>
     <ClCompile Include="GraphicsTest.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DX12_Original_Library.vcxproj">
+      <Project>{52cb1240-45e6-4b46-88fa-14088c51322a}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
