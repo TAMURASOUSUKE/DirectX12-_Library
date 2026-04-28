@@ -1,4 +1,4 @@
-#include <cmath>
+﻿#include <cmath>
 #include "Mat4x4.h"
 
 // 全て0で初期化する

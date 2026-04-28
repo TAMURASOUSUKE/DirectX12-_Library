@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // Math関連で共通して使うような定数をまとめる
 namespace Math 

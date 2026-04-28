@@ -1,4 +1,4 @@
-#include "Transform.h"
+﻿#include "Transform.h"
 
 // 現在位置に加算する
 void Transform::Translate(const Vector3& _delta)
