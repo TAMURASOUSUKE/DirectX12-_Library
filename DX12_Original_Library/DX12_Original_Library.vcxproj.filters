@@ -83,7 +83,7 @@
     <ClCompile Include="Src\Math\Matrix\Mat4x4.cpp">
       <Filter>Src\Math\Matrix</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Test\main.cpp">
+    <ClCompile Include="Src\Test\MathTest.cpp">
       <Filter>Src\Tests</Filter>
     </ClCompile>
     <ClCompile Include="Src\Math\Quaternion\Quaternion.cpp">
