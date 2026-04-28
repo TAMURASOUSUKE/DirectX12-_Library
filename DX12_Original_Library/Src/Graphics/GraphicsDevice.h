@@ -51,13 +51,14 @@ private:
 	ComPtr<ID3D12CommandAllocator> cmdAllocators[FRAME_BUFFER_COUNT]; // ダブルバッファ用のアロケーター
 	ComPtr<ID3D12GraphicsCommandList> cmdList; // 命令記録
 	ComPtr<ID3D12Fence> fence; // CPUとGPUの同期
-	UINT64 fenceValues[FRAME_BUFFER_COUNT]; // 各フレームの同期値
+	UINT64 fenceValues[FRAME_BUFFER_COUNT]{ 0, 0 }; // 各フレームの同期値
+	UINT64 fenceValueCounter{ 0 }; // フェンス値をカウントする計測器
 
 	// 画面表示
 	ComPtr<IDXGISwapChain4> swapChain; // バッファ交換
 	ComPtr<ID3D12Resource> backBuffers[FRAME_BUFFER_COUNT]; // ダブルバッファ
 	ComPtr<ID3D12DescriptorHeap> rtvHeap; // RTV用のヒープ
-	UINT rtvDescriptorSize; // RTV一つのサイズ
-	UINT currentFrameIndex; // 今どちらのバッファか
+	UINT rtvDescriptorSize{ 0 }; // RTV一つのサイズ
+	UINT currentFrameIndex{ 0 }; // 今どちらのバッファか
 
 };

@@ -127,3 +127,90 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 	result = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
 	if (FAILED(result)) return;
 }
+
+// 終了処理
+void GraphicsDevice::Shutdown()
+{
+	// GPUが全処理終了するのを待ってから終了する(リソースが残ったまま開放するとクラッシュする)
+	cmdQueue->Signal(fence.Get(), ++fenceValueCounter);
+	if (fence->GetCompletedValue() < fenceValueCounter)
+	{
+		HANDLE event{ CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS) };
+		if (!event) return; // nullチェック
+		fence->SetEventOnCompletion(fenceValueCounter, event);
+		WaitForSingleObject(event, INFINITE);
+		CloseHandle(event);
+	}
+}
+
+// フレームの最初に行う処理
+void GraphicsDevice::BeginFrame()
+{
+	// 一つ前のフレームのアロケーターをリセットする際に実行中か確認する必要があるためフェンスを用意
+	// GPUがこのフレームの処理を終えているのか確認
+	if (fence->GetCompletedValue() < fenceValues[currentFrameIndex]) // フェンス値が返ってくるので
+	{
+		// まだ終わっていない
+		HANDLE event{ CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS) }; // イベントの作成
+		if (!event) return; // nullチェック
+		fence->SetEventOnCompletion(fenceValues[currentFrameIndex], event); // フェンス値がこの値に達したらイベントを発火しろという命令
+		WaitForSingleObject(event, INFINITE); // イベントを待つ(INFINIT = 待ち続ける)
+		CloseHandle(event); // イベントをしまう
+	}
+
+	// アロケーターをリセット
+	cmdAllocators[currentFrameIndex]->Reset();
+
+	// コマンドリストをリセット(アロケーターと紐づけなおす)
+	cmdList->Reset(cmdAllocators[currentFrameIndex].Get(), nullptr);
+
+	// リソースバリアの作成(表示用から描画先への切り替え)
+	D3D12_RESOURCE_BARRIER barrier{};
+	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrier.Transition.pResource = backBuffers[currentFrameIndex].Get();
+	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT; // 表示用
+	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET; // 描画先
+	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	cmdList->ResourceBarrier(1, &barrier);
+}
+
+// フレームの最後に行う処理
+void GraphicsDevice::EndFrame()
+{
+	// 描画先-> 表示用
+	D3D12_RESOURCE_BARRIER barrier{}; // バリア
+	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrier.Transition.pResource = backBuffers[currentFrameIndex].Get();
+	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET; // 描画先
+	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT; // 表示用
+	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	cmdList->ResourceBarrier(1, &barrier);
+
+	// コマンドリストを閉じる(これ以上の書き込みを禁止する)
+	cmdList->Close();
+
+	// コマンドリストをコマンドキューに投げる
+	ID3D12CommandList* cmdLists[]{ cmdList.Get() }; // 複数のコマンドリストを投げられるよう配列管理する
+	cmdQueue->ExecuteCommandLists(1, cmdLists);
+
+	// バッファ交換を行う(Present)
+	swapChain->Present(1, 0); // 第一引数 : VSyncの間隔(1 = 60fps同期)
+
+	// フェンスシグナルを出す(このフレームの命令が全て終わったらカウンタをこの値にしろという命令)
+	fenceValues[currentFrameIndex] = ++fenceValueCounter;
+	cmdQueue->Signal(fence.Get(), fenceValues[currentFrameIndex]);
+
+	// 現在のframeIndexを更新
+	currentFrameIndex = swapChain->GetCurrentBackBufferIndex();
+}
+
+
+ID3D12Device* GraphicsDevice::GetDevice() const
+{
+	return device.Get();
+}
+
+ID3D12GraphicsCommandList* GraphicsDevice::GetCommandList() const
+{
+	return cmdList.Get();
+}
