@@ -66,6 +66,9 @@
     <ClInclude Include="Src\Graphics\GraphicsType.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="ResourceManager.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -96,6 +99,9 @@
       <Filter>Src\Component</Filter>
     </ClCompile>
     <ClCompile Include="Src\Graphics\DescriptorManager.cpp">
+      <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="ResourceManager.cpp">
       <Filter>Src\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
