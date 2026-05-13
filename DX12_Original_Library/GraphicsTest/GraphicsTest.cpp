@@ -1,4 +1,6 @@
 ﻿#include "GraphicsDevice.h"
+#include "../Src/Graphics/GraphicsConstant.h"
+#include "DescriptorManager.h"
 
 // カスタムのウィンドウプロシージャ
 LRESULT CALLBACK WindowProc(HWND _hwnd, UINT _msg, WPARAM _wp, LPARAM _lp)
@@ -37,6 +39,33 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	ShowWindow(hwnd, SW_SHOW);
 
 	GraphicsDevice::Instance().Initialize(hwnd, 1280, 720); // 初期化
+	DescriptorManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // ディスクリプタマネージャーをデバイスを使って初期化
+
+	DescriptorHandle h1{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // GPU可視
+	DescriptorHandle h2{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // GPU可視
+
+	// h1とh2が別のインデックスであることを確認する
+	if (h1.index != h2.index)
+	{
+		OutputDebugStringA("[PASS] : インデックスが異なる値を出力できています");
+	}
+	else
+	{
+		OutputDebugStringA("[FAIL] : インデックスが同じ値を出力しています");
+	}
+
+	// Freeして再度Allocateすると同じインデックスが戻るか
+	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, h2);
+	DescriptorHandle h3{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // 再度取得
+
+	if (h2.index == h3.index)
+	{
+		OutputDebugStringA("[PASS] : 一度戻した後も同じインデックスが返っています");
+	}
+	else
+	{
+		OutputDebugStringA("[FAIL] : 一度戻した後違うインデックスが返っています");
+	}
 
 	MSG msg{};
 	while (msg.message != WM_QUIT)
@@ -52,7 +81,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			GraphicsDevice::Instance().EndFrame(); // フレームの最後の処理
 		}
 	}
-
+	DescriptorManager::Instance().Shutdown();
 	GraphicsDevice::Instance().Shutdown();
 	return 0;
 }

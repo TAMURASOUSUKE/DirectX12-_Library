@@ -132,8 +132,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Src\Component\Transform.h" />
+    <ClInclude Include="Src\Graphics\DescriptorManager.h" />
     <ClInclude Include="Src\Graphics\GraphicsConstant.h" />
     <ClInclude Include="Src\Graphics\GraphicsDevice.h" />
+    <ClInclude Include="Src\Graphics\GraphicsType.h" />
     <ClInclude Include="Src\Math\MathConstant.h" />
     <ClInclude Include="Src\Math\Matrix\Mat4x4.h" />
     <ClInclude Include="Src\Math\Quaternion\Quaternion.h" />
@@ -146,6 +148,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Component\Transform.cpp" />
+    <ClCompile Include="Src\Graphics\DescriptorManager.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />
     <ClCompile Include="Src\Math\Matrix\Mat4x4.cpp" />
     <ClCompile Include="Src\Math\Quaternion\Quaternion.cpp" />
