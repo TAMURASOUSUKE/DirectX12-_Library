@@ -33,6 +33,8 @@ public:
 	ID3D12Device* GetDevice() const;
 	// コマンドリストのGetter
 	ID3D12GraphicsCommandList* GetCommandList() const;
+	// 現在のRTVハンドルを取得するGetter
+	D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRTV() const;
 
 private:
 	GraphicsDevice() = default; // 内部でのみのインスタンス
