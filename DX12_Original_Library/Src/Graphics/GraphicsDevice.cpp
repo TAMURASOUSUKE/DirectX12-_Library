@@ -214,3 +214,10 @@ ID3D12GraphicsCommandList* GraphicsDevice::GetCommandList() const
 {
 	return cmdList.Get();
 }
+
+D3D12_CPU_DESCRIPTOR_HANDLE GraphicsDevice::GetCurrentRTV() const
+{
+	D3D12_CPU_DESCRIPTOR_HANDLE handle{ rtvHeap->GetCPUDescriptorHandleForHeapStart() }; // 先頭ハンドル
+	handle.ptr += currentFrameIndex * rtvDescriptorSize;
+	return handle;
+}

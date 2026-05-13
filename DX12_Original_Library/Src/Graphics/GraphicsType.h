@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <d3d12.h>
 
 // 描画関連で汎用的に使う型を定義する(ハンドルなど)

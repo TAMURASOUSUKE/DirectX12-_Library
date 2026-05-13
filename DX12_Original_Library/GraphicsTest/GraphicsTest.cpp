@@ -78,6 +78,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		{
 			// 描画
 			GraphicsDevice::Instance().BeginFrame(); // フレームの最初の処理
+
+			// 画面色をクリアする
+			float windowColor[]{ 0.1f, 0.3f, 0.3f, 1.0f }; // 任意の色
+			auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTVハンドルを取得
+			GraphicsDevice::Instance().GetCommandList()->ClearRenderTargetView(rtv, windowColor, 0 , nullptr); // コマンドリストを取得しそこから現在書き込んでいるRTVにの色を任意色でクリアする
+
 			GraphicsDevice::Instance().EndFrame(); // フレームの最後の処理
 		}
 	}
