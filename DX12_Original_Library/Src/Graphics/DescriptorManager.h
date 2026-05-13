@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <windows.h>
 #include <d3d12.h>
 #include <wrl/client.h>
@@ -7,6 +7,18 @@
 using Microsoft::WRL::ComPtr;
 
 #pragma comment(lib, "d3d12.lib")
+
+// 用意するDiscriptorHeapのデータをまとめた構造体
+struct HeapData
+{
+	ComPtr<ID3D12DescriptorHeap> heap; // ヒープ本体
+	UINT descriptorSize{ 0 }; // View一つ分のサイズ
+	std::stack<UINT> freeList; // 空きスロット番号のスタック
+	UINT slotCount{ 0 }; // スロットの数
+	D3D12_DESCRIPTOR_HEAP_TYPE type; // ヒープのタイプ
+	D3D12_DESCRIPTOR_HEAP_FLAGS flags; // GPU可視かどうかを判断するフラグ
+};
+
 // ShaderVisibleのSRV,CBV,UAV、CPUOnlyのRTV、DSV用の3つのヒープを管理するクラス
 class DescriptorManager
 {
@@ -33,20 +45,12 @@ public:
 
 private:
 	// コンストラクタ
-	DescriptorManager() = default;
+	DescriptorManager();
 
 	// コピー禁止
 	DescriptorManager(const DescriptorManager& _other) = delete;
 	DescriptorManager& operator =(const DescriptorManager& _other) = delete;
 
 private:
-	ComPtr<ID3D12DescriptorHeap> rtvHeap; // RTV用のヒープ
-	ComPtr<ID3D12DescriptorHeap> dsvHeap; // DSV用のヒープ
-	ComPtr<ID3D12DescriptorHeap> shaderVisibleHeap; // SRV/CBV/UAV用のヒープ
-	UINT rtvDescriptorSize{ 0 }; // RTV一つのサイズ
-	UINT dsvDescriptorSize{ 0 }; // DSV一つのサイズ
-	UINT shaderVisibleDescriptorSize{ 0 }; // GPU可視(SRV/CBV/UAV)の一つのサイズ
-	std::stack<UINT> rtvFreeList; // rtvの空きスロット番号のスタック
-	std::stack<UINT> dsvFreeList; // dsvの空きスロット番号のスタック
-	std::stack<UINT> shaderVisibleFreeList; // GPU可視の空きスロット番号のスタック
+	HeapData data[3]{}; // 各ヒープのパラメータを格納した配列(0 = CBV, 1 = RTV, 2 = DSV)
 };
