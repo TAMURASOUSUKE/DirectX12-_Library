@@ -8,9 +8,9 @@ using Microsoft::WRL::ComPtr;
 // バッファ一つ分の情報をまとめた構造体
 struct GPUBuffer
 {
-	ComPtr<ID3D12Resource> resource;
-	D3D12_VERTEX_BUFFER_VIEW vertexView;
-	UINT sizeInBytes;
+	ComPtr<ID3D12Resource> resource; // リソースオブジェクト
+	D3D12_VERTEX_BUFFER_VIEW vertexView; // 頂点バッファビュー
+	UINT sizeInBytes; // バッファ全体のサイズ
 };
 
 // ShaderSystemやファサードがリソース管理を意識せず使えるようにするクラス
