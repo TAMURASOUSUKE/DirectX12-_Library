@@ -23,8 +23,8 @@ void ShaderSystem::Shutdown()
 ComPtr<ID3DBlob> ShaderSystem::Compile(const wchar_t* _filePath, const char* _entryPoint, const char* _target)
 {
 	HRESULT result{}; // 作成結果を格納するオブジェクト
-	ComPtr<ID3DBlob> compiledShader{}; // コンパイルされたシェーダーが格納される
-	ComPtr<ID3DBlob> errorBlob{}; // エラーが起こった時の対処用
+	ComPtr<ID3DBlob> compiledShader{nullptr}; // コンパイルされたシェーダーが格納される
+	ComPtr<ID3DBlob> errorBlob{nullptr}; // エラーが起こった時の対処用
 
 	UINT compileFlags{ 0 }; // コンパイルする際のオプション
 
@@ -82,6 +82,36 @@ ComPtr<ID3DBlob> ShaderSystem::Compile(const wchar_t* _filePath, const char* _en
 // ルートシグネチャの作成
 ComPtr<ID3D12RootSignature> ShaderSystem::CreateRootSignature()
 {
+	HRESULT result{}; // 結果判定用オブジェクト
+
+	// ルートシグネチャの設定構造体
+	D3D12_ROOT_SIGNATURE_DESC rootSigDesc{};
+	rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
+	// バイナリコードの作成
+	ComPtr<ID3DBlob> rootSigBlob{nullptr};
+	ComPtr<ID3DBlob> errorBlob{ nullptr }; // エラーが起こった時の対処用
+	result = D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &rootSigBlob, &errorBlob);
+	if (FAILED(result))
+	{
+		if (errorBlob)
+		{
+			OutputDebugStringA(
+				static_cast<const char*>(errorBlob->GetBufferPointer())
+			);
+		}
+		return nullptr;
+	}
+
+	// ルートシグネチャの作成
+	ComPtr<ID3D12RootSignature> rootSig{};
+	result = device->CreateRootSignature(0, rootSigBlob->GetBufferPointer(), rootSigBlob->GetBufferSize(), IID_PPV_ARGS(&rootSig));
+	if (FAILED(result))
+	{
+		return nullptr;
+	}
+
+	return rootSig;
 
 }
 
