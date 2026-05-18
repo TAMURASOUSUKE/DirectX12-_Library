@@ -137,6 +137,7 @@
     <ClInclude Include="Src\Graphics\GraphicsConstant.h" />
     <ClInclude Include="Src\Graphics\GraphicsDevice.h" />
     <ClInclude Include="Src\Graphics\GraphicsType.h" />
+    <ClInclude Include="Src\Graphics\ShaderSystem.h" />
     <ClInclude Include="Src\Math\MathConstant.h" />
     <ClInclude Include="Src\Math\Matrix\Mat4x4.h" />
     <ClInclude Include="Src\Math\Quaternion\Quaternion.h" />
@@ -152,6 +153,7 @@
     <ClCompile Include="Src\Component\Transform.cpp" />
     <ClCompile Include="Src\Graphics\DescriptorManager.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />
+    <ClCompile Include="Src\Graphics\ShaderSystem.cpp" />
     <ClCompile Include="Src\Math\Matrix\Mat4x4.cpp" />
     <ClCompile Include="Src\Math\Quaternion\Quaternion.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector2.cpp" />
@@ -159,6 +161,10 @@
     <ClCompile Include="Src\Math\Vector\Vector3.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector3Int.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector4.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Src\Shaders\TrianglePS.hlsl" />
+    <FxCompile Include="Src\Shaders\TriangleVS.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

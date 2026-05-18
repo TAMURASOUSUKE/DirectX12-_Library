@@ -22,6 +22,9 @@
     <Filter Include="Src\Graphics">
       <UniqueIdentifier>{ac980da8-65df-414c-92b8-cbd1499a075a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Shaders">
+      <UniqueIdentifier>{089b40b5-9882-4b43-8472-da62484e9438}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Math\MathConstant.h">
@@ -69,6 +72,9 @@
     <ClInclude Include="ResourceManager.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Graphics\ShaderSystem.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -104,5 +110,16 @@
     <ClCompile Include="ResourceManager.cpp">
       <Filter>Src\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Graphics\ShaderSystem.cpp">
+      <Filter>Src\Graphics</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Src\Shaders\TriangleVS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\TrianglePS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
