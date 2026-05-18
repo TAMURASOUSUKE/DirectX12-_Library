@@ -1,4 +1,4 @@
-#include <algorithm>
+﻿#include <algorithm>
 #include <string>
 #include "ShaderSystem.h"
 
@@ -77,5 +77,11 @@ ComPtr<ID3DBlob> ShaderSystem::Compile(const wchar_t* _filePath, const char* _en
 	}
 
 	return compiledShader; // コンパイルされたShaderのオブジェクトを返す
+}
+
+// ルートシグネチャの作成
+ComPtr<ID3D12RootSignature> ShaderSystem::CreateRootSignature()
+{
+
 }
 

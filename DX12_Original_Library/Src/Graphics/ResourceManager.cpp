@@ -1,4 +1,4 @@
-#include "ResourceManager.h"
+﻿#include "ResourceManager.h"
 
 void ResourceManager::Initialize(ID3D12Device* _device)
 {
