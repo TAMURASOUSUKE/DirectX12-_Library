@@ -8,7 +8,7 @@ struct PS_INPUT
 };
 
 // float4で色を出力するmain関数
-float4 main(PS_INPUT _input) : SV_POSITION
+float4 main(PS_INPUT _input) : SV_TARGET
 {
     return _input.color;
 }

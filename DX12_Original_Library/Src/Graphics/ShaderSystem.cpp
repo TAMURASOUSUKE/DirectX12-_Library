@@ -112,6 +112,89 @@ ComPtr<ID3D12RootSignature> ShaderSystem::CreateRootSignature()
 	}
 
 	return rootSig;
+}
 
+
+// パイプラインステートの作成
+ComPtr<ID3D12PipelineState> ShaderSystem::CreatePipeLineState(ID3D12RootSignature* _rootSig, ID3DBlob* _vsBolb, ID3DBlob* _psBolb)
+{
+	HRESULT result{}; // 結果格納
+
+	D3D12_INPUT_ELEMENT_DESC inputLayout[]
+	{
+		// positionのセマンティクス
+		{
+			"POSITION", // HLSL側のセマンティクス
+			0, // セマンティクス番号
+			DXGI_FORMAT_R32G32B32_FLOAT, // float3
+			0, // 入力スロット
+			0, // 頂点構造体のオフセット
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		},
+		// 頂点カラー
+		{
+			"COLOR", // HLSL側のセマンティクス
+			0,
+			DXGI_FORMAT_R32G32B32A32_FLOAT, // float4
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,   // 前の要素の直後に配置
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		}
+	};
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineDesc{}; // パイプラインステート設定構造体
+	pipelineDesc.pRootSignature = _rootSig; // ルートシグネチャ
+	// VSShader
+	pipelineDesc.VS.pShaderBytecode = _vsBolb->GetBufferPointer();
+	pipelineDesc.VS.BytecodeLength = _vsBolb->GetBufferSize();
+
+	// PSShader
+	pipelineDesc.PS.pShaderBytecode = _psBolb->GetBufferPointer();
+	pipelineDesc.PS.BytecodeLength = _psBolb->GetBufferSize();
+
+	// 入力レイアウト
+	pipelineDesc.InputLayout.pInputElementDescs = inputLayout;
+	pipelineDesc.InputLayout.NumElements = _countof(inputLayout);
+
+	// プリミティブ形状
+	pipelineDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE; // 三角形
+
+	// ラスタライザ設定
+	pipelineDesc.RasterizerState.MultisampleEnable = false; // アンチエイリアスは使わない
+	pipelineDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE; // カリングしない
+	pipelineDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID; // 中身を塗りつぶす
+	pipelineDesc.RasterizerState.DepthClipEnable = true; // 深度方向のクリッピングを有効化
+
+	// サンプルマスク
+	pipelineDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK; // (0xffffffff)
+	
+	// ブレンドステート設定構造体
+	D3D12_RENDER_TARGET_BLEND_DESC renderTargetBlendDesc{};
+	renderTargetBlendDesc.BlendEnable = false; // ブレンドを行うかどうか
+	renderTargetBlendDesc.LogicOpEnable = false; // 論理演算するかどうか
+	renderTargetBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL; // 全ての要素をブレンドする
+
+	// ブレンドステート設定
+	pipelineDesc.BlendState.AlphaToCoverageEnable = false; // αテストなし
+	pipelineDesc.BlendState.IndependentBlendEnable = false; // それぞれのパイプラインステートに対して個別のブレンドステートを割り当てるか
+	pipelineDesc.BlendState.RenderTarget[0] = renderTargetBlendDesc;
+
+	// レンダーターゲット設定
+	pipelineDesc.NumRenderTargets = 1;
+	pipelineDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+	// 深度バッファを使わないのでUNKNOWN
+	pipelineDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
+
+	// マルチサンプリング設定
+	pipelineDesc.SampleDesc.Count = 1;
+	pipelineDesc.SampleDesc.Quality = 0;
+
+	ComPtr<ID3D12PipelineState> pipelineState{}; // パイプラインステートオブジェクト
+	result = device->CreateGraphicsPipelineState(&pipelineDesc, IID_PPV_ARGS(&pipelineState));
+	if (FAILED(result)) return nullptr;
+	return pipelineState;
 }
 
