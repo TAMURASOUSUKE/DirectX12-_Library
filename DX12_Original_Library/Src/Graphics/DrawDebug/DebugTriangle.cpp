@@ -1,4 +1,4 @@
-#include "DebugTriangle.h"
+﻿#include "DebugTriangle.h"
 
 // 初期化
 void DebugTriangle::Initialize()
