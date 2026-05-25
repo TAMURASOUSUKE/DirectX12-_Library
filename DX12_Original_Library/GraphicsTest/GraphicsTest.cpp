@@ -81,7 +81,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	auto pipeLineState{ shaderSystem.CreatePipeLineState(rootSignature.Get(), vsBlob.Get(), psBlob.Get()) }; // パイプラインステートオブジェクトを作成
 
 	DebugTriangle triangle{};
-	triangle.Initialize(GraphicsDevice::Instance().GetDevice());
+	triangle.Initialize();
 
 	MSG msg{};
 	while (msg.message != WM_QUIT)

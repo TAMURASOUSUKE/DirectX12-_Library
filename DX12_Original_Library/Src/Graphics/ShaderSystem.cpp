@@ -16,7 +16,7 @@ void ShaderSystem::Initialize(ID3D12Device* _device)
 // 終了処理
 void ShaderSystem::Shutdown()
 {
-	device.Reset();
+	
 }
 
 // Shaderのコンパイル

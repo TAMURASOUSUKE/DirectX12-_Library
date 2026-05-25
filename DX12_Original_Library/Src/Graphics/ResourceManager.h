@@ -32,7 +32,7 @@ public:
 
 private:
 	// コンストラクタ
-	ResourceManager();
+	ResourceManager() = default;
 
 	// コピー禁止
 	ResourceManager(const ResourceManager& _other) = delete;

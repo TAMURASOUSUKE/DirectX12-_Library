@@ -22,5 +22,5 @@ public:
 	ComPtr<ID3D12PipelineState> CreatePipeLineState(ID3D12RootSignature* _rootSig, ID3DBlob* _vsBolb, ID3DBlob* _psBolb); // パイプラインステートオブジェクトの作成
 
 private:
-	ComPtr<ID3D12Device> device; // 内部保存するデバイス
+	ID3D12Device* device; // 内部保存するデバイス所有しないので生ポでいい
 };

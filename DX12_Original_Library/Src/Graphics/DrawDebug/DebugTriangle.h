@@ -1,7 +1,6 @@
 #pragma once
 #include <d3d12.h>
-#include <wrl/client.h>
-using Microsoft::WRL::ComPtr;
+#include "../ResourceManager.h"
 
 #pragma comment(lib, "d3d12.lib")
 
@@ -9,7 +8,7 @@ using Microsoft::WRL::ComPtr;
 class DebugTriangle
 {
 public:
-	void Initialize(ID3D12Device* _device);
+	void Initialize();
 	void Draw(ID3D12GraphicsCommandList* _commandList);
 
 private:
@@ -21,6 +20,5 @@ private:
 	};
 
 private:
-	ComPtr<ID3D12Resource> vertexBuffer; // 頂点バッファを作成する
-	D3D12_VERTEX_BUFFER_VIEW vertexBufferView{}; // 頂点バッファのビューを作る
+	GPUBuffer vertexBuffer; // ReosurceManagerが返す構造体を保持する
 };
