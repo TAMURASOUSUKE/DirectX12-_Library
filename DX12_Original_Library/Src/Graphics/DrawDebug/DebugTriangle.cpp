@@ -20,7 +20,7 @@ void DebugTriangle::Draw(ID3D12GraphicsCommandList* _commandList)
 {
     if (_commandList == nullptr) return;
 
-    _commandList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // リストでセットする
+    _commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // リストでセットする
     _commandList->IASetVertexBuffers(0, 1, &vertexBuffer.vertexView);
     _commandList->DrawInstanced(3, 1, 0, 0);
 }

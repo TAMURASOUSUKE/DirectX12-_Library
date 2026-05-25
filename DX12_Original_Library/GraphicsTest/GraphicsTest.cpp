@@ -80,6 +80,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	auto pipeLineState{ shaderSystem.CreatePipeLineState(rootSignature.Get(), vsBlob.Get(), psBlob.Get()) }; // パイプラインステートオブジェクトを作成
 
+	ResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
 	DebugTriangle triangle{};
 	triangle.Initialize();
 
@@ -124,8 +125,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			commandList->RSSetScissorRects(1, &scissorRect);
 
 			commandList->OMSetRenderTargets(1, &rtv, false, nullptr);
-
-			commandList->ClearRenderTargetView(rtv, windowColor, 0, nullptr);
 
 			commandList->SetGraphicsRootSignature(rootSignature.Get());
 			commandList->SetPipelineState(pipeLineState.Get());

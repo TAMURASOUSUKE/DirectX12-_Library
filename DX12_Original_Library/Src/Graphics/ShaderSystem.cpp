@@ -116,7 +116,7 @@ ComPtr<ID3D12RootSignature> ShaderSystem::CreateRootSignature()
 
 
 // パイプラインステートの作成
-ComPtr<ID3D12PipelineState> ShaderSystem::CreatePipeLineState(ID3D12RootSignature* _rootSig, ID3DBlob* _vsBolb, ID3DBlob* _psBolb)
+ComPtr<ID3D12PipelineState> ShaderSystem::CreatePipeLineState(ID3D12RootSignature* _rootSig, ID3DBlob* _vsBlob, ID3DBlob* _psBlob)
 {
 	HRESULT result{}; // 結果格納
 
@@ -147,12 +147,12 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreatePipeLineState(ID3D12RootSignatur
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineDesc{}; // パイプラインステート設定構造体
 	pipelineDesc.pRootSignature = _rootSig; // ルートシグネチャ
 	// VSShader
-	pipelineDesc.VS.pShaderBytecode = _vsBolb->GetBufferPointer();
-	pipelineDesc.VS.BytecodeLength = _vsBolb->GetBufferSize();
+	pipelineDesc.VS.pShaderBytecode = _vsBlob->GetBufferPointer();
+	pipelineDesc.VS.BytecodeLength = _vsBlob->GetBufferSize();
 
 	// PSShader
-	pipelineDesc.PS.pShaderBytecode = _psBolb->GetBufferPointer();
-	pipelineDesc.PS.BytecodeLength = _psBolb->GetBufferSize();
+	pipelineDesc.PS.pShaderBytecode = _psBlob->GetBufferPointer();
+	pipelineDesc.PS.BytecodeLength = _psBlob->GetBufferSize();
 
 	// 入力レイアウト
 	pipelineDesc.InputLayout.pInputElementDescs = inputLayout;
