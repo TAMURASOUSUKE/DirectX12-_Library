@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <windows.h>
 #include <d3d12.h>
 #include <wrl/client.h>
@@ -32,7 +32,7 @@ public:
 
 private:
 	// コンストラクタ
-	ResourceManager();
+	ResourceManager() = default;
 
 	// コピー禁止
 	ResourceManager(const ResourceManager& _other) = delete;

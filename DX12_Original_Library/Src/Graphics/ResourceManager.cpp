@@ -1,4 +1,4 @@
-#include "ResourceManager.h"
+﻿#include "ResourceManager.h"
 
 void ResourceManager::Initialize(ID3D12Device* _device)
 {
@@ -28,7 +28,7 @@ GPUBuffer ResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSize,
 	HRESULT result{}; // 結果が成功しているかどうか調べるための変数
 	// UploadHeap上にバッファリソースを作成する
 	result = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
-	if (FAILED(result)) return; // 失敗していたら終了
+	if (FAILED(result)) return buffer; // 失敗していたら終了
 	
 	// 頂点バッファに頂点情報をコピーする
 	void* mappedData{ nullptr }; // dataを詰めるための変数
