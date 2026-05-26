@@ -1,5 +1,7 @@
 ﻿#pragma once
 #include <d3d12.h>
+#include <wrl/client.h>
+using Microsoft::WRL::ComPtr;
 
 // 描画関連で汎用的に使う型を定義する(ハンドルなど)
 
@@ -17,4 +19,13 @@ struct DescriptorHandle
 	D3D12_CPU_DESCRIPTOR_HANDLE cpu{}; // CPUハンドル
 	D3D12_GPU_DESCRIPTOR_HANDLE gpu{}; // GPUハンドル
 	UINT index{ 0 }; // インデックス
+};
+
+// テクスチャの情報をまとめた構造体
+struct TextureData
+{
+	ComPtr<ID3D12Resource> resource; // テクスチャリソース
+	DescriptorHandle srvHandle; // ShaderReosurceViewハンドル
+	int width{ 0 }; // 画像の横幅
+	int height{ 0 }; // 画像の縦幅
 };

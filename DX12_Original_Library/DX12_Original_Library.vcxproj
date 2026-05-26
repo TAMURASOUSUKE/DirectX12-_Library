@@ -132,6 +132,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Src\Component\Transform.h" />
+    <ClInclude Include="Src\External\stb_image.h" />
     <ClInclude Include="Src\Gfx\Gfx.h" />
     <ClInclude Include="Src\Gfx\Window.h" />
     <ClInclude Include="Src\Graphics\DescriptorManager.h" />
@@ -153,6 +154,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Component\Transform.cpp" />
+    <ClCompile Include="Src\External\StbImageEnable.cpp" />
     <ClCompile Include="Src\Gfx\Gfx.cpp" />
     <ClCompile Include="Src\Gfx\Window.cpp" />
     <ClCompile Include="Src\Graphics\DescriptorManager.cpp" />

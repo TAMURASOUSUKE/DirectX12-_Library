@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <d3d12.h>
 #include <wrl/client.h>
+#include "GraphicsType.h"
 using Microsoft::WRL::ComPtr;
 #pragma comment(lib, "d3d12.lib")
 
@@ -29,6 +30,9 @@ public:
 
 	// 頂点バッファの作成
 	GPUBuffer CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize);
+
+	// ファイル名を引数に画像をロードする関数
+	TextureData LoadTexture(const char* _filePath);
 
 private:
 	// コンストラクタ
