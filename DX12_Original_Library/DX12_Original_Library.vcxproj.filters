@@ -28,6 +28,9 @@
     <Filter Include="Src\Graphics\DrawDebug">
       <UniqueIdentifier>{1eeeb39c-a5ef-4030-96ec-c6d5b0663633}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Gfx">
+      <UniqueIdentifier>{b1eee5cb-29ef-4f3d-b2cf-32bce221a04b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Math\MathConstant.h">
@@ -81,6 +84,12 @@
     <ClInclude Include="Src\Graphics\DrawDebug\DebugTriangle.h">
       <Filter>Src\Graphics\DrawDebug</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Gfx\Gfx.h">
+      <Filter>Src\Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Gfx\Window.h">
+      <Filter>Src\Gfx</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -121,6 +130,12 @@
     </ClCompile>
     <ClCompile Include="Src\Graphics\DrawDebug\DebugTriangle.cpp">
       <Filter>Src\Graphics\DrawDebug</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Gfx\Window.cpp">
+      <Filter>Src\Gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Gfx\Gfx.cpp">
+      <Filter>Src\Gfx</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -132,6 +132,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Src\Component\Transform.h" />
+    <ClInclude Include="Src\Gfx\Gfx.h" />
+    <ClInclude Include="Src\Gfx\Window.h" />
     <ClInclude Include="Src\Graphics\DescriptorManager.h" />
     <ClInclude Include="Src\Graphics\DrawDebug\DebugTriangle.h" />
     <ClInclude Include="Src\Graphics\GraphicsConstant.h" />
@@ -151,6 +153,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Component\Transform.cpp" />
+    <ClCompile Include="Src\Gfx\Gfx.cpp" />
+    <ClCompile Include="Src\Gfx\Window.cpp" />
     <ClCompile Include="Src\Graphics\DescriptorManager.cpp" />
     <ClCompile Include="Src\Graphics\DrawDebug\DebugTriangle.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />
