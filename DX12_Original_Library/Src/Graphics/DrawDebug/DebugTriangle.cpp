@@ -1,4 +1,5 @@
-﻿#include "DebugTriangle.h"
+﻿#include "../ResourceManager.h"
+#include "DebugTriangle.h"
 
 // 初期化
 void DebugTriangle::Initialize()

@@ -49,6 +49,46 @@ GPUBuffer ResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSize,
 	return buffer;
 }
 
+IndexBuffer ResourceManager::CreateIndexBuffer(const void* _data, UINT _dataSize, UINT _indexCount)
+{
+	D3D12_HEAP_PROPERTIES heapProps{}; // ヒープのプロパティ設定
+	heapProps.Type = D3D12_HEAP_TYPE_UPLOAD; // アップロードヒープに設定
+	heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // ページング
+
+	D3D12_RESOURCE_DESC resDesc{}; // リソース設定構造体
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; // バッファとして使う
+	resDesc.Width = _dataSize; // インデックスバッファのサイズ
+	resDesc.Height = 1; // バッファは1D
+	resDesc.DepthOrArraySize = 1; // 配列ではない
+	resDesc.MipLevels = 1; // ミップマップなし
+	resDesc.Format = DXGI_FORMAT_UNKNOWN;
+	resDesc.SampleDesc = { 1, 0 }; // MSAAなし
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // メモリが最初から最後まで連続していることを示す
+
+	// インデックスバッファの作成
+	IndexBuffer buffer{};
+	HRESULT result{};
+	// 実際に作成を行うが一旦UploadHeap上に作る。今後3Dモデルを扱う際には大量のインデックスが必要なのでDefaultHeapに移し替え最適化する
+	result = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
+	if (FAILED(result)) return buffer; // 失敗していたら終了
+
+	// MapとUnMapを用いてインデックス情報をコピーする
+	void* mappedData{ nullptr }; // Dataを詰めるための配列
+	result = buffer.resource->Map(0, nullptr, &mappedData); // バッファの仮想アドレスを取得する
+	memcpy(mappedData, _data, _dataSize); // CPUデータをGPUメモリにコピー
+	buffer.resource->Unmap(0, nullptr); // 閉じる
+
+	// インデックスバッファビューを作成する
+	D3D12_INDEX_BUFFER_VIEW indexView{};
+	indexView.BufferLocation = buffer.resource->GetGPUVirtualAddress(); // バッファの仮想アドレスを入れる
+	indexView.SizeInBytes = _dataSize;
+	indexView.Format = DXGI_FORMAT_R32_UINT; // インデックスなので32bitの符号なし整数
+
+	buffer.indexView = indexView; // 設定したインデックスバッファ
+	buffer.indexCount = _indexCount; // インデックスの数
+	return buffer;
+}
+
 // 画像の読み込み
 TextureData ResourceManager::LoadTexture(const char* _filePath)
 {
@@ -89,6 +129,13 @@ TextureData ResourceManager::LoadTexture(const char* _filePath)
 	// リソースの作成
 	result = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr, IID_PPV_ARGS(&texData.resource));
 
+	// 失敗処理
+	if (FAILED(result))
+	{
+		stbi_image_free(pixels);
+		return texData;
+	}
+
 	// 書き込む範囲を作成する
 	D3D12_BOX box{ 0, 0, 0, static_cast<UINT>(width), static_cast<UINT>(height), 1 };
 	// データ転送
@@ -99,7 +146,13 @@ TextureData ResourceManager::LoadTexture(const char* _filePath)
 		width * 4, // 1行のバイト数(width * RGBA)
 		width * height * 4 // 全体のバイト数
 		);
-	if (FAILED(result)) return texData;
+
+	// 失敗処理
+	if (FAILED(result))
+	{
+		stbi_image_free(pixels);
+		return texData;
+	}
 
 	// SRVを作成する
 	DescriptorHandle srvHandle{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // SRVのハンドルを取得する

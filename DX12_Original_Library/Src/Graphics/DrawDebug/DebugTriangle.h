@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include <d3d12.h>
-#include "../ResourceManager.h"
+#include "../GraphicsType.h"
 
 #pragma comment(lib, "d3d12.lib")
 

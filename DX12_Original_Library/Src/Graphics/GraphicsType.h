@@ -29,3 +29,19 @@ struct TextureData
 	int width{ 0 }; // 画像の横幅
 	int height{ 0 }; // 画像の縦幅
 };
+
+// 頂点バッファ一つ分の情報をまとめた構造体
+struct GPUBuffer
+{
+	ComPtr<ID3D12Resource> resource; // リソースオブジェクト
+	D3D12_VERTEX_BUFFER_VIEW vertexView; // 頂点バッファビュー
+	UINT sizeInBytes{ 0 }; // バッファ全体のサイズ
+};
+
+// インデックスバッファとしての情報をまとめた構造体
+struct IndexBuffer
+{
+	ComPtr<ID3D12Resource> resource; // リソースオブジェクト
+	D3D12_INDEX_BUFFER_VIEW indexView; // インデックスバッファビュー
+	UINT indexCount{ 0 }; // インデックスの数
+};
