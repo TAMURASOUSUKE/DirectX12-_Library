@@ -96,6 +96,9 @@
     <ClInclude Include="Src\External\stb_image.h">
       <Filter>Src\Exturnal</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Graphics\DrawDebug\DebugQuad.h">
+      <Filter>Src\Graphics\DrawDebug</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -146,6 +149,9 @@
     <ClCompile Include="Src\External\StbImageEnable.cpp">
       <Filter>Src\Exturnal</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Graphics\DrawDebug\DebugQuad.cpp">
+      <Filter>Src\Graphics\DrawDebug</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Src\Shaders\TriangleVS.hlsl">
@@ -154,10 +160,10 @@
     <FxCompile Include="Src\Shaders\TrianglePS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Src\External\TextureVS.hlsl">
+    <FxCompile Include="Src\Shaders\TexturePS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Src\External\TexturePS.hlsl">
+    <FxCompile Include="Src\Shaders\TextureVS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
   </ItemGroup>

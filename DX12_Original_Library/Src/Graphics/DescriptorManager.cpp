@@ -97,6 +97,12 @@ DescriptorHandle DescriptorManager::Allocate(HeapType _type)
 	return handle;
 }
 
+// ディスクリプタヒープをセットする
+void DescriptorManager::SetDiscriptor(ID3D12GraphicsCommandList* _cmdList)
+{
+	_cmdList->SetDescriptorHeaps(1, data[0].heap.GetAddressOf()); // ComPtrが内部で持っているポインタのアドレスを返す
+}
+
 // ハンドルを戻す
 void DescriptorManager::Free(HeapType _type, const DescriptorHandle& _handle)
 {

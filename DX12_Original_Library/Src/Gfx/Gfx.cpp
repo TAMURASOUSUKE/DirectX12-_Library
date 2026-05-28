@@ -4,15 +4,19 @@
 #include "../Graphics/ShaderSystem.h"
 #include "../Graphics/ResourceManager.h"
 #include "../Graphics/DrawDebug/DebugTriangle.h"
+#include "../Graphics/DrawDebug/DebugQuad.h"
 #include "Gfx.h"
 
 // 無名名前空間で変数を保持する
 namespace {
 	Window window; // window作成クラス
 	ShaderSystem shaderSystem; // Shader読み込みなどを管理するファイル
-	ComPtr<ID3D12RootSignature> rootSignature; // ルートシグネチャ
-	ComPtr<ID3D12PipelineState> pipelineState; // パイプラインステートオブジェクト
+	ComPtr<ID3D12RootSignature> triangleRootSignature; // ルートシグネチャ
+	ComPtr<ID3D12RootSignature> textureRootSignature; // ルートシグネチャ
+	ComPtr<ID3D12PipelineState> trianglePipelineState; // パイプラインステートオブジェクト
+	ComPtr<ID3D12PipelineState> texturePipelineState; // パイプラインステートオブジェクト
 	DebugTriangle triangle; // 三角形描画
+	DebugQuad quad; // テクスチャ描画
 	int screenWidth = 0; // 画面の横幅
 	int screenHeight = 0; // 画面の縦幅
 }
@@ -35,19 +39,30 @@ bool Gfx::Initialize(const wchar_t* _title, int _width, int _height)
 	shaderSystem.Initialize(GraphicsDevice::Instance().GetDevice()); // ShaderSystemの初期化
 
 	// シェーダーのコンパイル(今はいったん仮で固定)
-	auto vsBlob{ shaderSystem.Compile(L"../Src/Shaders/TriangleVS.hlsl", "main", "vs_5_0") };
-	if (!vsBlob) return false; // 読み込み失敗したらfalse
-	auto psBlob{ shaderSystem.Compile(L"../Src/Shaders/TrianglePS.hlsl", "main", "ps_5_0") };
-	if (!psBlob) return false; // 読み込み失敗したらfalse
+	auto triangleVsBlob{ shaderSystem.Compile(L"../Src/Shaders/TriangleVS.hlsl", "main", "vs_5_0") }; // 三角形
+	if (!triangleVsBlob) return false; // 読み込み失敗したらfalse
+	auto textureVSBlob = shaderSystem.Compile(L"../Src/Shaders/TextureVS.hlsl", "main", "vs_5_0"); // テクスチャ
+	if (!textureVSBlob) return false; // 読み込み失敗したらfalse
+	auto trianglePsBlob{ shaderSystem.Compile(L"../Src/Shaders/TrianglePS.hlsl", "main", "ps_5_0") }; // 三角形
+	if (!trianglePsBlob) return false; // 読み込み失敗したらfalse
+	auto texturePSBlob = shaderSystem.Compile(L"../Src/Shaders/TexturePS.hlsl", "main", "ps_5_0"); // テクスチャ
+	if (!texturePSBlob) return false; // 読み込み失敗したらfalse
 
-	rootSignature =  shaderSystem.CreateRootSignature(); // ルートシグネチャの作成
-	if (!rootSignature) return false; // 読み込み失敗したらfalse
+	triangleRootSignature =  shaderSystem.CreateDebugTriangleRootSignature(); // ルートシグネチャの作成
+	if (!triangleRootSignature) return false; // 読み込み失敗したらfalse
 
-	pipelineState = shaderSystem.CreatePipeLineState(rootSignature.Get(), vsBlob.Get(), psBlob.Get()); // パイプラインステートオブジェクトを作成
-	if (!pipelineState) return false;
+	textureRootSignature = shaderSystem.CreateDebugTextureRootSignature(); // ルートシグネチャの作成
+	if (!textureRootSignature) return false;
+
+	trianglePipelineState = shaderSystem.CreateDebugTriaglePipeLineState(triangleRootSignature.Get(), triangleVsBlob.Get(), trianglePsBlob.Get()); // パイプラインステートオブジェクトを作成
+	if (!trianglePipelineState) return false;
+
+	texturePipelineState = shaderSystem.CreateDebugTexturePipeLineState(textureRootSignature.Get(), textureVSBlob.Get(), texturePSBlob.Get()); // パイプラインステートオブジェクトを作成
+	if (!texturePipelineState) return false;
 
 	ResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
 	triangle.Initialize();  // 三角形描画用ファイルの初期化
+	quad.Initialize(); // テクスチャ描画用ファイルの初期化
 	return true;
 }
 
@@ -92,9 +107,6 @@ void Gfx::BeginFrame()
 	scissorRect.bottom = screenHeight;
 	cmdList->RSSetScissorRects(1, &scissorRect);
 
-	// パイプライン設定
-	cmdList->SetGraphicsRootSignature(rootSignature.Get());
-	cmdList->SetPipelineState(pipelineState.Get());
 }
 
 // フレーム終了処理
@@ -120,6 +132,16 @@ void Gfx::ClearScreen(float _r, float _g, float _b, float _a)
 // 三角形の描画(現状固定座標にしているが拡張し、座標と色など指定できるようにしたい)
 void Gfx::DrawTriangle()
 {
+	// パイプライン設定
+	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(triangleRootSignature.Get());
+	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(trianglePipelineState.Get());
 	triangle.Draw(GraphicsDevice::Instance().GetCommandList());
+}
+
+void Gfx::DrawTexture()
+{
+	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(textureRootSignature.Get());
+	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(texturePipelineState.Get());
+	quad.Draw(GraphicsDevice::Instance().GetCommandList());
 }
 

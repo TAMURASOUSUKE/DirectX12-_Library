@@ -18,9 +18,12 @@ public:
 	void Shutdown(); // 終了処理
 
 	ComPtr<ID3DBlob> Compile(const wchar_t* _filePath, const char* _entryPoint, const char* _target); // HLSLシェーダーをコンパイルする(ファイル名は日本語額含まれる可能性を考慮しワイド文字)
-	ComPtr<ID3D12RootSignature> CreateRootSignature(); // ルートシグネチャの作成
-	ComPtr<ID3D12PipelineState> CreatePipeLineState(ID3D12RootSignature* _rootSig, ID3DBlob* _vsBolb, ID3DBlob* _psBolb); // パイプラインステートオブジェクトの作成
-
+	
+	// 以下デバッグ用の関数(仮で動かすためのPSOやルートシグネチャ設定)
+	ComPtr<ID3D12RootSignature> CreateDebugTriangleRootSignature(); // 三角形表示用ルートシグネチャの作成
+	ComPtr<ID3D12PipelineState> CreateDebugTriaglePipeLineState(ID3D12RootSignature* _rootSig, ID3DBlob* _vsBolb, ID3DBlob* _psBolb); // 三角形表示用パイプラインステートオブジェクトの作成
+	ComPtr<ID3D12RootSignature> CreateDebugTextureRootSignature(); // テクスチャ表示用ルートシグネチャの作成
+	ComPtr<ID3D12PipelineState> CreateDebugTexturePipeLineState(ID3D12RootSignature* _rootSig, ID3DBlob* _vsBolb, ID3DBlob* _psBolb); // テクスチャ表示用パイプラインステートオブジェクトの作成
 private:
 	ID3D12Device* device; // 内部保存するデバイス所有しないので生ポでいい
 };

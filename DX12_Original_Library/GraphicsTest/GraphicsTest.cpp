@@ -43,6 +43,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		Gfx::DrawTriangle(); // 三角形描画
+		Gfx::DrawTexture(); // テクスチャ描画
 
 		Gfx::EndFrame(); // フレーム終了処理
 	}

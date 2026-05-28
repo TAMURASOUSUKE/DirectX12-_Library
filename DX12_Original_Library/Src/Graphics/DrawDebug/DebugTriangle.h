@@ -8,8 +8,8 @@
 class DebugTriangle
 {
 public:
-	void Initialize();
-	void Draw(ID3D12GraphicsCommandList* _commandList);
+	void Initialize(); // 初期化
+	void Draw(ID3D12GraphicsCommandList* _commandList); // 描画命令
 
 private:
 	// 頂点定義
