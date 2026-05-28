@@ -132,9 +132,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Src\Component\Transform.h" />
+    <ClInclude Include="Src\External\stb_image.h" />
     <ClInclude Include="Src\Gfx\Gfx.h" />
     <ClInclude Include="Src\Gfx\Window.h" />
     <ClInclude Include="Src\Graphics\DescriptorManager.h" />
+    <ClInclude Include="Src\Graphics\DrawDebug\DebugQuad.h" />
     <ClInclude Include="Src\Graphics\DrawDebug\DebugTriangle.h" />
     <ClInclude Include="Src\Graphics\GraphicsConstant.h" />
     <ClInclude Include="Src\Graphics\GraphicsDevice.h" />
@@ -153,9 +155,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Component\Transform.cpp" />
+    <ClCompile Include="Src\External\StbImageEnable.cpp" />
     <ClCompile Include="Src\Gfx\Gfx.cpp" />
     <ClCompile Include="Src\Gfx\Window.cpp" />
     <ClCompile Include="Src\Graphics\DescriptorManager.cpp" />
+    <ClCompile Include="Src\Graphics\DrawDebug\DebugQuad.cpp" />
     <ClCompile Include="Src\Graphics\DrawDebug\DebugTriangle.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />
     <ClCompile Include="Src\Graphics\ResourceManager.cpp" />
@@ -169,6 +173,18 @@
     <ClCompile Include="Src\Math\Vector\Vector4.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="Src\Shaders\TexturePS.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\TextureVS.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="Src\Shaders\TrianglePS.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

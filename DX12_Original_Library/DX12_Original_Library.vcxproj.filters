@@ -31,6 +31,9 @@
     <Filter Include="Src\Gfx">
       <UniqueIdentifier>{b1eee5cb-29ef-4f3d-b2cf-32bce221a04b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Exturnal">
+      <UniqueIdentifier>{7053992d-81eb-4d55-ac45-51fdfba2310e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Math\MathConstant.h">
@@ -90,6 +93,12 @@
     <ClInclude Include="Src\Gfx\Window.h">
       <Filter>Src\Gfx</Filter>
     </ClInclude>
+    <ClInclude Include="Src\External\stb_image.h">
+      <Filter>Src\Exturnal</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Graphics\DrawDebug\DebugQuad.h">
+      <Filter>Src\Graphics\DrawDebug</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -137,12 +146,24 @@
     <ClCompile Include="Src\Gfx\Gfx.cpp">
       <Filter>Src\Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Src\External\StbImageEnable.cpp">
+      <Filter>Src\Exturnal</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\DrawDebug\DebugQuad.cpp">
+      <Filter>Src\Graphics\DrawDebug</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Src\Shaders\TriangleVS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Src\Shaders\TrianglePS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\TexturePS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\TextureVS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
   </ItemGroup>

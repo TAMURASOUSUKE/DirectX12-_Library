@@ -40,6 +40,9 @@ public:
 	/// <returns>CPU、GPUハンドルとインデックス</returns>
 	DescriptorHandle Allocate(HeapType _type);
 
+	// ディスクリプタヒープをセットする関数
+	void SetDiscriptor(ID3D12GraphicsCommandList* _cmdList); 
+
 	// 解放する
 	void Free(HeapType _type, const DescriptorHandle& _handle);
 
