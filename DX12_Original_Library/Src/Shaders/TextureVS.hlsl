@@ -1,4 +1,11 @@
 // テクスチャを表示するための基本的なシェーダー
+
+// 定数バッファ
+cbuffer ConstantBuffer : register(b0)
+{
+    float4x4 orthogonalProjectionMat; // 正射影行列
+}
+
 struct VS_INPUT
 {
     float3 position : POSITION; // 座標
@@ -15,7 +22,7 @@ struct VS_OUTPUT
 VS_OUTPUT main(VS_INPUT _input)
 {
     VS_OUTPUT output; // 返す用の構造体
-    output.position = float4(_input.position, 1.0f); // そのまま渡す
+    output.position = mul(float4(_input.position, 1.0f), orthogonalProjectionMat); // 正射影行列
     output.uv = _input.uv; // そのまま渡す
     return output;
 }

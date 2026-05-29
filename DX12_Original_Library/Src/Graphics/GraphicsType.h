@@ -49,7 +49,7 @@ struct IndexBuffer
 // 定数バッファを作成したら勝ってくる構造体
 struct ConstantBufferData
 {
-	ComPtr<ID3D12Resource> reosurce; // リソースオブジェクト
+	ComPtr<ID3D12Resource> resource; // リソースオブジェクト
 	void* mappedPtr; // マップしたポインタ(CPUハンドルを入れる)
 	DescriptorHandle cbvHandle; // シェーダーにバインドするためのハンドル
 };

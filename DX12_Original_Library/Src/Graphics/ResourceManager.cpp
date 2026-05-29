@@ -89,6 +89,50 @@ IndexBuffer ResourceManager::CreateIndexBuffer(const void* _data, UINT _dataSize
 	return buffer;
 }
 
+// 定数バッファの作成
+ConstantBufferData ResourceManager::CreateConstantBuffer(const void* _data, UINT _dataSize)
+{
+	// プロパティ
+	D3D12_HEAP_PROPERTIES heapProps{};
+	heapProps.Type = D3D12_HEAP_TYPE_UPLOAD; // 開けっ放しにしているためUploadに設定
+	heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // ページング
+
+	UINT alignmentedSize{ (_dataSize + 0xff) & ~0xff }; // 256の倍数に切り上げたサイズ(DX12のCBVリソースサイズが256の倍数でなければならないため)
+
+	D3D12_RESOURCE_DESC resDesc{}; // リソース設定構造体
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; // バッファとして使う
+	resDesc.Width = alignmentedSize; // 定数バッファのサイズ
+	resDesc.Height = 1; // バッファは1D
+	resDesc.DepthOrArraySize = 1; // 配列ではない
+	resDesc.MipLevels = 1; // ミップマップなし
+	resDesc.Format = DXGI_FORMAT_UNKNOWN;
+	resDesc.SampleDesc = { 1, 0 }; // MSAAなし
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // メモリが最初から最後まで連続していることを示す
+
+	// 定数バッファの作成
+	ConstantBufferData buffer{};
+	HRESULT result{}; 
+	// 実行中に内部の値が変わる可能性があるのでUploadHeap上に作り開いたままにしておく
+	result = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
+	if (FAILED(result)) return buffer; // 失敗していたら終了
+
+
+	// MapとUnMapを用いてインデックス情報をコピーする
+	result = buffer.resource->Map(0, nullptr, &buffer.mappedPtr); // バッファの仮想アドレスを取得する
+	memcpy(buffer.mappedPtr, _data, _dataSize); // CPUデータをGPUメモリにコピー
+
+	// 定数バッファの設定
+	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc{};
+	DescriptorHandle cbvHandle{DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV)}; // CBVのスロットを確保
+	cbvDesc.SizeInBytes = alignmentedSize;
+	cbvDesc.BufferLocation = buffer.resource->GetGPUVirtualAddress(); // バッファの仮想アドレスを取得
+
+	// 定数バッファの作成 
+	device->CreateConstantBufferView(&cbvDesc, cbvHandle.cpu);
+	buffer.cbvHandle = cbvHandle;
+	return buffer;
+}
+
 // 画像の読み込み
 TextureData ResourceManager::LoadTexture(const char* _filePath)
 {
