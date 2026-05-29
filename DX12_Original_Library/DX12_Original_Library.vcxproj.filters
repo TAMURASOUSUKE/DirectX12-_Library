@@ -134,9 +134,6 @@
     <ClCompile Include="Src\Graphics\ShaderSystem.cpp">
       <Filter>Src\Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Graphics\ResourceManager.cpp">
-      <Filter>Src\Graphics</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Graphics\DrawDebug\DebugTriangle.cpp">
       <Filter>Src\Graphics\DrawDebug</Filter>
     </ClCompile>
@@ -151,6 +148,9 @@
     </ClCompile>
     <ClCompile Include="Src\Graphics\DrawDebug\DebugQuad.cpp">
       <Filter>Src\Graphics\DrawDebug</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\ResourceManager.cpp">
+      <Filter>Src\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
