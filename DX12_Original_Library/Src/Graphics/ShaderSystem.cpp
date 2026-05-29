@@ -94,9 +94,17 @@ ComPtr<ID3D12RootSignature> ShaderSystem::CreateDebugTextureRootSignature()
 	// ルートパラメータの設定
 	D3D12_ROOT_PARAMETER rootParam{};
 	rootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // ディスクリプタテーブルタイプに指定する
-	rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // ピュートシェーダーから見えるようにする
+	rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // ピクセルシェーダーから見えるようにする
 	rootParam.DescriptorTable.pDescriptorRanges = &descriptorRange; // ディスクリプタレンジのアドレス
 	rootParam.DescriptorTable.NumDescriptorRanges = 1; // ディスクリプタレンジの数
+
+	D3D12_ROOT_PARAMETER rootParamCBV{};
+	rootParamCBV.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // TypeはCSVに指定
+	rootParamCBV.ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // 定数バッファはVSに置いてあるのでVERTEX指定
+	rootParamCBV.Descriptor.RegisterSpace = 0; // レジスタオフセット
+	rootParamCBV.Descriptor.ShaderRegister = 0; // b0
+
+	D3D12_ROOT_PARAMETER rootPrams[]{rootParam, rootParamCBV}; // パラメータの配列
 
 	// サンプラーの設定
 	D3D12_STATIC_SAMPLER_DESC smpDesc{};
@@ -111,9 +119,9 @@ ComPtr<ID3D12RootSignature> ShaderSystem::CreateDebugTextureRootSignature()
 	// ルートシグネチャの設定構造体
 	D3D12_ROOT_SIGNATURE_DESC rootSigDesc{};
 	rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-	rootSigDesc.NumParameters = 1;
+	rootSigDesc.NumParameters = 2;
 	rootSigDesc.NumStaticSamplers = 1;
-	rootSigDesc.pParameters = &rootParam;
+	rootSigDesc.pParameters = rootPrams; // 配列を渡す
 	rootSigDesc.pStaticSamplers = &smpDesc;
 
 	// バイナリコードの作成

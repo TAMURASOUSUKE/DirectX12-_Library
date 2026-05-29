@@ -46,7 +46,7 @@ struct IndexBuffer
 	UINT indexCount{ 0 }; // インデックスの数
 };
 
-// 定数バッファを作成したら勝ってくる構造体
+// 定数バッファを作成したら返ってくる構造体
 struct ConstantBufferData
 {
 	ComPtr<ID3D12Resource> resource; // リソースオブジェクト

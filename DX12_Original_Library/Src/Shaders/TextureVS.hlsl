@@ -22,7 +22,7 @@ struct VS_OUTPUT
 VS_OUTPUT main(VS_INPUT _input)
 {
     VS_OUTPUT output; // 返す用の構造体
-    output.position = mul(float4(_input.position, 1.0f), orthogonalProjectionMat); // 正射影行列
+    output.position = mul(float4(_input.position, 1.0f), orthogonalProjectionMat);
     output.uv = _input.uv; // そのまま渡す
     return output;
 }
