@@ -26,6 +26,9 @@ public:
 	// インデックスバッファの作成
 	IndexBuffer CreateIndexBuffer(const void* _data, UINT _dataSize, UINT _indexCount);
 
+	// 定数バッファの作成
+	ConstantBufferData CreateConstantBuffer(const void* _data, UINT _dataSize);
+
 	// ファイル名を引数に画像をロードする関数
 	TextureData LoadTexture(const char* _filePath);
 

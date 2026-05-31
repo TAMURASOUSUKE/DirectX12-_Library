@@ -157,6 +157,23 @@ Mat4x4 Mat4x4::MakeTransposed(const Mat4x4& _other)
 	return result;
 }
 
+// 正射影行列を作成
+Mat4x4 Mat4x4::MakeOrthGraphic(float _width, float _height)
+{
+	// ピクセル座標からNDC座標に変換する行列
+	Mat4x4 result
+	{
+		// X出力 = 入力 * (2 / _width) - 1
+		// Y出力 = 入力 * -(2 / _height) + 1
+		// スケール変換と移動を適用する
+		Vector4{2.0f / _width, 0.0f, 0.0f, 0.0f},
+		Vector4{0.0f, -(2.0f / _height), 0.0f, 0.0f},
+		Vector4{0.0f, 0.0f, 1.0f, 0.0f},
+		Vector4{-1.0f, 1.0f, 0.0f, 1.0f}
+	};
+	return result;
+}
+
 Vector4 Mat4x4::Mul(const Vector4& _vec, const Mat4x4& _mat)
 {
 	Vector4 result{}; // 結果を返すためのベクトル

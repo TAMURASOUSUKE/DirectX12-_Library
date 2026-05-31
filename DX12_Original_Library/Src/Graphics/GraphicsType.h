@@ -45,3 +45,11 @@ struct IndexBuffer
 	D3D12_INDEX_BUFFER_VIEW indexView; // インデックスバッファビュー
 	UINT indexCount{ 0 }; // インデックスの数
 };
+
+// 定数バッファを作成したら返ってくる構造体
+struct ConstantBufferData
+{
+	ComPtr<ID3D12Resource> resource; // リソースオブジェクト
+	void* mappedPtr; // マップしたポインタ(CPUハンドルを入れる)
+	DescriptorHandle cbvHandle; // シェーダーにバインドするためのハンドル
+};
