@@ -1,6 +1,6 @@
 ﻿#include "../Src/Gfx/Gfx.h"
-#include "GraphicsDevice.h"
-#include "DescriptorManager.h"
+#include "GraphicsDevice.h" // デバイス用のテスト
+#include "DescriptorManager.h" // Allocator関数を呼び出しメモリ確保できるかのテスト
 
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
@@ -35,7 +35,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	{
 		OutputDebugStringA("[FAIL] : 一度戻した後違うインデックスが返っています");
 	}
-
 
 	while (Gfx::ProcessMessage())
 	{

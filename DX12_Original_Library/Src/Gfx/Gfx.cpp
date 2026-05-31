@@ -66,7 +66,7 @@ bool Gfx::Initialize(const wchar_t* _title, int _width, int _height)
 	ResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
 
 	// ピクセル座標からNDC座標へ変換
-	Mat4x4 orthMat{ Mat4x4::MakeOrthGraphic(_width, _height) }; // 変換行列の作成
+	Mat4x4 orthMat{ Mat4x4::MakeOrthGraphic(static_cast<float>(_width), static_cast<float>(_height)) }; // 変換行列の作成
 	constantBufferData = ResourceManager::Instance().CreateConstantBuffer(&orthMat, sizeof(Mat4x4));
 
 	triangle.Initialize();  // 三角形描画用ファイルの初期化
