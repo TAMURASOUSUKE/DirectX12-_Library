@@ -5,12 +5,15 @@
 #include "../Graphics/ResourceManager.h"
 #include "../Graphics/DrawDebug/DebugTriangle.h"
 #include "../Graphics/DrawDebug/DebugQuad.h"
+#include "../Math/TSMath.h"
+#include "../Graphics/GraphicsType.h"
 #include "Gfx.h"
 
 // 無名名前空間で変数を保持する
 namespace {
 	Window window; // window作成クラス
 	ShaderSystem shaderSystem; // Shader読み込みなどを管理するファイル
+	ConstantBufferData constantBufferData; // 定数バッファのデータメンバ
 	ComPtr<ID3D12RootSignature> triangleRootSignature; // ルートシグネチャ
 	ComPtr<ID3D12RootSignature> textureRootSignature; // ルートシグネチャ
 	ComPtr<ID3D12PipelineState> trianglePipelineState; // パイプラインステートオブジェクト
@@ -61,6 +64,11 @@ bool Gfx::Initialize(const wchar_t* _title, int _width, int _height)
 	if (!texturePipelineState) return false;
 
 	ResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
+
+	// ピクセル座標からNDC座標へ変換
+	Mat4x4 orthMat{ Mat4x4::MakeOrthGraphic(_width, _height) }; // 変換行列の作成
+	constantBufferData = ResourceManager::Instance().CreateConstantBuffer(&orthMat, sizeof(Mat4x4));
+
 	triangle.Initialize();  // 三角形描画用ファイルの初期化
 	quad.Initialize(); // テクスチャ描画用ファイルの初期化
 	return true;
@@ -141,6 +149,7 @@ void Gfx::DrawTriangle()
 void Gfx::DrawTexture()
 {
 	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(textureRootSignature.Get());
+	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(1, constantBufferData.resource->GetGPUVirtualAddress());
 	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(texturePipelineState.Get());
 	quad.Draw(GraphicsDevice::Instance().GetCommandList());
 }

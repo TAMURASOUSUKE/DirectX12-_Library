@@ -242,9 +242,15 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateDebugTexturePipeLineState(ID3D12
 
 	// ブレンドステート設定構造体
 	D3D12_RENDER_TARGET_BLEND_DESC renderTargetBlendDesc{};
-	renderTargetBlendDesc.BlendEnable = false; // ブレンドを行うかどうか
+	renderTargetBlendDesc.BlendEnable = true; // ブレンドを行うかどうか
 	renderTargetBlendDesc.LogicOpEnable = false; // 論理演算するかどうか
 	renderTargetBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL; // 全ての要素をブレンドする
+	renderTargetBlendDesc.SrcBlend = D3D12_BLEND_SRC_ALPHA; // ソース元のアルファ値を係数として扱う
+	renderTargetBlendDesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA; // 残りのアルファ値を既存の色に対してかける
+	renderTargetBlendDesc.BlendOp = D3D12_BLEND_OP_ADD; // 上記二つを加算させる
+	renderTargetBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE; // アルファ値そのまま
+	renderTargetBlendDesc.DestBlendAlpha = D3D12_BLEND_ZERO; // 0
+	renderTargetBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD; // 加算
 
 	// ブレンドステート設定
 	pipelineDesc.BlendState.AlphaToCoverageEnable = false; // αテストなし

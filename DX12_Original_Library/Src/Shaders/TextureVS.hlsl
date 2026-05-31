@@ -1,9 +1,11 @@
 // テクスチャを表示するための基本的なシェーダー
+#pragma pack_matrix(row_major) // 全ての行列を行優先としてあつかう
+
 
 // 定数バッファ
 cbuffer ConstantBuffer : register(b0)
 {
-    float4x4 orthogonalProjectionMat; // 正射影行列
+   float4x4 orthogonalProjectionMat; // 正射影行列
 }
 
 struct VS_INPUT
