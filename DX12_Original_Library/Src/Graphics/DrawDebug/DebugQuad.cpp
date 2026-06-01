@@ -1,4 +1,4 @@
-#include "../GraphicsConstant.h"
+﻿#include "../GraphicsConstant.h"
 #include "../ResourceManager.h"
 #include "../DescriptorManager.h"
 #include "DebugQuad.h"
