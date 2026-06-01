@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "../Input/InputName.h"
 
 // 入力に関する機能をユーザーに提供する
 namespace Input

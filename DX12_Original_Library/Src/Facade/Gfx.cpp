@@ -7,7 +7,7 @@
 #include "../Graphics/DrawDebug/DebugQuad.h"
 #include "../Math/TSMath.h"
 #include "../Graphics/GraphicsType.h"
-#include "GfxInternal.h" // 外部後悔しないもの
+#include "GfxInternal.h" // 外部公開しないもの
 #include "Gfx.h" // 外部公開するもの
 
 // 無名名前空間で変数を保持する

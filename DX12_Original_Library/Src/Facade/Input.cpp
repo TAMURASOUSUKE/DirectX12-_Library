@@ -14,7 +14,7 @@ bool InputInternal::Initialize()
 	return false;
 }
 
-void InputInternal::Fnish()
+void InputInternal::Finish()
 {
 
 }

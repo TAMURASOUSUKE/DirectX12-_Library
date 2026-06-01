@@ -40,6 +40,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 
+		if(Input::IsKeyPushed(KeyCode::SPACE)) OutputDebugStringA("おい！spaceが押されたぞ！！\n");
+		if(Input::IsKeyPress(KeyCode::SPACE)) OutputDebugStringA("おい！spaceが押され続けてるぞ！！\n");
+		if(Input::IsKeyReleased(KeyCode::SPACE)) OutputDebugStringA("おい！spaceが離されたぞ！！\n");
+
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		Gfx::DrawTriangle(); // 三角形描画
