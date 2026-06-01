@@ -7,7 +7,8 @@
 #include "../Graphics/DrawDebug/DebugQuad.h"
 #include "../Math/TSMath.h"
 #include "../Graphics/GraphicsType.h"
-#include "Gfx.h"
+#include "GfxInternal.h" // 外部後悔しないもの
+#include "Gfx.h" // 外部公開するもの
 
 // 無名名前空間で変数を保持する
 namespace {
@@ -25,7 +26,7 @@ namespace {
 }
 
 // 初期化処理(これを呼ぶだけで初期化処理が済むようにする)
-bool Gfx::Initialize(const wchar_t* _title, int _width, int _height)
+bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 {
 	screenWidth = _width;
 	screenHeight = _height;
@@ -87,7 +88,7 @@ bool Gfx::ProcessMessage()
 }
 
 // フレーム開始処理
-void Gfx::BeginFrame()
+void GfxInternal::BeginFrame()
 {
 	GraphicsDevice::Instance().BeginFrame(); // フレームの最初の処理
 
@@ -118,13 +119,13 @@ void Gfx::BeginFrame()
 }
 
 // フレーム終了処理
-void Gfx::EndFrame()
+void GfxInternal::EndFrame()
 {
 	GraphicsDevice::Instance().EndFrame(); // フレームの最後の処理
 }
 
 // 終了処理
-void Gfx::Finish()
+void GfxInternal::Finish()
 {
 	DescriptorManager::Instance().Shutdown();
 	GraphicsDevice::Instance().Shutdown();

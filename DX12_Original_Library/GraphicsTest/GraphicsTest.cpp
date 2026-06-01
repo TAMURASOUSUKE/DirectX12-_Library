@@ -1,4 +1,4 @@
-﻿#include "../Src/Gfx/Gfx.h"
+﻿#include "../Src/Facade/Gfx.h"
 #include "GraphicsDevice.h" // デバイス用のテスト
 #include "DescriptorManager.h" // Allocator関数を呼び出しメモリ確保できるかのテスト
 

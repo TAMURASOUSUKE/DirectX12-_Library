@@ -28,11 +28,14 @@
     <Filter Include="Src\Graphics\DrawDebug">
       <UniqueIdentifier>{1eeeb39c-a5ef-4030-96ec-c6d5b0663633}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Src\Gfx">
-      <UniqueIdentifier>{b1eee5cb-29ef-4f3d-b2cf-32bce221a04b}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Src\Exturnal">
       <UniqueIdentifier>{7053992d-81eb-4d55-ac45-51fdfba2310e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Src\Input">
+      <UniqueIdentifier>{fca35b9b-1a6e-4f77-9191-f2684bb4710f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Src\Facade">
+      <UniqueIdentifier>{b1eee5cb-29ef-4f3d-b2cf-32bce221a04b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -87,17 +90,35 @@
     <ClInclude Include="Src\Graphics\DrawDebug\DebugTriangle.h">
       <Filter>Src\Graphics\DrawDebug</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Gfx\Gfx.h">
-      <Filter>Src\Gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Gfx\Window.h">
-      <Filter>Src\Gfx</Filter>
-    </ClInclude>
     <ClInclude Include="Src\External\stb_image.h">
       <Filter>Src\Exturnal</Filter>
     </ClInclude>
     <ClInclude Include="Src\Graphics\DrawDebug\DebugQuad.h">
       <Filter>Src\Graphics\DrawDebug</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Input\KeyboardInput.h">
+      <Filter>Src\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Input\InputName.h">
+      <Filter>Src\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Input\InputBase.h">
+      <Filter>Src\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Input\InputConstant.h">
+      <Filter>Src\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Facade\Gfx.h">
+      <Filter>Src\Facade</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Facade\Window.h">
+      <Filter>Src\Facade</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Facade\Input.h">
+      <Filter>Src\Facade</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Facade\TSLib.h">
+      <Filter>Src\Facade</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -137,12 +158,6 @@
     <ClCompile Include="Src\Graphics\DrawDebug\DebugTriangle.cpp">
       <Filter>Src\Graphics\DrawDebug</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Gfx\Window.cpp">
-      <Filter>Src\Gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Gfx\Gfx.cpp">
-      <Filter>Src\Gfx</Filter>
-    </ClCompile>
     <ClCompile Include="Src\External\StbImageEnable.cpp">
       <Filter>Src\Exturnal</Filter>
     </ClCompile>
@@ -151,6 +166,21 @@
     </ClCompile>
     <ClCompile Include="Src\Graphics\ResourceManager.cpp">
       <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Input\KeyboardInput.cpp">
+      <Filter>Src\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Facade\Gfx.cpp">
+      <Filter>Src\Facade</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Facade\Window.cpp">
+      <Filter>Src\Facade</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Facade\Input.cpp">
+      <Filter>Src\Facade</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Facade\TSLib.cpp">
+      <Filter>Src\Facade</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
