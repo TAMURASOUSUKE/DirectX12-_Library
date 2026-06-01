@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // 入力に関する定数を定義
 

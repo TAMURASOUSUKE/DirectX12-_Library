@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // 入力に関する機能をユーザーに提供する
 namespace Input

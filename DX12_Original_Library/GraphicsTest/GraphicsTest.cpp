@@ -1,4 +1,4 @@
-﻿#include "../Src/Facade/Gfx.h"
+﻿#include "../Src/Facade/TSLib.h"
 #include "GraphicsDevice.h" // デバイス用のテスト
 #include "DescriptorManager.h" // Allocator関数を呼び出しメモリ確保できるかのテスト
 
@@ -7,7 +7,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
 
 	// 初期化 失敗したら-1を返す
-	if (!Gfx::Initialize(L"GraphicsTest", 1280, 720)) return -1;
+	if (!TSLib::Initialize(L"GraphicsTest", 1280, 720)) return -1;
 
 
 	DescriptorHandle h1{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // GPU可視
@@ -38,14 +38,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	while (Gfx::ProcessMessage())
 	{
-		Gfx::BeginFrame(); // フレーム開始処理
+		TSLib::BeginFrame(); // フレーム開始処理
+
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		Gfx::DrawTriangle(); // 三角形描画
 		Gfx::DrawTexture(); // テクスチャ描画
 
-		Gfx::EndFrame(); // フレーム終了処理
+		TSLib::EndFrame(); // フレーム終了処理
 	}
-	Gfx::Finish(); // 終了
+	TSLib::Finish(); // 終了
 	return 0;
 }

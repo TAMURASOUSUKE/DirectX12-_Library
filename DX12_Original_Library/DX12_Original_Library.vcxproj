@@ -134,9 +134,10 @@
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\External\stb_image.h" />
     <ClInclude Include="Src\Facade\Gfx.h" />
+    <ClInclude Include="Src\Facade\GfxInternal.h" />
     <ClInclude Include="Src\Facade\Input.h" />
+    <ClInclude Include="Src\Facade\InputInternal.h" />
     <ClInclude Include="Src\Facade\TSLib.h" />
-    <ClInclude Include="Src\Facade\Window.h" />
     <ClInclude Include="Src\Graphics\DescriptorManager.h" />
     <ClInclude Include="Src\Graphics\DrawDebug\DebugQuad.h" />
     <ClInclude Include="Src\Graphics\DrawDebug\DebugTriangle.h" />
@@ -158,6 +159,7 @@
     <ClInclude Include="Src\Math\Vector\Vector3.h" />
     <ClInclude Include="Src\Math\Vector\Vector3Int.h" />
     <ClInclude Include="Src\Math\Vector\Vector4.h" />
+    <ClInclude Include="Src\Window\Window.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Component\Transform.cpp" />
@@ -165,7 +167,6 @@
     <ClCompile Include="Src\Facade\Gfx.cpp" />
     <ClCompile Include="Src\Facade\Input.cpp" />
     <ClCompile Include="Src\Facade\TSLib.cpp" />
-    <ClCompile Include="Src\Facade\Window.cpp" />
     <ClCompile Include="Src\Graphics\DescriptorManager.cpp" />
     <ClCompile Include="Src\Graphics\DrawDebug\DebugQuad.cpp" />
     <ClCompile Include="Src\Graphics\DrawDebug\DebugTriangle.cpp" />
@@ -180,6 +181,7 @@
     <ClCompile Include="Src\Math\Vector\Vector3.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector3Int.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector4.cpp" />
+    <ClCompile Include="Src\Window\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Src\Shaders\TexturePS.hlsl">

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "InputBase.h"
 #include "InputName.h"
 

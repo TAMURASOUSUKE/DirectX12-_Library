@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // Windowsの仮想キーを名前空間で囲みユーザーが認識しやすいようにする
 #include <windows.h>

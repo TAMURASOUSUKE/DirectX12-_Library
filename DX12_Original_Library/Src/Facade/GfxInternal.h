@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // グラフィックに関する関数のInitialize等ユーザーに提供しない部分をまとめた関数
 namespace GfxInternal
