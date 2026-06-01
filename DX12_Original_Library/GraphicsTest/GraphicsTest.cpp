@@ -1,13 +1,13 @@
-﻿#include "../Src/Gfx/Gfx.h"
-#include "GraphicsDevice.h"
-#include "DescriptorManager.h"
+﻿#include "../Src/Facade/TSLib.h"
+#include "GraphicsDevice.h" // デバイス用のテスト
+#include "DescriptorManager.h" // Allocator関数を呼び出しメモリ確保できるかのテスト
 
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
 
 	// 初期化 失敗したら-1を返す
-	if (!Gfx::Initialize(L"GraphicsTest", 1280, 720)) return -1;
+	if (!TSLib::Initialize(L"GraphicsTest", 1280, 720)) return -1;
 
 
 	DescriptorHandle h1{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // GPU可視
@@ -36,17 +36,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		OutputDebugStringA("[FAIL] : 一度戻した後違うインデックスが返っています");
 	}
 
-
 	while (Gfx::ProcessMessage())
 	{
-		Gfx::BeginFrame(); // フレーム開始処理
+		TSLib::BeginFrame(); // フレーム開始処理
+
+		if(Input::IsKeyPushed(KeyCode::SPACE)) OutputDebugStringA("おい！spaceが押されたぞ！！\n");
+		if(Input::IsKeyPress(KeyCode::SPACE)) OutputDebugStringA("おい！spaceが押され続けてるぞ！！\n");
+		if(Input::IsKeyReleased(KeyCode::SPACE)) OutputDebugStringA("おい！spaceが離されたぞ！！\n");
+
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		Gfx::DrawTriangle(); // 三角形描画
 		Gfx::DrawTexture(); // テクスチャ描画
 
-		Gfx::EndFrame(); // フレーム終了処理
+		TSLib::EndFrame(); // フレーム終了処理
 	}
-	Gfx::Finish(); // 終了
+	TSLib::Finish(); // 終了
 	return 0;
 }

@@ -34,7 +34,7 @@ struct TextureData
 struct GPUBuffer
 {
 	ComPtr<ID3D12Resource> resource; // リソースオブジェクト
-	D3D12_VERTEX_BUFFER_VIEW vertexView; // 頂点バッファビュー
+	D3D12_VERTEX_BUFFER_VIEW vertexView{}; // 頂点バッファビュー
 	UINT sizeInBytes{ 0 }; // バッファ全体のサイズ
 };
 
@@ -42,7 +42,7 @@ struct GPUBuffer
 struct IndexBuffer
 {
 	ComPtr<ID3D12Resource> resource; // リソースオブジェクト
-	D3D12_INDEX_BUFFER_VIEW indexView; // インデックスバッファビュー
+	D3D12_INDEX_BUFFER_VIEW indexView{}; // インデックスバッファビュー
 	UINT indexCount{ 0 }; // インデックスの数
 };
 
@@ -50,6 +50,6 @@ struct IndexBuffer
 struct ConstantBufferData
 {
 	ComPtr<ID3D12Resource> resource; // リソースオブジェクト
-	void* mappedPtr; // マップしたポインタ(CPUハンドルを入れる)
+	void* mappedPtr{nullptr}; // マップしたポインタ(CPUハンドルを入れる)
 	DescriptorHandle cbvHandle; // シェーダーにバインドするためのハンドル
 };
