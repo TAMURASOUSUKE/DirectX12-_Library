@@ -20,8 +20,11 @@ public:
 	// 初期化処理
 	void Initialize(ID3D12Device* _device);
 
-	// 頂点バッファの作成
-	GPUBuffer CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize);
+	// 頂点バッファの作成(Map->UnMapの固定)
+	VertexBuffer CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize);
+
+	// 頂点バッファの作成(Mapしっぱなしで動的に確保を行う)
+	VertexBuffer CreateDynamicVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize);
 
 	// インデックスバッファの作成
 	IndexBuffer CreateIndexBuffer(const void* _data, UINT _dataSize, UINT _indexCount);

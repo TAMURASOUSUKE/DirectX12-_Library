@@ -20,5 +20,5 @@ private:
 	};
 
 private:
-	GPUBuffer vertexBuffer; // ReosurceManagerが返す構造体を保持する
+	VertexBuffer vertexBuffer; // ReosurceManagerが返す構造体を保持する
 };

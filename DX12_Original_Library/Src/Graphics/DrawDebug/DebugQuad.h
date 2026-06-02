@@ -13,15 +13,7 @@ public:
 	void Draw(ID3D12GraphicsCommandList* _cmdList); // 描画命令
 
 private:
-	// 頂点定義
-	struct Vertex
-	{
-		float position[3]; // 座標
-		float uv[2]; // uv座標 
-	};
-
-private:
-	GPUBuffer vertexBuffer; // ReosurceManagerが返す構造体を保持する
+	VertexBuffer vertexBuffer; // ReosurceManagerが返す構造体を保持する
 	IndexBuffer indexBuffer; // インデックスバッファを保持する
 	TextureData textureData; // 画像データ
 };

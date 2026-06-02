@@ -146,6 +146,7 @@
     <ClInclude Include="Src\Graphics\GraphicsType.h" />
     <ClInclude Include="Src\Graphics\ResourceManager.h" />
     <ClInclude Include="Src\Graphics\ShaderSystem.h" />
+    <ClInclude Include="Src\Graphics\SpriteBatch.h" />
     <ClInclude Include="Src\Input\InputBase.h" />
     <ClInclude Include="Src\Input\InputConstant.h" />
     <ClInclude Include="Src\Input\InputName.h" />
@@ -173,6 +174,7 @@
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />
     <ClCompile Include="Src\Graphics\ResourceManager.cpp" />
     <ClCompile Include="Src\Graphics\ShaderSystem.cpp" />
+    <ClCompile Include="Src\Graphics\SpriteBatch.cpp" />
     <ClCompile Include="Src\Input\KeyboardInput.cpp" />
     <ClCompile Include="Src\Math\Matrix\Mat4x4.cpp" />
     <ClCompile Include="Src\Math\Quaternion\Quaternion.cpp" />

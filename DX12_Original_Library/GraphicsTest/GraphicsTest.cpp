@@ -36,6 +36,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		OutputDebugStringA("[FAIL] : 一度戻した後違うインデックスが返っています");
 	}
 
+	TextureData enemy{ Gfx::LoadTexture("Res/enemy.png")};
+
 	while (Gfx::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
@@ -46,8 +48,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
-		Gfx::DrawTriangle(); // 三角形描画
-		Gfx::DrawTexture(); // テクスチャ描画
+		// スプライトバッチテスト
+		Gfx::DrawSprite(enemy, { 100.0f, 100.0f }, { 64.0f, 64.0f });
+		Gfx::DrawSprite(enemy, { 180.0f, 100.0f }, { 64.0f, 64.0f });
+		Gfx::DrawSprite(enemy, { 260.0f, 100.0f }, { 64.0f, 64.0f });
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}

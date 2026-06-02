@@ -1,11 +1,20 @@
 ﻿#pragma once
-
+#include "../Graphics/GraphicsType.h"
+#include "../Math/TSMath.h"
 
 // グラフィックスに関する機能をユーザーに簡易的に提供するためのファイル
 namespace Gfx 
 {
-	bool ProcessMessage(); // メッセージループ
-	void ClearScreen(float _r = 0.0f, float _g = 0.0f, float _b = 0.0f, float _a = 1.0f); // 画面のクリア(引数で色を設定できるデフォルトは黒)
-	void DrawTriangle(); // 三角形描画
-	void DrawTexture(); // テクスチャ描画
+	// メッセージループ
+	bool ProcessMessage();
+	// 画面のクリア(引数で色を設定できるデフォルトは黒)
+	void ClearScreen(float _r = 0.0f, float _g = 0.0f, float _b = 0.0f, float _a = 1.0f);
+	//画像読み込み
+	TextureData LoadTexture(const char* _filePath);
+	// 三角形描画
+	void DrawTriangle();
+	// テクスチャ描画
+	void DrawTexture(); 
+	// スプライト描画(位置、サイズ、画像)
+	void DrawSprite(TextureData _texture, Vector2 _position, Vector2 _size);
 }

@@ -28,9 +28,6 @@
     <Filter Include="Src\Graphics\DrawDebug">
       <UniqueIdentifier>{1eeeb39c-a5ef-4030-96ec-c6d5b0663633}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Src\Exturnal">
-      <UniqueIdentifier>{7053992d-81eb-4d55-ac45-51fdfba2310e}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Src\Input">
       <UniqueIdentifier>{fca35b9b-1a6e-4f77-9191-f2684bb4710f}</UniqueIdentifier>
     </Filter>
@@ -39,6 +36,9 @@
     </Filter>
     <Filter Include="Src\Window">
       <UniqueIdentifier>{2fbab711-088e-4da9-b746-ee223ade2476}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Src\Facade\Exturnal">
+      <UniqueIdentifier>{7053992d-81eb-4d55-ac45-51fdfba2310e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -94,7 +94,7 @@
       <Filter>Src\Graphics\DrawDebug</Filter>
     </ClInclude>
     <ClInclude Include="Src\External\stb_image.h">
-      <Filter>Src\Exturnal</Filter>
+      <Filter>Src\Facade\Exturnal</Filter>
     </ClInclude>
     <ClInclude Include="Src\Graphics\DrawDebug\DebugQuad.h">
       <Filter>Src\Graphics\DrawDebug</Filter>
@@ -128,6 +128,9 @@
     </ClInclude>
     <ClInclude Include="Src\Window\Window.h">
       <Filter>Src\Window</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Graphics\SpriteBatch.h">
+      <Filter>Src\Graphics</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -168,7 +171,7 @@
       <Filter>Src\Graphics\DrawDebug</Filter>
     </ClCompile>
     <ClCompile Include="Src\External\StbImageEnable.cpp">
-      <Filter>Src\Exturnal</Filter>
+      <Filter>Src\Facade\Exturnal</Filter>
     </ClCompile>
     <ClCompile Include="Src\Graphics\DrawDebug\DebugQuad.cpp">
       <Filter>Src\Graphics\DrawDebug</Filter>
@@ -190,6 +193,9 @@
     </ClCompile>
     <ClCompile Include="Src\Window\Window.cpp">
       <Filter>Src\Window</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\SpriteBatch.cpp">
+      <Filter>Src\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

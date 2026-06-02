@@ -1,0 +1,76 @@
+﻿#include "GraphicsConstant.h"
+#include "GraphicsDevice.h"
+#include "DescriptorManager.h"
+#include "ResourceManager.h"
+#include "SpriteBatch.h"
+
+void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _pipelineState, ID3D12Resource* _gpuVirtualAddres)
+{
+	if (_rootSig == nullptr || _pipelineState == nullptr || _gpuVirtualAddres == nullptr) return;
+	// 各パラメータと繋げる
+	rootSig = _rootSig;
+	pipelineState = _pipelineState;
+	gpuVirtualAddres = _gpuVirtualAddres;
+
+	// インデックス配列
+	UINT indexArray[MAX_SPRITE_COUNT * 6]; // 頂点数をかける
+
+	// 頂点用ループ
+	for (int i = 0; i < MAX_SPRITE_COUNT; i++)
+	{
+		UINT base{ static_cast<UINT>(i) * 4 }; // 頂点はスプライトごと4ずつ増えるので頂点番号はN * 4(頂点の開始番号)
+		UINT offset{ static_cast<UINT>(i) * 6 }; // 配列の書き込み位置
+		indexArray[offset + 0] = base + 0;
+		indexArray[offset + 1] = base + 1;
+		indexArray[offset + 2] = base + 2;
+		indexArray[offset + 3] = base + 0;
+		indexArray[offset + 4] = base + 2;
+		indexArray[offset + 5] = base + 3;
+	}
+
+	indexBuffer = ResourceManager::Instance().CreateIndexBuffer(indexArray, sizeof(indexArray), MAX_SPRITE_COUNT * 6); // インデックスバッファの作成
+	vertBuffer = ResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(Vertex), sizeof(Vertex)); // 動的な頂点バッファの作成
+}
+
+void SpriteBatch::RegisterSprite(TextureData _srvHandle, Vector2 _position, Vector2 _size)
+{
+	if (spriteCounter >= MAX_SPRITE_COUNT) return; // 限界を超えているならreturn
+	
+	// 現在のテクスチャと異なるなら
+	if (currentBatchingTexture.index != _srvHandle.srvHandle.index)
+	{
+		Flush();
+	}
+
+	Vertex* vertices{ static_cast<Vertex*>(vertBuffer.mappedPtr) }; // マップされたポインタにアクセスするためにキャスト
+	vertices[spriteCounter * 4 + 0] = { {_position.x, _position.y, 0.0f}, {0.0f, 0.0f} }; // 左上
+	vertices[spriteCounter * 4 + 1] = { {_position.x + _size.x, _position.y, 0.0f}, {1.0f, 0.0f} }; // 右上
+	vertices[spriteCounter * 4 + 2] = { {_position.x + _size.x, _position.y + _size.y, 0.0f}, {1.0f, 1.0f} }; // 右下
+	vertices[spriteCounter * 4 + 3] = { {_position.x, _position.y + _size.y, 0.0f}, {0.0f, 1.0f} }; // 左下
+	spriteCounter++; // カウンターを増加する
+	currentBatchingTexture = _srvHandle.srvHandle;
+}
+
+void SpriteBatch::Flush()
+{
+	if (spriteCounter == 0) return; // 登録されている画像数が0なら即retrun
+
+	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(rootSig);
+	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(1, gpuVirtualAddres->GetGPUVirtualAddress());
+	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(pipelineState);
+
+	// SRVが入っているDescriptorHeapをGPUにセットする
+	DescriptorManager::Instance().SetDiscriptor(GraphicsDevice::Instance().GetCommandList());
+
+	// ルートシグネチャの0番にテクスチャのGPUハンドルをセット
+	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootDescriptorTable(0, currentBatchingTexture.gpu);
+
+	// 入力アセンブラを設定
+	GraphicsDevice::Instance().GetCommandList()->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // リスト設定
+	GraphicsDevice::Instance().GetCommandList()->IASetVertexBuffers(0, 1, &vertBuffer.vertexView);
+	GraphicsDevice::Instance().GetCommandList()->IASetIndexBuffer(&indexBuffer.indexView);
+
+	// インデックス描画(登録されているインデックス分だけ描画)
+	GraphicsDevice::Instance().GetCommandList()->DrawIndexedInstanced(spriteCounter * 6, 1, 0, 0, 0);
+	spriteCounter = 0; // 0リセットを行う
+}
