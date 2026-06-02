@@ -12,12 +12,16 @@ public:
 	void RegisterSprite(TextureData _srvHandle, Vector2 _position, Vector2 _size);
 	// まとめてDrawCallをする
 	void Flush();
+	// カウンター等をリセットする
+	void Reset();
+
 	
 private:
 
 	VertexBuffer vertBuffer; // 頂点バッファ
 	IndexBuffer indexBuffer; // インデックスバッファ
 	UINT spriteCounter{ 0 }; // 今のフレームにどれだけスプライトが登録されているか
+	UINT batchStart{ 0 }; // 頂点のスタート位置オフセット
 	DescriptorHandle currentBatchingTexture; // 現在batch中のテクスチャ
 
 	// 外部から受け取るパラメータ(Flush時にパイプライン設定などを行うため)

@@ -53,8 +53,9 @@ void SpriteBatch::RegisterSprite(TextureData _srvHandle, Vector2 _position, Vect
 
 void SpriteBatch::Flush()
 {
-	if (spriteCounter == 0) return; // 登録されている画像数が0なら即retrun
+	if (spriteCounter == batchStart) return; // 登録されている画像数がbatch開始位置とかぶっているなら即retrun
 
+	// パイプライン設定
 	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(rootSig);
 	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(1, gpuVirtualAddres->GetGPUVirtualAddress());
 	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(pipelineState);
@@ -71,6 +72,15 @@ void SpriteBatch::Flush()
 	GraphicsDevice::Instance().GetCommandList()->IASetIndexBuffer(&indexBuffer.indexView);
 
 	// インデックス描画(登録されているインデックス分だけ描画)
-	GraphicsDevice::Instance().GetCommandList()->DrawIndexedInstanced(spriteCounter * 6, 1, 0, 0, 0);
-	spriteCounter = 0; // 0リセットを行う
+	GraphicsDevice::Instance().GetCommandList()->DrawIndexedInstanced((spriteCounter - batchStart) * 6, 1, 0, batchStart * 4, 0);
+
+	// 画像を切り替えたときに頂点を上書きしないようにするためにbatchのスタート位置を決定する
+	batchStart = spriteCounter;
+}
+
+// 0リセットを入れる
+void SpriteBatch::Reset()
+{
+	spriteCounter = 0;
+	batchStart = 0;
 }

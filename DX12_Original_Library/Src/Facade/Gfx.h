@@ -16,5 +16,5 @@ namespace Gfx
 	// テクスチャ描画
 	void DrawTexture(); 
 	// スプライト描画(位置、サイズ、画像)
-	void DrawSprite(TextureData _texture, Vector2 _position, Vector2 _size);
+	void DrawSprite(TextureData _texture, Vector2 _position, Vector2 _size, float _radRotation = 0.0f);
 }

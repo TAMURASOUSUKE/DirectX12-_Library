@@ -97,6 +97,8 @@ void GfxInternal::BeginFrame()
 {
 	GraphicsDevice::Instance().BeginFrame(); // フレームの最初の処理
 
+	spriteBatch.Reset(); // カウンターリセット
+
 	auto cmdList{GraphicsDevice::Instance().GetCommandList()}; // コマンドリスト
 	auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTV
 
@@ -168,7 +170,12 @@ void Gfx::DrawTexture()
 }
 
 // 画像登録
-void Gfx::DrawSprite(TextureData _texture, Vector2 _position, Vector2 _size)
+void Gfx::DrawSprite(TextureData _texture, Vector2 _position, Vector2 _size, float _radRotation)
 {
+	if (_radRotation != 0.0f)
+	{
+
+	}
+
 	spriteBatch.RegisterSprite(_texture, _position, _size);
 }
