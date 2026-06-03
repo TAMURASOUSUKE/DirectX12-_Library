@@ -262,8 +262,11 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateDebugTexturePipeLineState(ID3D12
 	pipelineDesc.NumRenderTargets = 1;
 	pipelineDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-	// 深度バッファを使わないのでUNKNOWN
-	pipelineDesc.DSVFormat = DXGI_FORMAT_UNKNOWN;
+	// 深度テスト設定を有効化
+	pipelineDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	pipelineDesc.DepthStencilState.DepthEnable = true;
+	pipelineDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL; // 深度地をバッファに書き込む
+	pipelineDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS; // 既存の値より手前なら通す
 
 	// マルチサンプリング設定
 	pipelineDesc.SampleDesc.Count = 1;
