@@ -1,4 +1,5 @@
 ﻿#include <cmath>
+#include <vector>
 #include "GraphicsConstant.h"
 #include "GraphicsDevice.h"
 #include "DescriptorManager.h"
@@ -14,7 +15,7 @@ void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 	gpuVirtualAddres = _gpuVirtualAddres;
 
 	// インデックス配列
-	UINT indexArray[MAX_SPRITE_COUNT * 6]; // 頂点数をかける
+	std::vector<UINT> indexArray(MAX_SPRITE_COUNT * 6); // 頂点数をかける
 
 	// 頂点用ループ
 	for (int i = 0; i < MAX_SPRITE_COUNT; i++)
@@ -29,7 +30,7 @@ void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 		indexArray[offset + 5] = base + 3;
 	}
 
-	indexBuffer = ResourceManager::Instance().CreateIndexBuffer(indexArray, sizeof(indexArray), MAX_SPRITE_COUNT * 6); // インデックスバッファの作成
+	indexBuffer = ResourceManager::Instance().CreateIndexBuffer(indexArray.data(), indexArray.size() * sizeof(UINT), MAX_SPRITE_COUNT * 6); // インデックスバッファの作成
 	vertBuffer = ResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(Vertex), sizeof(Vertex)); // 動的な頂点バッファの作成
 }
 
