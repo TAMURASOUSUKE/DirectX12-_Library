@@ -3,6 +3,7 @@
 #include "../Graphics/DescriptorManager.h"
 #include "../Graphics/ShaderSystem.h"
 #include "../Graphics/ResourceManager.h"
+#include "../Graphics/SpriteBatch.h"
 #include "../Graphics/DrawDebug/DebugTriangle.h"
 #include "../Graphics/DrawDebug/DebugQuad.h"
 #include "../Math/TSMath.h"
@@ -19,6 +20,7 @@ namespace {
 	ComPtr<ID3D12RootSignature> textureRootSignature; // ルートシグネチャ
 	ComPtr<ID3D12PipelineState> trianglePipelineState; // パイプラインステートオブジェクト
 	ComPtr<ID3D12PipelineState> texturePipelineState; // パイプラインステートオブジェクト
+	SpriteBatch spriteBatch; // スプライトバッチ処理
 	DebugTriangle triangle; // 三角形描画
 	DebugQuad quad; // テクスチャ描画
 	int screenWidth = 0; // 画面の横幅
@@ -70,6 +72,9 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	Mat4x4 orthMat{ Mat4x4::MakeOrthGraphic(static_cast<float>(_width), static_cast<float>(_height)) }; // 変換行列の作成
 	constantBufferData = ResourceManager::Instance().CreateConstantBuffer(&orthMat, sizeof(Mat4x4));
 
+	// スプライトバッチ処理初期化
+	spriteBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), constantBufferData.resource.Get());
+
 	triangle.Initialize();  // 三角形描画用ファイルの初期化
 	quad.Initialize(); // テクスチャ描画用ファイルの初期化
 	return true;
@@ -91,6 +96,8 @@ bool Gfx::ProcessMessage()
 void GfxInternal::BeginFrame()
 {
 	GraphicsDevice::Instance().BeginFrame(); // フレームの最初の処理
+
+	spriteBatch.Reset(); // カウンターリセット
 
 	auto cmdList{GraphicsDevice::Instance().GetCommandList()}; // コマンドリスト
 	auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTV
@@ -121,6 +128,7 @@ void GfxInternal::BeginFrame()
 // フレーム終了処理
 void GfxInternal::EndFrame()
 {
+	spriteBatch.Flush(); // Spritebatch描画
 	GraphicsDevice::Instance().EndFrame(); // フレームの最後の処理
 }
 
@@ -136,6 +144,12 @@ void Gfx::ClearScreen(float _r, float _g, float _b, float _a)
 {
 	float windowColor[]{ _r, _g, _b, _a };
 	GraphicsDevice::Instance().GetCommandList()->ClearRenderTargetView(GraphicsDevice::Instance().GetCurrentRTV(), windowColor, 0, nullptr); // コマンドリストを取得しそこから現在書き込んでいるRTVにの色を任意色でクリアする
+}
+
+// 画像読み込み
+TextureData Gfx::LoadTexture(const char* _filePath)
+{
+	return ResourceManager::Instance().LoadTexture(_filePath);
 }
 
 // 三角形の描画(現状固定座標にしているが拡張し、座標と色など指定できるようにしたい)
@@ -155,3 +169,8 @@ void Gfx::DrawTexture()
 	quad.Draw(GraphicsDevice::Instance().GetCommandList());
 }
 
+// 画像登録
+void Gfx::DrawSprite(TextureData _texture, Vector2 _position, Vector2 _size, float _radRotation)
+{
+	spriteBatch.RegisterSprite(_texture, _position, _size, _radRotation);
+}

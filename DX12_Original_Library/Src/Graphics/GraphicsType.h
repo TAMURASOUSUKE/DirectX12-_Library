@@ -31,11 +31,12 @@ struct TextureData
 };
 
 // 頂点バッファ一つ分の情報をまとめた構造体
-struct GPUBuffer
+struct VertexBuffer
 {
 	ComPtr<ID3D12Resource> resource; // リソースオブジェクト
 	D3D12_VERTEX_BUFFER_VIEW vertexView{}; // 頂点バッファビュー
 	UINT sizeInBytes{ 0 }; // バッファ全体のサイズ
+	void* mappedPtr{ nullptr }; // CPUハンドルを入れるマップしたポインタ
 };
 
 // インデックスバッファとしての情報をまとめた構造体
@@ -52,4 +53,11 @@ struct ConstantBufferData
 	ComPtr<ID3D12Resource> resource; // リソースオブジェクト
 	void* mappedPtr{nullptr}; // マップしたポインタ(CPUハンドルを入れる)
 	DescriptorHandle cbvHandle; // シェーダーにバインドするためのハンドル
+};
+
+// 頂点定義
+struct Vertex
+{
+	float position[3]; // 座標
+	float uv[2]; // uv座標 
 };

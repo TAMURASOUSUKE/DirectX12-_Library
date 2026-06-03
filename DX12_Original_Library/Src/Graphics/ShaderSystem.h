@@ -1,7 +1,5 @@
 ﻿#pragma once
-#include <windows.h>
 #include <d3d12.h>
-#include <d3dcompiler.h>
 #include <wrl/client.h>
 using Microsoft::WRL::ComPtr;
 #pragma comment(lib, "d3d12.lib")

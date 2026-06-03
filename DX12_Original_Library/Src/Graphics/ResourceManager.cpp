@@ -10,7 +10,7 @@ void ResourceManager::Initialize(ID3D12Device* _device)
 	}
 }
 
-GPUBuffer ResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize)
+VertexBuffer ResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize)
 {
 	D3D12_HEAP_PROPERTIES heapProperties{}; // 頂点ヒープの設定
 	heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD; // アップロードヒープに設定
@@ -26,7 +26,7 @@ GPUBuffer ResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSize,
 	resDesc.SampleDesc = { 1, 0 }; // MSAAなし
 	resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // メモリが最初から最後まで連続していることを示す
 
-	GPUBuffer buffer{};
+	VertexBuffer buffer{};
 	HRESULT result{}; // 結果が成功しているかどうか調べるための変数
 	// UploadHeap上にバッファリソースを作成する
 	result = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
@@ -47,6 +47,49 @@ GPUBuffer ResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSize,
 	buffer.vertexView = vertView; // GPUBufferの中に格納する
 	buffer.sizeInBytes = _dataSize; // バッファ全体のサイズを入れる
 	return buffer;
+}
+
+// 動的に頂点バッファを確保する
+VertexBuffer ResourceManager::CreateDynamicVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize)
+{
+	D3D12_HEAP_PROPERTIES heapProperties{}; // 頂点ヒープの設定
+	heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD; // アップロードヒープに設定
+	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // ページング
+
+	D3D12_RESOURCE_DESC resDesc{}; // リソース設定構造体
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; // バッファとして使う
+	resDesc.Width = _dataSize; // 頂点バッファのサイズ
+	resDesc.Height = 1; // バッファは1D
+	resDesc.DepthOrArraySize = 1; // 配列ではない
+	resDesc.MipLevels = 1; // ミップマップなし
+	resDesc.Format = DXGI_FORMAT_UNKNOWN; // バッファはフォーマットなし
+	resDesc.SampleDesc = { 1, 0 }; // MSAAなし
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // メモリが最初から最後まで連続していることを示す
+
+	VertexBuffer buffer{}; 
+	HRESULT result{};
+	// 実行中に内部の値が変わる可能性があるのでUploadHeap上に作り開いたままにしておく
+	result = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
+	if (FAILED(result)) return buffer; // 失敗していたら終了
+
+	// MapとUnMapを用いてインデックス情報をコピーする
+	result = buffer.resource->Map(0, nullptr, &buffer.mappedPtr); // バッファの仮想アドレスを取得する
+
+	// スプライトバッチング用なのでnullガードを入れる
+	if (_data != nullptr)
+	{
+		memcpy(buffer.mappedPtr, _data, _dataSize); // CPUデータをGPUメモリにコピー
+	}
+
+	D3D12_VERTEX_BUFFER_VIEW vertexView{}; // 頂点バッファビュー
+	vertexView.StrideInBytes = _strideSize; // 一つ分のサイズ
+	vertexView.BufferLocation = buffer.resource->GetGPUVirtualAddress(); // 仮想GPUアドレス
+	vertexView.SizeInBytes = _dataSize; // データのサイズ
+
+	buffer.vertexView = vertexView; // GPUBufferの中に格納する
+	buffer.sizeInBytes = _dataSize; // バッファ全体のサイズを入れる
+	return buffer;
+
 }
 
 IndexBuffer ResourceManager::CreateIndexBuffer(const void* _data, UINT _dataSize, UINT _indexCount)

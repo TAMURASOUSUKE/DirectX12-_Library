@@ -36,18 +36,40 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		OutputDebugStringA("[FAIL] : 一度戻した後違うインデックスが返っています");
 	}
 
+	// ハンドルの取得
+	TextureData background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
+	TextureData enemy{ Gfx::LoadTexture("Res/enemy.png")}; // Enemyのハンドル取得
+	TextureData player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
+
+	Vector2 playerPos{ 100.0f, 100.0f };
+	float ang{ 0.0f }; // 角度加算用のテスト
+
 	while (Gfx::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 
-		if(Input::IsKeyPushed(KeyCode::SPACE)) OutputDebugStringA("おい！spaceが押されたぞ！！\n");
-		if(Input::IsKeyPress(KeyCode::SPACE)) OutputDebugStringA("おい！spaceが押され続けてるぞ！！\n");
-		if(Input::IsKeyReleased(KeyCode::SPACE)) OutputDebugStringA("おい！spaceが離されたぞ！！\n");
+		Vector2 dir{ Vector2::Zero };
+		if (Input::IsKeyPress(KeyCode::D)) dir.x += 1.0f;
+		if (Input::IsKeyPress(KeyCode::A)) dir.x -= 1.0f;
+		if (Input::IsKeyPress(KeyCode::W)) dir.y -= 1.0f;
+		if (Input::IsKeyPress(KeyCode::S)) dir.y += 1.0f;
+		
+		dir.Normalize(); // 正規化
+
+		playerPos += dir * 8.0f;
+
+		ang += 0.01f;
+		ang = Math::NormalizeAngle(ang); // 角度の正規化
 
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
-		Gfx::DrawTriangle(); // 三角形描画
-		Gfx::DrawTexture(); // テクスチャ描画
+		// スプライトバッチテスト
+		Gfx::DrawSprite(background, Vector2{ 0.0f, 0.0f }, Vector2{ 1280.0f, 720.0f });
+		Gfx::DrawSprite(player, playerPos, Vector2{ 128.0f, 128.0f });
+		Gfx::DrawSprite(player, Vector2{playerPos.x, playerPos.y + 100.0f}, Vector2{128.0f, 128.0f}, 30.0f * Math::DEG_TO_RAD);
+		Gfx::DrawSprite(player, Vector2{playerPos.x, playerPos.y + 200.0f}, Vector2{128.0f, 128.0f}, 80.0f * Math::DEG_TO_RAD);
+		Gfx::DrawSprite(player, Vector2{playerPos.x, playerPos.y + 300.0f}, Vector2{128.0f, 128.0f}, ang);
+		Gfx::DrawSprite(enemy, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f });
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}

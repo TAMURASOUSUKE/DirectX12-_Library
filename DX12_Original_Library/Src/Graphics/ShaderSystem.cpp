@@ -1,5 +1,6 @@
 ﻿#include <algorithm>
 #include <string>
+#include <d3dcompiler.h>
 #include "ShaderSystem.h"
 
 // 初期化処理

@@ -4,18 +4,25 @@
 // 入力に関する機能をユーザーに提供する
 namespace Input
 {
-	// 抽象化
-	bool IsPress(int _key); // 押している間
-	bool IsPushed(int _key); // 押した瞬間
-	bool IsReleased(int _key); // 離した瞬間
+	// 抽象化 : 押している間
+	bool IsPress(int _key); 
+	// 抽象化 : 押した瞬間
+	bool IsPushed(int _key);
+	// 抽象化 : 離した瞬間
+	bool IsReleased(int _key);
 
-	// キーボード限定
-	bool IsKeyPress(int _key); // 押している間
-	bool IsKeyPushed(int _key); // 押した瞬間
-	bool IsKeyReleased(int _key); // 離した瞬間
+	 // キーボード : 押している間
+	bool IsKeyPress(int _key);
+	// キーボード : 押した瞬間
+	bool IsKeyPushed(int _key);
+	// キーボード : 離した瞬間
+	bool IsKeyReleased(int _key);
 
-	// パッド限定
-	bool IsPadPress(int _key); // 押している間
-	bool IsPadPushed(int _key); // 押した瞬間
-	bool IsPadReleased(int _key); // 離した瞬間
+	
+	 // ゲームパッド : 押している間
+	bool IsPadPress(int _key);
+	// ゲームパッド : 押した瞬間
+	bool IsPadPushed(int _key); 
+	// ゲームパッド : 離した瞬間
+	bool IsPadReleased(int _key);
 }
