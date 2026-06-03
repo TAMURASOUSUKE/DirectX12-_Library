@@ -8,8 +8,8 @@ class SpriteBatch
 public:
 	// 初期化
 	void Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _pipelineState, ID3D12Resource* _gpuVirtualAddres);
-	// スプライトの登録(画像と位置とサイズ)
-	void RegisterSprite(TextureData _srvHandle, Vector2 _position, Vector2 _size);
+	// スプライトの登録(画像と位置とサイズと回転角度)
+	void RegisterSprite(TextureData _srvHandle, Vector2 _position, Vector2 _size, float _radRotation = 0.0f);
 	// まとめてDrawCallをする
 	void Flush();
 	// カウンター等をリセットする

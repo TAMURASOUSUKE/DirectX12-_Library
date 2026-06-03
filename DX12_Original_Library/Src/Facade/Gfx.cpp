@@ -172,10 +172,5 @@ void Gfx::DrawTexture()
 // 画像登録
 void Gfx::DrawSprite(TextureData _texture, Vector2 _position, Vector2 _size, float _radRotation)
 {
-	if (_radRotation != 0.0f)
-	{
-
-	}
-
-	spriteBatch.RegisterSprite(_texture, _position, _size);
+	spriteBatch.RegisterSprite(_texture, _position, _size, _radRotation);
 }

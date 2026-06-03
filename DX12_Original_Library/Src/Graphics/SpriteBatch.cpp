@@ -1,4 +1,5 @@
-﻿#include "GraphicsConstant.h"
+﻿#include <cmath>
+#include "GraphicsConstant.h"
 #include "GraphicsDevice.h"
 #include "DescriptorManager.h"
 #include "ResourceManager.h"
@@ -32,10 +33,38 @@ void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 	vertBuffer = ResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(Vertex), sizeof(Vertex)); // 動的な頂点バッファの作成
 }
 
-void SpriteBatch::RegisterSprite(TextureData _srvHandle, Vector2 _position, Vector2 _size)
+void SpriteBatch::RegisterSprite(TextureData _srvHandle, Vector2 _position, Vector2 _size, float _radRotation)
 {
 	if (spriteCounter >= MAX_SPRITE_COUNT) return; // 限界を超えているならreturn
 	
+	// 回転の適用
+	Vector2 leftUp{ _position.x, _position.y }; // 左上
+	Vector2 rightUp{ _position.x + _size.x, _position.y }; // 右上
+	Vector2 rightDown{ _position.x + _size.x, _position.y + _size.y }; // 右下
+	Vector2 leftDown{ _position.x, _position.y + _size.y }; // 左下
+	if (_radRotation != 0.0f)
+	{
+		Vector2 center{ _position + _size / 2.0f }; // 中心
+		// 相対座標を適用
+		leftUp -= center;
+		rightUp -= center;
+		rightDown -= center;
+		leftDown -= center;
+
+		float c{ std::cosf(_radRotation) }; // cosθ
+		float s{ std::sinf(_radRotation) }; // sinθ
+
+		leftUp = { leftUp.x * c - leftUp.y * s, leftUp.x * s + leftUp.y * c };
+		rightUp = { rightUp.x * c - rightUp.y * s, rightUp.x * s + rightUp.y * c };
+		rightDown = { rightDown.x * c - rightDown.y * s, rightDown.x * s + rightDown.y * c };
+		leftDown = { leftDown.x * c - leftDown.y * s, leftDown.x * s + leftDown.y * c };
+
+		leftUp = leftUp + center;
+		rightUp = rightUp + center;
+		rightDown = rightDown + center;
+		leftDown = leftDown + center;
+	}
+
 	// 現在のテクスチャと異なるなら
 	if (currentBatchingTexture.index != _srvHandle.srvHandle.index)
 	{
@@ -43,10 +72,10 @@ void SpriteBatch::RegisterSprite(TextureData _srvHandle, Vector2 _position, Vect
 	}
 
 	Vertex* vertices{ static_cast<Vertex*>(vertBuffer.mappedPtr) }; // マップされたポインタにアクセスするためにキャスト
-	vertices[spriteCounter * 4 + 0] = { {_position.x, _position.y, 0.0f}, {0.0f, 0.0f} }; // 左上
-	vertices[spriteCounter * 4 + 1] = { {_position.x + _size.x, _position.y, 0.0f}, {1.0f, 0.0f} }; // 右上
-	vertices[spriteCounter * 4 + 2] = { {_position.x + _size.x, _position.y + _size.y, 0.0f}, {1.0f, 1.0f} }; // 右下
-	vertices[spriteCounter * 4 + 3] = { {_position.x, _position.y + _size.y, 0.0f}, {0.0f, 1.0f} }; // 左下
+	vertices[spriteCounter * 4 + 0] = { {leftUp.x, leftUp.y, 0.0f}, {0.0f, 0.0f} }; // 左上
+	vertices[spriteCounter * 4 + 1] = { {rightUp.x, rightUp.y, 0.0f}, {1.0f, 0.0f} }; // 右上
+	vertices[spriteCounter * 4 + 2] = { {rightDown.x, rightDown.y, 0.0f}, {1.0f, 1.0f} }; // 右下
+	vertices[spriteCounter * 4 + 3] = { {leftDown.x, leftDown.y, 0.0f}, {0.0f, 1.0f} }; // 左下
 	spriteCounter++; // カウンターを増加する
 	currentBatchingTexture = _srvHandle.srvHandle;
 }
