@@ -36,6 +36,7 @@ public:
 	// 現在のRTVハンドルを取得するGetter
 	D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRTV() const;
 	// DSVのハンドルを取得するGetter
+	D3D12_CPU_DESCRIPTOR_HANDLE GetDSV() const;
 
 
 private:

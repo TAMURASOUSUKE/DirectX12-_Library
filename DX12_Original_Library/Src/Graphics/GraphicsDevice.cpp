@@ -126,13 +126,13 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 	dsvResourceDesc.MipLevels = 1;
 	dsvResourceDesc.SampleDesc = { 1, 0 };
 
-	// 最適化クリアのための設定
+	// 深度クリアのための設定
 	D3D12_CLEAR_VALUE dsvClearValue{};
 	dsvClearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
 	dsvClearValue.DepthStencil.Depth = 1.0f;
 	dsvClearValue.DepthStencil.Stencil = 0;
 
-	result = device->CreateCommittedResource(&dsvHeapProperties, D3D12_HEAP_FLAG_NONE, &dsvResourceDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &dsvClearValue, IID_PPV_ARGS(&dsvResource)); // 書き込みかつ最適化クリアを入れる
+	result = device->CreateCommittedResource(&dsvHeapProperties, D3D12_HEAP_FLAG_NONE, &dsvResourceDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &dsvClearValue, IID_PPV_ARGS(&dsvResource)); // 書き込みかつ深度クリアを入れる
 	if (FAILED(result)) return;
 
 	// 深度バッファ用ヒープの先頭ハンドルを取得
@@ -256,5 +256,11 @@ D3D12_CPU_DESCRIPTOR_HANDLE GraphicsDevice::GetCurrentRTV() const
 {
 	D3D12_CPU_DESCRIPTOR_HANDLE handle{ rtvHeap->GetCPUDescriptorHandleForHeapStart() }; // 先頭ハンドル
 	handle.ptr += currentFrameIndex * rtvDescriptorSize;
+	return handle;
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE GraphicsDevice::GetDSV() const
+{
+	D3D12_CPU_DESCRIPTOR_HANDLE handle{ dsvHeap->GetCPUDescriptorHandleForHeapStart() }; // 先頭ハンドル
 	return handle;
 }
