@@ -35,6 +35,8 @@ public:
 	ID3D12GraphicsCommandList* GetCommandList() const;
 	// 現在のRTVハンドルを取得するGetter
 	D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRTV() const;
+	// DSVのハンドルを取得するGetter
+
 
 private:
 	GraphicsDevice() = default; // 内部でのみのインスタンス
@@ -59,7 +61,9 @@ private:
 	// 画面表示
 	ComPtr<IDXGISwapChain4> swapChain; // バッファ交換
 	ComPtr<ID3D12Resource> backBuffers[FRAME_BUFFER_COUNT]; // ダブルバッファ
+	ComPtr<ID3D12Resource> dsvResource; // 深度バッファ用のリソース
 	ComPtr<ID3D12DescriptorHeap> rtvHeap; // RTV用のヒープ
+	ComPtr<ID3D12DescriptorHeap> dsvHeap;
 	UINT rtvDescriptorSize{ 0 }; // RTV一つのサイズ
 	UINT currentFrameIndex{ 0 }; // 今どちらのバッファか
 
