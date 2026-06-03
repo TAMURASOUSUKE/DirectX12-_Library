@@ -101,9 +101,20 @@ void GfxInternal::BeginFrame()
 
 	auto cmdList{GraphicsDevice::Instance().GetCommandList()}; // コマンドリスト
 	auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTV
+	auto dsv{ GraphicsDevice::Instance().GetDSV() };
+
+	// 深度バッファとステンシルバッファをクリアする
+	cmdList->ClearDepthStencilView(
+		dsv, // DSVハンドル
+		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, // 深度バッファとステンシルバッファ両方クリア
+		1.0f, // 深度クリア値(最も遠くから)
+		0, // 全体クリア
+		0, // 全体クリア
+		nullptr // 全体クリア
+		);
 
 	// レンダーターゲット設定
-	cmdList->OMSetRenderTargets(1, &rtv, false, nullptr);
+	cmdList->OMSetRenderTargets(1, &rtv, false, &dsv);
 
 	// ビューポート
 	D3D12_VIEWPORT viewPort{};

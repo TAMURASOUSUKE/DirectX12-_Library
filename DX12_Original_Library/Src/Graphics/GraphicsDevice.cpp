@@ -102,6 +102,43 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 		rtvHandle.ptr += rtvDescriptorSize;
 	}
 
+	// 深度バッファの作成
+	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc{};
+	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV; // 深度バッファなのでDSV指定
+	dsvHeapDesc.NumDescriptors = 1; // dsv数。独自に作るのは一つなので1
+	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // GPU非可視
+
+	result = device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&dsvHeap));
+	if (FAILED(result)) return;
+	
+	D3D12_HEAP_PROPERTIES dsvHeapProperties{}; // 頂点ヒープの設定
+	dsvHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT; // デフォルトヒープに設定
+	dsvHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // ページング
+
+	// 深度バッファのリソース設定
+	D3D12_RESOURCE_DESC dsvResourceDesc{};
+	dsvResourceDesc.Width = _width;
+	dsvResourceDesc.Height = _height;
+	dsvResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	dsvResourceDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT; // 深度24bitステンシル8bit
+	dsvResourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL; // 深度バッファとして使う
+	dsvResourceDesc.DepthOrArraySize = 1;
+	dsvResourceDesc.MipLevels = 1;
+	dsvResourceDesc.SampleDesc = { 1, 0 };
+
+	// 深度クリアのための設定
+	D3D12_CLEAR_VALUE dsvClearValue{};
+	dsvClearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	dsvClearValue.DepthStencil.Depth = 1.0f;
+	dsvClearValue.DepthStencil.Stencil = 0;
+
+	result = device->CreateCommittedResource(&dsvHeapProperties, D3D12_HEAP_FLAG_NONE, &dsvResourceDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &dsvClearValue, IID_PPV_ARGS(&dsvResource)); // 書き込みかつ深度クリアを入れる
+	if (FAILED(result)) return;
+
+	// 深度バッファ用ヒープの先頭ハンドルを取得
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle{ dsvHeap->GetCPUDescriptorHandleForHeapStart() };
+	device->CreateDepthStencilView(dsvResource.Get(), nullptr, dsvHandle);
+
 	// コマンドアロケーターとコマンドリストを作る
 	for (int i = 0; i < FRAME_BUFFER_COUNT; i++)
 	{
@@ -219,5 +256,11 @@ D3D12_CPU_DESCRIPTOR_HANDLE GraphicsDevice::GetCurrentRTV() const
 {
 	D3D12_CPU_DESCRIPTOR_HANDLE handle{ rtvHeap->GetCPUDescriptorHandleForHeapStart() }; // 先頭ハンドル
 	handle.ptr += currentFrameIndex * rtvDescriptorSize;
+	return handle;
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE GraphicsDevice::GetDSV() const
+{
+	D3D12_CPU_DESCRIPTOR_HANDLE handle{ dsvHeap->GetCPUDescriptorHandleForHeapStart() }; // 先頭ハンドル
 	return handle;
 }
