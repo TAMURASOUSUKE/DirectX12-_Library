@@ -26,7 +26,7 @@ public:
 	// ワールド行列の取得(SRTの順で合成を行います)
 	Mat4x4 GetWorldMatrix() const;
 	// 前方向の取得
-	Vector3 GetForward();
+	Vector3 GetForward() const;
 
 	// 位置を設定
 	void SetPosition(const Vector3& _postion);
@@ -36,8 +36,8 @@ public:
 	void SetScale(const Vector3& _scale);
 
 private:
-	Vector3 position; // 位置
-	Quaternion rotation; // 回転
+	Vector3 position{Vector3::Zero}; // 位置
+	Quaternion rotation{Quaternion::Identity}; // 回転
 	Vector3 scale{Vector3::One}; // 拡縮
 
 	// mutableを使ってconst操作でもキャッシュを扱えるようにする(GetWorldMatはユーザーから見るとconst操作だが内部ではキャッシュが必要なため)

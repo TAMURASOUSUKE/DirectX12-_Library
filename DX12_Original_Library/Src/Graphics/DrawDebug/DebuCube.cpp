@@ -1,3 +1,4 @@
+#include <iostream>
 #include "../ResourceManager.h"
 #include "../GraphicsConstant.h"
 #include "DebugCube.h"
@@ -18,10 +19,10 @@ void DebugCube::Initialize()
 		{{ 0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 1.0f, 1.0f}}, // 右下
 		{{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 1.0f, 1.0f}}, // 左下
 		// 右面
-		{{ 0.5f, 0.5f, 0.5f}, {1.0f, 1.0f, 0.0f, 1.0f}}, // 左上
-		{{ 0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 0.0f, 1.0f}}, // 右上
-		{{ 0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 0.0f, 1.0f}}, // 右下
-		{{ 0.5f, -0.5f, 0.5f}, {1.0f, 1.0f, 0.0f, 1.0f}}, // 左下
+		{{ 0.5f, 0.5f, 0.5f}, {0.5f, 1.0f, 0.5f, 1.0f}}, // 左上
+		{{ 0.5f, 0.5f, -0.5f}, {0.5f, 1.0f, 0.5f, 1.0f}}, // 右上
+		{{ 0.5f, -0.5f, -0.5f}, {0.5f, 1.0f, 0.5f, 1.0f}}, // 右下
+		{{ 0.5f, -0.5f, 0.5f}, {0.5f, 1.0f, 0.5f, 1.0f}}, // 左下
 		// 左面
 		{{ -0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 1.0f, 1.0f}}, // 左上
 		{{ -0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 1.0f, 1.0f}}, // 右上
@@ -59,6 +60,8 @@ void DebugCube::Draw(ID3D12GraphicsCommandList* _cmdList)
 {
 	if (_cmdList == nullptr) return;
 
+
+
 	// 入力アセンブラを設定
 	_cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // リスト設定
 	_cmdList->IASetVertexBuffers(0, 1, &vertexBuffer.vertexView);
@@ -66,4 +69,22 @@ void DebugCube::Draw(ID3D12GraphicsCommandList* _cmdList)
 
 	// インデックス描画
 	_cmdList->DrawIndexedInstanced(indexBuffer.indexCount, 1, 0, 0, 0);
+}
+
+void DebugCube::SetRotation(Vector3 _angle)
+{
+	Quaternion angleQua{ Quaternion::FromEuler(_angle.x, _angle.y, _angle.z)};
+	char buffer[256]{};
+	sprintf_s(
+		buffer,
+		"Quaternion x: %f, y: %f, z: %f, w: %f\n",
+		angleQua.x,
+		angleQua.y,
+		angleQua.z,
+		angleQua.w
+	);
+
+	OutputDebugStringA(buffer);
+
+	transform.SetRotation(angleQua);
 }

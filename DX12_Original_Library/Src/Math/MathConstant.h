@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <cmath>
+#include "Vector/Vector3.h"
 
 // Math関連で共通して使うような定数をまとめる
 namespace Math 
@@ -18,6 +19,15 @@ namespace Math
 		_angle = std::fmod(_angle, 2.0f * PI);
 		// 負の数の場合の対処
 		if (_angle < 0.0f) _angle += 2.0f * PI;
+		return _angle;
+	}
+
+	// 角度の正規化Vector3版(全ての要素に対して正規化します)
+	inline Vector3 NormalizeAngle(Vector3 _angle)
+	{
+		_angle.x = NormalizeAngle(_angle.x);
+		_angle.y = NormalizeAngle(_angle.y);
+		_angle.z = NormalizeAngle(_angle.z);
 		return _angle;
 	}
 }

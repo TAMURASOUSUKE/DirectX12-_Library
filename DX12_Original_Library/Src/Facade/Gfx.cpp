@@ -17,7 +17,9 @@ namespace {
 	Window window; // window作成クラス
 	ShaderSystem shaderSystem; // Shader読み込みなどを管理するファイル
 	ConstantBufferData orthConstantBufferData; // 正射影行列用定数バッファのデータメンバ
-	ConstantBufferData mvpConstantBufferData; // 透視投影列用定数バッファのデータメンバ
+	ConstantBufferData mvpConstantBufferData; // MVP行列用定数バッファのデータメンバ
+	Mat4x4 vpMat; // View * Projection
+	Mat4x4 mvpMat;
 	ComPtr<ID3D12RootSignature> triangleRootSignature; // 三角形用ルートシグネチャ
 	ComPtr<ID3D12RootSignature> textureRootSignature; // テクスチャ用ルートシグネチャ
 	ComPtr<ID3D12RootSignature> cubeRootSignature; // キューブ用用ルートシグネチャ
@@ -88,8 +90,8 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	orthConstantBufferData = ResourceManager::Instance().CreateConstantBuffer(&orthMat, sizeof(Mat4x4));
 
 	// 透視投影行列の作成(一旦キューブが描画できるのを確認するためにハードコーディング)
-	Mat4x4 mvpMat{ Mat4x4::Identity * Mat4x4::MakeLookAt({0.0f, 0.0f, -3.0f}, {0.0f, 0.0f, 0.0f}, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, static_cast<float>(screenWidth) /  static_cast<float>(screenHeight), 0.1f, 100.0f) };
-	mvpConstantBufferData = ResourceManager::Instance().CreateConstantBuffer(&mvpMat, sizeof(Mat4x4));
+	vpMat = Mat4x4::MakeLookAt({ 2.0f, 2.0f, -3.0f }, { 0.0f, 0.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, static_cast<float>(screenWidth) / static_cast<float>(screenHeight), 0.1f, 100.0f);
+	mvpConstantBufferData = ResourceManager::Instance().CreateConstantBuffer(&mvpMat, sizeof(Mat4x4)); // 定数バッファ作成
 
 	// スプライトバッチ処理初期化
 	spriteBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), orthConstantBufferData.resource.Get());
@@ -200,8 +202,12 @@ void Gfx::DrawTexture()
 	quad.Draw(GraphicsDevice::Instance().GetCommandList());
 }
 
-void Gfx::DrawCube()
+void Gfx::DrawCube(Vector3 _angle)
 {
+	cube.SetRotation(Vector3::Zero);
+	mvpMat = cube.GetWorldMat() * vpMat; // mvp行列
+	// mvpMat = vpMat; // mvp行列
+	memcpy(mvpConstantBufferData.mappedPtr, &mvpMat, sizeof(Mat4x4)); // memcpyを行いmappedPtrにコピーする(CPUハンドルを取得)
 	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(cubeRootSignature.Get());
 	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(0, mvpConstantBufferData.resource->GetGPUVirtualAddress());
 	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(cubePipelineState.Get());

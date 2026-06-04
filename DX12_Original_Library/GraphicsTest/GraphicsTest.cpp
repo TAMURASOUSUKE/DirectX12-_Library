@@ -43,6 +43,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	Vector2 playerPos{ 100.0f, 100.0f };
 	float ang{ 0.0f }; // 角度加算用のテスト
+	Vector3 cubeAng{ Vector3::Zero };
 
 	while (Gfx::ProcessMessage())
 	{
@@ -61,6 +62,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		ang += 0.01f;
 		ang = Math::NormalizeAngle(ang); // 角度の正規化
 
+		cubeAng.x += 0.01f;
+		cubeAng.x = Math::NormalizeAngle(cubeAng.x);
+
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		// スプライトバッチテスト
@@ -71,7 +75,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawSprite(player, Vector2{playerPos.x, playerPos.y + 300.0f}, Vector2{128.0f, 128.0f}, ang);
 		Gfx::DrawSprite(enemy, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f });
 
-		Gfx::DrawCube();
+		Gfx::DrawCube(cubeAng);
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}
