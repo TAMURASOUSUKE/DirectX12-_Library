@@ -204,9 +204,8 @@ void Gfx::DrawTexture()
 
 void Gfx::DrawCube(Vector3 _angle)
 {
-	cube.SetRotation(Vector3::Zero);
+	cube.SetRotation(_angle);
 	mvpMat = cube.GetWorldMat() * vpMat; // mvp行列
-	// mvpMat = vpMat; // mvp行列
 	memcpy(mvpConstantBufferData.mappedPtr, &mvpMat, sizeof(Mat4x4)); // memcpyを行いmappedPtrにコピーする(CPUハンドルを取得)
 	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(cubeRootSignature.Get());
 	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(0, mvpConstantBufferData.resource->GetGPUVirtualAddress());

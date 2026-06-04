@@ -9,11 +9,11 @@
 struct Vector2Int
 {
 	// 引数に何も入れない場合は0ベクトルにする
-	Vector2Int() : x{ 0 }, y{ 0 } {}
+	constexpr Vector2Int() : x{ 0 }, y{ 0 } {}
 	~Vector2Int() = default;
 
 	// 引数の値で二次元座標を作成する
-	Vector2Int(int _x, int _y) : x{ _x }, y{ _y } {}
+	constexpr Vector2Int(int _x, int _y) : x{ _x }, y{ _y } {}
 
 	// 各定数
 	static const Vector2Int Zero;

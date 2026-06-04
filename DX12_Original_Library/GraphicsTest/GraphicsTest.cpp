@@ -63,7 +63,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		ang = Math::NormalizeAngle(ang); // 角度の正規化
 
 		cubeAng.x += 0.01f;
-		cubeAng.x = Math::NormalizeAngle(cubeAng.x);
+		cubeAng.z += 0.01f;
+		cubeAng = Math::NormalizeAngle(cubeAng);
 
 		Gfx::ClearScreen(); // 画面クリア(黒)
 

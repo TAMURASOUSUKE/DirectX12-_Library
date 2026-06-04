@@ -9,11 +9,11 @@
 struct Vector3Int
 {
 	// 引数に何も入れない場合は0ベクトルにする
-	Vector3Int() : x{ 0 }, y{ 0 }, z{ 0 } {}
+	constexpr Vector3Int() : x{ 0 }, y{ 0 }, z{ 0 } {}
 	~Vector3Int() = default;
 
 	// 引数の値で二次元座標を作成する
-	Vector3Int(int _x, int _y, int _z) : x{ _x }, y{ _y }, z{ _z } {}
+	constexpr Vector3Int(int _x, int _y, int _z) : x{ _x }, y{ _y }, z{ _z } {}
 
 	// 各定数
 	static const Vector3Int Zero;
