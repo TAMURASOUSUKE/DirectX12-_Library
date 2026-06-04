@@ -139,6 +139,7 @@
     <ClInclude Include="Src\Facade\InputInternal.h" />
     <ClInclude Include="Src\Facade\TSLib.h" />
     <ClInclude Include="Src\Graphics\DescriptorManager.h" />
+    <ClInclude Include="Src\Graphics\DrawDebug\DebugCube.h" />
     <ClInclude Include="Src\Graphics\DrawDebug\DebugQuad.h" />
     <ClInclude Include="Src\Graphics\DrawDebug\DebugTriangle.h" />
     <ClInclude Include="Src\Graphics\GraphicsConstant.h" />
@@ -169,6 +170,7 @@
     <ClCompile Include="Src\Facade\Input.cpp" />
     <ClCompile Include="Src\Facade\TSLib.cpp" />
     <ClCompile Include="Src\Graphics\DescriptorManager.cpp" />
+    <ClCompile Include="Src\Graphics\DrawDebug\DebuCube.cpp" />
     <ClCompile Include="Src\Graphics\DrawDebug\DebugQuad.cpp" />
     <ClCompile Include="Src\Graphics\DrawDebug\DebugTriangle.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />
@@ -186,6 +188,18 @@
     <ClCompile Include="Src\Window\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="Src\Shaders\CubePS.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\CubeVS.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="Src\Shaders\TexturePS.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

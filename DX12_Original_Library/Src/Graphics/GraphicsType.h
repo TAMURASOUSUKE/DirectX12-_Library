@@ -56,8 +56,15 @@ struct ConstantBufferData
 };
 
 // 頂点定義
-struct Vertex
+struct TexVertex
 {
 	float position[3]; // 座標
 	float uv[2]; // uv座標 
+};
+
+// 頂点定義
+struct ColorVertex
+{
+	float position[3];
+	float color[4];
 };

@@ -1,11 +1,10 @@
-﻿#pragma once
+#pragma once
 #include <d3d12.h>
 #include "../GraphicsType.h"
 
 #pragma comment(lib, "d3d12.lib")
 
-// 画面に表示させるためのデバッグとして三角形を管理する用
-class DebugTriangle
+class DebugCube
 {
 public:
 	void Initialize(); // 初期化
@@ -13,4 +12,6 @@ public:
 
 private:
 	VertexBuffer vertexBuffer; // ReosurceManagerが返す構造体を保持する
+	IndexBuffer indexBuffer; // インデックスバッファを保持する
+
 };

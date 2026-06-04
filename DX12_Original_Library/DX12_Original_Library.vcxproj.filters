@@ -132,6 +132,9 @@
     <ClInclude Include="Src\Graphics\SpriteBatch.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Graphics\DrawDebug\DebugCube.h">
+      <Filter>Src\Graphics\DrawDebug</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -197,6 +200,9 @@
     <ClCompile Include="Src\Graphics\SpriteBatch.cpp">
       <Filter>Src\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Graphics\DrawDebug\DebuCube.cpp">
+      <Filter>Src\Graphics\DrawDebug</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Src\Shaders\TriangleVS.hlsl">
@@ -209,6 +215,12 @@
       <Filter>Src\Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Src\Shaders\TextureVS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\CubeVS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\CubePS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
   </ItemGroup>

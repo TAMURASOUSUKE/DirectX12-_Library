@@ -71,6 +71,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawSprite(player, Vector2{playerPos.x, playerPos.y + 300.0f}, Vector2{128.0f, 128.0f}, ang);
 		Gfx::DrawSprite(enemy, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f });
 
+		Gfx::DrawCube();
+
 		TSLib::EndFrame(); // フレーム終了処理
 	}
 	TSLib::Finish(); // 終了
