@@ -2,7 +2,7 @@
 #include "Mat4x4.h"
 
 // 全て0で初期化する
-Mat4x4::Mat4x4()
+constexpr Mat4x4::Mat4x4()
 {
 	rows[0] = Vector4::Zero;
 	rows[1] = Vector4::Zero;
@@ -11,7 +11,7 @@ Mat4x4::Mat4x4()
 }
 
 //　行で初期化する
-Mat4x4::Mat4x4(const Vector4& _row0, const Vector4& _row1, const Vector4& _row2, const Vector4& _row3)
+constexpr Mat4x4::Mat4x4(const Vector4& _row0, const Vector4& _row1, const Vector4& _row2, const Vector4& _row3)
 {
 	rows[0] = _row0;
 	rows[1] = _row1;

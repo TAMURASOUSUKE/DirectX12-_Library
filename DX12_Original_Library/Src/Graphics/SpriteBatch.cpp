@@ -31,7 +31,7 @@ void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 	}
 
 	indexBuffer = ResourceManager::Instance().CreateIndexBuffer(indexArray.data(), indexArray.size() * sizeof(UINT), MAX_SPRITE_COUNT * 6); // インデックスバッファの作成
-	vertBuffer = ResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(Vertex), sizeof(Vertex)); // 動的な頂点バッファの作成
+	vertBuffer = ResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(TexVertex), sizeof(TexVertex)); // 動的な頂点バッファの作成
 }
 
 void SpriteBatch::RegisterSprite(TextureData _srvHandle, Vector2 _position, Vector2 _size, float _radRotation)
@@ -72,7 +72,7 @@ void SpriteBatch::RegisterSprite(TextureData _srvHandle, Vector2 _position, Vect
 		Flush();
 	}
 
-	Vertex* vertices{ static_cast<Vertex*>(vertBuffer.mappedPtr) }; // マップされたポインタにアクセスするためにキャスト
+	TexVertex* vertices{ static_cast<TexVertex*>(vertBuffer.mappedPtr) }; // マップされたポインタにアクセスするためにキャスト
 	vertices[spriteCounter * 4 + 0] = { {leftUp.x, leftUp.y, 0.0f}, {0.0f, 0.0f} }; // 左上
 	vertices[spriteCounter * 4 + 1] = { {rightUp.x, rightUp.y, 0.0f}, {1.0f, 0.0f} }; // 右上
 	vertices[spriteCounter * 4 + 2] = { {rightDown.x, rightDown.y, 0.0f}, {1.0f, 1.0f} }; // 右下

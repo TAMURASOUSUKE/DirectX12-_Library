@@ -9,9 +9,9 @@
 struct alignas(16) Vector3
 {
 	// デフォルトコンストラクタでは0ベクトルで初期化する
-	Vector3() : x{ 0.0f }, y{ 0.0f }, z{ 0.0f }, pad{ 0.0f } {}
+	constexpr Vector3() : x{ 0.0f }, y{ 0.0f }, z{ 0.0f }, pad{ 0.0f } {}
 	// 3次元座標を引数で設定するコンストラクタ
-	Vector3(float _x, float _y, float _z) : x{ _x }, y{ _y }, z{ _z }, pad{ 0.0f } {}
+	constexpr Vector3(float _x, float _y, float _z) : x{ _x }, y{ _y }, z{ _z }, pad{ 0.0f } {}
 	// デフォルトデストラクタ
 	~Vector3() = default;
 

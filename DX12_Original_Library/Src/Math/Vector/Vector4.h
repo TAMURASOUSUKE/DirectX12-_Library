@@ -10,11 +10,11 @@
 struct alignas(16) Vector4
 {
 	// デフォルトコンストラクタでは0ベクトルで初期化する(Vector3の拡張として捉え、wは0.0fで方向ベクトルとして最初は初期化します)
-	Vector4() : x{ 0.0f }, y{ 0.0f }, z{ 0.0f }, w{ 0.0f } {}
+	constexpr Vector4() : x{ 0.0f }, y{ 0.0f }, z{ 0.0f }, w{ 0.0f } {}
 	// 3次元座標を引数で設定するコンストラクタ(Vector3の拡張として捉え、wは0.0fで方向ベクトルとして最初は初期化します)
-	Vector4(float _x, float _y, float _z, float _w = 0.0f) : x{ _x }, y{ _y }, z{ _z }, w{ _w } {}
+	constexpr Vector4(float _x, float _y, float _z, float _w = 0.0f) : x{ _x }, y{ _y }, z{ _z }, w{ _w } {}
 	// 三次元ベクトルとw値で初期化するコンストラクタ(Vector3の拡張として捉え、wは0.0fで方向ベクトルとして最初は初期化します)
-	Vector4(Vector3 _vec, float _w = 0.0f) : x{_vec.x}, y{_vec.y}, z{_vec.z}, w{_w} {}
+	constexpr Vector4(Vector3 _vec, float _w = 0.0f) : x{_vec.x}, y{_vec.y}, z{_vec.z}, w{_w} {}
 	// デフォルトデストラクタ
 	~Vector4() = default;
 

@@ -6,6 +6,7 @@
 #include "../Graphics/SpriteBatch.h"
 #include "../Graphics/DrawDebug/DebugTriangle.h"
 #include "../Graphics/DrawDebug/DebugQuad.h"
+#include "../Graphics/DrawDebug/DebugCube.h"
 #include "../Math/TSMath.h"
 #include "../Graphics/GraphicsType.h"
 #include "GfxInternal.h" // 外部公開しないもの
@@ -15,14 +16,20 @@
 namespace {
 	Window window; // window作成クラス
 	ShaderSystem shaderSystem; // Shader読み込みなどを管理するファイル
-	ConstantBufferData constantBufferData; // 定数バッファのデータメンバ
-	ComPtr<ID3D12RootSignature> triangleRootSignature; // ルートシグネチャ
-	ComPtr<ID3D12RootSignature> textureRootSignature; // ルートシグネチャ
-	ComPtr<ID3D12PipelineState> trianglePipelineState; // パイプラインステートオブジェクト
-	ComPtr<ID3D12PipelineState> texturePipelineState; // パイプラインステートオブジェクト
+	ConstantBufferData orthConstantBufferData; // 正射影行列用定数バッファのデータメンバ
+	ConstantBufferData mvpConstantBufferData; // MVP行列用定数バッファのデータメンバ
+	Mat4x4 vpMat; // View * Projection
+	Mat4x4 mvpMat;
+	ComPtr<ID3D12RootSignature> triangleRootSignature; // 三角形用ルートシグネチャ
+	ComPtr<ID3D12RootSignature> textureRootSignature; // テクスチャ用ルートシグネチャ
+	ComPtr<ID3D12RootSignature> cubeRootSignature; // キューブ用用ルートシグネチャ
+	ComPtr<ID3D12PipelineState> trianglePipelineState; // 三角形用パイプラインステートオブジェクト
+	ComPtr<ID3D12PipelineState> texturePipelineState; // テクスチャ用パイプラインステートオブジェクト
+	ComPtr<ID3D12PipelineState> cubePipelineState; // キューブ用パイプラインステートオブジェクト
 	SpriteBatch spriteBatch; // スプライトバッチ処理
 	DebugTriangle triangle; // 三角形描画
 	DebugQuad quad; // テクスチャ描画
+	DebugCube cube; // キューブ描画
 	int screenWidth = 0; // 画面の横幅
 	int screenHeight = 0; // 画面の縦幅
 }
@@ -45,14 +52,18 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	shaderSystem.Initialize(GraphicsDevice::Instance().GetDevice()); // ShaderSystemの初期化
 
 	// シェーダーのコンパイル(今はいったん仮で固定)
-	auto triangleVsBlob{ shaderSystem.Compile(L"../Src/Shaders/TriangleVS.hlsl", "main", "vs_5_0") }; // 三角形
-	if (!triangleVsBlob) return false; // 読み込み失敗したらfalse
+	auto triangleVSBlob{ shaderSystem.Compile(L"../Src/Shaders/TriangleVS.hlsl", "main", "vs_5_0") }; // 三角形
+	if (!triangleVSBlob) return false; // 読み込み失敗したらfalse
 	auto textureVSBlob = shaderSystem.Compile(L"../Src/Shaders/TextureVS.hlsl", "main", "vs_5_0"); // テクスチャ
 	if (!textureVSBlob) return false; // 読み込み失敗したらfalse
-	auto trianglePsBlob{ shaderSystem.Compile(L"../Src/Shaders/TrianglePS.hlsl", "main", "ps_5_0") }; // 三角形
-	if (!trianglePsBlob) return false; // 読み込み失敗したらfalse
+	auto trianglePSBlob{ shaderSystem.Compile(L"../Src/Shaders/TrianglePS.hlsl", "main", "ps_5_0") }; // 三角形
+	if (!trianglePSBlob) return false; // 読み込み失敗したらfalse
 	auto texturePSBlob = shaderSystem.Compile(L"../Src/Shaders/TexturePS.hlsl", "main", "ps_5_0"); // テクスチャ
 	if (!texturePSBlob) return false; // 読み込み失敗したらfalse
+	auto cubeVSBlob{ shaderSystem.Compile(L"../Src/Shaders/CubeVS.hlsl", "main", "vs_5_0") }; // キューブ
+	if (!cubeVSBlob) return false; // 読み込み失敗したらfalse
+	auto cubePSBlob{ shaderSystem.Compile(L"../Src/Shaders/CubePS.hlsl", "main", "ps_5_0") }; // キューブ
+	if (!cubePSBlob) return false; // 読み込み失敗したらfalse
 
 	triangleRootSignature =  shaderSystem.CreateDebugTriangleRootSignature(); // ルートシグネチャの作成
 	if (!triangleRootSignature) return false; // 読み込み失敗したらfalse
@@ -60,23 +71,34 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	textureRootSignature = shaderSystem.CreateDebugTextureRootSignature(); // ルートシグネチャの作成
 	if (!textureRootSignature) return false;
 
-	trianglePipelineState = shaderSystem.CreateDebugTriaglePipeLineState(triangleRootSignature.Get(), triangleVsBlob.Get(), trianglePsBlob.Get()); // パイプラインステートオブジェクトを作成
+	cubeRootSignature = shaderSystem.CreateDebugCubeRootSignature(); // ルートシグネチャの作成
+	if (!cubeRootSignature) return false;
+
+	trianglePipelineState = shaderSystem.CreateDebugTriaglePipeLineState(triangleRootSignature.Get(), triangleVSBlob.Get(), trianglePSBlob.Get()); // パイプラインステートオブジェクトを作成
 	if (!trianglePipelineState) return false;
 
 	texturePipelineState = shaderSystem.CreateDebugTexturePipeLineState(textureRootSignature.Get(), textureVSBlob.Get(), texturePSBlob.Get()); // パイプラインステートオブジェクトを作成
 	if (!texturePipelineState) return false;
 
+	cubePipelineState = shaderSystem.CreateDebugCubePipeLineState(cubeRootSignature.Get(), cubeVSBlob.Get(), cubePSBlob.Get()); // パイプラインステートオブジェクトを作成
+	if (!cubePipelineState) return false;
+
 	ResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
 
 	// ピクセル座標からNDC座標へ変換
 	Mat4x4 orthMat{ Mat4x4::MakeOrthGraphic(static_cast<float>(_width), static_cast<float>(_height)) }; // 変換行列の作成
-	constantBufferData = ResourceManager::Instance().CreateConstantBuffer(&orthMat, sizeof(Mat4x4));
+	orthConstantBufferData = ResourceManager::Instance().CreateConstantBuffer(&orthMat, sizeof(Mat4x4));
+
+	// 透視投影行列の作成(一旦キューブが描画できるのを確認するためにハードコーディング)
+	vpMat = Mat4x4::MakeLookAt({ 2.0f, 2.0f, -3.0f }, { 0.0f, 0.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, static_cast<float>(screenWidth) / static_cast<float>(screenHeight), 0.1f, 100.0f);
+	mvpConstantBufferData = ResourceManager::Instance().CreateConstantBuffer(&mvpMat, sizeof(Mat4x4)); // 定数バッファ作成
 
 	// スプライトバッチ処理初期化
-	spriteBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), constantBufferData.resource.Get());
+	spriteBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), orthConstantBufferData.resource.Get());
 
 	triangle.Initialize();  // 三角形描画用ファイルの初期化
 	quad.Initialize(); // テクスチャ描画用ファイルの初期化
+	cube.Initialize(); // キューブ初期化
 	return true;
 }
 
@@ -175,9 +197,20 @@ void Gfx::DrawTriangle()
 void Gfx::DrawTexture()
 {
 	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(textureRootSignature.Get());
-	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(1, constantBufferData.resource->GetGPUVirtualAddress());
+	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(1, orthConstantBufferData.resource->GetGPUVirtualAddress());
 	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(texturePipelineState.Get());
 	quad.Draw(GraphicsDevice::Instance().GetCommandList());
+}
+
+void Gfx::DrawCube(Vector3 _angle)
+{
+	cube.SetRotation(_angle);
+	mvpMat = cube.GetWorldMat() * vpMat; // mvp行列
+	memcpy(mvpConstantBufferData.mappedPtr, &mvpMat, sizeof(Mat4x4)); // memcpyを行いmappedPtrにコピーする(CPUハンドルを取得)
+	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(cubeRootSignature.Get());
+	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(0, mvpConstantBufferData.resource->GetGPUVirtualAddress());
+	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(cubePipelineState.Get());
+	cube.Draw(GraphicsDevice::Instance().GetCommandList());
 }
 
 // 画像登録

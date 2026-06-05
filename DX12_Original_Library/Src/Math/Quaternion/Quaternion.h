@@ -8,10 +8,10 @@ struct alignas(16) Quaternion
 {
 public:
 	//　コンストラクタ群
-	Quaternion() : x{ 0.0f }, y{ 0.0f }, z{ 0.0f }, w{1.0f}{} // デフォルト(0初期化)
-	Quaternion(float _x, float _y, float _z, float _w); // 全てfloatで受け取る
-	Quaternion(const Vector3& _vec, float _w); // 実部をfloatで受け取りそれ以外をVector3型で受け取る
-	Quaternion(const Vector4& _vec); // Vector4型で受け取る
+	constexpr Quaternion() : x{ 0.0f }, y{ 0.0f }, z{ 0.0f }, w{1.0f}{} // デフォルト(0初期化)
+	constexpr Quaternion(float _x, float _y, float _z, float _w); // 全てfloatで受け取る
+	constexpr Quaternion(const Vector3& _vec, float _w); // 実部をfloatで受け取りそれ以外をVector3型で受け取る
+	constexpr Quaternion(const Vector4& _vec); // Vector4型で受け取る
 
 	~Quaternion() = default; // デフォルトデストラクタ
 

@@ -5,13 +5,13 @@
 
 
 // Vector4で初期化
-Quaternion::Quaternion(const Vector4& _vec) : x{ _vec.x }, y{ _vec.y }, z{ _vec.z }, w{ _vec.w } {}
+constexpr Quaternion::Quaternion(const Vector4& _vec) : x{ _vec.x }, y{ _vec.y }, z{ _vec.z }, w{ _vec.w } {}
 
 // 実部をfloat,虚部をVector3型で初期化
-Quaternion::Quaternion(const Vector3& _vec, float _w) : x{ _vec.x }, y{ _vec.y }, z{ _vec.z }, w{ _w } {}
+constexpr Quaternion::Quaternion(const Vector3& _vec, float _w) : x{ _vec.x }, y{ _vec.y }, z{ _vec.z }, w{ _w } {}
 
 // float初期化
-Quaternion::Quaternion(float _x, float _y, float _z, float _w) : x{ _x }, y{ _y }, z{ _z }, w{ _w } {}
+constexpr Quaternion::Quaternion(float _x, float _y, float _z, float _w) : x{ _x }, y{ _y }, z{ _z }, w{ _w } {}
 
 // 定数
 const Quaternion Quaternion::Identity{ 0.0f, 0.0f, 0.0f, 1.0f };

@@ -12,13 +12,5 @@ public:
 	void Draw(ID3D12GraphicsCommandList* _commandList); // 描画命令
 
 private:
-	// 頂点定義
-	struct Vertex
-	{
-		float position[3];
-		float color[4];
-	};
-
-private:
 	VertexBuffer vertexBuffer; // ReosurceManagerが返す構造体を保持する
 };

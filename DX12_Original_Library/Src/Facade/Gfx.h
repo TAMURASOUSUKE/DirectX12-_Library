@@ -15,6 +15,8 @@ namespace Gfx
 	void DrawTriangle();
 	// テクスチャ描画
 	void DrawTexture(); 
+	// Cube描画(角度を渡すデフォルトは0°)
+	void DrawCube(Vector3 _angle = Vector3::Zero);
 	// スプライト描画(位置、サイズ、画像, 回転角度(ラジアンかつデフォルトは0))
 	void DrawSprite(TextureData _texture, Vector2 _position, Vector2 _size, float _radRotation = 0.0f);
 }
