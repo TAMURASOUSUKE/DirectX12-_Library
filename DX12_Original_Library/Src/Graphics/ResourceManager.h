@@ -26,6 +26,8 @@ public:
 	// 頂点バッファの作成(Mapしっぱなしで動的に確保を行う)
 	VertexBuffer CreateDynamicVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize);
 
+
+
 	// インデックスバッファの作成
 	IndexBuffer CreateIndexBuffer(const void* _data, UINT _dataSize, UINT _indexCount);
 

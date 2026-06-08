@@ -55,6 +55,13 @@ struct ConstantBufferData
 	DescriptorHandle cbvHandle; // シェーダーにバインドするためのハンドル
 };
 
+// RootCBV等に使える汎用的なDescriptorを通さない構造体
+struct DynamicBuffer
+{
+	ComPtr<ID3D12Resource> resource; // リソースオブジェクト
+	void* mappedPtr{ nullptr }; // マップしたポインタ(CPUハンドル)
+};
+
 // 頂点定義
 struct TexVertex
 {
