@@ -52,34 +52,18 @@ VertexBuffer ResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSi
 // 動的に頂点バッファを確保する
 VertexBuffer ResourceManager::CreateDynamicVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize)
 {
-	D3D12_HEAP_PROPERTIES heapProperties{}; // 頂点ヒープの設定
-	heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD; // アップロードヒープに設定
-	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // ページング
-
-	D3D12_RESOURCE_DESC resDesc{}; // リソース設定構造体
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; // バッファとして使う
-	resDesc.Width = _dataSize; // 頂点バッファのサイズ
-	resDesc.Height = 1; // バッファは1D
-	resDesc.DepthOrArraySize = 1; // 配列ではない
-	resDesc.MipLevels = 1; // ミップマップなし
-	resDesc.Format = DXGI_FORMAT_UNKNOWN; // バッファはフォーマットなし
-	resDesc.SampleDesc = { 1, 0 }; // MSAAなし
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // メモリが最初から最後まで連続していることを示す
-
-	VertexBuffer buffer{}; 
-	HRESULT result{};
-	// 実行中に内部の値が変わる可能性があるのでUploadHeap上に作り開いたままにしておく
-	result = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
-	if (FAILED(result)) return buffer; // 失敗していたら終了
-
-	// MapとUnMapを用いてインデックス情報をコピーする
-	result = buffer.resource->Map(0, nullptr, &buffer.mappedPtr); // バッファの仮想アドレスを取得する
+	DynamicBuffer db{ CreateDynamicBuffer(_dataSize) }; // バッファのMapと確保を行う
+	if (!db.mappedPtr) return {}; // 失敗判定
 
 	// スプライトバッチング用なのでnullガードを入れる
 	if (_data != nullptr)
 	{
-		memcpy(buffer.mappedPtr, _data, _dataSize); // CPUデータをGPUメモリにコピー
+		memcpy(db.mappedPtr, _data, _dataSize); // CPUデータをGPUメモリにコピー
 	}
+
+	VertexBuffer buffer{};
+	buffer.resource = db.resource;
+	buffer.mappedPtr = db.mappedPtr;
 
 	D3D12_VERTEX_BUFFER_VIEW vertexView{}; // 頂点バッファビュー
 	vertexView.StrideInBytes = _strideSize; // 一つ分のサイズ
@@ -90,6 +74,37 @@ VertexBuffer ResourceManager::CreateDynamicVertexBuffer(const void* _data, UINT 
 	buffer.sizeInBytes = _dataSize; // バッファ全体のサイズを入れる
 	return buffer;
 
+}
+
+// 確保とMapだけする
+DynamicBuffer ResourceManager::CreateDynamicBuffer(UINT _dataSize)
+{
+	D3D12_HEAP_PROPERTIES heapProps{}; // ヒープのプロパティ設定
+	heapProps.Type = D3D12_HEAP_TYPE_UPLOAD; // アップロードヒープ
+	heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // ページングなし
+
+	D3D12_RESOURCE_DESC resDesc{}; // リソース設定構造体
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; // バッファとして使う
+	resDesc.Width = _dataSize; // バッファのサイズ
+	resDesc.Height = 1; // バッファは1D
+	resDesc.DepthOrArraySize = 1; // 配列ではない
+	resDesc.MipLevels = 1; // ミップマップなし
+	resDesc.Format = DXGI_FORMAT_UNKNOWN; // バッファはフォーマットなし
+	resDesc.SampleDesc = { 1, 0 }; // MSAAなし
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // メモリが最初から最後まで連続していることを示す
+
+	DynamicBuffer buffer{}; // バッファ
+	HRESULT result; // 結果判定
+
+	// 実行中に内部の値が変わる可能性があるのでUploadHeap上に作り開いたままにしておく
+	result = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
+	if (FAILED(result)) return buffer; // 失敗していたら終了
+
+	// Mapする
+	result = buffer.resource->Map(0, nullptr, &buffer.mappedPtr); // バッファの仮想アドレスを取得する
+	if (FAILED(result)) return buffer; // 失敗していたら終了
+
+	return buffer;
 }
 
 IndexBuffer ResourceManager::CreateIndexBuffer(const void* _data, UINT _dataSize, UINT _indexCount)
@@ -135,34 +150,18 @@ IndexBuffer ResourceManager::CreateIndexBuffer(const void* _data, UINT _dataSize
 // 定数バッファの作成
 ConstantBufferData ResourceManager::CreateConstantBuffer(const void* _data, UINT _dataSize)
 {
-	// プロパティ
-	D3D12_HEAP_PROPERTIES heapProps{};
-	heapProps.Type = D3D12_HEAP_TYPE_UPLOAD; // 開けっ放しにしているためUploadに設定
-	heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // ページング
 
 	UINT alignmentedSize{ (_dataSize + 0xff) & ~0xff }; // 256の倍数に切り上げたサイズ(DX12のCBVリソースサイズが256の倍数でなければならないため)
 
-	D3D12_RESOURCE_DESC resDesc{}; // リソース設定構造体
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; // バッファとして使う
-	resDesc.Width = alignmentedSize; // 定数バッファのサイズ
-	resDesc.Height = 1; // バッファは1D
-	resDesc.DepthOrArraySize = 1; // 配列ではない
-	resDesc.MipLevels = 1; // ミップマップなし
-	resDesc.Format = DXGI_FORMAT_UNKNOWN;
-	resDesc.SampleDesc = { 1, 0 }; // MSAAなし
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // メモリが最初から最後まで連続していることを示す
+	DynamicBuffer db{ CreateDynamicBuffer(alignmentedSize) }; // 境界用に切り上げたデータ 
+	if (!db.mappedPtr) return {}; // 失敗判定
+
+	memcpy(db.mappedPtr, _data, _dataSize); // CPUデータをGPUメモリにコピー
 
 	// 定数バッファの作成
 	ConstantBufferData buffer{};
-	HRESULT result{}; 
-	// 実行中に内部の値が変わる可能性があるのでUploadHeap上に作り開いたままにしておく
-	result = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
-	if (FAILED(result)) return buffer; // 失敗していたら終了
-
-
-	// MapとUnMapを用いてインデックス情報をコピーする
-	result = buffer.resource->Map(0, nullptr, &buffer.mappedPtr); // バッファの仮想アドレスを取得する
-	memcpy(buffer.mappedPtr, _data, _dataSize); // CPUデータをGPUメモリにコピー
+	buffer.resource = db.resource;
+	buffer.mappedPtr = db.mappedPtr;
 
 	// 定数バッファの設定
 	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc{};
