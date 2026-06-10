@@ -264,3 +264,8 @@ D3D12_CPU_DESCRIPTOR_HANDLE GraphicsDevice::GetDSV() const
 	D3D12_CPU_DESCRIPTOR_HANDLE handle{ dsvHeap->GetCPUDescriptorHandleForHeapStart() }; // 先頭ハンドル
 	return handle;
 }
+
+UINT GraphicsDevice::GetCurrentFrameIndex() const
+{
+	return currentFrameIndex;
+}

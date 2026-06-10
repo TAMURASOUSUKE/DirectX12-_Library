@@ -135,6 +135,9 @@
     <ClInclude Include="Src\Graphics\DrawDebug\DebugCube.h">
       <Filter>Src\Graphics\DrawDebug</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Graphics\RingConstantBuffer.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -202,6 +205,9 @@
     </ClCompile>
     <ClCompile Include="Src\Graphics\DrawDebug\DebuCube.cpp">
       <Filter>Src\Graphics\DrawDebug</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\RingConstantBuffer.cpp">
+      <Filter>Src\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -37,6 +37,8 @@ public:
 	D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRTV() const;
 	// DSVのハンドルを取得するGetter
 	D3D12_CPU_DESCRIPTOR_HANDLE GetDSV() const;
+	// 現在のフレームインデックスを取得する
+	UINT GetCurrentFrameIndex() const;
 
 
 private:
