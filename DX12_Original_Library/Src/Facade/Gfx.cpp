@@ -4,6 +4,7 @@
 #include "../Graphics/ShaderSystem.h"
 #include "../Graphics/ResourceManager.h"
 #include "../Graphics/SpriteBatch.h"
+#include "../Graphics/RingConstantBuffer.h"
 #include "../Graphics/DrawDebug/DebugTriangle.h"
 #include "../Graphics/DrawDebug/DebugQuad.h"
 #include "../Graphics/DrawDebug/DebugCube.h"
@@ -17,7 +18,7 @@ namespace {
 	Window window; // window作成クラス
 	ShaderSystem shaderSystem; // Shader読み込みなどを管理するファイル
 	ConstantBufferData orthConstantBufferData; // 正射影行列用定数バッファのデータメンバ
-	ConstantBufferData mvpConstantBufferData; // MVP行列用定数バッファのデータメンバ
+	RingConstantBuffer mvpRingCBV; // MVP行列用定数バッファのデータメンバ
 	Mat4x4 vpMat; // View * Projection
 	Mat4x4 mvpMat;
 	ComPtr<ID3D12RootSignature> triangleRootSignature; // 三角形用ルートシグネチャ
@@ -91,7 +92,7 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 
 	// 透視投影行列の作成(一旦キューブが描画できるのを確認するためにハードコーディング)
 	vpMat = Mat4x4::MakeLookAt({ 2.0f, 2.0f, -3.0f }, { 0.0f, 0.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, static_cast<float>(screenWidth) / static_cast<float>(screenHeight), 0.1f, 100.0f);
-	mvpConstantBufferData = ResourceManager::Instance().CreateConstantBuffer(&mvpMat, sizeof(Mat4x4)); // 定数バッファ作成
+	mvpRingCBV.Initialize(sizeof(Mat4x4)); // リングバッファ初期化
 
 	// スプライトバッチ処理初期化
 	spriteBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), orthConstantBufferData.resource.Get());
@@ -206,9 +207,9 @@ void Gfx::DrawCube(Vector3 _angle)
 {
 	cube.SetRotation(_angle);
 	mvpMat = cube.GetWorldMat() * vpMat; // mvp行列
-	memcpy(mvpConstantBufferData.mappedPtr, &mvpMat, sizeof(Mat4x4)); // memcpyを行いmappedPtrにコピーする(CPUハンドルを取得)
+	mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)); // 定数バッファの更新
 	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(cubeRootSignature.Get());
-	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(0, mvpConstantBufferData.resource->GetGPUVirtualAddress());
+	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(0, mvpRingCBV.GetCurrentVertualAddress());
 	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(cubePipelineState.Get());
 	cube.Draw(GraphicsDevice::Instance().GetCommandList());
 }
