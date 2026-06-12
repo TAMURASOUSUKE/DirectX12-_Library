@@ -71,10 +71,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// スプライトバッチテスト
 		Gfx::DrawSprite(background, Vector2{ 0.0f, 0.0f }, Vector2{ 1280.0f, 720.0f });
-		Gfx::DrawSprite(player, playerPos, Vector2{ 128.0f, 128.0f });
-		Gfx::DrawSprite(player, Vector2{playerPos.x, playerPos.y + 100.0f}, Vector2{128.0f, 128.0f}, 30.0f * Math::DEG_TO_RAD);
-		Gfx::DrawSprite(player, Vector2{playerPos.x, playerPos.y + 200.0f}, Vector2{128.0f, 128.0f}, 80.0f * Math::DEG_TO_RAD);
-		Gfx::DrawSprite(player, Vector2{playerPos.x, playerPos.y + 300.0f}, Vector2{128.0f, 128.0f}, ang);
+		for (int i = 0; i < 10000; i++)
+		{
+			float offset{ i * 10.0f };
+			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 100.0f}, Vector2{128.0f, 128.0f}, ang);
+			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 200.0f }, Vector2{ 128.0f, 128.0f }, ang);
+			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 300.0f }, Vector2{ 128.0f, 128.0f }, ang);
+			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 400.0f }, Vector2{ 128.0f, 128.0f }, ang);
+			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 500.0f }, Vector2{ 128.0f, 128.0f }, ang);
+		}
 		Gfx::DrawSprite(enemy, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f });
 
 		Gfx::DrawCube(cubeAng);
