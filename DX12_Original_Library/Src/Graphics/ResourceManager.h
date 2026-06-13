@@ -2,6 +2,8 @@
 #include <windows.h>
 #include <d3d12.h>
 #include <wrl/client.h>
+#include <vector>
+#include <stack>
 #include "GraphicsType.h"
 using Microsoft::WRL::ComPtr;
 #pragma comment(lib, "d3d12.lib")
