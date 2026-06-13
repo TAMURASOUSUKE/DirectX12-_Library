@@ -4,6 +4,7 @@
 #include <wrl/client.h>
 #include <vector>
 #include <stack>
+#include "../Core/Handle/TexHandle.h"
 #include "GraphicsType.h"
 using Microsoft::WRL::ComPtr;
 #pragma comment(lib, "d3d12.lib")
@@ -18,6 +19,7 @@ public:
 		static ResourceManager instance;
 		return instance;
 	}
+
 
 	// 初期化処理
 	void Initialize(ID3D12Device* _device);
@@ -38,7 +40,7 @@ public:
 	ConstantBufferData CreateConstantBuffer(const void* _data, UINT _dataSize);
 
 	// ファイル名を引数に画像をロードする関数
-	TextureData LoadTexture(const char* _filePath);
+	TexHandle LoadTexture(const char* _filePath);
 
 private:
 	// コンストラクタ
@@ -50,5 +52,6 @@ private:
 	
 private:
 	ID3D12Device* device{ nullptr }; // Initializeでデバイスを受け取って保持する
-
+	std::vector<TextureSlot> texSlot; // テクスチャリソースのスロット
+	std::stack<int> texFreeList; // テクスチャリソースのフリーリスト
 };

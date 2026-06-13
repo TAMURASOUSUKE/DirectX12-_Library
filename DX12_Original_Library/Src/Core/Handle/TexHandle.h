@@ -1,6 +1,4 @@
 #pragma once
-#include <cstdint>
-#include "../Graphics/GraphicsType.h"
 #include "HandleConstant.h"
 
 // テクスチャを管理するHandle
@@ -24,11 +22,4 @@ public:
 
 private:
 	int value{ -1 }; // ハンドル本体(-1は未定義状態)
-};
-
-// 管理するスロット(実体と世代で管理するResourceManagerにfreelistがあるので占有しているかのフラグはなし)
-struct TextureSlot
-{
-	TextureData data; // 実体
-	uint32_t generation; // 世代
 };
