@@ -46,6 +46,9 @@
     <Filter Include="Src\Core\Handle">
       <UniqueIdentifier>{3f632514-98c2-4ddc-b53f-66f606e698d7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Core\LogAssert">
+      <UniqueIdentifier>{337c27ac-2ac9-480a-841b-9562c42a8650}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Math\MathConstant.h">
@@ -150,6 +153,9 @@
     <ClInclude Include="Src\Core\Handle\TexHandle.h">
       <Filter>Src\Core\Handle</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Core\LogAssert\DebugMacross.h">
+      <Filter>Src\Core\LogAssert</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -220,6 +226,9 @@
     </ClCompile>
     <ClCompile Include="Src\Graphics\RingConstantBuffer.cpp">
       <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Core\LogAssert\DebugMacross.cpp">
+      <Filter>Src\Core\LogAssert</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -134,6 +134,7 @@
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\HandleConstant.h" />
     <ClInclude Include="Src\Core\Handle\TexHandle.h" />
+    <ClInclude Include="Src\Core\LogAssert\DebugMacross.h" />
     <ClInclude Include="Src\External\stb_image.h" />
     <ClInclude Include="Src\Facade\Gfx.h" />
     <ClInclude Include="Src\Facade\GfxInternal.h" />
@@ -168,6 +169,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Component\Transform.cpp" />
+    <ClCompile Include="Src\Core\LogAssert\DebugMacross.cpp" />
     <ClCompile Include="Src\External\StbImageEnable.cpp" />
     <ClCompile Include="Src\Facade\Gfx.cpp" />
     <ClCompile Include="Src\Facade\Input.cpp" />
