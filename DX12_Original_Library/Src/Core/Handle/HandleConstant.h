@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 // ここでは各Handleが汎用的に扱う情報を定義する
 
  // Handle作成時にPassKeyIdiomを採用したため生成を許すクラスであるReosurceManagerを前方宣言

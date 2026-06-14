@@ -60,8 +60,6 @@ void DebugCube::Draw(ID3D12GraphicsCommandList* _cmdList)
 {
 	if (_cmdList == nullptr) return;
 
-
-
 	// 入力アセンブラを設定
 	_cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // リスト設定
 	_cmdList->IASetVertexBuffers(0, 1, &vertexBuffer.vertexView);
@@ -74,17 +72,6 @@ void DebugCube::Draw(ID3D12GraphicsCommandList* _cmdList)
 void DebugCube::SetRotation(Vector3 _angle)
 {
 	Quaternion angleQua{ Quaternion::FromEuler(_angle.x, _angle.y, _angle.z)};
-	char buffer[256]{};
-	sprintf_s(
-		buffer,
-		"Quaternion x: %f, y: %f, z: %f, w: %f\n",
-		angleQua.x,
-		angleQua.y,
-		angleQua.z,
-		angleQua.w
-	);
-
-	OutputDebugStringA(buffer);
 
 	transform.SetRotation(angleQua);
 }

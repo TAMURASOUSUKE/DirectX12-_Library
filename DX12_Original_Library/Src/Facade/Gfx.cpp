@@ -219,3 +219,9 @@ void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float
 {
 	spriteBatch.RegisterSprite(_texture, _position, _size, _radRotation);
 }
+
+// 解放
+void Gfx::Unload(TexHandle _handle)
+{
+	ResourceManager::Instance().Unload(_handle);
+}

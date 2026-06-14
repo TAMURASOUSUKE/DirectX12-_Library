@@ -30,7 +30,7 @@ void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 		indexArray[offset + 5] = base + 3;
 	}
 
-	indexBuffer = ResourceManager::Instance().CreateIndexBuffer(indexArray.data(), indexArray.size() * sizeof(UINT), MAX_SPRITE_COUNT * 6); // インデックスバッファの作成
+	indexBuffer = ResourceManager::Instance().CreateIndexBuffer(indexArray.data(), static_cast<UINT>(indexArray.size()) * sizeof(UINT), MAX_SPRITE_COUNT * 6); // インデックスバッファの作成
 	vertBuffer = ResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(TexVertex), sizeof(TexVertex)); // 動的な頂点バッファの作成
 }
 

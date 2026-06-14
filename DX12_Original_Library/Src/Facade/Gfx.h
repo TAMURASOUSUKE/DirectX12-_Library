@@ -20,4 +20,6 @@ namespace Gfx
 	void DrawCube(Vector3 _angle = Vector3::Zero);
 	// スプライト描画(位置、サイズ、画像, 回転角度(ラジアンかつデフォルトは0))
 	void DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation = 0.0f);
+	// テクスチャリソースの解放
+	void Unload(TexHandle _handle);
 }
