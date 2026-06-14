@@ -30,12 +30,13 @@ void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 		indexArray[offset + 5] = base + 3;
 	}
 
-	indexBuffer = ResourceManager::Instance().CreateIndexBuffer(indexArray.data(), indexArray.size() * sizeof(UINT), MAX_SPRITE_COUNT * 6); // インデックスバッファの作成
+	indexBuffer = ResourceManager::Instance().CreateIndexBuffer(indexArray.data(), static_cast<UINT>(indexArray.size()) * sizeof(UINT), MAX_SPRITE_COUNT * 6); // インデックスバッファの作成
 	vertBuffer = ResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(TexVertex), sizeof(TexVertex)); // 動的な頂点バッファの作成
 }
 
-void SpriteBatch::RegisterSprite(TextureData _srvHandle, Vector2 _position, Vector2 _size, float _radRotation)
+void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _size, float _radRotation)
 {
+	if (!_handle.IsValid()) return; // 無効ハンドルか
 	if (spriteCounter >= MAX_SPRITE_COUNT) return; // 限界を超えているならreturn
 	
 	// 回転の適用
@@ -67,7 +68,7 @@ void SpriteBatch::RegisterSprite(TextureData _srvHandle, Vector2 _position, Vect
 	}
 
 	// 現在のテクスチャと異なるなら
-	if (currentBatchingTexture.index != _srvHandle.srvHandle.index)
+	if (currentBatchingTexture != _handle)
 	{
 		Flush();
 	}
@@ -78,12 +79,22 @@ void SpriteBatch::RegisterSprite(TextureData _srvHandle, Vector2 _position, Vect
 	vertices[spriteCounter * 4 + 2] = { {rightDown.x, rightDown.y, 0.0f}, {1.0f, 1.0f} }; // 右下
 	vertices[spriteCounter * 4 + 3] = { {leftDown.x, leftDown.y, 0.0f}, {0.0f, 1.0f} }; // 左下
 	spriteCounter++; // カウンターを増加する
-	currentBatchingTexture = _srvHandle.srvHandle;
+	currentBatchingTexture = _handle;
 }
 
 void SpriteBatch::Flush()
 {
 	if (spriteCounter == batchStart) return; // 登録されている画像数がbatch開始位置とかぶっているなら即retrun
+
+	TextureData* data{ ResourceManager::Instance().Lookup(currentBatchingTexture) }; // 現在のハンドル内のデータ取り出し
+
+	// 無効なハンドルの場合
+	if (!data)
+	{
+		// ゴミを残さないためにnullの時はこのbatchを捨てて次へ行く
+		batchStart = spriteCounter;
+		return;
+	}
 
 	// パイプライン設定
 	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(rootSig);
@@ -94,7 +105,7 @@ void SpriteBatch::Flush()
 	DescriptorManager::Instance().SetDiscriptor(GraphicsDevice::Instance().GetCommandList());
 
 	// ルートシグネチャの0番にテクスチャのGPUハンドルをセット
-	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootDescriptorTable(0, currentBatchingTexture.gpu);
+	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootDescriptorTable(0, data->srvHandle.gpu);
 
 	// 入力アセンブラを設定
 	GraphicsDevice::Instance().GetCommandList()->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // リスト設定

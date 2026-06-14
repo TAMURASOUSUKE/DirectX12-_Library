@@ -1,5 +1,4 @@
 ﻿#include "../Src/Facade/TSLib.h"
-#include "GraphicsDevice.h" // デバイス用のテスト
 #include "DescriptorManager.h" // Allocator関数を呼び出しメモリ確保できるかのテスト
 
 // エントリーポイント
@@ -37,9 +36,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	}
 
 	// ハンドルの取得
-	TextureData background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
-	TextureData enemy{ Gfx::LoadTexture("Res/enemy.png")}; // Enemyのハンドル取得
-	TextureData player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
+	TexHandle background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
+	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png")}; // Enemyのハンドル取得
+	TexHandle player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
 
 	Vector2 playerPos{ 100.0f, 100.0f };
 	float ang{ 0.0f }; // 角度加算用のテスト
@@ -69,18 +68,29 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
-		// スプライトバッチテスト
+		//// スプライトバッチテスト
 		Gfx::DrawSprite(background, Vector2{ 0.0f, 0.0f }, Vector2{ 1280.0f, 720.0f });
-		Gfx::DrawSprite(player, playerPos, Vector2{ 128.0f, 128.0f });
-		Gfx::DrawSprite(player, Vector2{playerPos.x, playerPos.y + 100.0f}, Vector2{128.0f, 128.0f}, 30.0f * Math::DEG_TO_RAD);
-		Gfx::DrawSprite(player, Vector2{playerPos.x, playerPos.y + 200.0f}, Vector2{128.0f, 128.0f}, 80.0f * Math::DEG_TO_RAD);
-		Gfx::DrawSprite(player, Vector2{playerPos.x, playerPos.y + 300.0f}, Vector2{128.0f, 128.0f}, ang);
+		for (int i = 0; i < 10000; i++)
+		{
+			float offset{ i * 10.0f };
+			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 100.0f}, Vector2{128.0f, 128.0f}, ang);
+			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 200.0f }, Vector2{ 128.0f, 128.0f }, ang);
+			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 300.0f }, Vector2{ 128.0f, 128.0f }, ang);
+			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 400.0f }, Vector2{ 128.0f, 128.0f }, ang);
+			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 500.0f }, Vector2{ 128.0f, 128.0f }, ang);
+		}
 		Gfx::DrawSprite(enemy, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f });
 
 		Gfx::DrawCube(cubeAng);
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}
+
+	// 解放
+	Gfx::Unload(background);
+	Gfx::Unload(enemy);
+	Gfx::Unload(player);
+
 	TSLib::Finish(); // 終了
 	return 0;
 }

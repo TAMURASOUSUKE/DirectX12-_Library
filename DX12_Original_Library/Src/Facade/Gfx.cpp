@@ -181,7 +181,7 @@ void Gfx::ClearScreen(float _r, float _g, float _b, float _a)
 }
 
 // 画像読み込み
-TextureData Gfx::LoadTexture(const char* _filePath)
+TexHandle Gfx::LoadTexture(const char* _filePath)
 {
 	return ResourceManager::Instance().LoadTexture(_filePath);
 }
@@ -215,7 +215,13 @@ void Gfx::DrawCube(Vector3 _angle)
 }
 
 // 画像登録
-void Gfx::DrawSprite(TextureData _texture, Vector2 _position, Vector2 _size, float _radRotation)
+void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation)
 {
 	spriteBatch.RegisterSprite(_texture, _position, _size, _radRotation);
+}
+
+// 解放
+void Gfx::Unload(TexHandle _handle)
+{
+	ResourceManager::Instance().Unload(_handle);
 }
