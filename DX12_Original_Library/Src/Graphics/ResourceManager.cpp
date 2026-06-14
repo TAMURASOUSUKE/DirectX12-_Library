@@ -258,18 +258,42 @@ TexHandle ResourceManager::LoadTexture(const char* _filePath)
 	{
 		index = texFreeList.top(); // freelistから取り出す
 		texFreeList.pop(); // 削除
-		texSlot[index].data = texData; // Unload時点で++されるので世代は据え置き
+		texSlots[index].data = texData; // Unload時点で++されるので世代は据え置き
 	}
 	// 空なら伸ばす
 	else
 	{
-		index = static_cast<int>(texSlot.size());
-		texSlot.push_back({ texData, 0 }); // 新規なので世代は0で
+		index = static_cast<int>(texSlots.size());
+		texSlots.push_back({ texData, 0 }); // 新規なので世代は0で
 	}
 
-	int packed{ Pack(index, texSlot[index].generation)}; // パックしたハンドルを入れる
+	int packed{ Pack(index, texSlots[index].generation)}; // パックしたハンドルを入れる
 
 	// 解放
 	stbi_image_free(pixels);
 	return TexHandle(PassKey{}, packed);
+}
+
+TextureData* ResourceManager::Lookup(TexHandle _handle)
+{
+	if (!_handle.IsValid()) return nullptr; // 無効なハンドルならnull
+	
+	int packed{ _handle.GetRaw(PassKey{}) }; // 内部ハンドルを取り出す
+	int index{ UnpackIndex(packed) }; // index取り出し
+	if (index < 0 || index >= static_cast<int>(texSlots.size())) return nullptr; // 範囲チェック
+	TextureSlot& slot{ texSlots[index] };
+	if (UnpackGen(packed) != static_cast<int>(slot.generation)) return nullptr; // 世代チェック
+	return &slot.data;
+}
+
+void ResourceManager::Unload(TexHandle _handle)
+{
+	TextureData* data{ Lookup(_handle) };
+	if (!data) { return; } // 無効なハンドル
+	int index{ UnpackIndex(_handle.GetRaw(PassKey{})) }; // indexの取り出し
+
+	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texSlots[index].data.srvHandle); // スロットの返却
+	texSlots[index].data = TextureData{}; // null化を行う
+	texSlots[index].generation++; // 世代を増やして既存ハンドルを無効化
+	texFreeList.push(index); // indexをfreelistに入れる
 }

@@ -42,6 +42,11 @@ public:
 	// ファイル名を引数に画像をロードする関数
 	TexHandle LoadTexture(const char* _filePath);
 
+	// Handleをindex部分と世代部分に分ける
+	TextureData* Lookup(TexHandle _handle);
+
+	// リソースを解放する
+	void Unload(TexHandle _handle);
 private:
 	// コンストラクタ
 	ResourceManager() = default;
@@ -52,6 +57,6 @@ private:
 	
 private:
 	ID3D12Device* device{ nullptr }; // Initializeでデバイスを受け取って保持する
-	std::vector<TextureSlot> texSlot; // テクスチャリソースのスロット
+	std::vector<TextureSlot> texSlots; // テクスチャリソースのスロット
 	std::stack<int> texFreeList; // テクスチャリソースのフリーリスト
 };

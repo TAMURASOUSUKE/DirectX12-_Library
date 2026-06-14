@@ -19,21 +19,21 @@ constexpr int INDEX_MASK{ (1 << INDEX_BITS) - 1 };
 /// <param name="_index">インデックス値</param>
 /// <param name="_gen">世代値</param>
 /// <returns>int型につめられたハンドル</returns>
-int Pack(int _index, int _gen) { return (_gen << INDEX_BITS) | (_index & INDEX_MASK); } // indexが16bitを超えたら0にする
+constexpr int Pack(int _index, int _gen) { return (_gen << INDEX_BITS) | (_index & INDEX_MASK); } // indexが16bitを超えたら0にする
 
 /// <summary>
 /// Index値を取り出す
 /// </summary>
 /// <param name="_packed">Packされたハンドル</param>
 /// <returns>Index値</returns>
-int UnpackIndex(int _packed) { return _packed & INDEX_MASK; }
+constexpr int UnpackIndex(int _packed) { return _packed & INDEX_MASK; }
 
 /// <summary>
 /// 世代値を取り出す
 /// </summary>
 /// <param name="_packed">Packされたハンドル</param>
 /// <returns>世代値</returns>
-int UnpackGen(int _packed) { return _packed >> INDEX_BITS; }
+constexpr int UnpackGen(int _packed) { return _packed >> INDEX_BITS; }
 
 // 各Handleクラスが必要とする鍵(PassKeyIdiom)
 class PassKey

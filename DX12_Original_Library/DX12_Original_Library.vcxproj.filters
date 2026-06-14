@@ -40,6 +40,12 @@
     <Filter Include="Src\Facade\Exturnal">
       <UniqueIdentifier>{7053992d-81eb-4d55-ac45-51fdfba2310e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Core">
+      <UniqueIdentifier>{d3302b33-94aa-429d-b0a7-e3a3588bd10f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Src\Core\Handle">
+      <UniqueIdentifier>{3f632514-98c2-4ddc-b53f-66f606e698d7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Math\MathConstant.h">
@@ -137,6 +143,12 @@
     </ClInclude>
     <ClInclude Include="Src\Graphics\RingConstantBuffer.h">
       <Filter>Src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Handle\HandleConstant.h">
+      <Filter>Src\Core\Handle</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Handle\TexHandle.h">
+      <Filter>Src\Core\Handle</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

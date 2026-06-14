@@ -1,5 +1,4 @@
 ﻿#include "../Src/Facade/TSLib.h"
-#include "GraphicsDevice.h" // デバイス用のテスト
 #include "DescriptorManager.h" // Allocator関数を呼び出しメモリ確保できるかのテスト
 
 // エントリーポイント
@@ -37,9 +36,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	}
 
 	// ハンドルの取得
-	TextureData background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
-	TextureData enemy{ Gfx::LoadTexture("Res/enemy.png")}; // Enemyのハンドル取得
-	TextureData player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
+	TexHandle background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
+	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png")}; // Enemyのハンドル取得
+	TexHandle player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
 
 	Vector2 playerPos{ 100.0f, 100.0f };
 	float ang{ 0.0f }; // 角度加算用のテスト

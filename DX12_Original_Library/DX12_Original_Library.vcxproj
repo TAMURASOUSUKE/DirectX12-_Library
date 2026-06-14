@@ -132,6 +132,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Src\Component\Transform.h" />
+    <ClInclude Include="Src\Core\Handle\HandleConstant.h" />
+    <ClInclude Include="Src\Core\Handle\TexHandle.h" />
     <ClInclude Include="Src\External\stb_image.h" />
     <ClInclude Include="Src\Facade\Gfx.h" />
     <ClInclude Include="Src\Facade\GfxInternal.h" />

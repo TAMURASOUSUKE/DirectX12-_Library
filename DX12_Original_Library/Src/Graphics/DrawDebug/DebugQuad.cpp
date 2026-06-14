@@ -29,12 +29,17 @@ void DebugQuad::Initialize()
 void DebugQuad::Draw(ID3D12GraphicsCommandList* _cmdList)
 {
 	if (_cmdList == nullptr) return;
+	if (!textureData.IsValid()) return;
+
+	TextureData* data{ ResourceManager::Instance().Lookup(textureData) };
+
+	if (!data) return;
 
 	// SRVが入っているDescriptorHeapをGPUにセットする
 	DescriptorManager::Instance().SetDiscriptor(_cmdList);
 
 	// ルートシグネチャの0番にテクスチャのGPUハンドルをセット
-	_cmdList->SetGraphicsRootDescriptorTable(0, textureData.srvHandle.gpu);
+	_cmdList->SetGraphicsRootDescriptorTable(0, data->srvHandle.gpu);
 
 	// 入力アセンブラを設定
 	_cmdList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // リスト設定
