@@ -15,11 +15,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// h1とh2が別のインデックスであることを確認する
 	if (h1.index != h2.index)
 	{
-		OutputDebugStringA("[PASS] : インデックスが異なる値を出力できています");
+		OutputDebugStringA("[PASS] : インデックスが異なる値を出力できています\n");
 	}
 	else
 	{
-		OutputDebugStringA("[FAIL] : インデックスが同じ値を出力しています");
+		OutputDebugStringA("[FAIL] : インデックスが同じ値を出力しています\n");
 	}
 
 	// Freeして再度Allocateすると同じインデックスが戻るか
@@ -28,16 +28,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	if (h2.index == h3.index)
 	{
-		OutputDebugStringA("[PASS] : 一度戻した後も同じインデックスが返っています");
+		OutputDebugStringA("[PASS] : 一度戻した後も同じインデックスが返っています\n");
 	}
 	else
 	{
-		OutputDebugStringA("[FAIL] : 一度戻した後違うインデックスが返っています");
+		OutputDebugStringA("[FAIL] : 一度戻した後違うインデックスが返っています\n");
 	}
 
 	// ハンドルの取得
 	TexHandle background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
-	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png")}; // Enemyのハンドル取得
+	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png") }; // Enemyのハンドル取得
 	TexHandle player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
 
 	Vector2 playerPos{ 100.0f, 100.0f };
@@ -53,12 +53,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPress(KeyCode::A)) dir.x -= 1.0f;
 		if (Input::IsKeyPress(KeyCode::W)) dir.y -= 1.0f;
 		if (Input::IsKeyPress(KeyCode::S)) dir.y += 1.0f;
-		
+
 		dir.Normalize(); // 正規化
 
 		playerPos += dir * 8.0f;
 
 		ang += 0.01f;
+
 		ang = Math::NormalizeAngle(ang); // 角度の正規化
 
 		cubeAng.x += 0.01f;
@@ -69,17 +70,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		//// スプライトバッチテスト
-		Gfx::DrawSprite(background, Vector2{ 0.0f, 0.0f }, Vector2{ 1280.0f, 720.0f });
-		for (int i = 0; i < 10000; i++)
-		{
-			float offset{ i * 10.0f };
-			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 100.0f}, Vector2{128.0f, 128.0f}, ang);
-			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 200.0f }, Vector2{ 128.0f, 128.0f }, ang);
-			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 300.0f }, Vector2{ 128.0f, 128.0f }, ang);
-			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 400.0f }, Vector2{ 128.0f, 128.0f }, ang);
-			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 500.0f }, Vector2{ 128.0f, 128.0f }, ang);
-		}
-		Gfx::DrawSprite(enemy, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f });
+		// Gfx::DrawSprite(background, Vector2{ 0.0f, 0.0f }, Vector2{ 1280.0f, 720.0f });
+		//for (int i = 0; i < 10000; i++)
+		//{
+		//	float offset{ i * 10.0f };
+		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 100.0f}, Vector2{128.0f, 128.0f}, ang);
+		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 200.0f }, Vector2{ 128.0f, 128.0f }, ang);
+		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 300.0f }, Vector2{ 128.0f, 128.0f }, ang);
+		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 400.0f }, Vector2{ 128.0f, 128.0f }, ang);
+		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 500.0f }, Vector2{ 128.0f, 128.0f }, ang);
+		//}
+		//Gfx::DrawSprite(enemy, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f });
 
 		Gfx::DrawCube(cubeAng);
 

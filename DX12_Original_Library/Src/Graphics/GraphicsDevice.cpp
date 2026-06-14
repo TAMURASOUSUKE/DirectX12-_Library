@@ -1,4 +1,5 @@
-﻿#include "GraphicsDevice.h"
+﻿#include <iostream>
+#include "GraphicsDevice.h"
 
 // インスタンス生成関数
 GraphicsDevice& GraphicsDevice::Instance()

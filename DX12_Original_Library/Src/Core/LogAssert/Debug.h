@@ -37,3 +37,16 @@ namespace Debug::Detail
 		Write(std::format("{} {} : {} {}\n", _level, _file, _line, body));  // 出力する
 	}
 }
+
+#ifdef _DEBUG
+	#define DEBUG_LOG(fmt, ...) Debug::Detail::LogImpl("[Info]", __FILE__, __LINE__, fmt __VA_OPT__(,) __VA_ARGS__)
+	#define DEBUG_LOG_WARNING(fmt, ...) Debug::Detail::LogImpl("[Warning]", __FILE__, __LINE__, fmt __VA_OPT__(,) __VA_ARGS__)
+	#define DEBUG_LOG_ERROR(fmt, ...) Debug::Detail::LogImpl("[Error]", __FILE__, __LINE__, fmt __VA_OPT__(,) __VA_ARGS__)
+	#define DEBUG_ASSERT(cond) Debug::Detail::AssertImpl((cond), #cond, __FILE__, __LINE__)
+#else
+// Release時には動かない
+	#define DEBUG_LOG(fmt, ...) ((void)0)
+	#define DEBUG_LOG_WARNING(fmt, ...) ((void)0)
+	#define DEBUG_LOG_ERROR(fmt, ...) ((void)0)
+	#define DEBUG_ASSERT(cond) ((void)0)
+#endif // _DEBUG
