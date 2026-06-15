@@ -1,4 +1,5 @@
 ﻿#include "../External/stb_image.h"
+#include"../Debug/DebugLogs.h"
 #include "../Core/Handle/HandleConstant.h"
 #include "DescriptorManager.h"
 #include "ResourceManager.h"
@@ -31,11 +32,15 @@ VertexBuffer ResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSi
 	HRESULT result{}; // 結果が成功しているかどうか調べるための変数
 	// UploadHeap上にバッファリソースを作成する
 	result = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return buffer; // 失敗していたら終了
-	
+
 	// 頂点バッファに頂点情報をコピーする
 	void* mappedData{ nullptr }; // dataを詰めるための変数
 	result = buffer.resource->Map(0, nullptr, &mappedData); // バッファの仮想アドレスを取得する
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
+	if (FAILED(result)) return buffer; // 失敗していたら終了
+
 	memcpy(mappedData, _data, _dataSize); // CPUデータをGPUメモリにコピー
 	buffer.resource->Unmap(0, nullptr); // 閉じる
 
@@ -99,10 +104,12 @@ DynamicBuffer ResourceManager::CreateDynamicBuffer(UINT _dataSize)
 
 	// 実行中に内部の値が変わる可能性があるのでUploadHeap上に作り開いたままにしておく
 	result = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return buffer; // 失敗していたら終了
 
 	// Mapする
 	result = buffer.resource->Map(0, nullptr, &buffer.mappedPtr); // バッファの仮想アドレスを取得する
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return buffer; // 失敗していたら終了
 
 	return buffer;
@@ -129,11 +136,15 @@ IndexBuffer ResourceManager::CreateIndexBuffer(const void* _data, UINT _dataSize
 	HRESULT result{};
 	// 実際に作成を行うが一旦UploadHeap上に作る。今後3Dモデルを扱う際には大量のインデックスが必要なのでDefaultHeapに移し替え最適化する
 	result = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return buffer; // 失敗していたら終了
 
 	// MapとUnMapを用いてインデックス情報をコピーする
 	void* mappedData{ nullptr }; // Dataを詰めるための配列
 	result = buffer.resource->Map(0, nullptr, &mappedData); // バッファの仮想アドレスを取得する
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
+	if (FAILED(result)) return buffer; // 失敗していたら終了
+
 	memcpy(mappedData, _data, _dataSize); // CPUデータをGPUメモリにコピー
 	buffer.resource->Unmap(0, nullptr); // 閉じる
 
@@ -155,6 +166,7 @@ ConstantBufferData ResourceManager::CreateConstantBuffer(const void* _data, UINT
 	UINT alignmentedSize{ (_dataSize + 0xff) & ~0xff }; // 256の倍数に切り上げたサイズ(DX12のCBVリソースサイズが256の倍数でなければならないため)
 
 	DynamicBuffer db{ CreateDynamicBuffer(alignmentedSize) }; // 境界用に切り上げたデータ 
+	DEBUG_ASSERT(db.mappedPtr); // 失敗したら判別
 	if (!db.mappedPtr) return {}; // 失敗判定
 
 	memcpy(db.mappedPtr, _data, _dataSize); // CPUデータをGPUメモリにコピー
@@ -166,7 +178,14 @@ ConstantBufferData ResourceManager::CreateConstantBuffer(const void* _data, UINT
 
 	// 定数バッファの設定
 	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc{};
-	DescriptorHandle cbvHandle{DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV)}; // CBVのスロットを確保
+	DescriptorHandle cbvHandle{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // CBVのスロットを確保
+
+	if (!cbvHandle.IsValid())
+	{
+		DEBUG_LOG_ERROR("ディスクリプタヒープが枯渇しています\n");
+		return ConstantBufferData{};
+	}
+
 	cbvDesc.SizeInBytes = alignmentedSize;
 	cbvDesc.BufferLocation = buffer.resource->GetGPUVirtualAddress(); // バッファの仮想アドレスを取得
 
@@ -187,8 +206,12 @@ TexHandle ResourceManager::LoadTexture(const char* _filePath)
 	int height{ 0 }; // 縦幅
 	int channels{ 0 }; // 色の構成要素数
 
-	unsigned char* pixels{ stbi_load(_filePath, &width, &height, &channels, 4)}; // 各変数にピクセルの幅等を格納していく(色は強制的にRGBAの4チャンネル)
-	if (!pixels) return TexHandle(); // -1を返す(失敗時)
+	unsigned char* pixels{ stbi_load(_filePath, &width, &height, &channels, 4) }; // 各変数にピクセルの幅等を格納していく(色は強制的にRGBAの4チャンネル)
+	if (!pixels)
+	{
+		DEBUG_LOG_WARNING("ロード失敗 ファイル : {}\n", _filePath);
+		return TexHandle(); // -1を返す(失敗時)
+	}
 
 	// サイズを代入
 	texData.width = width;
@@ -216,6 +239,7 @@ TexHandle ResourceManager::LoadTexture(const char* _filePath)
 	// リソースの作成
 	result = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr, IID_PPV_ARGS(&texData.resource));
 
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	// 失敗処理
 	if (FAILED(result))
 	{
@@ -232,8 +256,9 @@ TexHandle ResourceManager::LoadTexture(const char* _filePath)
 		pixels, // ピクセルデータ
 		width * 4, // 1行のバイト数(width * RGBA)
 		width * height * 4 // 全体のバイト数
-		);
+	);
 
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	// 失敗処理
 	if (FAILED(result))
 	{
@@ -243,6 +268,13 @@ TexHandle ResourceManager::LoadTexture(const char* _filePath)
 
 	// SRVを作成する
 	DescriptorHandle srvHandle{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // SRVのハンドルを取得する
+	if (!srvHandle.IsValid())
+	{
+		DEBUG_LOG_ERROR("ディスクリプタヒープが空です : {}\n", _filePath);
+		stbi_image_free(pixels); // ピクセル解放
+		return TexHandle{};
+	}
+
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{}; // SRV設定構造体
 	srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -267,7 +299,7 @@ TexHandle ResourceManager::LoadTexture(const char* _filePath)
 		texSlots.push_back({ texData, 0 }); // 新規なので世代は0で
 	}
 
-	int packed{ Pack(index, texSlots[index].generation)}; // パックしたハンドルを入れる
+	int packed{ Pack(index, texSlots[index].generation) }; // パックしたハンドルを入れる
 
 	// 解放
 	stbi_image_free(pixels);
@@ -276,20 +308,36 @@ TexHandle ResourceManager::LoadTexture(const char* _filePath)
 
 TextureData* ResourceManager::Lookup(TexHandle _handle)
 {
-	if (!_handle.IsValid()) return nullptr; // 無効なハンドルならnull
-	
+	if (!_handle.IsValid())
+	{
+		DEBUG_LOG_ERROR("無効なハンドルです\n");
+		return nullptr; // 無効なハンドルならnull
+	}
 	int packed{ _handle.GetRaw(PassKey{}) }; // 内部ハンドルを取り出す
 	int index{ UnpackIndex(packed) }; // index取り出し
-	if (index < 0 || index >= static_cast<int>(texSlots.size())) return nullptr; // 範囲チェック
+	if (index < 0 || index >= static_cast<int>(texSlots.size()))
+	{
+		DEBUG_LOG_ERROR("ハンドルに範囲外のサイズが渡されました\n");
+		return nullptr; // 範囲チェック
+	}
 	TextureSlot& slot{ texSlots[index] };
-	if (UnpackGen(packed) != static_cast<int>(slot.generation)) return nullptr; // 世代チェック
+	if (UnpackGen(packed) != static_cast<int>(slot.generation))
+	{
+		DEBUG_LOG_WARNING("世代が異なります\n");
+		return nullptr; // 世代チェック
+	}
 	return &slot.data;
 }
 
 void ResourceManager::Unload(TexHandle _handle)
 {
 	TextureData* data{ Lookup(_handle) };
-	if (!data) { return; } // 無効なハンドル
+	if (!data)
+	{
+		// 無効なハンドル
+		DEBUG_LOG_ERROR("無効なハンドルです\n");
+		return;
+	} 
 	int index{ UnpackIndex(_handle.GetRaw(PassKey{})) }; // indexの取り出し
 
 	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texSlots[index].data.srvHandle); // スロットの返却

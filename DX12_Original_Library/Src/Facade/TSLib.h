@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "../Math/TSMath.h"
-#include "../Debug/Debug.h"  
+#include "../Debug/DebugLogs.h"  
 #include "Gfx.h"
 #include "Input.h"
 // 初期化などlibrary全体の機能をまとめてユーザーに提供する

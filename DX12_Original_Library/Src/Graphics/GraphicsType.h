@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <d3d12.h>
 #include <wrl/client.h>
+#include "GraphicsConstant.h"
 using Microsoft::WRL::ComPtr;
 
 // 描画関連で汎用的に使う型を定義する(ハンドルなど)
@@ -18,7 +19,10 @@ struct DescriptorHandle
 {
 	D3D12_CPU_DESCRIPTOR_HANDLE cpu{}; // CPUハンドル
 	D3D12_GPU_DESCRIPTOR_HANDLE gpu{}; // GPUハンドル
-	UINT index{ 0 }; // インデックス
+	UINT index{ INVALID_INDEX }; // インデックス(デフォルトは無効値)
+
+	// 無効値か確かめる関数
+	bool IsValid() const { return index != INVALID_INDEX; }
 };
 
 // テクスチャの情報をまとめた構造体

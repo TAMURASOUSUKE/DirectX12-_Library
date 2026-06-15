@@ -153,7 +153,7 @@
     <ClInclude Include="Src\Core\Handle\TexHandle.h">
       <Filter>Src\Core\Handle</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Debug\Debug.h">
+    <ClInclude Include="Src\Debug\DebugLogs.h">
       <Filter>Src\Debug</Filter>
     </ClInclude>
     <ClInclude Include="Src\Math\Vector\Vector2Format.h">
@@ -170,6 +170,12 @@
     </ClInclude>
     <ClInclude Include="Src\Math\Vector\Vector4Format.h">
       <Filter>Src\Math\Vector</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\Matrix\Mat4x4Format.h">
+      <Filter>Src\Math\Matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\Quaternion\QuaternionFormat.h">
+      <Filter>Src\Math\Quaternion</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -242,7 +248,7 @@
     <ClCompile Include="Src\Graphics\RingConstantBuffer.cpp">
       <Filter>Src\Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Debug\Debug.cpp">
+    <ClCompile Include="Src\Debug\DebugLogs.cpp">
       <Filter>Src\Debug</Filter>
     </ClCompile>
   </ItemGroup>

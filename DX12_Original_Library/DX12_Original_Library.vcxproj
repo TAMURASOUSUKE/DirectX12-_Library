@@ -78,6 +78,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(ProjectDir)Src\Math\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <UseStandardPreprocessor>true</UseStandardPreprocessor>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -94,6 +95,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(ProjectDir)Src\Math\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <UseStandardPreprocessor>true</UseStandardPreprocessor>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -108,6 +110,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(ProjectDir)Src\Math\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <UseStandardPreprocessor>true</UseStandardPreprocessor>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -124,6 +127,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(ProjectDir)Src\Math\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <UseStandardPreprocessor>true</UseStandardPreprocessor>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -134,7 +138,7 @@
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\HandleConstant.h" />
     <ClInclude Include="Src\Core\Handle\TexHandle.h" />
-    <ClInclude Include="Src\Debug\Debug.h" />
+    <ClInclude Include="Src\Debug\DebugLogs.h" />
     <ClInclude Include="Src\External\stb_image.h" />
     <ClInclude Include="Src\Facade\Gfx.h" />
     <ClInclude Include="Src\Facade\GfxInternal.h" />
@@ -158,7 +162,9 @@
     <ClInclude Include="Src\Input\KeyboardInput.h" />
     <ClInclude Include="Src\Math\MathConstant.h" />
     <ClInclude Include="Src\Math\Matrix\Mat4x4.h" />
+    <ClInclude Include="Src\Math\Matrix\Mat4x4Format.h" />
     <ClInclude Include="Src\Math\Quaternion\Quaternion.h" />
+    <ClInclude Include="Src\Math\Quaternion\QuaternionFormat.h" />
     <ClInclude Include="Src\Math\TSMath.h" />
     <ClInclude Include="Src\Math\Vector\Vector2.h" />
     <ClInclude Include="Src\Math\Vector\Vector2Format.h" />
@@ -174,7 +180,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Component\Transform.cpp" />
-    <ClCompile Include="Src\Debug\Debug.cpp" />
+    <ClCompile Include="Src\Debug\DebugLogs.cpp" />
     <ClCompile Include="Src\External\StbImageEnable.cpp" />
     <ClCompile Include="Src\Facade\Gfx.cpp" />
     <ClCompile Include="Src\Facade\Input.cpp" />

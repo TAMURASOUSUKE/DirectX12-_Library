@@ -10,3 +10,4 @@ constexpr size_t DSV_SLOT_COUNT{ 16 }; // GPU非可視のスロット数(DepthSt
 constexpr size_t QUAD_VERT_INDEXES{ 6 }; // Quadを描画するときの頂点インデックス数
 constexpr size_t CUBE_VERT_INDEXES{ 36 }; // cubeを描画するときの頂点インデックス数
 constexpr size_t MAX_SPRITE_COUNT{ 1024 }; // 登録できる最大のスプライト数
+constexpr UINT INVALID_INDEX{ UINT_MAX }; // Descriptorハンドルのindex無効値
