@@ -134,7 +134,7 @@
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\HandleConstant.h" />
     <ClInclude Include="Src\Core\Handle\TexHandle.h" />
-    <ClInclude Include="Src\Core\LogAssert\Debug.h" />
+    <ClInclude Include="Src\Debug\Debug.h" />
     <ClInclude Include="Src\External\stb_image.h" />
     <ClInclude Include="Src\Facade\Gfx.h" />
     <ClInclude Include="Src\Facade\GfxInternal.h" />
@@ -161,15 +161,20 @@
     <ClInclude Include="Src\Math\Quaternion\Quaternion.h" />
     <ClInclude Include="Src\Math\TSMath.h" />
     <ClInclude Include="Src\Math\Vector\Vector2.h" />
+    <ClInclude Include="Src\Math\Vector\Vector2Format.h" />
     <ClInclude Include="Src\Math\Vector\Vector2Int.h" />
+    <ClInclude Include="Src\Math\Vector\Vector2IntFormat.h" />
     <ClInclude Include="Src\Math\Vector\Vector3.h" />
+    <ClInclude Include="Src\Math\Vector\Vector3Format.h" />
     <ClInclude Include="Src\Math\Vector\Vector3Int.h" />
+    <ClInclude Include="Src\Math\Vector\Vector3IntFormat.h" />
     <ClInclude Include="Src\Math\Vector\Vector4.h" />
+    <ClInclude Include="Src\Math\Vector\Vector4Format.h" />
     <ClInclude Include="Src\Window\Window.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Component\Transform.cpp" />
-    <ClCompile Include="Src\Core\LogAssert\Debug.cpp" />
+    <ClCompile Include="Src\Debug\Debug.cpp" />
     <ClCompile Include="Src\External\StbImageEnable.cpp" />
     <ClCompile Include="Src\Facade\Gfx.cpp" />
     <ClCompile Include="Src\Facade\Input.cpp" />
