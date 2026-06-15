@@ -1,5 +1,6 @@
 ﻿#include <cmath>
 #include <vector>
+#include "../Debug/DebugLogs.h"
 #include "GraphicsConstant.h"
 #include "GraphicsDevice.h"
 #include "DescriptorManager.h"
@@ -8,6 +9,7 @@
 
 void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _pipelineState, ID3D12Resource* _gpuVirtualAddres)
 {
+	DEBUG_ASSERT(_rootSig != nullptr && _pipelineState != nullptr && _gpuVirtualAddres != nullptr);
 	if (_rootSig == nullptr || _pipelineState == nullptr || _gpuVirtualAddres == nullptr) return;
 	// 各パラメータと繋げる
 	rootSig = _rootSig;
@@ -36,8 +38,17 @@ void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 
 void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _size, float _radRotation)
 {
-	if (!_handle.IsValid()) return; // 無効ハンドルか
-	if (spriteCounter >= MAX_SPRITE_COUNT) return; // 限界を超えているならreturn
+	if (!_handle.IsValid())
+	{
+		DEBUG_LOG_WARNING("無効ハンドルが渡されました\n");
+		return; // 無効ハンドルか
+	}
+
+	if (spriteCounter >= MAX_SPRITE_COUNT)
+	{
+		DEBUG_LOG_WARNING("最大画像数を超過しました\n");
+		return; // 限界を超えているならreturn
+	}
 	
 	// 回転の適用
 	Vector2 leftUp{ _position.x, _position.y }; // 左上
@@ -91,6 +102,7 @@ void SpriteBatch::Flush()
 	// 無効なハンドルの場合
 	if (!data)
 	{
+		DEBUG_LOG_WARNING("無効なハンドルでFlushしようとしました\n");
 		// ゴミを残さないためにnullの時はこのbatchを捨てて次へ行く
 		batchStart = spriteCounter;
 		return;

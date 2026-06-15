@@ -142,6 +142,15 @@ int main()
     Vector3 rotated = qMid.RotateVector(Vector3::Right);  // (1,0,0)を回転
     Check(NearEqual(rotated.x, 0.7071f) && NearEqual(rotated.z, 0.7071f), "Slerp中間値");
 
+    // 0除算による警告テスト
+    Vector2 aVec2{ 10.0f, 10.0f };
+    aVec2 /= 0.0f;
+    Vector3 aVec3{ 10.0f, 10.0f, 10.0f };
+    aVec3 /= 0.0f;
+    Vector4 aVec4{ 10.0f, 10.0f, 10.0f, 10.0f };
+    aVec4 /= 0.0f;
+
+
     std::cout << "\n" << passCount << "/" << testCount << " tests passed." << std::endl;
     return (passCount == testCount) ? 0 : 1;
 }

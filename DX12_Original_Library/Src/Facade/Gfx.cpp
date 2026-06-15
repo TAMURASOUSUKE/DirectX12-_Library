@@ -1,4 +1,5 @@
 ﻿#include "../Window/Window.h"
+#include "../Debug/DebugLogs.h"
 #include "../Graphics/GraphicsDevice.h"
 #include "../Graphics/DescriptorManager.h"
 #include "../Graphics/ShaderSystem.h"
@@ -43,10 +44,15 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 
 	window.SetWindowName(_title); // 名前設定
 	window.GenerateWindow(); // ウィンドウを作成
+	DEBUG_LOG_ERROR("ウィンドウ作成に失敗しました\n");
 	if (!window.GetHWND()) return false; // ウィンドウ作成失敗ならfalse
 
 	GraphicsDevice::Instance().Initialize(window.GetHWND(), _width, _height); // デバイスの初期化
-	if (!GraphicsDevice::Instance().GetDevice()) return false; // デバイス読み込み失敗したらfalse
+	if (!GraphicsDevice::Instance().GetDevice())
+	{
+		DEBUG_LOG_ERROR("デバイスの読み込みに失敗しました\n");
+		return false; // デバイス読み込み失敗したらfalse
+	}
 
 	DescriptorManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // ディスクリプタマネージャーをデバイスを使って初期化
 
@@ -54,35 +60,85 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 
 	// シェーダーのコンパイル(今はいったん仮で固定)
 	auto triangleVSBlob{ shaderSystem.Compile(L"../Src/Shaders/TriangleVS.hlsl", "main", "vs_5_0") }; // 三角形
-	if (!triangleVSBlob) return false; // 読み込み失敗したらfalse
+	if (!triangleVSBlob)
+	{
+		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/TriangleVS.hlsl");
+		return false; // 読み込み失敗したらfalse
+	}
 	auto textureVSBlob = shaderSystem.Compile(L"../Src/Shaders/TextureVS.hlsl", "main", "vs_5_0"); // テクスチャ
-	if (!textureVSBlob) return false; // 読み込み失敗したらfalse
+	if (!textureVSBlob)
+	{
+		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/TextureVS.hlsl");
+		return false; // 読み込み失敗したらfalse
+	}
 	auto trianglePSBlob{ shaderSystem.Compile(L"../Src/Shaders/TrianglePS.hlsl", "main", "ps_5_0") }; // 三角形
-	if (!trianglePSBlob) return false; // 読み込み失敗したらfalse
+	if (!trianglePSBlob)
+	{
+		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/TrianglePS.hlsl");
+		return false; // 読み込み失敗したらfalse
+	}
 	auto texturePSBlob = shaderSystem.Compile(L"../Src/Shaders/TexturePS.hlsl", "main", "ps_5_0"); // テクスチャ
-	if (!texturePSBlob) return false; // 読み込み失敗したらfalse
+	if (!texturePSBlob)
+	{
+		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", ".. / Src / Shaders / TexturePS.hlsl");
+		return false; // 読み込み失敗したらfalse
+	}
 	auto cubeVSBlob{ shaderSystem.Compile(L"../Src/Shaders/CubeVS.hlsl", "main", "vs_5_0") }; // キューブ
-	if (!cubeVSBlob) return false; // 読み込み失敗したらfalse
+	if (!cubeVSBlob)
+	{
+		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/CubeVS.hlsl");
+		return false; // 読み込み失敗したらfalse
+	}
 	auto cubePSBlob{ shaderSystem.Compile(L"../Src/Shaders/CubePS.hlsl", "main", "ps_5_0") }; // キューブ
-	if (!cubePSBlob) return false; // 読み込み失敗したらfalse
+	if (!cubePSBlob)
+	{
+		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/CubePS.hlsl");
+		return false; // 読み込み失敗したらfalse
+	}
 
-	triangleRootSignature =  shaderSystem.CreateDebugTriangleRootSignature(); // ルートシグネチャの作成
-	if (!triangleRootSignature) return false; // 読み込み失敗したらfalse
+	triangleRootSignature = shaderSystem.CreateDebugTriangleRootSignature(); // ルートシグネチャの作成
+	if (!triangleRootSignature)
+	{
+		DEBUG_LOG_ERROR("三角形ルートシグネチャの作成に失敗しました\n");
+		return false; // 作成失敗したらfalse
+
+	}
 
 	textureRootSignature = shaderSystem.CreateDebugTextureRootSignature(); // ルートシグネチャの作成
-	if (!textureRootSignature) return false;
+	if (!textureRootSignature)
+	{
+		DEBUG_LOG_ERROR("テクスチャルートシグネチャの作成に失敗しました\n");
+		return false;
+	}
 
 	cubeRootSignature = shaderSystem.CreateDebugCubeRootSignature(); // ルートシグネチャの作成
-	if (!cubeRootSignature) return false;
+	if (!cubeRootSignature)
+	{
+		DEBUG_LOG_ERROR("Cubeシグネチャの作成に失敗しました\n");
+		return false;
+	}
 
 	trianglePipelineState = shaderSystem.CreateDebugTriaglePipeLineState(triangleRootSignature.Get(), triangleVSBlob.Get(), trianglePSBlob.Get()); // パイプラインステートオブジェクトを作成
-	if (!trianglePipelineState) return false;
+	if (!trianglePipelineState)
+	{
+		DEBUG_LOG_ERROR("三角形PSOの作成に失敗しました\n");
+		return false;
+	}
+
 
 	texturePipelineState = shaderSystem.CreateDebugTexturePipeLineState(textureRootSignature.Get(), textureVSBlob.Get(), texturePSBlob.Get()); // パイプラインステートオブジェクトを作成
-	if (!texturePipelineState) return false;
+	if (!texturePipelineState)
+	{
+		DEBUG_LOG_ERROR("テクスチャPSOの作成に失敗しました\n");
+		return false;
+	}
 
 	cubePipelineState = shaderSystem.CreateDebugCubePipeLineState(cubeRootSignature.Get(), cubeVSBlob.Get(), cubePSBlob.Get()); // パイプラインステートオブジェクトを作成
-	if (!cubePipelineState) return false;
+	if (!cubePipelineState)
+	{
+		DEBUG_LOG_ERROR("テクスチャPSOの作成に失敗しました\n");
+		return false;
+	}
 
 	ResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
 
@@ -122,7 +178,7 @@ void GfxInternal::BeginFrame()
 
 	spriteBatch.Reset(); // カウンターリセット
 
-	auto cmdList{GraphicsDevice::Instance().GetCommandList()}; // コマンドリスト
+	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTV
 	auto dsv{ GraphicsDevice::Instance().GetDSV() };
 
@@ -134,7 +190,7 @@ void GfxInternal::BeginFrame()
 		0, // 全体クリア
 		0, // 全体クリア
 		nullptr // 全体クリア
-		);
+	);
 
 	// レンダーターゲット設定
 	cmdList->OMSetRenderTargets(1, &rtv, false, &dsv);

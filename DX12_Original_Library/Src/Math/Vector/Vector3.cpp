@@ -1,5 +1,6 @@
 ﻿#include <cmath>
 #include <algorithm>
+#include "../../Debug/DebugLogs.h"
 #include "../MathConstant.h"
 #include "Vector3.h"
 
@@ -165,6 +166,7 @@ Vector3 Vector3::operator /(const float _value) const
 {
 	if (_value == 0.0f)
 	{
+		DEBUG_LOG_WARNING("0除算しようとしました\n");
 		return Zero;
 	}
 	else
@@ -205,6 +207,7 @@ Vector3& Vector3::operator /=(const float _value)
 {
 	if (_value == 0.0f)
 	{
+		DEBUG_LOG_WARNING("0除算しようとしました\n");
 		x = 0.0f;
 		y = 0.0f;
 		z = 0.0f;

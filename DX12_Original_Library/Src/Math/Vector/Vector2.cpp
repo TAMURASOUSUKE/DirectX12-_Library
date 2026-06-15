@@ -1,5 +1,6 @@
 ﻿#include <cmath>
 #include <algorithm>
+#include "../../Debug/DebugLogs.h"
 #include "../MathConstant.h"
 #include "Vector2.h"
 
@@ -159,6 +160,7 @@ Vector2 Vector2::operator /(const float _value) const
 {
 	if (_value == 0.0f)
 	{
+		DEBUG_LOG_WARNING("0除算しようとしました\n");
 		return Zero;
 	}
 	else
@@ -196,6 +198,7 @@ Vector2& Vector2::operator /=(const float _value)
 {
 	if (_value == 0.0f)
 	{
+		DEBUG_LOG_WARNING("0除算しようとしました\n");
 		x = 0.0f;
 		y = 0.0f;
 	}

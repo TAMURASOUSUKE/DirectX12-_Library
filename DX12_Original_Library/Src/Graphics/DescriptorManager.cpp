@@ -1,4 +1,5 @@
-﻿#include "GraphicsConstant.h"
+﻿#include "../Debug/DebugLogs.h"
+#include "GraphicsConstant.h"
 #include "DescriptorManager.h"
 
 DescriptorManager::DescriptorManager()
@@ -42,6 +43,7 @@ void DescriptorManager::Initialize(ID3D12Device* _device)
 		
 		// 実際にヒープを生成していく
 		result = _device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&data[i].heap));
+		DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 		if (FAILED(result)) return; // 失敗したら終了
 
 		// ビュー一つ分のサイズを取得して格納
@@ -74,6 +76,7 @@ DescriptorHandle DescriptorManager::Allocate(HeapType _type)
 {
 	auto& h{ data[static_cast<int>(_type)] }; // 指定されたtypeのheapを取り出す
 
+	DEBUG_ASSERT(!h.freeList.empty());
 	if (h.freeList.empty()) return DescriptorHandle{}; // 配列が空ならデフォルトを返す
 
 	UINT index{ h.freeList.top() }; // スタックの頭にある値をインデックスとして扱う
@@ -106,6 +109,8 @@ void DescriptorManager::SetDiscriptor(ID3D12GraphicsCommandList* _cmdList)
 // ハンドルを戻す
 void DescriptorManager::Free(HeapType _type, const DescriptorHandle& _handle)
 {
+	if (!_handle.IsValid()) return; // 無効はfreelistを汚すのではじく(失敗リソースの後でfreeすることもあるのでここはスキップ)
+	DEBUG_ASSERT(_handle.index < data[static_cast<int>(_type)].slotCount); // ハンドルが範囲内かチェック
 	// インデックスをスタックに戻す
 	data[static_cast<int>(_type)].freeList.push(_handle.index);
 }

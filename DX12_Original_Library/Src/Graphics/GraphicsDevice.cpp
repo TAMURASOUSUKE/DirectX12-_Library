@@ -1,4 +1,6 @@
-﻿#include "GraphicsDevice.h"
+﻿#include <iostream>
+#include "../Debug/DebugLogs.h"
+#include "GraphicsDevice.h"
 
 // インスタンス生成関数
 GraphicsDevice& GraphicsDevice::Instance()
@@ -30,16 +32,19 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 
 	HRESULT result{}; // 戻り値確認用
 	result = CreateDXGIFactory2(dxgiFlags, IID_PPV_ARGS(&factory));
-	if (FAILED(result)) return; // 失敗したら終わる
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
+	if (FAILED(result)) return; // Release時でも失敗したら終わる
 
 	// adapter選択とDeviceの作成
 	// adapter = どのGPUを使うかの窓口
 	ComPtr<IDXGIAdapter1> adapter; // アダプター
 	result =  factory->EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adapter)); // 一番性能の高いGPUを取得する(0番目、性能の高い順)
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return; // 失敗したら終わる
 
 	// デバイスの作成
 	result = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device));
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return; // 失敗したら終わる
 
 	// コマンドキューの作成
@@ -49,6 +54,7 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 
 	// 実際の作成
 	result = device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&cmdQueue));
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return;
 
 	// スワップチェーンの作成
@@ -64,10 +70,14 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 	// スワップチェーンの作成関数はIDXGISwapChain1を返すがメンバは4のためAsで変換する
 	ComPtr<IDXGISwapChain1> swapChain1{};
 	result = factory->CreateSwapChainForHwnd(cmdQueue.Get(), _hwnd, &scDesc, nullptr, nullptr, &swapChain1);
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return;
 
 	// 4型にcast
-	swapChain1.As(&swapChain);
+	result = swapChain1.As(&swapChain);
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
+	if (FAILED(result)) return;
+
 	// 現在のバッファ番号を取得
 	currentFrameIndex = swapChain->GetCurrentBackBufferIndex();
 
@@ -81,6 +91,7 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 
 	// ディスクリプタヒープの実際の作成
 	result = device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap));
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return;
 
 	// ディスクリプタ一つ分のサイズを取得
@@ -93,6 +104,7 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 	{
 		// バックバッファの取得
 		result = swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffers[i]));
+		DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 		if (FAILED(result)) return;
 
 		// RTVの作成
@@ -109,6 +121,7 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // GPU非可視
 
 	result = device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&dsvHeap));
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return;
 	
 	D3D12_HEAP_PROPERTIES dsvHeapProperties{}; // 頂点ヒープの設定
@@ -133,6 +146,7 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 	dsvClearValue.DepthStencil.Stencil = 0;
 
 	result = device->CreateCommittedResource(&dsvHeapProperties, D3D12_HEAP_FLAG_NONE, &dsvResourceDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &dsvClearValue, IID_PPV_ARGS(&dsvResource)); // 書き込みかつ深度クリアを入れる
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return;
 
 	// 深度バッファ用ヒープの先頭ハンドルを取得
@@ -146,11 +160,13 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 			フレームごと交互に書き込みと実行ができるようにアロケーターは2つ用意する
 		*/
 		result = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAllocators[i]));
+		DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 		if (FAILED(result)) return;
 	}
 
 	// コマンドリストの作成(最初のアロケーターと紐づけて1つだけ)
 	result = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmdAllocators[0].Get(), nullptr, IID_PPV_ARGS(&cmdList)); // 初期PSOは後で設定するのでnullptr
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return;
 	// コマンドリストは記録状態で生まれるがBeginFrameの最初にResetから始めたいためCloseしておく
 	cmdList->Close(); // 閉じる
@@ -162,6 +178,7 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 	}
 	// フェンスの作成
 	result = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return;
 }
 
@@ -173,6 +190,7 @@ void GraphicsDevice::Shutdown()
 	if (fence->GetCompletedValue() < fenceValueCounter)
 	{
 		HANDLE event{ CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS) };
+		DEBUG_ASSERT(event != nullptr); // デバッグ時失敗したら場所を知らせる
 		if (!event) return; // nullチェック
 		fence->SetEventOnCompletion(fenceValueCounter, event);
 		WaitForSingleObject(event, INFINITE);
@@ -231,7 +249,7 @@ void GraphicsDevice::EndFrame()
 	cmdQueue->ExecuteCommandLists(1, cmdLists);
 
 	// バッファ交換を行う(Present)
-	swapChain->Present(1, 0); // 第一引数 : VSyncの間隔(1 = 60fps同期)
+	swapChain->Present(1, 0); // 第一引数 : VSyncの間隔(1 = 60fps同期) 今後この戻り値はassert候補
 
 	// フェンスシグナルを出す(このフレームの命令が全て終わったらカウンタをこの値にしろという命令)
 	fenceValues[currentFrameIndex] = ++fenceValueCounter;
