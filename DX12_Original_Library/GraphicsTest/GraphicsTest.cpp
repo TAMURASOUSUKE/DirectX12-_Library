@@ -70,7 +70,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		//// スプライトバッチテスト
-		// Gfx::DrawSprite(background, Vector2{ 0.0f, 0.0f }, Vector2{ 1280.0f, 720.0f });
+		 Gfx::DrawSprite(background, Vector2{ 0.0f, 0.0f }, Vector2{ 1280.0f, 720.0f }, 0.0f, LenderLayer::BackGround);
 		//for (int i = 0; i < 10000; i++)
 		//{
 		//	float offset{ i * 10.0f };

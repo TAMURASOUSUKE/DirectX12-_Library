@@ -18,8 +18,8 @@ namespace Gfx
 	void DrawTexture(); 
 	// Cube描画(角度を渡すデフォルトは0°)
 	void DrawCube(Vector3 _angle = Vector3::Zero);
-	// スプライト描画(位置、サイズ、画像, 回転角度(ラジアンかつデフォルトは0))
-	void DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation = 0.0f);
+	// スプライト描画(位置、サイズ、画像, 回転角度(ラジアンかつデフォルトは0), 描画するレイヤー(デフォルトは通常 = 3Dより手前))
+	void DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation = 0.0f, LenderLayer _layer = LenderLayer::ForeGround);
 	// テクスチャリソースの解放
 	void Unload(TexHandle _handle);
 }

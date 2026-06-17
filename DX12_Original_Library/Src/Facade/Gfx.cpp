@@ -9,6 +9,7 @@
 #include "../Graphics/DrawDebug/DebugTriangle.h"
 #include "../Graphics/DrawDebug/DebugQuad.h"
 #include "../Graphics/DrawDebug/DebugCube.h"
+#include "../Graphics/GPUMarker.h"
 #include "../Math/TSMath.h"
 #include "../Graphics/GraphicsType.h"
 #include "GfxInternal.h" // 外部公開しないもの
@@ -28,7 +29,8 @@ namespace {
 	ComPtr<ID3D12PipelineState> trianglePipelineState; // 三角形用パイプラインステートオブジェクト
 	ComPtr<ID3D12PipelineState> texturePipelineState; // テクスチャ用パイプラインステートオブジェクト
 	ComPtr<ID3D12PipelineState> cubePipelineState; // キューブ用パイプラインステートオブジェクト
-	SpriteBatch spriteBatch; // スプライトバッチ処理
+	SpriteBatch fgBatch; // 手前のスプライトバッチ処理
+	SpriteBatch bgBatch; // 背景のスプライトバッチ処理
 	DebugTriangle triangle; // 三角形描画
 	DebugQuad quad; // テクスチャ描画
 	DebugCube cube; // キューブ描画
@@ -151,7 +153,8 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	mvpRingCBV.Initialize(sizeof(Mat4x4)); // リングバッファ初期化
 
 	// スプライトバッチ処理初期化
-	spriteBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), orthConstantBufferData.resource.Get());
+	fgBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), orthConstantBufferData.resource.Get());
+	bgBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), orthConstantBufferData.resource.Get());
 
 	triangle.Initialize();  // 三角形描画用ファイルの初期化
 	quad.Initialize(); // テクスチャ描画用ファイルの初期化
@@ -176,7 +179,9 @@ void GfxInternal::BeginFrame()
 {
 	GraphicsDevice::Instance().BeginFrame(); // フレームの最初の処理
 
-	spriteBatch.Reset(); // カウンターリセット
+	// batch処理のカウンターリセット
+	bgBatch.Reset();
+	fgBatch.Reset(); 
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTV
@@ -218,7 +223,11 @@ void GfxInternal::BeginFrame()
 // フレーム終了処理
 void GfxInternal::EndFrame()
 {
-	spriteBatch.Flush(); // Spritebatch描画
+	// Spritebatch描画
+	GPU_MARKER("backGround");
+	bgBatch.Flush(); 
+	GPU_MARKER("foreGround");
+	fgBatch.Flush();
 	GraphicsDevice::Instance().EndFrame(); // フレームの最後の処理
 }
 
@@ -261,6 +270,8 @@ void Gfx::DrawTexture()
 
 void Gfx::DrawCube(Vector3 _angle)
 {
+	GPU_MARKER("backGround");
+	bgBatch.Flush(); // 背景の上に来るように3D描画前には背景batchをFlushする
 	cube.SetRotation(_angle);
 	mvpMat = cube.GetWorldMat() * vpMat; // mvp行列
 	mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)); // 定数バッファの更新
@@ -271,9 +282,19 @@ void Gfx::DrawCube(Vector3 _angle)
 }
 
 // 画像登録
-void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation)
+void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation, LenderLayer _layer)
 {
-	spriteBatch.RegisterSprite(_texture, _position, _size, _radRotation);
+	switch (_layer)
+	{
+	case LenderLayer::BackGround:
+		bgBatch.RegisterSprite(_texture, _position, _size, _radRotation);
+		break;
+	case LenderLayer::ForeGround:
+		fgBatch.RegisterSprite(_texture, _position, _size, _radRotation);
+		break;
+	default:
+		break;
+	}
 }
 
 // 解放
