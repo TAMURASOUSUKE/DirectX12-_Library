@@ -20,7 +20,6 @@ public:
 		return instance;
 	}
 
-
 	// 初期化処理
 	void Initialize(ID3D12Device* _device);
 

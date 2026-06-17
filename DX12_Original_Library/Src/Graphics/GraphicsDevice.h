@@ -3,6 +3,7 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <wrl/client.h>
+#include <functional>
 #include "GraphicsConstant.h"
 using Microsoft::WRL::ComPtr;
 
@@ -47,6 +48,9 @@ private:
 	// コピーの禁止
 	GraphicsDevice(const GraphicsDevice&) = delete;
 	GraphicsDevice& operator=(const GraphicsDevice&) = delete;
+
+	// ヘルパー
+	HRESULT ExecuteUpdate(std::function<void(ID3D12GraphicsCommandList*)> _recode); // アップロードヘルパー
 
 private:
 	// GPUとの接続
