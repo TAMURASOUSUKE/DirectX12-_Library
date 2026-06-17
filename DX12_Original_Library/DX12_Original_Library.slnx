@@ -6,4 +6,5 @@
   <Project Path="DX12_Original_Library.vcxproj" Id="52cb1240-45e6-4b46-88fa-14088c51322a" />
   <Project Path="GraphicsTest/GraphicsTest.vcxproj" Id="806203b0-000e-4855-a108-20e1e4333790" />
   <Project Path="MathTest/MathTest.vcxproj" Id="89e6f130-5fbf-4caa-8763-de78e013c946" />
+  <Project Path="Src/External/DirectXTex/DirectXTex_Desktop_2022_Win10.vcxproj" Id="371b9fa9-4c90-4ac6-a123-aced756d6c77" />
 </Solution>

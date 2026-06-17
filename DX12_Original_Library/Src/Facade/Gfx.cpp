@@ -181,7 +181,7 @@ void GfxInternal::BeginFrame()
 
 	// batch処理のカウンターリセット
 	bgBatch.Reset();
-	fgBatch.Reset(); 
+	fgBatch.Reset();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTV
@@ -224,10 +224,15 @@ void GfxInternal::BeginFrame()
 void GfxInternal::EndFrame()
 {
 	// Spritebatch描画
-	GPU_MARKER("backGround");
-	bgBatch.Flush(); 
-	GPU_MARKER("foreGround");
-	fgBatch.Flush();
+	{
+		GPU_MARKER("backGround");
+		bgBatch.Flush();
+	}
+
+	{
+		GPU_MARKER("foreGround");
+		fgBatch.Flush();
+	}
 	GraphicsDevice::Instance().EndFrame(); // フレームの最後の処理
 }
 
@@ -270,8 +275,11 @@ void Gfx::DrawTexture()
 
 void Gfx::DrawCube(Vector3 _angle)
 {
-	GPU_MARKER("backGround");
-	bgBatch.Flush(); // 背景の上に来るように3D描画前には背景batchをFlushする
+	{
+		// マクロがスコープを抜けるとEndEventするので囲う
+		GPU_MARKER("backGround");
+		bgBatch.Flush(); // 背景の上に来るように3D描画前には背景batchをFlushする
+	}
 	cube.SetRotation(_angle);
 	mvpMat = cube.GetWorldMat() * vpMat; // mvp行列
 	mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)); // 定数バッファの更新
