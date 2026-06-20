@@ -1,4 +1,5 @@
-﻿#include "../Window/Window.h"
+﻿#include "../External/Common/d3dx12.h"
+#include "../Window/Window.h"
 #include "../Debug/DebugLogs.h"
 #include "../Graphics/GraphicsDevice.h"
 #include "../Graphics/DescriptorManager.h"
@@ -41,13 +42,24 @@ namespace {
 // 初期化処理(これを呼ぶだけで初期化処理が済むようにする)
 bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 {
+	HRESULT result{};
+	result = CoInitializeEx(nullptr, COINIT_MULTITHREADED); // COMを初期化
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		return false;
+	}
+
 	screenWidth = _width;
 	screenHeight = _height;
 
 	window.SetWindowName(_title); // 名前設定
 	window.GenerateWindow(); // ウィンドウを作成
-	DEBUG_LOG_ERROR("ウィンドウ作成に失敗しました\n");
-	if (!window.GetHWND()) return false; // ウィンドウ作成失敗ならfalse
+	if (!window.GetHWND())
+	{
+		DEBUG_LOG_ERROR("ウィンドウ作成に失敗しました\n");
+		return false; // ウィンドウ作成失敗ならfalse
+	}
 
 	GraphicsDevice::Instance().Initialize(window.GetHWND(), _width, _height); // デバイスの初期化
 	if (!GraphicsDevice::Instance().GetDevice())
@@ -241,6 +253,7 @@ void GfxInternal::Finish()
 {
 	DescriptorManager::Instance().Shutdown();
 	GraphicsDevice::Instance().Shutdown();
+	CoUninitialize(); // COMも閉じる
 }
 
 // 描画先をクリアする(色指定可能)

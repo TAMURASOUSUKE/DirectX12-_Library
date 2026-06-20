@@ -40,13 +40,15 @@ void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _
 {
 	if (!_handle.IsValid())
 	{
-		DEBUG_LOG_WARNING("無効ハンドルが渡されました\n");
+		// DEBUG_LOG_WARNING("無効ハンドルが渡されました\n");
+		// 現状単一スレッドのためAssertにしているがマルチスレッドにしたらそれ専用の待機にする
+		DEBUG_ASSERT(_handle.IsValid());
 		return; // 無効ハンドルか
 	}
 
 	if (spriteCounter >= MAX_SPRITE_COUNT)
 	{
-		DEBUG_LOG_WARNING("最大画像数を超過しました\n");
+		droppedCounter++; // あふれているならカウントする
 		return; // 限界を超えているならreturn
 	}
 	
@@ -78,62 +80,64 @@ void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _
 		leftDown = leftDown + center;
 	}
 
-	// 現在のテクスチャと異なるなら
-	if (currentBatchingTexture != _handle)
-	{
-		Flush();
-	}
-
 	TexVertex* vertices{ static_cast<TexVertex*>(vertBuffer.mappedPtr) }; // マップされたポインタにアクセスするためにキャスト
 	vertices[spriteCounter * 4 + 0] = { {leftUp.x, leftUp.y, 0.0f}, {0.0f, 0.0f} }; // 左上
 	vertices[spriteCounter * 4 + 1] = { {rightUp.x, rightUp.y, 0.0f}, {1.0f, 0.0f} }; // 右上
 	vertices[spriteCounter * 4 + 2] = { {rightDown.x, rightDown.y, 0.0f}, {1.0f, 1.0f} }; // 右下
 	vertices[spriteCounter * 4 + 3] = { {leftDown.x, leftDown.y, 0.0f}, {0.0f, 1.0f} }; // 左下
+
+	// run(描画順)を管理する
+	if (runs.empty() || runs.back().tex != _handle)
+	{
+		// 配列が空もしくは一番最後のハンドルが登録しようとしているハンドルと異なるなら
+		runs.push_back({_handle, spriteCounter, 1});
+	}
+	else
+	{
+		// 同一テクスチャならカウントを増やす
+		runs.back().count++;
+	}
+
 	spriteCounter++; // カウンターを増加する
-	currentBatchingTexture = _handle;
 }
 
 void SpriteBatch::Flush()
 {
-	if (spriteCounter == batchStart) return; // 登録されている画像数がbatch開始位置とかぶっているなら即retrun
+	if (runs.empty()) return; // 何もなければパイプライン設定などもせずに即return
 
-	TextureData* data{ ResourceManager::Instance().Lookup(currentBatchingTexture) }; // 現在のハンドル内のデータ取り出し
-
-	// 無効なハンドルの場合
-	if (!data)
-	{
-		DEBUG_LOG_WARNING("無効なハンドルでFlushしようとしました\n");
-		// ゴミを残さないためにnullの時はこのbatchを捨てて次へ行く
-		batchStart = spriteCounter;
-		return;
-	}
+	auto* cmd{GraphicsDevice::Instance().GetCommandList()}; // コマンドリストをキャッシュ
 
 	// パイプライン設定
-	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(rootSig);
-	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(1, gpuVirtualAddres->GetGPUVirtualAddress());
-	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(pipelineState);
+	cmd->SetGraphicsRootSignature(rootSig);
+	cmd->SetGraphicsRootConstantBufferView(1, gpuVirtualAddres->GetGPUVirtualAddress());
+	cmd->SetPipelineState(pipelineState);
 
 	// SRVが入っているDescriptorHeapをGPUにセットする
-	DescriptorManager::Instance().SetDiscriptor(GraphicsDevice::Instance().GetCommandList());
-
-	// ルートシグネチャの0番にテクスチャのGPUハンドルをセット
-	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootDescriptorTable(0, data->srvHandle.gpu);
+	DescriptorManager::Instance().SetDiscriptor(cmd);
 
 	// 入力アセンブラを設定
-	GraphicsDevice::Instance().GetCommandList()->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // リスト設定
-	GraphicsDevice::Instance().GetCommandList()->IASetVertexBuffers(0, 1, &vertBuffer.vertexView);
-	GraphicsDevice::Instance().GetCommandList()->IASetIndexBuffer(&indexBuffer.indexView);
+	cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // リスト設定
+	cmd->IASetVertexBuffers(0, 1, &vertBuffer.vertexView);
+	cmd->IASetIndexBuffer(&indexBuffer.indexView);
 
-	// インデックス描画(登録されているインデックス分だけ描画)
-	GraphicsDevice::Instance().GetCommandList()->DrawIndexedInstanced((spriteCounter - batchStart) * 6, 1, 0, batchStart * 4, 0);
+	// ランごとにSRVの差し替えとDrawを行う
+	for (const DrawRun& run : runs)
+	{
+		TextureData* data{ ResourceManager::Instance().Lookup(run.tex) }; // ハンドルを分解して保持
+		if (!data) continue; // 無効ハンドルはスキップ
+		cmd->SetGraphicsRootDescriptorTable(0, data->srvHandle.gpu); // ルートシグネチャの0番にテクスチャのGPUハンドルをセット
+		cmd->DrawIndexedInstanced(run.count * 6, 1, 0, run.startSprite * 4, 0); // 区間情報から描画位置を特定して描画する
+	}
 
-	// 画像を切り替えたときに頂点を上書きしないようにするためにbatchのスタート位置を決定する
-	batchStart = spriteCounter;
+	runs.clear(); // 消費したのでクリアする
+
 }
 
 // 0リセットを入れる
 void SpriteBatch::Reset()
 {
+	if (droppedCounter > 0) DEBUG_LOG_WARNING("画像最大描画数を超過しました 超過枚数 : {}", droppedCounter);
 	spriteCounter = 0;
-	batchStart = 0;
+	droppedCounter = 0;
+	runs.clear(); // Flushで空になるがFlushなしで終わるケースの保険とする
 }

@@ -7,9 +7,6 @@
 #include "GraphicsConstant.h"
 using Microsoft::WRL::ComPtr;
 
-#pragma comment(lib, "d3d12.lib")
-#pragma comment(lib, "dxgi.lib")
-
 // DX12の初期化や終了処理、フレームの最初の処理と最後の処理を担当する
 class GraphicsDevice
 {
@@ -41,6 +38,8 @@ public:
 	// 現在のフレームインデックスを取得する
 	UINT GetCurrentFrameIndex() const;
 
+	// ヘルパー
+	HRESULT ExecuteUpdate(std::function<void(ID3D12GraphicsCommandList*)> _recode); // アップロードヘルパー
 
 private:
 	GraphicsDevice() = default; // 内部でのみのインスタンス
@@ -48,9 +47,6 @@ private:
 	// コピーの禁止
 	GraphicsDevice(const GraphicsDevice&) = delete;
 	GraphicsDevice& operator=(const GraphicsDevice&) = delete;
-
-	// ヘルパー
-	HRESULT ExecuteUpdate(std::function<void(ID3D12GraphicsCommandList*)> _recode); // アップロードヘルパー
 
 private:
 	// GPUとの接続

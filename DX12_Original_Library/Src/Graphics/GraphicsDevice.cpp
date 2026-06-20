@@ -1,6 +1,8 @@
-﻿#include <iostream>
-#include "../Debug/DebugLogs.h"
+﻿#include "../Debug/DebugLogs.h"
 #include "GraphicsDevice.h"
+
+#pragma comment(lib, "d3d12.lib")
+#pragma comment(lib, "dxgi.lib")
 
 // インスタンス生成関数
 GraphicsDevice& GraphicsDevice::Instance()
@@ -44,6 +46,14 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 
 	// デバイスの作成
 	result = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device));
+//#ifdef _DEBUG
+//	ComPtr<ID3D12InfoQueue> infoQueue;
+//	if (SUCCEEDED(device.As(&infoQueue)))
+//	{
+//		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+//		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+//	}
+//#endif
 	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return; // 失敗したら終わる
 
