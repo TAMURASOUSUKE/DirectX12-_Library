@@ -74,10 +74,10 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)Src\Math\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Src\Math\;$(SolutionDir)Src\External\DirextXTex\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <UseStandardPreprocessor>true</UseStandardPreprocessor>
     </ClCompile>
     <Link>
@@ -94,7 +94,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)Src\Math\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Src\Math\;$(SolutionDir)Src\External\DirextXTex\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <UseStandardPreprocessor>true</UseStandardPreprocessor>
     </ClCompile>
     <Link>
@@ -106,10 +106,10 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)Src\Math\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Src\Math\;$(SolutionDir)Src\External\DirextXTex\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <UseStandardPreprocessor>true</UseStandardPreprocessor>
     </ClCompile>
     <Link>
@@ -126,7 +126,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)Src\Math\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Src\Math\;$(SolutionDir)Src\External\DirextXTex\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <UseStandardPreprocessor>true</UseStandardPreprocessor>
     </ClCompile>
     <Link>
@@ -149,6 +149,7 @@
     <ClInclude Include="Src\Graphics\DrawDebug\DebugCube.h" />
     <ClInclude Include="Src\Graphics\DrawDebug\DebugQuad.h" />
     <ClInclude Include="Src\Graphics\DrawDebug\DebugTriangle.h" />
+    <ClInclude Include="Src\Graphics\GPUMarker.h" />
     <ClInclude Include="Src\Graphics\GraphicsConstant.h" />
     <ClInclude Include="Src\Graphics\GraphicsDevice.h" />
     <ClInclude Include="Src\Graphics\GraphicsType.h" />
@@ -189,6 +190,7 @@
     <ClCompile Include="Src\Graphics\DrawDebug\DebuCube.cpp" />
     <ClCompile Include="Src\Graphics\DrawDebug\DebugQuad.cpp" />
     <ClCompile Include="Src\Graphics\DrawDebug\DebugTriangle.cpp" />
+    <ClCompile Include="Src\Graphics\GPUMarker.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />
     <ClCompile Include="Src\Graphics\ResourceManager.cpp" />
     <ClCompile Include="Src\Graphics\RingConstantBuffer.cpp" />

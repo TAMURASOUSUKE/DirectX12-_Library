@@ -1,5 +1,5 @@
-﻿#include <iostream>
-#include "../ResourceManager.h"
+﻿#include "../ResourceManager.h"
+#include "../GPUMarker.h"
 #include "../GraphicsConstant.h"
 #include "DebugCube.h"
 
@@ -58,6 +58,7 @@ void DebugCube::Initialize()
 
 void DebugCube::Draw(ID3D12GraphicsCommandList* _cmdList)
 {
+	GPU_MARKER("cube");
 	if (_cmdList == nullptr) return;
 
 	// 入力アセンブラを設定

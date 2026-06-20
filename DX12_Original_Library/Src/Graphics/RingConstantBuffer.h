@@ -22,7 +22,7 @@ private:
 private:
 	ComPtr<ID3D12Resource> resource; // リソース本体
 	void* baseCPUPtr{ nullptr }; // マップした時のベースとなるCPUアドレス
-	D3D12_GPU_VIRTUAL_ADDRESS baseGPUVA; // ベースとなるGPUの仮想アドレス
-	UINT alignedSize; // スライス幅(256境界対応)
+	D3D12_GPU_VIRTUAL_ADDRESS baseGPUVA{}; // ベースとなるGPUの仮想アドレス
+	UINT alignedSize{ 0 }; // スライス幅(256境界対応)
 
 };

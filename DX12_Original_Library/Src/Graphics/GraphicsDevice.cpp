@@ -1,6 +1,8 @@
-﻿#include <iostream>
-#include "../Debug/DebugLogs.h"
+﻿#include "../Debug/DebugLogs.h"
 #include "GraphicsDevice.h"
+
+#pragma comment(lib, "d3d12.lib")
+#pragma comment(lib, "dxgi.lib")
 
 // インスタンス生成関数
 GraphicsDevice& GraphicsDevice::Instance()
@@ -44,6 +46,14 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 
 	// デバイスの作成
 	result = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device));
+//#ifdef _DEBUG
+//	ComPtr<ID3D12InfoQueue> infoQueue;
+//	if (SUCCEEDED(device.As(&infoQueue)))
+//	{
+//		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+//		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+//	}
+//#endif
 	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return; // 失敗したら終わる
 
@@ -286,4 +296,92 @@ D3D12_CPU_DESCRIPTOR_HANDLE GraphicsDevice::GetDSV() const
 UINT GraphicsDevice::GetCurrentFrameIndex() const
 {
 	return currentFrameIndex;
+}
+
+// ヘルパー
+HRESULT GraphicsDevice::ExecuteUpdate(std::function<void(ID3D12GraphicsCommandList*)> _recode)
+{
+	// nullかチェックする
+	DEBUG_ASSERT(_recode != nullptr);
+	if (!_recode)
+	{
+		return E_INVALIDARG;
+	}
+
+	// 結果用変数
+	HRESULT result{};
+
+	// AllocatorReser
+	result = cmdAllocators[currentFrameIndex]->Reset();
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		// 失敗はそのまま返す
+		return result;
+	} 
+
+	// CommandListを開く
+	result = cmdList->Reset(cmdAllocators[currentFrameIndex].Get(), nullptr);
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		return result;
+	}
+
+	// 呼び出し側にコピー命令とバリアを積ませる
+	_recode(cmdList.Get());
+
+	// commandListを閉じる
+	result = cmdList->Close();
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		return result;
+	}
+
+	// GPUに投げる
+	ID3D12CommandList* commandLists[]{ cmdList.Get() };
+	cmdQueue->ExecuteCommandLists(1, commandLists);
+
+	// この単発アップロード命令の完了フェンス値
+	const UINT64 uploadFenceValue{ ++fenceValueCounter };
+
+	result = cmdQueue->Signal(fence.Get(), uploadFenceValue);
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		return result;
+	}
+
+	// 即時待機
+	if (fence->GetCompletedValue() < uploadFenceValue)
+	{
+		HANDLE event{ CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS) }; // 待機用のイベントオブジェクト
+		if (!event)
+		{
+			DEBUG_LOG_WARNING("イベント作成に失敗しました\n");
+			return HRESULT_FROM_WIN32(GetLastError()); // WindowsのエラーをHRESULTに変換
+		}
+
+		// フェンス値に到達するかチェック
+		result = fence->SetEventOnCompletion(uploadFenceValue, event);
+		if (FAILED(result))
+		{
+			DEBUG_LOG_WARNING("登録に失敗しました\n");
+			CloseHandle(event);
+			return result;
+		}
+
+		DWORD waitResult{ WaitForSingleObject(event, INFINITE) }; // CPU待機
+		CloseHandle(event); // 待ち終わったら閉じる
+
+		// 待機チェック
+		if (waitResult != WAIT_OBJECT_0)
+		{
+			DEBUG_LOG_WARNING("待機が成功しませんでした\n");
+			return HRESULT_FROM_WIN32(GetLastError());
+		}
+	}
+
+	return S_OK; // ここまで来たら成功を返す
 }

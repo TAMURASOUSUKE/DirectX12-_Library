@@ -1,8 +1,16 @@
-﻿#include "../External/stb_image.h"
+﻿#define INITGUID
+
+#include <filesystem>
+#include "../External/Common/d3dx12.h"
+#include "../External/DirectXTex/DirectXTex.h"
 #include"../Debug/DebugLogs.h"
 #include "../Core/Handle/HandleConstant.h"
+#include "GraphicsDevice.h"
 #include "DescriptorManager.h"
 #include "ResourceManager.h"
+
+#pragma comment(lib, "windowscodecs.lib") // WIC（LoadFromWICFile）
+#pragma comment(lib, "ole32.lib")        // COM（CoInitializeEx / CoCreateInstance）
 
 void ResourceManager::Initialize(ID3D12Device* _device)
 {
@@ -198,91 +206,95 @@ ConstantBufferData ResourceManager::CreateConstantBuffer(const void* _data, UINT
 // 画像の読み込み
 TexHandle ResourceManager::LoadTexture(const char* _filePath)
 {
-	TextureData texData{};
+
+	// DirectXTexを用いたテクスチャロード
+	ID3D12Device* device{ GraphicsDevice::Instance().GetDevice() };
 	HRESULT result{}; // 結果判定用
 
-	// 画像を読み込む
-	int width{ 0 }; // 横幅
-	int height{ 0 }; // 縦幅
-	int channels{ 0 }; // 色の構成要素数
-
-	unsigned char* pixels{ stbi_load(_filePath, &width, &height, &channels, 4) }; // 各変数にピクセルの幅等を格納していく(色は強制的にRGBAの4チャンネル)
-	if (!pixels)
-	{
-		DEBUG_LOG_WARNING("ロード失敗 ファイル : {}\n", _filePath);
-		return TexHandle(); // -1を返す(失敗時)
-	}
-
-	// サイズを代入
-	texData.width = width;
-	texData.height = height;
-
-	// ヒープの設定
-	D3D12_HEAP_PROPERTIES heapProps{};
-	heapProps.Type = D3D12_HEAP_TYPE_CUSTOM; // カスタムに設定する
-	heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK; // ライトバック
-	heapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_L0; // L0(CPU)から転送を行う
-
-	// リソースの設定
-	D3D12_RESOURCE_DESC resDesc{};
-	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; // RGBAフォーマット
-	resDesc.Width = texData.width;
-	resDesc.Height = texData.height;
-	resDesc.DepthOrArraySize = 1; // 2Dかつ配列でないため
-	resDesc.SampleDesc.Count = 1; // アンチエイリアシングしない
-	resDesc.SampleDesc.Quality = 0; // クオリティは最低
-	resDesc.MipLevels = 1; // ミップマップはしないのでミップ数は一つ
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D; // 2Dテクスチャ用
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN; // 決定しない
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE; // フラグもなし
-
-	// リソースの作成
-	result = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr, IID_PPV_ARGS(&texData.resource));
-
-	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
-	// 失敗処理
+	// WICでCPUに読み込む
+	std::filesystem::path path(_filePath); // std::filesystem::pathの一次オブジェクトから.c_str()をとるとタングリングするのでローカル保持する
+	DirectX::TexMetadata metaData{}; // 画像のメタデータ
+	DirectX::ScratchImage scratch{}; // 画像管理クラス
+	result = DirectX::LoadFromWICFile(path.c_str(), DirectX::WIC_FLAGS_NONE, &metaData, scratch);
+	DEBUG_ASSERT(SUCCEEDED(result));
 	if (FAILED(result))
 	{
-		stbi_image_free(pixels);
-		return TexHandle();
+		return TexHandle{}; // 空を返す
 	}
 
-	// 書き込む範囲を作成する
-	D3D12_BOX box{ 0, 0, 0, static_cast<UINT>(width), static_cast<UINT>(height), 1 };
-	// データ転送
-	result = texData.resource->WriteToSubresource(
-		0, // サブリソース番号
-		&box, // 書き込む範囲
-		pixels, // ピクセルデータ
-		width * 4, // 1行のバイト数(width * RGBA)
-		width * height * 4 // 全体のバイト数
-	);
-
-	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
-	// 失敗処理
+	// Defaultヒープに空のテクスチャを作る(CreateTextureは非Xbox環境の場合はCOMMONで返す。formatはmetadataのものを保持する)
+	ComPtr<ID3D12Resource> texResource;
+	result = DirectX::CreateTexture(device, metaData, texResource.GetAddressOf());
+	DEBUG_ASSERT(SUCCEEDED(result));
 	if (FAILED(result))
 	{
-		stbi_image_free(pixels);
-		return TexHandle();
-	}
-
-	// SRVを作成する
-	DescriptorHandle srvHandle{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // SRVのハンドルを取得する
-	if (!srvHandle.IsValid())
-	{
-		DEBUG_LOG_ERROR("ディスクリプタヒープが空です : {}\n", _filePath);
-		stbi_image_free(pixels); // ピクセル解放
 		return TexHandle{};
 	}
 
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{}; // SRV設定構造体
-	srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Texture2D.MipLevels = 1;
-	device->CreateShaderResourceView(texData.resource.Get(), &srvDesc, srvHandle.cpu);
+	// UpdateSubResourceヘ渡せる形へ変換(mip/面ごとに1要素のsubresource配列)
+	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
+	result = DirectX::PrepareUpload(device, scratch.GetImages(), scratch.GetImageCount(), metaData, subresources);
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		return TexHandle{};
+	}
 
-	texData.srvHandle = srvHandle;
+	// Uploadバッファを確保する必要なバイト数はd3dx12のヘルパから
+	const UINT64 uploadSize{ GetRequiredIntermediateSize(texResource.Get(), 0, static_cast<UINT>(subresources.size())) };
+
+	ComPtr<ID3D12Resource> uploadBuffer;
+	CD3DX12_HEAP_PROPERTIES uploadHeap(D3D12_HEAP_TYPE_UPLOAD);
+	CD3DX12_RESOURCE_DESC bufDesc{ CD3DX12_RESOURCE_DESC::Buffer(uploadSize) };
+	result = device->CreateCommittedResource(&uploadHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer));
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		return TexHandle{};
+	}
+
+	// アップロードを行う。recode変数にコピーとバリアを積む
+	result = GraphicsDevice::Instance().ExecuteUpdate
+	(
+		[&](ID3D12GraphicsCommandList* _cmd)
+		{
+			// コピーを積む(非Xbox環境なのでCommonが来るが暗黙昇格でCOPY_DESTになる)
+			UpdateSubresources(_cmd, texResource.Get(), uploadBuffer.Get(), 0, 0, static_cast<UINT>(subresources.size()), subresources.data());
+		
+			// バリアを使ってDESTからPIXEL_SHADER_RESOURCEへ遷移
+			D3D12_RESOURCE_BARRIER barrier{ CD3DX12_RESOURCE_BARRIER::Transition(texResource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE) };
+			_cmd->ResourceBarrier(1, &barrier);
+		}
+	);
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		return TexHandle{};
+	}
+
+	// SRVの作成(メタデータから引っ張ってきたものを使う)
+	DescriptorHandle srv{DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV)}; // 確保
+	if (!srv.IsValid())
+	{
+		// 枯渇していた場合の対処
+		DEBUG_ASSERT(false);
+		return TexHandle{};
+	}
+
+	// 設定
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+	srvDesc.Format = metaData.format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; // デフォルトの読み込み
+	srvDesc.Texture2D.MipLevels = static_cast<UINT>(metaData.mipLevels); // ミップレベルをメタデータから持ってくる
+	device->CreateShaderResourceView(texResource.Get(), &srvDesc, srv.cpu);
+
+
+	TextureData texData{}; // 戻り値用
+	texData.resource = texResource;
+	texData.srvHandle = srv;
+	texData.width = static_cast<int>(metaData.width);
+	texData.height = static_cast<int>(metaData.height);
 
 	int index;
 	// 空ではないなら再利用する
@@ -301,8 +313,6 @@ TexHandle ResourceManager::LoadTexture(const char* _filePath)
 
 	int packed{ Pack(index, texSlots[index].generation) }; // パックしたハンドルを入れる
 
-	// 解放
-	stbi_image_free(pixels);
 	return TexHandle(PassKey{}, packed);
 }
 

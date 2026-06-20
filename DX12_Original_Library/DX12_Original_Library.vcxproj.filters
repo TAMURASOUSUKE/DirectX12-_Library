@@ -177,6 +177,9 @@
     <ClInclude Include="Src\Math\Quaternion\QuaternionFormat.h">
       <Filter>Src\Math\Quaternion</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Graphics\GPUMarker.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -250,6 +253,9 @@
     </ClCompile>
     <ClCompile Include="Src\Debug\DebugLogs.cpp">
       <Filter>Src\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\GPUMarker.cpp">
+      <Filter>Src\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

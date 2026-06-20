@@ -14,6 +14,13 @@ enum class HeapType
 	DSV, // 深度
 };
 
+// 描画順を決定する際に選べる種類
+enum class LenderLayer
+{
+	BackGround, // 背景
+	ForeGround, // 3Dオブジェクトより手前に来る画像
+};
+
 // 書き込みを行うためのCPUハンドルと読み取るためのGPUハンドルとそのインデックスをまとめたハンドル
 struct DescriptorHandle
 {
