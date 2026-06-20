@@ -126,7 +126,7 @@ void SpriteBatch::Flush()
 		TextureData* data{ ResourceManager::Instance().Lookup(run.tex) }; // ハンドルを分解して保持
 		if (!data) continue; // 無効ハンドルはスキップ
 		cmd->SetGraphicsRootDescriptorTable(0, data->srvHandle.gpu); // ルートシグネチャの0番にテクスチャのGPUハンドルをセット
-		cmd->DrawIndexedInstanced(run.count * 6, 1, 0, run.startSprite * 4, 0); // 区間情報から描画位置を特定して描画する
+		cmd->DrawIndexedInstanced(run.count * 6, 1, 0, run.startSprite * 4, 0); // 区間情報から描画位置を特定して描画する(読むインデックスの数,  開始位置)
 	}
 
 	runs.clear(); // 消費したのでクリアする
