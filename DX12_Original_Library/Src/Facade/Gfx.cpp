@@ -303,15 +303,15 @@ void Gfx::DrawCube(Vector3 _angle)
 }
 
 // 画像登録
-void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation, LenderLayer _layer)
+void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)
 {
 	switch (_layer)
 	{
 	case LenderLayer::BackGround:
-		bgBatch.RegisterSprite(_texture, _position, _size, _radRotation);
+		bgBatch.RegisterSprite(_texture, _position, _size, _radRotation, _uvMin, _uvMax);
 		break;
 	case LenderLayer::ForeGround:
-		fgBatch.RegisterSprite(_texture, _position, _size, _radRotation);
+		fgBatch.RegisterSprite(_texture, _position, _size, _radRotation, _uvMin, _uvMax);
 		break;
 	default:
 		break;
