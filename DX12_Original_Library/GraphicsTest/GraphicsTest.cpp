@@ -82,6 +82,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		//}
 		Gfx::DrawSprite(enemy, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f }, 0.0f, Vector2::Zero, {0.5f, 0.5f});
 
+		Gfx::DrawString("text", {0.0f, 0.0f});
+
 		Gfx::DrawCube(cubeAng);
 
 		TSLib::EndFrame(); // フレーム終了処理
