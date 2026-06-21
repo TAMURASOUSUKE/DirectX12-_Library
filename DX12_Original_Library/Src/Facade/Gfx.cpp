@@ -35,6 +35,7 @@ namespace {
 	DebugTriangle triangle; // 三角形描画
 	DebugQuad quad; // テクスチャ描画
 	DebugCube cube; // キューブ描画
+	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	int screenWidth = 0; // 画面の横幅
 	int screenHeight = 0; // 画面の縦幅
 }
@@ -171,6 +172,19 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	triangle.Initialize();  // 三角形描画用ファイルの初期化
 	quad.Initialize(); // テクスチャ描画用ファイルの初期化
 	cube.Initialize(); // キューブ初期化
+
+	// 文字列構造体初期化
+	defaultFont.texture = Gfx::LoadTexture("../Src/External/Res/DejaVu Sans Mono.png"); // デフォルトフォント
+	if (!defaultFont.texture.IsValid())
+	{
+		DEBUG_LOG_ERROR("無効なハンドルが渡されました\n");
+	}
+	defaultFont.texWidth = 512; // 全体横幅
+	defaultFont.texHeight = 512; // 全体縦幅
+	defaultFont.cellWidth = 32; // セル幅
+	defaultFont.cellHeight = 32; // セル高さ
+	defaultFont.cols = 16; // 行の要素数
+	defaultFont.firstCode = 0; // CP437配列なので0
 	return true;
 }
 
@@ -302,16 +316,67 @@ void Gfx::DrawCube(Vector3 _angle)
 	cube.Draw(GraphicsDevice::Instance().GetCommandList());
 }
 
+// 文字列描画(デフォルトフォント)
+void Gfx::DrawString(const char* _string, Vector2 _position, float _scale, LenderLayer _layer)
+{
+	DrawString(defaultFont, _string, _position, _scale, _layer);
+}
+
+// 文字列描画(フォント設定用)
+void Gfx::DrawString(const BitmapFont& _font, const char* _string, Vector2 _position, float _scale, LenderLayer _layer)
+{
+	// セルの最終的な大きさ
+	Vector2 glyphSize{ _font.cellWidth * _scale, _font.cellHeight * _scale };
+
+	Vector2 cursor{ _position }; // 文字を書く位置
+	const float startX{ _position.x }; // 改行で戻る左端
+	const int rows{ _font.texHeight / _font.cellHeight }; // 縦のセル数
+	const int totalCells{ _font.cols * rows };
+
+	for (const char* p{ _string }; *p != '\0'; ++p)
+	{
+		// 符号付だと128以上が負になるので符号なしで
+		const unsigned char c{ static_cast<unsigned char>(*p) };
+
+		// 改行処理
+		if (c == '\n')
+		{
+			cursor.x = startX;
+			cursor.y += glyphSize.y;
+			continue;
+		}
+
+		const int index{ static_cast<int>(c) - _font.firstCode }; // コード->セル番号
+		if (index < 0 || index >= totalCells)
+		{
+			// 範囲外ならスキップ
+			continue;
+		}
+
+		const int col{ index % _font.cols }; // 横位置
+		const int row{ index / _font.cols }; // 縦位置
+
+		// ピクセル矩形をtexサイズにしてUVに投げる
+		Vector2 uvMin{ (col * _font.cellWidth) / static_cast<float>(_font.texWidth), (row * _font.cellHeight) / static_cast<float>(_font.texHeight) };
+		Vector2 uvMax{ ((col + 1) * _font.cellWidth) / static_cast<float>(_font.texWidth), ((row + 1) * _font.cellHeight) / static_cast<float>(_font.texHeight) };
+
+
+		DrawSprite(_font.texture, cursor, glyphSize, 0.0f, uvMin, uvMax, _layer);
+
+		cursor.x += glyphSize.x; // 書いた分右へ
+	}
+}
+
 // 画像登録
-void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation, LenderLayer _layer)
+void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)
 {
 	switch (_layer)
 	{
 	case LenderLayer::BackGround:
-		bgBatch.RegisterSprite(_texture, _position, _size, _radRotation);
+		bgBatch.RegisterSprite(_texture, _position, _size, _radRotation, _uvMin, _uvMax);
 		break;
 	case LenderLayer::ForeGround:
-		fgBatch.RegisterSprite(_texture, _position, _size, _radRotation);
+		fgBatch.RegisterSprite(_texture, _position, _size, _radRotation, _uvMin, _uvMax);
 		break;
 	default:
 		break;

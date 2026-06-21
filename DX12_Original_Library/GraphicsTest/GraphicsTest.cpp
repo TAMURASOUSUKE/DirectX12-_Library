@@ -70,17 +70,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		//// スプライトバッチテスト
-		Gfx::DrawSprite(background, Vector2{ 0.0f, 0.0f }, Vector2{ 1280.0f, 720.0f }, 0.0f, LenderLayer::BackGround);
-		for (int i = 0; i < 200; i++)
-		{
-			float offset{ i * 10.0f };
-			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 100.0f}, Vector2{128.0f, 128.0f}, ang);
-			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 200.0f }, Vector2{ 128.0f, 128.0f }, ang);
-			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 300.0f }, Vector2{ 128.0f, 128.0f }, ang);
-			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 400.0f }, Vector2{ 128.0f, 128.0f }, ang);
-			Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 500.0f }, Vector2{ 128.0f, 128.0f }, ang);
-		}
-		Gfx::DrawSprite(enemy, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f });
+		Gfx::DrawSprite(background, Vector2{ 0.0f, 0.0f }, Vector2{ 1280.0f, 720.0f }, 0.0f, Vector2::Zero, Vector2::One, LenderLayer::BackGround);
+		//for (int i = 0; i < 200; i++)
+		//{
+		//	float offset{ i * 10.0f };
+		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 100.0f}, Vector2{128.0f, 128.0f}, ang);
+		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 200.0f }, Vector2{ 128.0f, 128.0f }, ang);
+		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 300.0f }, Vector2{ 128.0f, 128.0f }, ang);
+		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 400.0f }, Vector2{ 128.0f, 128.0f }, ang);
+		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 500.0f }, Vector2{ 128.0f, 128.0f }, ang);
+		//}
+		Gfx::DrawSprite(enemy, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f }, 0.0f, Vector2::Zero, {0.5f, 0.5f});
+
+		Gfx::DrawString("text", {0.0f, 0.0f});
 
 		Gfx::DrawCube(cubeAng);
 

@@ -36,7 +36,7 @@ void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 	vertBuffer = ResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(TexVertex), sizeof(TexVertex)); // 動的な頂点バッファの作成
 }
 
-void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _size, float _radRotation)
+void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _size, float _radRotation, Vector2 _uvMin, Vector2 _uvMax)
 {
 	if (!_handle.IsValid())
 	{
@@ -81,10 +81,12 @@ void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _
 	}
 
 	TexVertex* vertices{ static_cast<TexVertex*>(vertBuffer.mappedPtr) }; // マップされたポインタにアクセスするためにキャスト
-	vertices[spriteCounter * 4 + 0] = { {leftUp.x, leftUp.y, 0.0f}, {0.0f, 0.0f} }; // 左上
-	vertices[spriteCounter * 4 + 1] = { {rightUp.x, rightUp.y, 0.0f}, {1.0f, 0.0f} }; // 右上
-	vertices[spriteCounter * 4 + 2] = { {rightDown.x, rightDown.y, 0.0f}, {1.0f, 1.0f} }; // 右下
-	vertices[spriteCounter * 4 + 3] = { {leftDown.x, leftDown.y, 0.0f}, {0.0f, 1.0f} }; // 左下
+	
+	// UV空間をハードコーディングするのではなく引数から受け取る形に変更
+	vertices[spriteCounter * 4 + 0] = { {leftUp.x, leftUp.y, 0.0f}, {_uvMin.x, _uvMin.y} }; // 左上
+	vertices[spriteCounter * 4 + 1] = { {rightUp.x, rightUp.y, 0.0f}, {_uvMax.x, _uvMin.y} }; // 右上
+	vertices[spriteCounter * 4 + 2] = { {rightDown.x, rightDown.y, 0.0f}, {_uvMax.x, _uvMax.y} }; // 右下
+	vertices[spriteCounter * 4 + 3] = { {leftDown.x, leftDown.y, 0.0f}, {_uvMin.x, _uvMax.y} }; // 左下
 
 	// run(描画順)を管理する
 	if (runs.empty() || runs.back().tex != _handle)
