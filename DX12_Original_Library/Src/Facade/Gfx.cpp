@@ -388,6 +388,8 @@ bool Gfx::DebugLoadModel(const char* _filePath)
 {
 	cgltf_options options{}; // 全部0(デフォルト挙動)
 	cgltf_data* data{ nullptr };
+	std::vector<ModelVertex> verticesData{}; // 頂点情報データ
+	std::vector<uint32_t> indicesData{}; // インデックスデータ
 
 	// .glbのJSON部分を読む
 	cgltf_result result{cgltf_parse_file(&options, _filePath, &data)};
@@ -414,23 +416,56 @@ bool Gfx::DebugLoadModel(const char* _filePath)
 	{
 		const cgltf_primitive& prim{ data->meshes[0].primitives[0] }; // 先頭メッシュの先頭プリミティブ
 
+		const cgltf_accessor* positionAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_position, 0) };
+		const cgltf_accessor* normalAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_normal, 0) };
+		const cgltf_accessor* uvAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_texcoord, 0) };
+		DEBUG_ASSERT(positionAccessor && normalAccessor&& uvAccessor);
+		if (!positionAccessor || !normalAccessor || !uvAccessor)
+		{
+			return false;
+		}
+
+
 		// 頂点数 =Position属性のアクセサのカウント
 		// 属性は型で探す必要がある(順不同)
-		cgltf_size vertCount{ 0 };
-		for (cgltf_size i = 0; i < prim.attributes_count; i++)
+		const cgltf_size vertCount{ positionAccessor->count }; // 頂点数の取得
+		const cgltf_size indexCount{ prim.indices ? prim.indices->count : 0 }; // index数の取得
+		verticesData.resize(vertCount); // 頂点データサイズ設定
+		indicesData.resize(indexCount); // インデックスサイズ設定
+		for (cgltf_size i = 0; i < vertCount; i++)
 		{
-			// プリミティブの属性がポジションか
-			if (prim.attributes[i].type == cgltf_attribute_type_position)
+			cgltf_bool readResult{};
+			readResult = cgltf_accessor_read_float(positionAccessor, i, verticesData[i].position, 3);
+			if (!readResult)
 			{
-				// 頂点数を取得する
-				vertCount = prim.attributes[i].data->count;
-				break;
+				DEBUG_LOG_WARNING("positionの読み取りに失敗しました。 : 頂点データ{}番目\n", i);
+			}
+			readResult = cgltf_accessor_read_float(normalAccessor, i, verticesData[i].normal, 3);
+			if (!readResult)
+			{
+				DEBUG_LOG_WARNING("normalの読み取りに失敗しました。 : 頂点データ{}番目\n", i);
+			}
+			readResult = cgltf_accessor_read_float(uvAccessor, i, verticesData[i].uv, 2);
+			if (!readResult)
+			{
+				DEBUG_LOG_WARNING("uvの読み取りに失敗しました。 : 頂点データ{}番目\n", i);
 			}
 		}
 
-		// インデックスバッファが存在するならそのインデックス数を取得する
-		const cgltf_size indexCount{ prim.indices ? prim.indices->count : 0 };
-		DEBUG_LOG("頂点数 : {} / インデックス数 : {}\n", vertCount, indexCount);
+		for (cgltf_size i = 0; i < indexCount; i++)
+		{
+			// primitiveのindicesメンバがアクセサの役割を持つのでそれを使う
+			indicesData[i] = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, i));
+		}
+		// 出力確認
+		for (cgltf_size i = 0; i < 6; i++)
+		{
+			DEBUG_LOG("Vertex{}.Position : x{}, y{}, z{}", i, verticesData[i].position[0], verticesData[i].position[1], verticesData[i].position[2]);
+			DEBUG_LOG("Vertex{}.Normal : x{}, y{}, z{}", i, verticesData[i].normal[0], verticesData[i].normal[1], verticesData[i].normal[2]);
+			DEBUG_LOG("Vertex{}.UV : x{}, y{}", i, verticesData[i].uv[0], verticesData[i].uv[1]);
+			DEBUG_LOG("Index{}.Value{}", i, indicesData[i]);
+		}
+
 	}
 
 	cgltf_free(data); // 解放

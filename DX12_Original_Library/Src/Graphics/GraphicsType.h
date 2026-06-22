@@ -93,3 +93,11 @@ struct TextureSlot
 	TextureData data; // 実体
 	uint32_t generation{ 0 }; // 世代
 };
+
+// 頂点内のデータを定義する構造体(Vectorを付けるとalignasによりoffsetがずれるため使わない)
+struct ModelVertex
+{
+	float position[3];
+	float normal[3];
+	float uv[2];
+};
