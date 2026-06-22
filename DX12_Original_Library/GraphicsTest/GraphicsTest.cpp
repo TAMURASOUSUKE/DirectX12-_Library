@@ -44,6 +44,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	float ang{ 0.0f }; // 角度加算用のテスト
 	Vector3 cubeAng{ Vector3::Zero };
 
+	bool result{ Gfx::DebugLoadModel("../Src/External/Res/Cube.glb")};
+	if (!result) DEBUG_LOG("モデルのロードに失敗しました\n");
+
 	while (Gfx::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
@@ -71,7 +74,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		//// スプライトバッチテスト
 		Gfx::DrawSprite(background, Vector2{ 0.0f, 0.0f }, Vector2{ 1280.0f, 720.0f }, 0.0f, Vector2::Zero, Vector2::One, LenderLayer::BackGround);
-		//for (int i = 0; i < 200; i++)
+		//for (int i = 0; i < 400; i++)
 		//{
 		//	float offset{ i * 10.0f };
 		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 100.0f}, Vector2{128.0f, 128.0f}, ang);
@@ -82,7 +85,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		//}
 		Gfx::DrawSprite(enemy, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f }, 0.0f, Vector2::Zero, {0.5f, 0.5f});
 
-		Gfx::DrawString("text", {0.0f, 0.0f});
+		Gfx::DrawString("MeshNum : ", {0.0f, 0.0f});
 
 		Gfx::DrawCube(cubeAng);
 

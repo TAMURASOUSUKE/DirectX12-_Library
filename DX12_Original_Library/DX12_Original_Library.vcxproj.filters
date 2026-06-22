@@ -180,6 +180,9 @@
     <ClInclude Include="Src\Graphics\GPUMarker.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Src\External\cgltf.h">
+      <Filter>Src\Facade\Exturnal</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -256,6 +259,9 @@
     </ClCompile>
     <ClCompile Include="Src\Graphics\GPUMarker.cpp">
       <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\External\CgltfEnable.cpp">
+      <Filter>Src\Facade\Exturnal</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -1,4 +1,5 @@
 ﻿#include "../External/Common/d3dx12.h"
+#include "../External/cgltf.h"
 #include "../Window/Window.h"
 #include "../Debug/DebugLogs.h"
 #include "../Graphics/GraphicsDevice.h"
@@ -179,10 +180,10 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	{
 		DEBUG_LOG_ERROR("無効なハンドルが渡されました\n");
 	}
-	defaultFont.texWidth = 512; // 全体横幅
-	defaultFont.texHeight = 512; // 全体縦幅
-	defaultFont.cellWidth = 32; // セル幅
-	defaultFont.cellHeight = 32; // セル高さ
+	defaultFont.texWidth = 256; // 全体横幅
+	defaultFont.texHeight = 256; // 全体縦幅
+	defaultFont.cellWidth = 16; // セル幅
+	defaultFont.cellHeight = 16; // セル高さ
 	defaultFont.cols = 16; // 行の要素数
 	defaultFont.firstCode = 0; // CP437配列なので0
 	return true;
@@ -381,6 +382,59 @@ void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float
 	default:
 		break;
 	}
+}
+
+bool Gfx::DebugLoadModel(const char* _filePath)
+{
+	cgltf_options options{}; // 全部0(デフォルト挙動)
+	cgltf_data* data{ nullptr };
+
+	// .glbのJSON部分を読む
+	cgltf_result result{cgltf_parse_file(&options, _filePath, &data)};
+	if (result != cgltf_result_success)
+	{
+		// 分解失敗処理
+		DEBUG_LOG_ERROR("ファイルパース失敗 path : {}\n", _filePath);
+		return false;
+	}
+
+	// 実バイナリ(頂点/インデックスのバイト列)を展開する
+	result = cgltf_load_buffers(&options, data, _filePath);
+	if (result != cgltf_result_success)
+	{
+		DEBUG_LOG_ERROR("バッファ展開失敗\n");
+		cgltf_free(data); // パース処理で確保してるので解放を行う
+		return false;
+	}
+
+	DEBUG_LOG("mesh_count : {}\n", data->meshes_count);
+
+	// 先頭メッシュ・先頭プリミティブを見る
+	if (data->meshes_count > 0 && data->meshes[0].primitives_count > 0)
+	{
+		const cgltf_primitive& prim{ data->meshes[0].primitives[0] }; // 先頭メッシュの先頭プリミティブ
+
+		// 頂点数 =Position属性のアクセサのカウント
+		// 属性は型で探す必要がある(順不同)
+		cgltf_size vertCount{ 0 };
+		for (cgltf_size i = 0; i < prim.attributes_count; i++)
+		{
+			// プリミティブの属性がポジションか
+			if (prim.attributes[i].type == cgltf_attribute_type_position)
+			{
+				// 頂点数を取得する
+				vertCount = prim.attributes[i].data->count;
+				break;
+			}
+		}
+
+		// インデックスバッファが存在するならそのインデックス数を取得する
+		const cgltf_size indexCount{ prim.indices ? prim.indices->count : 0 };
+		DEBUG_LOG("頂点数 : {} / インデックス数 : {}\n", vertCount, indexCount);
+	}
+
+	cgltf_free(data); // 解放
+	return true;
 }
 
 // 解放
