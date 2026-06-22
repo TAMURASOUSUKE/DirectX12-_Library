@@ -416,9 +416,9 @@ bool Gfx::DebugLoadModel(const char* _filePath)
 	{
 		const cgltf_primitive& prim{ data->meshes[0].primitives[0] }; // 先頭メッシュの先頭プリミティブ
 
-		const cgltf_accessor* positionAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_position, 0) };
-		const cgltf_accessor* normalAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_normal, 0) };
-		const cgltf_accessor* uvAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_texcoord, 0) };
+		const cgltf_accessor* positionAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_position, 0) }; // ポジションのアクセサ
+		const cgltf_accessor* normalAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_normal, 0) }; // 法線のアクセサ
+		const cgltf_accessor* uvAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_texcoord, 0) }; // uvのアクセサ
 		DEBUG_ASSERT(positionAccessor && normalAccessor&& uvAccessor);
 		if (!positionAccessor || !normalAccessor || !uvAccessor)
 		{
@@ -465,6 +465,10 @@ bool Gfx::DebugLoadModel(const char* _filePath)
 			DEBUG_LOG("Vertex{}.UV : x{}, y{}", i, verticesData[i].uv[0], verticesData[i].uv[1]);
 			DEBUG_LOG("Index{}.Value{}", i, indicesData[i]);
 		}
+
+		VertexBuffer vertBuffer{ ResourceManager::Instance().CreateVertexBuffer(verticesData.data(), static_cast<UINT>(verticesData.size()) * sizeof(ModelVertex), sizeof(ModelVertex)) }; // 頂点バッファの作成
+		IndexBuffer indexBuffer{ ResourceManager::Instance().CreateIndexBuffer(indicesData.data(), static_cast<UINT>(indicesData.size() * sizeof(uint32_t)), static_cast<UINT>(indicesData.size())) }; // インデックスバッファの作成
+		DEBUG_ASSERT(vertBuffer.resource && indexBuffer.resource);
 
 	}
 
