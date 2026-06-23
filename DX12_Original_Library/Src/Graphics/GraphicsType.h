@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include <d3d12.h>
 #include <wrl/client.h>
+#include <vector>
+#include "../Core/Handle/TexHandle.h"
 #include "GraphicsConstant.h"
 using Microsoft::WRL::ComPtr;
 
@@ -91,5 +93,34 @@ struct ColorVertex
 struct TextureSlot
 {
 	TextureData data; // 実体
+	uint32_t generation{ 0 }; // 世代
+};
+
+// 頂点内のデータを定義する構造体(Vectorを付けるとalignasによりoffsetがずれるため使わない)
+struct ModelVertex
+{
+	float position[3];
+	float normal[3];
+	float uv[2];
+};
+
+// サブメッシュ単位の構造体
+struct SubMesh
+{
+	VertexBuffer vertexBuffer; // 頂点バッファ
+	IndexBuffer indexBuffer; // インデックスバッファ(この中にIndexCountがあるためそれを使う)
+	TexHandle texture; // テクスチャ
+};
+
+// モデルそのものを構成する構造体
+struct ModelData
+{
+	std::vector<SubMesh> subMeshes; // 構成するサブメッシュ
+};
+
+// 管理するスロット
+struct ModelSlot
+{
+	ModelData data; // 実体
 	uint32_t generation{ 0 }; // 世代
 };

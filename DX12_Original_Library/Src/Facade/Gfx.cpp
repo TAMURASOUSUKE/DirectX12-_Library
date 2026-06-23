@@ -1,4 +1,5 @@
 ﻿#include "../External/Common/d3dx12.h"
+#include "../External/cgltf.h"
 #include "../Window/Window.h"
 #include "../Debug/DebugLogs.h"
 #include "../Graphics/GraphicsDevice.h"
@@ -30,6 +31,8 @@ namespace {
 	ComPtr<ID3D12PipelineState> trianglePipelineState; // 三角形用パイプラインステートオブジェクト
 	ComPtr<ID3D12PipelineState> texturePipelineState; // テクスチャ用パイプラインステートオブジェクト
 	ComPtr<ID3D12PipelineState> cubePipelineState; // キューブ用パイプラインステートオブジェクト
+	ComPtr<ID3D12RootSignature> modelRootSignature; // モデル用ルートシグネチャ
+	ComPtr<ID3D12PipelineState> modelPipeLineState; // モデル用パイプラインステート
 	SpriteBatch fgBatch; // 手前のスプライトバッチ処理
 	SpriteBatch bgBatch; // 背景のスプライトバッチ処理
 	DebugTriangle triangle; // 三角形描画
@@ -110,6 +113,18 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/CubePS.hlsl");
 		return false; // 読み込み失敗したらfalse
 	}
+	auto modelVSBlob{ shaderSystem.Compile(L"../Src/Shaders/ModelVS.hlsl", "main", "vs_5_0") }; // モデル
+	if (!modelVSBlob)
+	{
+		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/ModelVS.hlsl");
+		return false; // 読み込み失敗したらfalse
+	}
+	auto modelPSBlob{ shaderSystem.Compile(L"../Src/Shaders/ModelPS.hlsl", "main", "ps_5_0") }; // モデル
+	if (!modelPSBlob)
+	{
+		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/ModelPS.hlsl");
+		return false; // 読み込み失敗したらfalse
+	}
 
 	triangleRootSignature = shaderSystem.CreateDebugTriangleRootSignature(); // ルートシグネチャの作成
 	if (!triangleRootSignature)
@@ -119,7 +134,7 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 
 	}
 
-	textureRootSignature = shaderSystem.CreateDebugTextureRootSignature(); // ルートシグネチャの作成
+	textureRootSignature = shaderSystem.CreateTextureRootSignature(); // ルートシグネチャの作成
 	if (!textureRootSignature)
 	{
 		DEBUG_LOG_ERROR("テクスチャルートシグネチャの作成に失敗しました\n");
@@ -141,7 +156,7 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	}
 
 
-	texturePipelineState = shaderSystem.CreateDebugTexturePipeLineState(textureRootSignature.Get(), textureVSBlob.Get(), texturePSBlob.Get()); // パイプラインステートオブジェクトを作成
+	texturePipelineState = shaderSystem.CreateTexturePipeLineState(textureRootSignature.Get(), textureVSBlob.Get(), texturePSBlob.Get()); // パイプラインステートオブジェクトを作成
 	if (!texturePipelineState)
 	{
 		DEBUG_LOG_ERROR("テクスチャPSOの作成に失敗しました\n");
@@ -152,6 +167,20 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	if (!cubePipelineState)
 	{
 		DEBUG_LOG_ERROR("テクスチャPSOの作成に失敗しました\n");
+		return false;
+	}
+
+	modelRootSignature = shaderSystem.CreateModelRootSignature(); // モデルのルートシグネチャの作成
+	if (!modelRootSignature)
+	{
+		DEBUG_LOG_ERROR("モデルルートシグネチャの作成に失敗しました\n");
+		return false;
+	}
+
+	modelPipeLineState = shaderSystem.CreateModelPipeLineState(modelRootSignature.Get(), modelVSBlob.Get(), modelPSBlob.Get()); // モデルパイプラインステートの作成
+	if (!modelPipeLineState)
+	{
+		DEBUG_LOG_ERROR("モデルPSOの作成に失敗しました\n");
 		return false;
 	}
 
@@ -179,10 +208,10 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	{
 		DEBUG_LOG_ERROR("無効なハンドルが渡されました\n");
 	}
-	defaultFont.texWidth = 512; // 全体横幅
-	defaultFont.texHeight = 512; // 全体縦幅
-	defaultFont.cellWidth = 32; // セル幅
-	defaultFont.cellHeight = 32; // セル高さ
+	defaultFont.texWidth = 256; // 全体横幅
+	defaultFont.texHeight = 256; // 全体縦幅
+	defaultFont.cellWidth = 16; // セル幅
+	defaultFont.cellHeight = 16; // セル高さ
 	defaultFont.cols = 16; // 行の要素数
 	defaultFont.firstCode = 0; // CP437配列なので0
 	return true;
@@ -208,6 +237,8 @@ void GfxInternal::BeginFrame()
 	// batch処理のカウンターリセット
 	bgBatch.Reset();
 	fgBatch.Reset();
+	// 定数バッファのカウンターリセット
+	mvpRingCBV.Reset();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTV
@@ -283,6 +314,12 @@ TexHandle Gfx::LoadTexture(const char* _filePath)
 	return ResourceManager::Instance().LoadTexture(_filePath);
 }
 
+// モデル読み込み
+ModelHandle Gfx::LoadModel(const char* _filePath)
+{
+	return ResourceManager::Instance().LoadModel(_filePath);
+}
+
 // 三角形の描画(現状固定座標にしているが拡張し、座標と色など指定できるようにしたい)
 void Gfx::DrawTriangle()
 {
@@ -309,11 +346,11 @@ void Gfx::DrawCube(Vector3 _angle)
 	}
 	cube.SetRotation(_angle);
 	mvpMat = cube.GetWorldMat() * vpMat; // mvp行列
-	mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)); // 定数バッファの更新
-	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(cubeRootSignature.Get());
-	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(0, mvpRingCBV.GetCurrentVertualAddress());
-	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(cubePipelineState.Get());
-	cube.Draw(GraphicsDevice::Instance().GetCommandList());
+	auto cmd{ GraphicsDevice::Instance().GetCommandList() }; // キャッシュ
+	cmd->SetGraphicsRootSignature(cubeRootSignature.Get());
+	cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4))); // 定数バッファの更新
+	cmd->SetPipelineState(cubePipelineState.Get());
+	cube.Draw(cmd);
 }
 
 // 文字列描画(デフォルトフォント)
@@ -383,8 +420,52 @@ void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float
 	}
 }
 
+void Gfx::DrawModel(ModelHandle _model, Transform _transform)
+{
+	{
+		// マクロがスコープを抜けるとEndEventするので囲う
+		GPU_MARKER("backGround");
+		bgBatch.Flush(); // 背景の上に来るように3D描画前には背景batchをFlushする
+	}
+
+	ModelData* model{ ResourceManager::Instance().Lookup(_model) };
+	if (!model) return; // 無効ハンドルガード
+	auto cmd{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリストのキャッシュ
+	Mat4x4 worldMat{ _transform.GetWorldMatrix() };
+	mvpMat = worldMat * vpMat;
+
+	// パイプライン設定
+	cmd->SetGraphicsRootSignature(modelRootSignature.Get());
+	cmd->SetPipelineState(modelPipeLineState.Get());
+
+	// SRVヒープをバインド(テクスチャを使うため)
+	DescriptorManager::Instance().SetDiscriptor(cmd); // Flushと同じ考え方
+	cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)));
+	cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	// submeshループ
+	for (const SubMesh& sub : model->subMeshes)
+	{
+		// テクスチャをバインド
+		TextureData* tex{ ResourceManager::Instance().Lookup(sub.texture) };
+		if (tex) cmd->SetGraphicsRootDescriptorTable(1, tex->srvHandle.gpu);
+
+		// 頂点インデックスをバインド
+		cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
+		cmd->IASetIndexBuffer(&sub.indexBuffer.indexView);
+
+		cmd->DrawIndexedInstanced(sub.indexBuffer.indexCount, 1, 0, 0, 0);
+	}
+}
+
+
 // 解放
 void Gfx::Unload(TexHandle _handle)
+{
+	ResourceManager::Instance().Unload(_handle);
+}
+
+void Gfx::Unload(ModelHandle _handle)
 {
 	ResourceManager::Instance().Unload(_handle);
 }

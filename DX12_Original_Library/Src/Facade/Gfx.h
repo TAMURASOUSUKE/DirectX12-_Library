@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "../Core/Handle/TexHandle.h"
+#include "../Core/Handle/ModelHandle.h"
 #include "../Graphics/GraphicsType.h"
+#include "../Component/Transform.h"
 #include "../Math/TSMath.h"
 
 // グラフィックスに関する機能をユーザーに簡易的に提供するためのファイル
@@ -10,12 +12,12 @@ namespace Gfx
 	struct BitmapFont
 	{
 		TexHandle texture; // アトラス画像のハンドル
-		int texWidth; // テクスチャ全体の幅(px)
-		int texHeight; // テクスチャ全体の高さ(px)
-		int cellWidth; // 1セルの幅(px)
-		int cellHeight; // 1セルの高さ(px)
-		int cols; // 1行あたりのセルの量
-		int firstCode; // 先頭セルが表す文字コード(CP437配列なら0, スペース始まりなら32)
+		int texWidth{ 0 }; // テクスチャ全体の幅(px)
+		int texHeight{ 0 }; // テクスチャ全体の高さ(px)
+		int cellWidth{ 0 }; // 1セルの幅(px)
+		int cellHeight{ 0 }; // 1セルの高さ(px)
+		int cols{ 0 }; // 1行あたりのセルの量
+		int firstCode{ 0 }; // 先頭セルが表す文字コード(CP437配列なら0, スペース始まりなら32)
 	};
 
 	// メッセージループ
@@ -24,6 +26,8 @@ namespace Gfx
 	void ClearScreen(float _r = 0.0f, float _g = 0.0f, float _b = 0.0f, float _a = 1.0f);
 	//画像読み込み
 	TexHandle LoadTexture(const char* _filePath);
+	// モデル読み込み
+	ModelHandle LoadModel(const char* _filePath);
 	// 三角形描画
 	void DrawTriangle();
 	// テクスチャ描画
@@ -36,6 +40,9 @@ namespace Gfx
 	void DrawString(const BitmapFont& _font, const char* _string, Vector2 _position, float _scale = 1.0f, LenderLayer _layer = LenderLayer::ForeGround);
 	// スプライト描画(位置、サイズ、画像, 回転角度(ラジアンかつデフォルトは0), uv座標(デフォルトは左上0右下1) 描画するレイヤー(デフォルトは通常 = 3Dより手前))
 	void DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation = 0.0f, Vector2 _uvMin = { Vector2::Zero }, Vector2 _uvMax = { Vector2::One }, LenderLayer _layer = LenderLayer::ForeGround);
+	// モデルを描画する
+	void DrawModel(ModelHandle _model, Transform _transform);
 	// テクスチャリソースの解放
 	void Unload(TexHandle _handle);
+	void Unload(ModelHandle _hanlde);
 }

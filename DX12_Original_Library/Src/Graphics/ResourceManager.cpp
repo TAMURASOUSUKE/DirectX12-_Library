@@ -3,8 +3,10 @@
 #include <filesystem>
 #include "../External/Common/d3dx12.h"
 #include "../External/DirectXTex/DirectXTex.h"
+#include "../External/cgltf.h"
 #include"../Debug/DebugLogs.h"
 #include "../Core/Handle/HandleConstant.h"
+#include "../Math/TSMath.h"
 #include "GraphicsDevice.h"
 #include "DescriptorManager.h"
 #include "ResourceManager.h"
@@ -339,6 +341,180 @@ TextureData* ResourceManager::Lookup(TexHandle _handle)
 	return &slot.data;
 }
 
+ModelData* ResourceManager::Lookup(ModelHandle _handle)
+{
+	if (!_handle.IsValid())
+	{
+		DEBUG_LOG_ERROR("無効なハンドルです\n");
+		return nullptr; // 無効なハンドルならnull
+	}
+
+	int packed{ _handle.GetRaw(PassKey{}) }; // 生の値(内部ハンドルを取得)
+	int index{ UnpackIndex(packed) }; // index部分を取り出す
+	// 範囲外チェック
+	if (index < 0 || index >= static_cast<int>(modelSlots.size()))
+	{
+		DEBUG_LOG_ERROR("ハンドルに範囲外のサイズが渡されました\n");
+		return nullptr; // 範囲チェック
+	}
+	ModelSlot& slot{ modelSlots[index] }; // スロットの指定ハンドル部分を取り出す
+	// 世代チェック
+	if (UnpackGen(packed) != static_cast<int>(slot.generation))
+	{
+		DEBUG_LOG_WARNING("世代が異なります\n");
+		return nullptr; // 世代チェック
+	}
+	return &slot.data; // 実体を返す
+}
+
+ModelHandle ResourceManager::LoadModel(const char* _filePath)
+{
+	cgltf_options options{}; // 全部0(デフォルト挙動)
+	cgltf_data* data{ nullptr };
+
+	// .glbのJSON部分を読む
+	cgltf_result result{ cgltf_parse_file(&options, _filePath, &data) };
+	if (result != cgltf_result_success)
+	{
+		// 分解失敗処理
+		DEBUG_LOG_ERROR("ファイルパース失敗 path : {}\n", _filePath);
+		return ModelHandle{}; // 失敗したら空を返す
+	}
+
+	// 実バイナリ(頂点/インデックスのバイト列)を展開する
+	result = cgltf_load_buffers(&options, data, _filePath);
+	if (result != cgltf_result_success)
+	{
+		DEBUG_LOG_ERROR("バッファ展開失敗\n");
+		cgltf_free(data); // パース処理で確保してるので解放を行う
+		return ModelHandle{}; // 失敗したら空を返す
+	}
+
+	if (data->meshes_count <= 0) return ModelHandle{}; // メッシュがなければ空を返す
+	DEBUG_LOG("mesh_count : {}\n", data->meshes_count);
+
+	ModelData modelData{}; // SubMeshを溜めるデータ
+	std::filesystem::path modelDir{ std::filesystem::path(_filePath).parent_path() }; // ファイル名を除いたフォルダをとりだす。(uriの基準を出すため)
+	// node配列を見て基準にループする
+	for (cgltf_size i = 0; i < data->nodes_count; i++)
+	{
+		cgltf_node* node{ &data->nodes[i] }; // 現在のnode
+		if (!node->mesh) continue; // meshを持たないnode(空ノード,ライト,カメラ等)はスキップ
+
+		// nodeのワールド変換行列を取得する
+		float nodeColMajor[16]{};
+		cgltf_node_transform_world(node, nodeColMajor); // 列優先の16要素で親をたどり最終的なワールド行列を計算する(列優先 + 16要素は下で解決)
+
+		// 列優先　-> 行優先に変更
+		Mat4x4 tmp
+		{
+			Vector4{ nodeColMajor[0],  nodeColMajor[1],  nodeColMajor[2],  nodeColMajor[3]  },
+			Vector4{ nodeColMajor[4],  nodeColMajor[5],  nodeColMajor[6],  nodeColMajor[7]  },
+			Vector4{ nodeColMajor[8],  nodeColMajor[9],  nodeColMajor[10], nodeColMajor[11] },
+			Vector4{ nodeColMajor[12], nodeColMajor[13], nodeColMajor[14], nodeColMajor[15] },
+		};
+		// 転置して正しい行優先に直す
+		Mat4x4 nodeMat{ Mat4x4::MakeTransposed(tmp) };
+
+		// このnodeがさすmeshのprimitiveを処理する
+		const cgltf_mesh& mesh{ *node->mesh };
+		for (cgltf_size j = 0; j < mesh.primitives_count; j++)
+		{
+			const cgltf_primitive& prim{ mesh.primitives[j] }; // primitive(=1サブメッシュ分)
+
+			const cgltf_accessor* positionAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_position, 0) }; // ポジションのアクセサ
+			const cgltf_accessor* normalAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_normal, 0) }; // 法線のアクセサ
+			const cgltf_accessor* uvAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_texcoord, 0) }; // uvのアクセサ
+
+			// 属性が欠けているprimitiveはスキップする
+			if (!positionAccessor || !normalAccessor || !uvAccessor)
+			{
+				DEBUG_LOG_WARNING("属性欠落のためprimitiveをスキップ node:{} primitive:{}\n", i, j);
+				continue;
+			}
+
+			// 頂点数 =Position属性のアクセサのカウント
+			// 属性は型で探す必要がある(順不同)
+			const cgltf_size vertCount{ positionAccessor->count }; // 頂点数の取得
+			const cgltf_size indexCount{ prim.indices ? prim.indices->count : 0 }; // index数の取得
+
+			std::vector<ModelVertex> verticesData(vertCount); // このprimitive用の頂点配列
+			std::vector<uint32_t> indicesData(indexCount);    // 同上インデックス
+
+			for (cgltf_size k = 0; k < vertCount; k++)
+			{
+				// 生の座標を読む(ローカル座標)
+				float localPos[3]{};
+				cgltf_accessor_read_float(positionAccessor, k, localPos, 3);
+
+				// ノード変換を焼きこむ(行なのでv * M)
+				Vector4 p{ localPos[0], localPos[1], localPos[2], 1.0f };
+				Vector4 worldPos{ Mat4x4::Mul(p, nodeMat) };
+				verticesData[k].position[0] = worldPos.x;
+				verticesData[k].position[1] = worldPos.y;
+				verticesData[k].position[2] = worldPos.z;
+
+				// とりあえずnormalは今は生のまま読む
+				cgltf_accessor_read_float(normalAccessor, k, verticesData[k].normal, 3);
+
+				//uv
+				cgltf_accessor_read_float(uvAccessor, k, verticesData[k].uv, 2);
+			}
+
+			for (cgltf_size k = 0; k < indexCount; k++)
+			{
+				// indexも読む
+				indicesData[k] = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, k));
+			}
+
+			// 静的なGPUバッファ作成
+			VertexBuffer vertBuffer{ CreateVertexBuffer(verticesData.data(), static_cast<UINT>(verticesData.size() * sizeof(ModelVertex)), sizeof(ModelVertex)) };
+			IndexBuffer indexBuffer{ CreateIndexBuffer(indicesData.data(), static_cast<UINT>(indicesData.size() * sizeof(uint32_t)), static_cast<UINT>(indicesData.size())) };
+			if (!vertBuffer.resource || !indexBuffer.resource)
+			{
+				DEBUG_LOG_WARNING("バッファ作成失敗 node:{} primitive:{}\n", i, j);
+				continue;
+			}
+
+			SubMesh sub{}; // サブメッシュ
+			sub.vertexBuffer = vertBuffer;
+			sub.indexBuffer = indexBuffer;
+			// PBRチェックを入れる
+			if (prim.material && prim.material->has_pbr_metallic_roughness
+				&& prim.material->pbr_metallic_roughness.base_color_texture.texture
+				&& prim.material->pbr_metallic_roughness.base_color_texture.texture->image
+				&& prim.material->pbr_metallic_roughness.base_color_texture.texture->image->uri)
+			{
+				std::filesystem::path texPath{ modelDir / prim.material->pbr_metallic_roughness.base_color_texture.texture->image->uri };
+				std::string texPathStr{ texPath.string() }; // ローカルにする
+				sub.texture = LoadTexture(texPathStr.c_str());
+			}
+			modelData.subMeshes.push_back(sub); // 詰め込む
+		}
+	}
+		
+
+	int index;
+	// 空ではないなら再利用する
+	if (!modelFreeList.empty())
+	{
+		index = modelFreeList.top(); // freelistから取り出す
+		modelFreeList.pop(); // 削除
+		modelSlots[index].data = modelData; // Unload時点で++されるので世代は据え置き
+	}
+	// 空なら伸ばす
+	else
+	{
+		index = static_cast<int>(modelSlots.size());
+		modelSlots.push_back({ modelData, 0 }); // 新規なので世代は0で
+	}
+
+	int packed{ Pack(index, modelSlots[index].generation) }; // パックしたハンドルを入れる
+	cgltf_free(data);
+
+	return ModelHandle(PassKey{}, packed);
+}
+
 void ResourceManager::Unload(TexHandle _handle)
 {
 	TextureData* data{ Lookup(_handle) };
@@ -354,4 +530,28 @@ void ResourceManager::Unload(TexHandle _handle)
 	texSlots[index].data = TextureData{}; // null化を行う
 	texSlots[index].generation++; // 世代を増やして既存ハンドルを無効化
 	texFreeList.push(index); // indexをfreelistに入れる
+}
+
+void ResourceManager::Unload(ModelHandle _handle)
+{
+	ModelData* data{ Lookup(_handle) };
+	if (!data)
+	{
+		// 無効なハンドル
+		DEBUG_LOG_ERROR("無効なハンドルです\n");
+		return;
+	}
+	int index{ UnpackIndex(_handle.GetRaw(PassKey{})) }; // indexを取り出す
+	for (SubMesh& sub : modelSlots[index].data.subMeshes)
+	{
+		/*
+			頂点バッファやインデックスバッファはComPtrで管理しているので自動Freeされる
+		*/
+		if (sub.texture.IsValid()) Unload(sub.texture); // テクスチャの開放
+	}
+
+	modelSlots[index].data = ModelData{}; // 空を入れてsubMeshごと破棄
+	modelSlots[index].generation++; // 世代を増やして既存を無効化
+	modelFreeList.push(index); // freelistへ返す
+		
 }

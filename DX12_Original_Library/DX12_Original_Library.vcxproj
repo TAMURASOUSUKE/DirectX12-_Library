@@ -137,8 +137,10 @@
   <ItemGroup>
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\HandleConstant.h" />
+    <ClInclude Include="Src\Core\Handle\ModelHandle.h" />
     <ClInclude Include="Src\Core\Handle\TexHandle.h" />
     <ClInclude Include="Src\Debug\DebugLogs.h" />
+    <ClInclude Include="Src\External\cgltf.h" />
     <ClInclude Include="Src\External\stb_image.h" />
     <ClInclude Include="Src\Facade\Gfx.h" />
     <ClInclude Include="Src\Facade\GfxInternal.h" />
@@ -182,6 +184,7 @@
   <ItemGroup>
     <ClCompile Include="Src\Component\Transform.cpp" />
     <ClCompile Include="Src\Debug\DebugLogs.cpp" />
+    <ClCompile Include="Src\External\CgltfEnable.cpp" />
     <ClCompile Include="Src\External\StbImageEnable.cpp" />
     <ClCompile Include="Src\Facade\Gfx.cpp" />
     <ClCompile Include="Src\Facade\Input.cpp" />
@@ -214,6 +217,18 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Src\Shaders\CubeVS.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\ModelPS.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\ModelVS.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>

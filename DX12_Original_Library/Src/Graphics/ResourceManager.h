@@ -5,6 +5,7 @@
 #include <vector>
 #include <stack>
 #include "../Core/Handle/TexHandle.h"
+#include"../Core/Handle/ModelHandle.h"
 #include "GraphicsType.h"
 using Microsoft::WRL::ComPtr;
 #pragma comment(lib, "d3d12.lib")
@@ -41,11 +42,16 @@ public:
 	// ファイル名を引数に画像をロードする関数
 	TexHandle LoadTexture(const char* _filePath);
 
+	// ファイル名を引数にモデルをロードする関数
+	ModelHandle LoadModel(const char* _filePath);
+
 	// Handleをindex部分と世代部分に分ける
 	TextureData* Lookup(TexHandle _handle);
+	ModelData* Lookup(ModelHandle _handle);
 
 	// リソースを解放する
 	void Unload(TexHandle _handle);
+	void Unload(ModelHandle _handle);
 private:
 	// コンストラクタ
 	ResourceManager() = default;
@@ -57,5 +63,7 @@ private:
 private:
 	ID3D12Device* device{ nullptr }; // Initializeでデバイスを受け取って保持する
 	std::vector<TextureSlot> texSlots; // テクスチャリソースのスロット
+	std::vector <ModelSlot> modelSlots; // モデルリソースのスロット
 	std::stack<int> texFreeList; // テクスチャリソースのフリーリスト
+	std::stack<int> modelFreeList; // モデルリソースのフリーリスト
 };
