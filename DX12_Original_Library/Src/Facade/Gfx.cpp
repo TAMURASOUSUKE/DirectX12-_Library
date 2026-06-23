@@ -434,7 +434,7 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 	// SRVヒープをバインド(テクスチャを使うため)
 	DescriptorManager::Instance().SetDiscriptor(cmd); // Flushと同じ考え方
 	cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.GetCurrentVertualAddress());
-	cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_LINELIST);
+	cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	// submeshループ
 	for (const SubMesh& sub : model->subMeshes)

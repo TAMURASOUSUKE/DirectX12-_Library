@@ -183,6 +183,9 @@
     <ClInclude Include="Src\External\cgltf.h">
       <Filter>Src\Facade\Exturnal</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Core\Handle\ModelHandle.h">
+      <Filter>Src\Core\Handle</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -281,6 +284,12 @@
       <Filter>Src\Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Src\Shaders\CubePS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\ModelVS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\ModelPS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
   </ItemGroup>

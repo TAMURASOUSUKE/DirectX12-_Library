@@ -12,6 +12,7 @@ struct PS_INPUT
 
 float4 main(PS_INPUT _input) : SV_Target
 {
-    return tex.Sample(smp, _input.uv);
+    return float4(_input.uv, 0.0f, 1.0f); // UVを色として出す（テクスチャ不要）
+    // return tex.Sample(smp, _input.uv);
 
 }

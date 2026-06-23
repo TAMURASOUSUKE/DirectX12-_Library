@@ -2,6 +2,7 @@
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
 #include "../Graphics/GraphicsType.h"
+#include "../Component/Transform.h"
 #include "../Math/TSMath.h"
 
 // グラフィックスに関する機能をユーザーに簡易的に提供するためのファイル
