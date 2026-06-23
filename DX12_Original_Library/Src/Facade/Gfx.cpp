@@ -31,6 +31,8 @@ namespace {
 	ComPtr<ID3D12PipelineState> trianglePipelineState; // 三角形用パイプラインステートオブジェクト
 	ComPtr<ID3D12PipelineState> texturePipelineState; // テクスチャ用パイプラインステートオブジェクト
 	ComPtr<ID3D12PipelineState> cubePipelineState; // キューブ用パイプラインステートオブジェクト
+	ComPtr<ID3D12RootSignature> modelRootSignature; // モデル用ルートシグネチャ
+	ComPtr<ID3D12PipelineState> modelPipeLineState; // モデル用パイプラインステート
 	SpriteBatch fgBatch; // 手前のスプライトバッチ処理
 	SpriteBatch bgBatch; // 背景のスプライトバッチ処理
 	DebugTriangle triangle; // 三角形描画
@@ -111,6 +113,18 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/CubePS.hlsl");
 		return false; // 読み込み失敗したらfalse
 	}
+	auto modelVSBlob{ shaderSystem.Compile(L"../Src/Shaders/ModelVS.hlsl", "main", "vs_5_0") }; // モデル
+	if (!modelVSBlob)
+	{
+		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/ModelVS.hlsl");
+		return false; // 読み込み失敗したらfalse
+	}
+	auto modelPSBlob{ shaderSystem.Compile(L"../Src/Shaders/ModelPS.hlsl", "main", "ps_5_0") }; // モデル
+	if (!modelPSBlob)
+	{
+		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/ModelPS.hlsl");
+		return false; // 読み込み失敗したらfalse
+	}
 
 	triangleRootSignature = shaderSystem.CreateDebugTriangleRootSignature(); // ルートシグネチャの作成
 	if (!triangleRootSignature)
@@ -120,7 +134,7 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 
 	}
 
-	textureRootSignature = shaderSystem.CreateDebugTextureRootSignature(); // ルートシグネチャの作成
+	textureRootSignature = shaderSystem.CreateTextureRootSignature(); // ルートシグネチャの作成
 	if (!textureRootSignature)
 	{
 		DEBUG_LOG_ERROR("テクスチャルートシグネチャの作成に失敗しました\n");
@@ -142,7 +156,7 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	}
 
 
-	texturePipelineState = shaderSystem.CreateDebugTexturePipeLineState(textureRootSignature.Get(), textureVSBlob.Get(), texturePSBlob.Get()); // パイプラインステートオブジェクトを作成
+	texturePipelineState = shaderSystem.CreateTexturePipeLineState(textureRootSignature.Get(), textureVSBlob.Get(), texturePSBlob.Get()); // パイプラインステートオブジェクトを作成
 	if (!texturePipelineState)
 	{
 		DEBUG_LOG_ERROR("テクスチャPSOの作成に失敗しました\n");
@@ -153,6 +167,20 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	if (!cubePipelineState)
 	{
 		DEBUG_LOG_ERROR("テクスチャPSOの作成に失敗しました\n");
+		return false;
+	}
+
+	modelRootSignature = shaderSystem.CreateModelRootSignature(); // モデルのルートシグネチャの作成
+	if (!modelRootSignature)
+	{
+		DEBUG_LOG_ERROR("モデルルートシグネチャの作成に失敗しました\n");
+		return false;
+	}
+
+	modelPipeLineState = shaderSystem.CreateModelPipeLineState(modelRootSignature.Get(), modelVSBlob.Get(), modelPSBlob.Get()); // モデルパイプラインステートの作成
+	if (!modelPipeLineState)
+	{
+		DEBUG_LOG_ERROR("モデルPSOの作成に失敗しました\n");
 		return false;
 	}
 
