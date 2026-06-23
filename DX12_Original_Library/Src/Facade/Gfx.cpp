@@ -312,6 +312,12 @@ TexHandle Gfx::LoadTexture(const char* _filePath)
 	return ResourceManager::Instance().LoadTexture(_filePath);
 }
 
+// モデル読み込み
+ModelHandle Gfx::LoadModel(const char* _filePath)
+{
+	return ResourceManager::Instance().LoadModel(_filePath);
+}
+
 // 三角形の描画(現状固定座標にしているが拡張し、座標と色など指定できるようにしたい)
 void Gfx::DrawTriangle()
 {
@@ -412,9 +418,47 @@ void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float
 	}
 }
 
+void Gfx::DrawModel(ModelHandle _model, Transform _transform)
+{
+	ModelData* model{ ResourceManager::Instance().Lookup(_model) };
+	if (!model) return; // 無効ハンドルガード
+	auto cmd{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリストのキャッシュ
+	Mat4x4 worldMat{ _transform.GetWorldMatrix() };
+	mvpMat = worldMat * vpMat;
+	mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)); // リングバッファ更新
+
+	// パイプライン設定
+	cmd->SetGraphicsRootSignature(modelRootSignature.Get());
+	cmd->SetPipelineState(modelPipeLineState.Get());
+
+	// SRVヒープをバインド(テクスチャを使うため)
+	DescriptorManager::Instance().SetDiscriptor(cmd); // Flushと同じ考え方
+	cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.GetCurrentVertualAddress());
+	cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_LINELIST);
+
+	// submeshループ
+	for (const SubMesh& sub : model->subMeshes)
+	{
+		// テクスチャをバインド
+		TextureData* tex{ ResourceManager::Instance().Lookup(sub.texture) };
+		if (tex) cmd->SetGraphicsRootDescriptorTable(1, tex->srvHandle.gpu);
+
+		// 頂点インデックスをバインド
+		cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
+		cmd->IASetIndexBuffer(&sub.indexBuffer.indexView);
+
+		cmd->DrawIndexedInstanced(sub.indexBuffer.indexCount, 1, 0, 0, 0);
+	}
+}
+
 
 // 解放
 void Gfx::Unload(TexHandle _handle)
+{
+	ResourceManager::Instance().Unload(_handle);
+}
+
+void Gfx::Unload(ModelHandle _handle)
 {
 	ResourceManager::Instance().Unload(_handle);
 }

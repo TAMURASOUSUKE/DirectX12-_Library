@@ -39,13 +39,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	TexHandle background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
 	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png") }; // Enemyのハンドル取得
 	TexHandle player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
+	ModelHandle cubeModel{Gfx::LoadModel("")}
 
 	Vector2 playerPos{ 100.0f, 100.0f };
 	float ang{ 0.0f }; // 角度加算用のテスト
 	Vector3 cubeAng{ Vector3::Zero };
-
-	bool result{ Gfx::DebugLoadModel("../Src/External/Res/Cube.glb")};
-	if (!result) DEBUG_LOG("モデルのロードに失敗しました\n");
 
 	while (Gfx::ProcessMessage())
 	{
