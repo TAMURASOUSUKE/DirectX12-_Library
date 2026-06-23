@@ -1,5 +1,5 @@
 ﻿#include <cstdint>
-#include <cassert>
+#include "../Debug/DebugLogs.h"
 #include "GraphicsConstant.h"
 #include "GraphicsDevice.h"
 #include "ResourceManager.h"
@@ -8,7 +8,7 @@
 void RingConstantBuffer::Initialize(UINT _dataSize)
 {
 	alignedSize = (_dataSize + 0xff) & ~0xff; // 256バイトへの切り上げ
-	DynamicBuffer db{ ResourceManager::Instance().CreateDynamicBuffer(FRAME_BUFFER_COUNT * alignedSize) }; // 動的なバッファ確保
+	DynamicBuffer db{ ResourceManager::Instance().CreateDynamicBuffer(FRAME_BUFFER_COUNT * MAX_CB_PER_FRAME * alignedSize) }; // 動的なバッファ確保
 	if (!db.mappedPtr) return; // mapされたCPUptrを確認してnullであれば失敗判定
 
 	// メンバへ渡す
@@ -17,24 +17,33 @@ void RingConstantBuffer::Initialize(UINT _dataSize)
 	baseGPUVA = resource->GetGPUVirtualAddress(); // ベースの仮想アドレスをキャッシュして保持
 }
 
-void RingConstantBuffer::Update(const void* _src, UINT _size)
+D3D12_GPU_VIRTUAL_ADDRESS RingConstantBuffer::Update(const void* _src, UINT _size)
 {
-	// 一旦今後作るDebugクラスようにassertにしておく
 	// データサイズが境界調整済みサイズより大きいと隣のCBデータにはみ出してバグの原因になるのでチェックする
-	assert(_size <= alignedSize && "データが境界調整済みサイズより大きいです");
+	DEBUG_ASSERT(_size <= alignedSize && "データが境界調整済みサイズより大きいです");
+	DEBUG_ASSERT(frameCounter < MAX_CB_PER_FRAME && "1フレームのCB数が上限超過");
 
-	memcpy(static_cast<uint8_t*>(baseCPUPtr) + CalculatOffset(), _src, _size); // CPUデータをGPUメモリにコピー
+	UINT offset{ CalculateOffset() }; // 今のフレームのオフセット
+	memcpy(static_cast<uint8_t*>(baseCPUPtr) + offset, _src, _size); // CPUデータをGPUメモリにコピー
+	D3D12_GPU_VIRTUAL_ADDRESS addr{ baseGPUVA + offset }; // 同じオフセットのアドレス
+	frameCounter++; // 次の描画へ進める
+	return addr;
 
 }
 
 D3D12_GPU_VIRTUAL_ADDRESS RingConstantBuffer::GetCurrentVertualAddress() const
 {
 	// ベースのGPUの仮想アドレス + offsetを返す
-	return baseGPUVA + CalculatOffset();
+	return baseGPUVA + CalculateOffset();
 }
 
-UINT RingConstantBuffer::CalculatOffset() const
+UINT RingConstantBuffer::CalculateOffset() const
 {
-	// 現在のフレーム数と256境界に調整済みのデータサイズを掛け合わせたオフセットを計算する
-	return GraphicsDevice::Instance().GetCurrentFrameIndex() * alignedSize;
+	UINT slice{ GraphicsDevice::Instance().GetCurrentFrameIndex() * MAX_CB_PER_FRAME + frameCounter };
+	return slice * alignedSize; // スライスの位置を計算して256境界に切り上げたオフセットと計算する
+}
+
+void RingConstantBuffer::Reset()
+{
+	frameCounter = 0;
 }

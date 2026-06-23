@@ -237,6 +237,8 @@ void GfxInternal::BeginFrame()
 	// batch処理のカウンターリセット
 	bgBatch.Reset();
 	fgBatch.Reset();
+	// 定数バッファのカウンターリセット
+	mvpRingCBV.Reset();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTV
@@ -344,11 +346,11 @@ void Gfx::DrawCube(Vector3 _angle)
 	}
 	cube.SetRotation(_angle);
 	mvpMat = cube.GetWorldMat() * vpMat; // mvp行列
-	mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)); // 定数バッファの更新
-	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(cubeRootSignature.Get());
-	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(0, mvpRingCBV.GetCurrentVertualAddress());
-	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(cubePipelineState.Get());
-	cube.Draw(GraphicsDevice::Instance().GetCommandList());
+	auto cmd{ GraphicsDevice::Instance().GetCommandList() }; // キャッシュ
+	cmd->SetGraphicsRootSignature(cubeRootSignature.Get());
+	cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4))); // 定数バッファの更新
+	cmd->SetPipelineState(cubePipelineState.Get());
+	cube.Draw(cmd);
 }
 
 // 文字列描画(デフォルトフォント)
@@ -420,12 +422,17 @@ void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 {
+	{
+		// マクロがスコープを抜けるとEndEventするので囲う
+		GPU_MARKER("backGround");
+		bgBatch.Flush(); // 背景の上に来るように3D描画前には背景batchをFlushする
+	}
+
 	ModelData* model{ ResourceManager::Instance().Lookup(_model) };
 	if (!model) return; // 無効ハンドルガード
 	auto cmd{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリストのキャッシュ
 	Mat4x4 worldMat{ _transform.GetWorldMatrix() };
 	mvpMat = worldMat * vpMat;
-	mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)); // リングバッファ更新
 
 	// パイプライン設定
 	cmd->SetGraphicsRootSignature(modelRootSignature.Get());
@@ -433,7 +440,7 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 
 	// SRVヒープをバインド(テクスチャを使うため)
 	DescriptorManager::Instance().SetDiscriptor(cmd); // Flushと同じ考え方
-	cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.GetCurrentVertualAddress());
+	cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)));
 	cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	// submeshループ

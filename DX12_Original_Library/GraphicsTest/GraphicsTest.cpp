@@ -39,7 +39,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	TexHandle background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
 	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png") }; // Enemyのハンドル取得
 	TexHandle player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
-	ModelHandle cubeModel{ Gfx::LoadModel("Res/Cube.glb") }; // Cubeモデルのロード
+	ModelHandle cubeModel{ Gfx::LoadModel("Res/TestPlayer.glb") }; // Playerモデルのロード
 
 	Vector2 playerPos{ 100.0f, 100.0f };
 	float ang{ 0.0f }; // 角度加算用のテスト
@@ -88,7 +88,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawString("MeshNum : ", {0.0f, 0.0f});
 
-		Gfx::DrawCube(cubeAng);
+		// Gfx::DrawCube(cubeAng);
 
 		Gfx::DrawModel(cubeModel, cubeTransform);
 
