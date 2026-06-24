@@ -224,98 +224,27 @@ TexHandle ResourceManager::LoadTexture(const char* _filePath)
 		return TexHandle{}; // 空を返す
 	}
 
-	// Defaultヒープに空のテクスチャを作る(CreateTextureは非Xbox環境の場合はCOMMONで返す。formatはmetadataのものを保持する)
-	ComPtr<ID3D12Resource> texResource;
-	result = DirectX::CreateTexture(device, metaData, texResource.GetAddressOf());
+	return CreateTextureFromScratch(scratch, metaData);
+}
+
+// バイト列から読むタイプの画像読み込み
+TexHandle ResourceManager::LoadTextureFromMemory(const void* _data, size_t _size)
+{
+	// DirectXTexを用いたテクスチャロード
+	ID3D12Device* device{ GraphicsDevice::Instance().GetDevice() };
+	HRESULT result{}; // 結果判定用
+
+	// WICでCPUに読み込む
+	DirectX::TexMetadata metaData{}; // 画像のメタデータ
+	DirectX::ScratchImage scratch{}; // 画像管理クラス
+	result = DirectX::LoadFromWICMemory(static_cast<const uint8_t*>(_data), _size, DirectX::WIC_FLAGS_NONE, &metaData, scratch);
 	DEBUG_ASSERT(SUCCEEDED(result));
 	if (FAILED(result))
 	{
-		return TexHandle{};
+		return TexHandle{}; // 空を返す
 	}
 
-	// UpdateSubResourceヘ渡せる形へ変換(mip/面ごとに1要素のsubresource配列)
-	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
-	result = DirectX::PrepareUpload(device, scratch.GetImages(), scratch.GetImageCount(), metaData, subresources);
-	DEBUG_ASSERT(SUCCEEDED(result));
-	if (FAILED(result))
-	{
-		return TexHandle{};
-	}
-
-	// Uploadバッファを確保する必要なバイト数はd3dx12のヘルパから
-	const UINT64 uploadSize{ GetRequiredIntermediateSize(texResource.Get(), 0, static_cast<UINT>(subresources.size())) };
-
-	ComPtr<ID3D12Resource> uploadBuffer;
-	CD3DX12_HEAP_PROPERTIES uploadHeap(D3D12_HEAP_TYPE_UPLOAD);
-	CD3DX12_RESOURCE_DESC bufDesc{ CD3DX12_RESOURCE_DESC::Buffer(uploadSize) };
-	result = device->CreateCommittedResource(&uploadHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer));
-	DEBUG_ASSERT(SUCCEEDED(result));
-	if (FAILED(result))
-	{
-		return TexHandle{};
-	}
-
-	// アップロードを行う。recode変数にコピーとバリアを積む
-	result = GraphicsDevice::Instance().ExecuteUpdate
-	(
-		[&](ID3D12GraphicsCommandList* _cmd)
-		{
-			// コピーを積む(非Xbox環境なのでCommonが来るが暗黙昇格でCOPY_DESTになる)
-			UpdateSubresources(_cmd, texResource.Get(), uploadBuffer.Get(), 0, 0, static_cast<UINT>(subresources.size()), subresources.data());
-		
-			// バリアを使ってDESTからPIXEL_SHADER_RESOURCEへ遷移
-			D3D12_RESOURCE_BARRIER barrier{ CD3DX12_RESOURCE_BARRIER::Transition(texResource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE) };
-			_cmd->ResourceBarrier(1, &barrier);
-		}
-	);
-	DEBUG_ASSERT(SUCCEEDED(result));
-	if (FAILED(result))
-	{
-		return TexHandle{};
-	}
-
-	// SRVの作成(メタデータから引っ張ってきたものを使う)
-	DescriptorHandle srv{DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV)}; // 確保
-	if (!srv.IsValid())
-	{
-		// 枯渇していた場合の対処
-		DEBUG_ASSERT(false);
-		return TexHandle{};
-	}
-
-	// 設定
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
-	srvDesc.Format = metaData.format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; // デフォルトの読み込み
-	srvDesc.Texture2D.MipLevels = static_cast<UINT>(metaData.mipLevels); // ミップレベルをメタデータから持ってくる
-	device->CreateShaderResourceView(texResource.Get(), &srvDesc, srv.cpu);
-
-
-	TextureData texData{}; // 戻り値用
-	texData.resource = texResource;
-	texData.srvHandle = srv;
-	texData.width = static_cast<int>(metaData.width);
-	texData.height = static_cast<int>(metaData.height);
-
-	int index;
-	// 空ではないなら再利用する
-	if (!texFreeList.empty())
-	{
-		index = texFreeList.top(); // freelistから取り出す
-		texFreeList.pop(); // 削除
-		texSlots[index].data = texData; // Unload時点で++されるので世代は据え置き
-	}
-	// 空なら伸ばす
-	else
-	{
-		index = static_cast<int>(texSlots.size());
-		texSlots.push_back({ texData, 0 }); // 新規なので世代は0で
-	}
-
-	int packed{ Pack(index, texSlots[index].generation) }; // パックしたハンドルを入れる
-
-	return TexHandle(PassKey{}, packed);
+	return CreateTextureFromScratch(scratch, metaData);
 }
 
 TextureData* ResourceManager::Lookup(TexHandle _handle)
@@ -415,6 +344,9 @@ ModelHandle ResourceManager::LoadModel(const char* _filePath)
 		};
 		// 転置して正しい行優先に直す
 		Mat4x4 nodeMat{ Mat4x4::MakeTransposed(tmp) };
+		//　右手系から左手系に
+		Mat4x4 zFlip{ Mat4x4::MakeScaling(Vector3{1.0f, 1.0f, -1.0f}) };
+		Mat4x4 filnalMat{ nodeMat * zFlip };
 
 		// このnodeがさすmeshのprimitiveを処理する
 		const cgltf_mesh& mesh{ *node->mesh };
@@ -449,7 +381,7 @@ ModelHandle ResourceManager::LoadModel(const char* _filePath)
 
 				// ノード変換を焼きこむ(行なのでv * M)
 				Vector4 p{ localPos[0], localPos[1], localPos[2], 1.0f };
-				Vector4 worldPos{ Mat4x4::Mul(p, nodeMat) };
+				Vector4 worldPos{ Mat4x4::Mul(p, filnalMat) };
 				verticesData[k].position[0] = worldPos.x;
 				verticesData[k].position[1] = worldPos.y;
 				verticesData[k].position[2] = worldPos.z;
@@ -479,15 +411,30 @@ ModelHandle ResourceManager::LoadModel(const char* _filePath)
 			SubMesh sub{}; // サブメッシュ
 			sub.vertexBuffer = vertBuffer;
 			sub.indexBuffer = indexBuffer;
+
+			cgltf_image* image{ nullptr };
 			// PBRチェックを入れる
 			if (prim.material && prim.material->has_pbr_metallic_roughness
 				&& prim.material->pbr_metallic_roughness.base_color_texture.texture
 				&& prim.material->pbr_metallic_roughness.base_color_texture.texture->image
-				&& prim.material->pbr_metallic_roughness.base_color_texture.texture->image->uri)
+				&& prim.material->pbr_metallic_roughness.base_color_texture.texture->image)
 			{
-				std::filesystem::path texPath{ modelDir / prim.material->pbr_metallic_roughness.base_color_texture.texture->image->uri };
-				std::string texPathStr{ texPath.string() }; // ローカルにする
-				sub.texture = LoadTexture(texPathStr.c_str());
+				image = prim.material->pbr_metallic_roughness.base_color_texture.texture->image;
+			}
+
+			if (image)
+			{
+				if (image->uri)
+				{
+					std::filesystem::path texPath{ modelDir / prim.material->pbr_metallic_roughness.base_color_texture.texture->image->uri };
+					std::string texPathStr{ texPath.string() }; // ローカルにする
+					sub.texture = LoadTexture(texPathStr.c_str());
+				}
+				else if (image->buffer_view)
+				{
+					const uint8_t* bytes{ static_cast<const uint8_t*>(image->buffer_view->buffer->data) + image->buffer_view->offset };
+					sub.texture = LoadTextureFromMemory(bytes, image->buffer_view->size);
+				}
 			}
 			modelData.subMeshes.push_back(sub); // 詰め込む
 		}
@@ -554,4 +501,103 @@ void ResourceManager::Unload(ModelHandle _handle)
 	modelSlots[index].generation++; // 世代を増やして既存を無効化
 	modelFreeList.push(index); // freelistへ返す
 		
+}
+
+// ヘルパー
+TexHandle ResourceManager::CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta)
+{
+	HRESULT result{};
+
+	// Defaultヒープに空のテクスチャを作る(CreateTextureは非Xbox環境の場合はCOMMONで返す。formatはmetadataのものを保持する)
+	ComPtr<ID3D12Resource> texResource;
+	result = DirectX::CreateTexture(device, _meta, texResource.GetAddressOf());
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		return TexHandle{};
+	}
+
+	// UpdateSubResourceヘ渡せる形へ変換(mip/面ごとに1要素のsubresource配列)
+	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
+	result = DirectX::PrepareUpload(device, _scratch.GetImages(), _scratch.GetImageCount(), _meta, subresources);
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		return TexHandle{};
+	}
+
+	// Uploadバッファを確保する必要なバイト数はd3dx12のヘルパから
+	const UINT64 uploadSize{ GetRequiredIntermediateSize(texResource.Get(), 0, static_cast<UINT>(subresources.size())) };
+
+	ComPtr<ID3D12Resource> uploadBuffer;
+	CD3DX12_HEAP_PROPERTIES uploadHeap(D3D12_HEAP_TYPE_UPLOAD);
+	CD3DX12_RESOURCE_DESC bufDesc{ CD3DX12_RESOURCE_DESC::Buffer(uploadSize) };
+	result = device->CreateCommittedResource(&uploadHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer));
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		return TexHandle{};
+	}
+
+	// アップロードを行う。recode変数にコピーとバリアを積む
+	result = GraphicsDevice::Instance().ExecuteUpdate
+	(
+		[&](ID3D12GraphicsCommandList* _cmd)
+		{
+			// コピーを積む(非Xbox環境なのでCommonが来るが暗黙昇格でCOPY_DESTになる)
+			UpdateSubresources(_cmd, texResource.Get(), uploadBuffer.Get(), 0, 0, static_cast<UINT>(subresources.size()), subresources.data());
+
+			// バリアを使ってDESTからPIXEL_SHADER_RESOURCEへ遷移
+			D3D12_RESOURCE_BARRIER barrier{ CD3DX12_RESOURCE_BARRIER::Transition(texResource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE) };
+			_cmd->ResourceBarrier(1, &barrier);
+		}
+	);
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		return TexHandle{};
+	}
+
+	// SRVの作成(メタデータから引っ張ってきたものを使う)
+	DescriptorHandle srv{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // 確保
+	if (!srv.IsValid())
+	{
+		// 枯渇していた場合の対処
+		DEBUG_ASSERT(false);
+		return TexHandle{};
+	}
+
+	// 設定
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+	srvDesc.Format = _meta.format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; // デフォルトの読み込み
+	srvDesc.Texture2D.MipLevels = static_cast<UINT>(_meta.mipLevels); // ミップレベルをメタデータから持ってくる
+	device->CreateShaderResourceView(texResource.Get(), &srvDesc, srv.cpu);
+
+
+	TextureData texData{}; // 戻り値用
+	texData.resource = texResource;
+	texData.srvHandle = srv;
+	texData.width = static_cast<int>(_meta.width);
+	texData.height = static_cast<int>(_meta.height);
+
+	int index;
+	// 空ではないなら再利用する
+	if (!texFreeList.empty())
+	{
+		index = texFreeList.top(); // freelistから取り出す
+		texFreeList.pop(); // 削除
+		texSlots[index].data = texData; // Unload時点で++されるので世代は据え置き
+	}
+	// 空なら伸ばす
+	else
+	{
+		index = static_cast<int>(texSlots.size());
+		texSlots.push_back({ texData, 0 }); // 新規なので世代は0で
+	}
+
+	int packed{ Pack(index, texSlots[index].generation) }; // パックしたハンドルを入れる
+
+	return TexHandle(PassKey{}, packed);
 }

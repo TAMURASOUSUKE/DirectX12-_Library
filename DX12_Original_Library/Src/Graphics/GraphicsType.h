@@ -104,6 +104,7 @@ struct ModelVertex
 	float uv[2];
 };
 
+
 // サブメッシュ単位の構造体
 struct SubMesh
 {

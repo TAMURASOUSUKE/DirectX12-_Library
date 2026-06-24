@@ -10,6 +10,9 @@
 using Microsoft::WRL::ComPtr;
 #pragma comment(lib, "d3d12.lib")
 
+// 外部にDirectXTexが漏れるのを防ぐための前方宣言
+namespace DirectX { class ScratchImage; struct TexMetadata; }
+
 // ShaderSystemやファサードがリソース管理を意識せず使えるようにするクラス
 class ResourceManager
 {
@@ -42,6 +45,9 @@ public:
 	// ファイル名を引数に画像をロードする関数
 	TexHandle LoadTexture(const char* _filePath);
 
+	// バイト列をもとに画像を持ってくる
+	TexHandle LoadTextureFromMemory(const void* _data, size_t _size);
+
 	// ファイル名を引数にモデルをロードする関数
 	ModelHandle LoadModel(const char* _filePath);
 
@@ -59,6 +65,9 @@ private:
 	// コピー禁止
 	ResourceManager(const ResourceManager& _other) = delete;
 	ResourceManager& operator =(const ResourceManager& _other) = delete;
+
+	// GPUテクスチャ作成からレジストリ登録まで行うヘルパー
+	TexHandle CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta);
 	
 private:
 	ID3D12Device* device{ nullptr }; // Initializeでデバイスを受け取って保持する
