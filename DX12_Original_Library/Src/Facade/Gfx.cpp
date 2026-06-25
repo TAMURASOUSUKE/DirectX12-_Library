@@ -23,6 +23,7 @@ namespace {
 	ShaderSystem shaderSystem; // Shader読み込みなどを管理するファイル
 	ConstantBufferData orthConstantBufferData; // 正射影行列用定数バッファのデータメンバ
 	RingConstantBuffer mvpRingCBV; // MVP行列用定数バッファのデータメンバ
+	RingConstantBuffer materialRingCBV; // material用定数バッファのデータメンバ
 	Mat4x4 vpMat; // View * Projection
 	Mat4x4 mvpMat;
 	ComPtr<ID3D12RootSignature> triangleRootSignature; // 三角形用ルートシグネチャ
@@ -193,6 +194,7 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	// 透視投影行列の作成(一旦キューブが描画できるのを確認するためにハードコーディング)
 	vpMat = Mat4x4::MakeLookAt({ 2.0f, 2.0f, -3.0f }, { 0.0f, 0.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, static_cast<float>(screenWidth) / static_cast<float>(screenHeight), 0.1f, 100.0f);
 	mvpRingCBV.Initialize(sizeof(Mat4x4)); // リングバッファ初期化
+	materialRingCBV.Initialize(sizeof(MaterialCB));  // materialのリング定数バッファを初期化
 
 	// スプライトバッチ処理初期化
 	fgBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), orthConstantBufferData.resource.Get());
@@ -239,6 +241,7 @@ void GfxInternal::BeginFrame()
 	fgBatch.Reset();
 	// 定数バッファのカウンターリセット
 	mvpRingCBV.Reset();
+	materialRingCBV.Reset();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTV
@@ -446,9 +449,18 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 	// submeshループ
 	for (const SubMesh& sub : model->subMeshes)
 	{
+		// material値をCBにつめる
+		MaterialCB matCB{};
+		matCB.baseColorFactor = sub.material.baseColorFactor;
+		matCB.metallic = sub.material.metallic;
+		matCB.roughness = sub.material.roughness;
+		matCB.emissiveFactor = sub.material.emissiveFactor;
+		// Ringで送ってb1にバインドする
+		cmd->SetGraphicsRootConstantBufferView(1,  materialRingCBV.Update(&matCB, sizeof(MaterialCB)));
+
 		// テクスチャをバインド
-		TextureData* tex{ ResourceManager::Instance().Lookup(sub.texture) };
-		if (tex) cmd->SetGraphicsRootDescriptorTable(1, tex->srvHandle.gpu);
+		TextureData* tex{ ResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor])};
+		if (tex) cmd->SetGraphicsRootDescriptorTable(2, tex->srvHandle.gpu);
 
 		// 頂点インデックスをバインド
 		cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
@@ -458,7 +470,20 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 	}
 }
 
-
+void Gfx::SetBaseColor(ModelHandle model, int submeshIndex, Vector4 color)
+{
+	ModelData* data{ ResourceManager::Instance().Lookup(model) };
+	if (!data) return;  // 無効ハンドルガード
+	if (submeshIndex < 0 || submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
+	data->subMeshes[submeshIndex].material.baseColorFactor = color;
+}
+void Gfx::SetTexture(ModelHandle model, int submeshIndex, TexHandle texture)
+{
+	ModelData* data{ ResourceManager::Instance().Lookup(model) };
+	if (!data) return;  // 無効ハンドルガード
+	if (submeshIndex < 0 || submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
+	data->subMeshes[submeshIndex].material.textures[MaterialTex::BaseColor] = texture;
+}
 // 解放
 void Gfx::Unload(TexHandle _handle)
 {

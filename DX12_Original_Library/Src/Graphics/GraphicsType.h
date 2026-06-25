@@ -2,6 +2,7 @@
 #include <d3d12.h>
 #include <wrl/client.h>
 #include <vector>
+#include "../Math/TSMath.h"
 #include "../Core/Handle/TexHandle.h"
 #include "GraphicsConstant.h"
 using Microsoft::WRL::ComPtr;
@@ -104,12 +105,48 @@ struct ModelVertex
 	float uv[2];
 };
 
+namespace MaterialTex 
+{
+	// intの暗黙変換を行うため通常のenum
+	enum
+	{
+		BaseColor,
+		Normal,
+		MetallicRoughness,
+		Emissive,
+		Count,
+	};
+}
+
+// materialの定数バッファ
+struct MaterialCB
+{
+	// パディング = 16byteに調整するための変数
+	Vector4 baseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f }; // 拡散色(デフォルトは白)
+	float metallic{ 1.0f }; //　金属度
+	float roughness{ 1.0f }; // 粗さ
+	float pad0{ 0.0f };
+	float pad1{ 0.0f };
+	Vector3 emissiveFactor{ 0.0f, 0.0f, 0.0f }; // 自己発光色
+	float pad2{ 0.0f }; 
+};
+
+// material本体
+struct Material
+{
+	TexHandle textures[MaterialTex::Count]; // テクスチャ群
+	Vector4 baseColorFactor{ 1.0f, 0.0f, 0.0f, 1.0f }; // 拡散色(デフォルトは白)
+	float metallic{ 1.0f }; //　金属度
+	float roughness{ 1.0f }; // 粗さ
+	Vector3 emissiveFactor{ 0.0f, 0.0f, 0.0f }; // 自己発光色
+};
+
 // サブメッシュ単位の構造体
 struct SubMesh
 {
 	VertexBuffer vertexBuffer; // 頂点バッファ
 	IndexBuffer indexBuffer; // インデックスバッファ(この中にIndexCountがあるためそれを使う)
-	TexHandle texture; // テクスチャ
+	Material material; // マテリアル
 };
 
 // モデルそのものを構成する構造体
