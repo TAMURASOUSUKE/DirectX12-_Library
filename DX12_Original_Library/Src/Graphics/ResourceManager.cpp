@@ -27,6 +27,9 @@ void ResourceManager::Initialize(ID3D12Device* _device)
 	{
 		device = _device;
 	}
+
+	// デフォルト用の白テクスチャを作成する(初期化時に1枚だけ)
+	whiteTexture = CreateWhiteTexture();
 }
 
 VertexBuffer ResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize)
@@ -432,6 +435,12 @@ ModelHandle ResourceManager::LoadModel(const char* _filePath)
 				sub.material.emissiveFactor = ToVec3(prim.material->emissive_factor);
 			}
 
+			// BaseColorハンドルが無効なら白にする
+			if (!sub.material.textures[MaterialTex::BaseColor].IsValid())
+			{
+				sub.material.textures[MaterialTex::BaseColor] = whiteTexture;
+			}
+
 			modelData.subMeshes.push_back(sub); // 詰め込む
 		}
 	}
@@ -494,7 +503,7 @@ void ResourceManager::Unload(ModelHandle _handle)
 		// テクスチャの開放
 		for (TexHandle& tex : sub.material.textures)
 		{
-			if (tex.IsValid())
+			if (tex.IsValid() &&  tex != whiteTexture)
 			{
 				Unload(tex);
 			}
@@ -507,7 +516,6 @@ void ResourceManager::Unload(ModelHandle _handle)
 
 }
 
-// ヘルパー
 TexHandle ResourceManager::CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta)
 {
 	HRESULT result{};
@@ -627,4 +635,14 @@ TexHandle ResourceManager::LoadTextureFromGltf(const cgltf_texture_view& _texVie
 	}
 
 	return TexHandle{};
+}
+
+TexHandle ResourceManager::CreateWhiteTexture()
+{
+	DirectX::ScratchImage scratch{}; // スクラッチ
+	scratch.Initialize2D(DXGI_FORMAT_R8G8B8A8_UNORM, 1, 1, 1, 1); // 1x1, 1配列, 1mip
+
+	uint8_t white[4]{ 255, 255, 255 ,255 }; // RGBA白
+	memcpy(scratch.GetPixels(), white, 4); // 生のメモリに白を書く
+	return CreateTextureFromScratch(scratch, scratch.GetMetadata());
 }

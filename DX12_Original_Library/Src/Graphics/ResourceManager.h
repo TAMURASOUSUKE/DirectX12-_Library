@@ -76,8 +76,12 @@ private:
 	// テクスチャの種類を受け取りuri/bufferviewを探索してロードするヘルパー
 	TexHandle LoadTextureFromGltf(const cgltf_texture_view& _texView, const  std::filesystem::path& _modelDir);
 	
+	// デフォルト用の白色のテクスチャを作成するヘルパー(Initializeで作成用)
+	TexHandle CreateWhiteTexture();
+
 private:
 	ID3D12Device* device{ nullptr }; // Initializeでデバイスを受け取って保持する
+	TexHandle whiteTexture; // デフォルトの白テクスチャ
 	std::vector<TextureSlot> texSlots; // テクスチャリソースのスロット
 	std::vector <ModelSlot> modelSlots; // モデルリソースのスロット
 	std::stack<int> texFreeList; // テクスチャリソースのフリーリスト
