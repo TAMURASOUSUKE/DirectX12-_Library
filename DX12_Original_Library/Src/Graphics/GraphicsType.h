@@ -118,11 +118,24 @@ namespace MaterialTex
 	};
 }
 
+// materialの定数バッファ
+struct MaterialCB
+{
+	// パディング = 16byteに調整するための変数
+	Vector4 baseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f }; // 拡散色(デフォルトは白)
+	float metallic{ 1.0f }; //　金属度
+	float roughness{ 1.0f }; // 粗さ
+	float pad0{ 0.0f };
+	float pad1{ 0.0f };
+	Vector3 emissiveFactor{ 0.0f, 0.0f, 0.0f }; // 自己発光色
+	float pad2{ 0.0f }; 
+};
+
 // material本体
 struct Material
 {
 	TexHandle textures[MaterialTex::Count]; // テクスチャ群
-	Vector4 baseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f }; // 拡散色(デフォルトは白)
+	Vector4 baseColorFactor{ 1.0f, 0.0f, 0.0f, 1.0f }; // 拡散色(デフォルトは白)
 	float metallic{ 1.0f }; //　金属度
 	float roughness{ 1.0f }; // 粗さ
 	Vector3 emissiveFactor{ 0.0f, 0.0f, 0.0f }; // 自己発光色

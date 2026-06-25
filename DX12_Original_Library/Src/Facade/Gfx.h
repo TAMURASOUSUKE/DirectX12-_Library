@@ -42,6 +42,10 @@ namespace Gfx
 	void DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation = 0.0f, Vector2 _uvMin = { Vector2::Zero }, Vector2 _uvMax = { Vector2::One }, LenderLayer _layer = LenderLayer::ForeGround);
 	// モデルを描画する
 	void DrawModel(ModelHandle _model, Transform _transform);
+	// 色の変更(今後は引数を変更)
+	void SetBaseColor(ModelHandle model, int submeshIndex, Vector4 color);
+	// テクスチャの変更(今後は引数を変更)
+	void SetTexture(ModelHandle model, int submeshIndex, TexHandle texture);
 	// テクスチャリソースの解放
 	void Unload(TexHandle _handle);
 	void Unload(ModelHandle _hanlde);

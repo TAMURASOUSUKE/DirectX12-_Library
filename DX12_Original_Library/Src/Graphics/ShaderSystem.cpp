@@ -286,20 +286,25 @@ ComPtr<ID3D12RootSignature> ShaderSystem::CreateModelRootSignature()
 	descriptorRange.BaseShaderRegister = 0; // 0番スロットから始める
 	descriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND; // 前のレンジの直後に配置する
 
+	D3D12_ROOT_PARAMETER rootPrams[3]{ }; // パラメータの配列
 	// ルートパラメータの設定
-	D3D12_ROOT_PARAMETER CBVrootParam{};
-	CBVrootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // TypeはCSVに指定
-	CBVrootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // 定数バッファはVSに置いてあるのでVERTEX指定
-	CBVrootParam.Descriptor.RegisterSpace = 0; // レジスタオフセット
-	CBVrootParam.Descriptor.ShaderRegister = 0; // b0
+	// MVP用
+	rootPrams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // TypeはCSVに指定
+	rootPrams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // 定数バッファはVSに置いてあるのでVERTEX指定
+	rootPrams[0].Descriptor.RegisterSpace = 0; // レジスタオフセット
+	rootPrams[0].Descriptor.ShaderRegister = 0; // b0
 
-	D3D12_ROOT_PARAMETER texRootParam{};
-	texRootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // ディスクリプタテーブルタイプに指定する
-	texRootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // ピクセルシェーダーから見えるようにする
-	texRootParam.DescriptorTable.pDescriptorRanges = &descriptorRange; // ディスクリプタレンジのアドレス
-	texRootParam.DescriptorTable.NumDescriptorRanges = 1; // ディスクリプタレンジの数
+	// material用
+	rootPrams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // TypeはCBVに指定
+	rootPrams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // materialはピクセルシェーダーで読むのでへ
+	rootPrams[1].Descriptor.RegisterSpace = 0; // オフセット0
+	rootPrams[1].Descriptor.ShaderRegister = 1; // b1
 
-	D3D12_ROOT_PARAMETER rootPrams[]{ CBVrootParam, texRootParam }; // パラメータの配列
+	// テクスチャ(t0)
+	rootPrams[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // ディスクリプタテーブルタイプに指定する
+	rootPrams[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // ピクセルシェーダーから見えるようにする
+	rootPrams[2].DescriptorTable.pDescriptorRanges = &descriptorRange; // ディスクリプタレンジのアドレス
+	rootPrams[2].DescriptorTable.NumDescriptorRanges = 1; // ディスクリプタレンジの数
 
 	// サンプラーの設定
 	D3D12_STATIC_SAMPLER_DESC smpDesc{};
@@ -314,7 +319,7 @@ ComPtr<ID3D12RootSignature> ShaderSystem::CreateModelRootSignature()
 	// ルートシグネチャの設定構造体
 	D3D12_ROOT_SIGNATURE_DESC rootSigDesc{};
 	rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-	rootSigDesc.NumParameters = 2;
+	rootSigDesc.NumParameters = 3;
 	rootSigDesc.NumStaticSamplers = 1;
 	rootSigDesc.pParameters = rootPrams; // 配列を渡す
 	rootSigDesc.pStaticSamplers = &smpDesc;
