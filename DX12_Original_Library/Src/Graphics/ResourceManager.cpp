@@ -601,3 +601,20 @@ TexHandle ResourceManager::CreateTextureFromScratch(const DirectX::ScratchImage&
 
 	return TexHandle(PassKey{}, packed);
 }
+
+TexHandle ResourceManager::LoadTextureFromGltf(const cgltf_texture_view& _texView, const  std::filesystem::path& _modelDir)
+{
+	if (_texView.texture)
+	{
+		if (_texView.texture->image->uri)
+		{
+			std::string texPathStr{ _modelDir.string() }; // ローカルにする
+			return LoadTexture(texPathStr.c_str());
+		}
+		else if (_texView.texture->image->buffer_view)
+		{
+			const uint8_t* bytes{ static_cast<const uint8_t*>(_texView.texture->image->buffer_view->buffer->data) + _texView.texture->image->buffer_view->offset };
+			return LoadTextureFromMemory(bytes, _texView.texture->image->buffer_view->size);
+		}
+	}
+}

@@ -104,13 +104,35 @@ struct ModelVertex
 	float uv[2];
 };
 
+namespace MaterialTex 
+{
+	// intの暗黙変換を行うため通常のenum
+	enum
+	{
+		BaseColor,
+		Normal,
+		MetallicRoughness,
+		Emissive,
+		Count,
+	};
+}
+
+// material本体
+struct Material
+{
+	TexHandle textures[MaterialTex::Count]; // テクスチャ群
+	Vector4 baseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f }; // 拡散色(デフォルトは白)
+	float metallic{ 1.0f }; //　金属度
+	float roughness{ 1.0f }; // 粗さ
+	Vector3 emissiveFactor{ 0.0f, 0.0f, 0.0f }; // 自己発光色
+};
 
 // サブメッシュ単位の構造体
 struct SubMesh
 {
 	VertexBuffer vertexBuffer; // 頂点バッファ
 	IndexBuffer indexBuffer; // インデックスバッファ(この中にIndexCountがあるためそれを使う)
-	TexHandle texture; // テクスチャ
+	Material material; // マテリアル
 };
 
 // モデルそのものを構成する構造体

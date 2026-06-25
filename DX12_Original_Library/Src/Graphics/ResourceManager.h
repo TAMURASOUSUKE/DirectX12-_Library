@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <d3d12.h>
 #include <wrl/client.h>
+#include <filesystem>
 #include <vector>
 #include <stack>
 #include "../Core/Handle/TexHandle.h"
@@ -12,6 +13,9 @@ using Microsoft::WRL::ComPtr;
 
 // 外部にDirectXTexが漏れるのを防ぐための前方宣言
 namespace DirectX { class ScratchImage; struct TexMetadata; }
+// 同様にcg_ltfが出ないようにするため
+struct cgltf_texture_view;
+
 
 // ShaderSystemやファサードがリソース管理を意識せず使えるようにするクラス
 class ResourceManager
@@ -68,6 +72,9 @@ private:
 
 	// GPUテクスチャ作成からレジストリ登録まで行うヘルパー
 	TexHandle CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta);
+
+	// テクスチャの種類を受け取りuri/bufferviewを探索してロードするヘルパー
+	TexHandle LoadTextureFromGltf(const cgltf_texture_view& _texView, const  std::filesystem::path& _modelDir);
 	
 private:
 	ID3D12Device* device{ nullptr }; // Initializeでデバイスを受け取って保持する
