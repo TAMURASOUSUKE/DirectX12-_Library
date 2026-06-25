@@ -14,6 +14,13 @@
 #pragma comment(lib, "windowscodecs.lib") // WIC（LoadFromWICFile）
 #pragma comment(lib, "ole32.lib")        // COM（CoInitializeEx / CoCreateInstance）
 
+
+namespace {
+	// cgltfから返ってくるfloat[4]やfloat[3]をvector4,3に変換するためのもの
+	Vector4 ToVec4(float* _f) { return Vector4{ _f[0], _f[1], _f[2], _f[3] }; }
+	Vector3 ToVec3(float* _f) { return Vector3{ _f[0], _f[1], _f[2] }; }
+}
+
 void ResourceManager::Initialize(ID3D12Device* _device)
 {
 	if (_device != nullptr)
@@ -412,34 +419,23 @@ ModelHandle ResourceManager::LoadModel(const char* _filePath)
 			sub.vertexBuffer = vertBuffer;
 			sub.indexBuffer = indexBuffer;
 
-			cgltf_image* image{ nullptr };
-			// PBRチェックを入れる
-			if (prim.material && prim.material->has_pbr_metallic_roughness
-				&& prim.material->pbr_metallic_roughness.base_color_texture.texture
-				&& prim.material->pbr_metallic_roughness.base_color_texture.texture->image
-				&& prim.material->pbr_metallic_roughness.base_color_texture.texture->image)
+			// テクスチャや各パラメータの代入
+			if (prim.material)
 			{
-				image = prim.material->pbr_metallic_roughness.base_color_texture.texture->image;
+				sub.material.textures[MaterialTex::BaseColor] = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.base_color_texture, modelDir);
+				sub.material.textures[MaterialTex::Normal] = LoadTextureFromGltf(prim.material->normal_texture, modelDir);
+				sub.material.textures[MaterialTex::MetallicRoughness] = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.metallic_roughness_texture, modelDir);
+				sub.material.textures[MaterialTex::Emissive] = LoadTextureFromGltf(prim.material->emissive_texture, modelDir);
+				sub.material.baseColorFactor = ToVec4(prim.material->pbr_metallic_roughness.base_color_factor);
+				sub.material.metallic = prim.material->pbr_metallic_roughness.metallic_factor;
+				sub.material.roughness = prim.material->pbr_metallic_roughness.roughness_factor;
+				sub.material.emissiveFactor = ToVec3(prim.material->emissive_factor);
 			}
 
-			if (image)
-			{
-				if (image->uri)
-				{
-					std::filesystem::path texPath{ modelDir / prim.material->pbr_metallic_roughness.base_color_texture.texture->image->uri };
-					std::string texPathStr{ texPath.string() }; // ローカルにする
-					sub.texture = LoadTexture(texPathStr.c_str());
-				}
-				else if (image->buffer_view)
-				{
-					const uint8_t* bytes{ static_cast<const uint8_t*>(image->buffer_view->buffer->data) + image->buffer_view->offset };
-					sub.texture = LoadTextureFromMemory(bytes, image->buffer_view->size);
-				}
-			}
 			modelData.subMeshes.push_back(sub); // 詰め込む
 		}
 	}
-		
+
 
 	int index;
 	// 空ではないなら再利用する
@@ -470,7 +466,7 @@ void ResourceManager::Unload(TexHandle _handle)
 		// 無効なハンドル
 		DEBUG_LOG_ERROR("無効なハンドルです\n");
 		return;
-	} 
+	}
 	int index{ UnpackIndex(_handle.GetRaw(PassKey{})) }; // indexの取り出し
 
 	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texSlots[index].data.srvHandle); // スロットの返却
@@ -494,13 +490,21 @@ void ResourceManager::Unload(ModelHandle _handle)
 		/*
 			頂点バッファやインデックスバッファはComPtrで管理しているので自動Freeされる
 		*/
-		if (sub.texture.IsValid()) Unload(sub.texture); // テクスチャの開放
+
+		// テクスチャの開放
+		for (TexHandle& tex : sub.material.textures)
+		{
+			if (tex.IsValid())
+			{
+				Unload(tex);
+			}
+		}
 	}
 
 	modelSlots[index].data = ModelData{}; // 空を入れてsubMeshごと破棄
 	modelSlots[index].generation++; // 世代を増やして既存を無効化
 	modelFreeList.push(index); // freelistへ返す
-		
+
 }
 
 // ヘルパー
@@ -604,17 +608,23 @@ TexHandle ResourceManager::CreateTextureFromScratch(const DirectX::ScratchImage&
 
 TexHandle ResourceManager::LoadTextureFromGltf(const cgltf_texture_view& _texView, const  std::filesystem::path& _modelDir)
 {
-	if (_texView.texture)
+	if (!_texView.texture || !_texView.texture->image) return TexHandle{}; // 空を返す
+	cgltf_image* image{ _texView.texture->image };
+
+	if (image)
 	{
-		if (_texView.texture->image->uri)
+		if (image->uri)
 		{
-			std::string texPathStr{ _modelDir.string() }; // ローカルにする
+			std::filesystem::path texPath{ _modelDir / image->uri };  // フォルダ + ファイル名
+			std::string texPathStr{ texPath.string() };
 			return LoadTexture(texPathStr.c_str());
 		}
-		else if (_texView.texture->image->buffer_view)
+		else if (image->buffer_view)
 		{
-			const uint8_t* bytes{ static_cast<const uint8_t*>(_texView.texture->image->buffer_view->buffer->data) + _texView.texture->image->buffer_view->offset };
-			return LoadTextureFromMemory(bytes, _texView.texture->image->buffer_view->size);
+			const uint8_t* bytes{ static_cast<const uint8_t*>(image->buffer_view->buffer->data) + image->buffer_view->offset };
+			return LoadTextureFromMemory(bytes, image->buffer_view->size);
 		}
 	}
+
+	return TexHandle{};
 }

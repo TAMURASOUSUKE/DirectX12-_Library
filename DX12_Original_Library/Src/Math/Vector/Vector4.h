@@ -85,7 +85,6 @@ struct alignas(16) Vector4
 	Vector4& operator *=(const float _value);
 	// スカラーによる除算代入(0割りをすると0ベクトルを返すようにしています)
 	Vector4& operator /=(const float _value);
-
 	// ベクトルとスカラーの逆乗算
 	friend Vector4 operator *(const float _value, const Vector4& _other)
 	{

@@ -2,6 +2,7 @@
 #include <d3d12.h>
 #include <wrl/client.h>
 #include <vector>
+#include "../Math/TSMath.h"
 #include "../Core/Handle/TexHandle.h"
 #include "GraphicsConstant.h"
 using Microsoft::WRL::ComPtr;

@@ -447,7 +447,7 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 	for (const SubMesh& sub : model->subMeshes)
 	{
 		// テクスチャをバインド
-		TextureData* tex{ ResourceManager::Instance().Lookup(sub.texture) };
+		TextureData* tex{ ResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor])};
 		if (tex) cmd->SetGraphicsRootDescriptorTable(1, tex->srvHandle.gpu);
 
 		// 頂点インデックスをバインド
