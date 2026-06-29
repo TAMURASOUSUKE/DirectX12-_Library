@@ -9,9 +9,12 @@ struct alignas(16) Quaternion
 public:
 	//　コンストラクタ群
 	constexpr Quaternion() : x{ 0.0f }, y{ 0.0f }, z{ 0.0f }, w{1.0f}{} // デフォルト(0初期化)
-	constexpr Quaternion(float _x, float _y, float _z, float _w); // 全てfloatで受け取る
-	constexpr Quaternion(const Vector3& _vec, float _w); // 実部をfloatで受け取りそれ以外をVector3型で受け取る
-	constexpr Quaternion(const Vector4& _vec); // Vector4型で受け取る
+	// Vector4で初期化
+	constexpr Quaternion(const Vector4& _vec) : x{ _vec.x }, y{ _vec.y }, z{ _vec.z }, w{ _vec.w } {}
+	// 実部をfloat,虚部をVector3型で初期化
+	constexpr Quaternion(const Vector3& _vec, float _w) : x{ _vec.x }, y{ _vec.y }, z{ _vec.z }, w{ _w } {}
+	// float初期化
+	constexpr Quaternion(float _x, float _y, float _z, float _w) : x{ _x }, y{ _y }, z{ _z }, w{ _w } {}
 
 	~Quaternion() = default; // デフォルトデストラクタ
 
@@ -22,7 +25,8 @@ public:
 	static Quaternion FromAxisAngle(const Vector3& _axis, float _radians);
 
 	// オイラー角から四元数を生成する
-	static Quaternion FromEuler(float _pitch, float _yaw, float _roll);
+	static Quaternion FromEuler(const float _pitch, const float _yaw,const  float _roll);
+	static Quaternion FromEuler(const Vector3& rotation); // Vec3版
 
 	// 補完
 	static Quaternion Slerp(const Quaternion& _from, const Quaternion& _to, float _t);
