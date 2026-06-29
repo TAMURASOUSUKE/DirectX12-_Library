@@ -59,6 +59,11 @@ public:
 	TextureData* Lookup(TexHandle _handle);
 	ModelData* Lookup(ModelHandle _handle);
 
+	// ボーンのグローバルポーズを計算する
+	void UpdateGlobalPose(AnimInstanceData& _instance);
+	// Animation補完する関数(どのアニメーションか、ボーン、再生時刻、(出力)各ボーンの補完済みローカルポーズ)
+	void SampleAnimation(const Animation& _anim, const std::vector<Bone>& _bones , float _time, std::vector<Mat4x4>& _outLocalPoses);
+
 	// リソースを解放する
 	void Unload(TexHandle _handle);
 	void Unload(ModelHandle _handle);
@@ -78,6 +83,9 @@ private:
 	
 	// デフォルト用の白色のテクスチャを作成するヘルパー(Initializeで作成用)
 	TexHandle CreateWhiteTexture();
+
+	// Animation補完を助けるキーフレーム補完ヘルパー
+	Vector4 SampleChannel(const AnimChannel& _ch, float _time);
 
 private:
 	ID3D12Device* device{ nullptr }; // Initializeでデバイスを受け取って保持する

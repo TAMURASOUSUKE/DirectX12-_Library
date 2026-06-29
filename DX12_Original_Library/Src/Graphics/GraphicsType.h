@@ -4,6 +4,7 @@
 #include <vector>
 #include "../Math/TSMath.h"
 #include "../Core/Handle/TexHandle.h"
+#include "../Core/Handle/ModelHandle.h"
 #include "GraphicsConstant.h"
 using Microsoft::WRL::ComPtr;
 
@@ -100,9 +101,11 @@ struct TextureSlot
 // 頂点内のデータを定義する構造体(Vectorを付けるとalignasによりoffsetがずれるため使わない)
 struct ModelVertex
 {
-	float position[3];
-	float normal[3];
-	float uv[2];
+	float position[3]; // 位置
+	float normal[3]; // 法線
+	float uv[2]; // uv
+	float weight[4]; // ボーンの重み
+	uint32_t bones[4]; // ボーン
 };
 
 namespace MaterialTex 
@@ -149,11 +152,66 @@ struct SubMesh
 	Material material; // マテリアル
 };
 
+// ボーン一つ分のデータを持つ
+struct Bone
+{
+	int parentIndex{ -1 }; // 親ボーンのIndex(Rootは-1)
+	Mat4x4 inverseBindMatrix; // IBM行列(gltfから読む。頂点をバインドポーズのボーン原点から見た位置へ戻す)
+	Mat4x4 localPose; // ボーンのローカル姿勢行列(親から見た相対、アニメーションで更新される)
+
+	// バインドポーズのTRS(animationされないボーンの初期値に使う)
+	Vector3 bindTranslation{ Vector3::Zero };
+	Quaternion bindRotation{ Quaternion::Identity };
+	Vector3 bindScale{ Vector3::Zero };
+};
+
+// アニメーションのパスを明示的に出せるようにする名前空間
+namespace AnimPath {
+	enum
+	{
+		Translation ,
+		Rotation,
+		Scale
+	};
+}
+
+// アニメーションの１本分のチャンネル
+struct AnimChannel
+{
+	int boneIndex{ -1 }; // どのボーンか
+	int path{ 0 }; // どの扱い方をするか
+	std::vector<float> times; // 時刻配列(キーフレームの時刻)
+	std::vector<Vector4> values; // 値配列(T/Sはxyz + あまり, Rはxyzw)
+};
+
+// アニメーション本体のデータ
+struct Animation
+{
+	std::string name; // アニメーションの名前
+	float duration{ 0.0f }; // アニメーションの長さ(時刻の最大値)
+	std::vector<AnimChannel> channels; // アニメーションのチャンネル配列
+};
+
+
 // モデルそのものを構成する構造体
 struct ModelData
 {
 	std::vector<SubMesh> subMeshes; // 構成するサブメッシュ
+	std::vector<Bone> bones; // 構成するボーン
+	std::vector<Animation> animations; // 構成するアニメーション
+	Mat4x4 skeletonRoot{ Mat4x4::Identity }; // Armature変換用(ルートの親)
 };
+
+// 個体ごとのアニメーションの状態
+struct AnimInstanceData
+{
+	ModelHandle handle; // どのモデルかを判別するハンドル
+	std::vector<Mat4x4> globalPoses; // この個体の現在のボーン姿勢
+	std::vector<Mat4x4> skinningMatrices; // スキニング行列
+	int currentAnim{ 0 }; // 現在のアニメーション
+	float currentTime{ 0.0f }; // 再生時刻
+}; 
+
 
 // 管理するスロット
 struct ModelSlot

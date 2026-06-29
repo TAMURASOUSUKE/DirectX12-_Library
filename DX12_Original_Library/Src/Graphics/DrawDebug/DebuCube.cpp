@@ -72,7 +72,7 @@ void DebugCube::Draw(ID3D12GraphicsCommandList* _cmdList)
 
 void DebugCube::SetRotation(Vector3 _angle)
 {
-	Quaternion angleQua{ Quaternion::FromEuler(_angle.x, _angle.y, _angle.z)};
+	Quaternion angleQua{ Quaternion::FromEuler(_angle)};
 
 	transform.SetRotation(angleQua);
 }

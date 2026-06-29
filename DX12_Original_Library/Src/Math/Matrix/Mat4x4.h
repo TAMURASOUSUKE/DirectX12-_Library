@@ -9,11 +9,23 @@
 /// </summary>
 struct Mat4x4
 {
-	constexpr Mat4x4(); // デフォルトコンストラクタ(ゼロ行列初期化する)
-	~Mat4x4() = default; // デフォルトデストラクタ
-
-	// 4行を直接指定するコンストラクタ
-	constexpr Mat4x4(const Vector4& _row0,const Vector4& _row1,const Vector4& _row2, const Vector4& _row3);
+	// 全て0で初期化する
+	constexpr Mat4x4()
+	{
+		rows[0] = Vector4::Zero;
+		rows[1] = Vector4::Zero;
+		rows[2] = Vector4::Zero;
+		rows[3] = Vector4::Zero;
+	}
+	//　行で初期化する
+	constexpr Mat4x4(const Vector4& _row0, const Vector4& _row1, const Vector4& _row2, const Vector4& _row3)
+	{
+		rows[0] = _row0;
+		rows[1] = _row1;
+		rows[2] = _row2;
+		rows[3] = _row3;
+	}
+	~Mat4x4() = default;
 
 	// 単位行列を返す
 	static const Mat4x4 Identity;

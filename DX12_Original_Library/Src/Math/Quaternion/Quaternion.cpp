@@ -3,16 +3,6 @@
 #include "../MathConstant.h"
 #include "Quaternion.h"
 
-
-// Vector4で初期化
-constexpr Quaternion::Quaternion(const Vector4& _vec) : x{ _vec.x }, y{ _vec.y }, z{ _vec.z }, w{ _vec.w } {}
-
-// 実部をfloat,虚部をVector3型で初期化
-constexpr Quaternion::Quaternion(const Vector3& _vec, float _w) : x{ _vec.x }, y{ _vec.y }, z{ _vec.z }, w{ _w } {}
-
-// float初期化
-constexpr Quaternion::Quaternion(float _x, float _y, float _z, float _w) : x{ _x }, y{ _y }, z{ _z }, w{ _w } {}
-
 // 定数
 const Quaternion Quaternion::Identity{ 0.0f, 0.0f, 0.0f, 1.0f };
 
@@ -40,7 +30,7 @@ Quaternion Quaternion::FromAxisAngle(const Vector3& _axis, float _radians)
 }
 
 // オイラー角から生成する
-Quaternion Quaternion::FromEuler(float _pitch, float _yaw, float _roll)
+Quaternion Quaternion::FromEuler(const float _pitch, const float _yaw, const float _roll)
 {
 	Quaternion qx{ FromAxisAngle(Vector3::Right, _pitch) };
 	Quaternion qy{ FromAxisAngle(Vector3::Up, _yaw) };
@@ -52,6 +42,11 @@ Quaternion Quaternion::FromEuler(float _pitch, float _yaw, float _roll)
 	Quaternion result{ qy * qx * qz };
 	result.Normalize();
 	return result;
+}
+
+Quaternion Quaternion::FromEuler(const Vector3& rotation)
+{
+	return FromEuler(rotation.x, rotation.y, rotation.z);
 }
 
 // 補完
@@ -143,9 +138,9 @@ Mat4x4 Quaternion::ToMat4x4() const
 
 	return Mat4x4
 	{
-		Vector4{ 1.0f - 2.0f * (yy + zz), 2.0f * (xy - wz),         2.0f * (xz + wy),         0.0f },
-		Vector4{ 2.0f * (xy + wz),         1.0f - 2.0f * (xx + zz), 2.0f * (yz - wx),         0.0f },
-		Vector4{ 2.0f * (xz - wy),         2.0f * (yz + wx),         1.0f - 2.0f * (xx + yy), 0.0f },
+		Vector4{ 1.0f - 2.0f * (yy + zz), 2.0f * (xy + wz),         2.0f * (xz - wy),         0.0f },
+		Vector4{ 2.0f * (xy - wz),         1.0f - 2.0f * (xx + zz), 2.0f * (yz + wx),         0.0f },
+		Vector4{ 2.0f * (xz + wy),         2.0f * (yz - wx),         1.0f - 2.0f * (xx + yy), 0.0f },
 		Vector4{ 0.0f,                     0.0f,                     0.0f,                     1.0f }
 	};
 }

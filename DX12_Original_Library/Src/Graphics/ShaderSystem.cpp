@@ -17,15 +17,15 @@ void ShaderSystem::Initialize(ID3D12Device* _device)
 // 終了処理
 void ShaderSystem::Shutdown()
 {
-	
+
 }
 
 // Shaderのコンパイル
 ComPtr<ID3DBlob> ShaderSystem::Compile(const wchar_t* _filePath, const char* _entryPoint, const char* _target)
 {
 	HRESULT result{}; // 作成結果を格納するオブジェクト
-	ComPtr<ID3DBlob> compiledShader{nullptr}; // コンパイルされたシェーダーが格納される
-	ComPtr<ID3DBlob> errorBlob{nullptr}; // エラーが起こった時の対処用
+	ComPtr<ID3DBlob> compiledShader{ nullptr }; // コンパイルされたシェーダーが格納される
+	ComPtr<ID3DBlob> errorBlob{ nullptr }; // エラーが起こった時の対処用
 
 	UINT compileFlags{ 0 }; // コンパイルする際のオプション
 
@@ -46,7 +46,7 @@ ComPtr<ID3DBlob> ShaderSystem::Compile(const wchar_t* _filePath, const char* _en
 		0, // エフェクトコンパイルオプション
 		&compiledShader, // 格納するためのポインタのアドレス
 		&errorBlob // エラー用のポインタのアドレス
-		);
+	);
 
 	// 失敗したときの処理
 	if (FAILED(result))
@@ -105,7 +105,7 @@ ComPtr<ID3D12RootSignature> ShaderSystem::CreateTextureRootSignature()
 	rootParamCBV.Descriptor.RegisterSpace = 0; // レジスタオフセット
 	rootParamCBV.Descriptor.ShaderRegister = 0; // b0
 
-	D3D12_ROOT_PARAMETER rootPrams[]{rootParam, rootParamCBV}; // パラメータの配列
+	D3D12_ROOT_PARAMETER rootPrams[]{ rootParam, rootParamCBV }; // パラメータの配列
 
 	// サンプラーの設定
 	D3D12_STATIC_SAMPLER_DESC smpDesc{};
@@ -161,7 +161,7 @@ ComPtr<ID3D12RootSignature> ShaderSystem::CreateDebugTriangleRootSignature()
 	rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
 	// バイナリコードの作成
-	ComPtr<ID3DBlob> rootSigBlob{nullptr};
+	ComPtr<ID3DBlob> rootSigBlob{ nullptr };
 	ComPtr<ID3DBlob> errorBlob{ nullptr }; // エラーが起こった時の対処用
 	result = D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &rootSigBlob, &errorBlob);
 	if (FAILED(result))
@@ -286,7 +286,7 @@ ComPtr<ID3D12RootSignature> ShaderSystem::CreateModelRootSignature()
 	descriptorRange.BaseShaderRegister = 0; // 0番スロットから始める
 	descriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND; // 前のレンジの直後に配置する
 
-	D3D12_ROOT_PARAMETER rootPrams[3]{ }; // パラメータの配列
+	D3D12_ROOT_PARAMETER rootPrams[4]{ }; // パラメータの配列
 	// ルートパラメータの設定
 	// MVP用
 	rootPrams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // TypeはCSVに指定
@@ -300,11 +300,17 @@ ComPtr<ID3D12RootSignature> ShaderSystem::CreateModelRootSignature()
 	rootPrams[1].Descriptor.RegisterSpace = 0; // オフセット0
 	rootPrams[1].Descriptor.ShaderRegister = 1; // b1
 
+	// スキニング行列用
+	rootPrams[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // TypeはCBVに指定
+	rootPrams[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // スキニング行列は頂点シェーダーで読むのでへ
+	rootPrams[2].Descriptor.RegisterSpace = 0; // オフセット0
+	rootPrams[2].Descriptor.ShaderRegister = 2; // b2
+
 	// テクスチャ(t0)
-	rootPrams[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // ディスクリプタテーブルタイプに指定する
-	rootPrams[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // ピクセルシェーダーから見えるようにする
-	rootPrams[2].DescriptorTable.pDescriptorRanges = &descriptorRange; // ディスクリプタレンジのアドレス
-	rootPrams[2].DescriptorTable.NumDescriptorRanges = 1; // ディスクリプタレンジの数
+	rootPrams[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // ディスクリプタテーブルタイプに指定する
+	rootPrams[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // ピクセルシェーダーから見えるようにする
+	rootPrams[3].DescriptorTable.pDescriptorRanges = &descriptorRange; // ディスクリプタレンジのアドレス
+	rootPrams[3].DescriptorTable.NumDescriptorRanges = 1; // ディスクリプタレンジの数
 
 	// サンプラーの設定
 	D3D12_STATIC_SAMPLER_DESC smpDesc{};
@@ -319,7 +325,7 @@ ComPtr<ID3D12RootSignature> ShaderSystem::CreateModelRootSignature()
 	// ルートシグネチャの設定構造体
 	D3D12_ROOT_SIGNATURE_DESC rootSigDesc{};
 	rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-	rootSigDesc.NumParameters = 3;
+	rootSigDesc.NumParameters = 4;
 	rootSigDesc.NumStaticSamplers = 1;
 	rootSigDesc.pParameters = rootPrams; // 配列を渡す
 	rootSigDesc.pStaticSamplers = &smpDesc;
@@ -385,8 +391,29 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateModelPipeLineState(ID3D12RootSig
 			D3D12_APPEND_ALIGNED_ELEMENT, // 頂点構造体のオフセット
 			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
 			0
-		}
+		},
 
+		// 重み
+		{
+			"WEIGHTS", // HLSL側のセマンティクス
+			0, // セマンティクス番号
+			DXGI_FORMAT_R32G32B32A32_FLOAT, // float4
+			0, // 入力スロット
+			D3D12_APPEND_ALIGNED_ELEMENT, // 頂点構造体のオフセット
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		},
+
+		// ボーン
+		{
+			"BONES", // HLSL側のセマンティクス
+			0, // セマンティクス番号
+			DXGI_FORMAT_R32G32B32A32_UINT, // uint32 * 4
+			0, // 入力スロット
+			D3D12_APPEND_ALIGNED_ELEMENT, // 頂点構造体オフセット
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		}
 	};
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineDesc{}; // パイプラインステート設定構造体
@@ -629,7 +656,7 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateDebugTriaglePipeLineState(ID3D12
 
 	// サンプルマスク
 	pipelineDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK; // (0xffffffff)
-	
+
 	// ブレンドステート設定構造体
 	D3D12_RENDER_TARGET_BLEND_DESC renderTargetBlendDesc{};
 	renderTargetBlendDesc.BlendEnable = false; // ブレンドを行うかどうか

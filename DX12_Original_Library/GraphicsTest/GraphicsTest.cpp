@@ -1,4 +1,5 @@
 ﻿#include "../Src/Facade/TSLib.h"
+#include "../Src/Graphics/GraphicsType.h" // デバッグ用に一時的に
 #include "DescriptorManager.h" // Allocator関数を呼び出しメモリ確保できるかのテスト
 
 // エントリーポイント
@@ -39,13 +40,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	TexHandle background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
 	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png") }; // Enemyのハンドル取得
 	TexHandle player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
-	ModelHandle testModel{ Gfx::LoadModel("Res/TestPlayer.glb") }; // Playerモデルのロード
+	ModelHandle testModel{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Playerモデルのロード
+	ModelHandle testModel02{ Gfx::LoadModel("Res/Cube.glb") }; // Playerモデルのロード
+	AnimInstanceData debugAnim{}; // アニメーション用のデータ
+	debugAnim.handle = testModel;
 	Vector2 playerPos{ 100.0f, 100.0f };
 	float ang{ 0.0f }; // 角度加算用のテスト
 	Vector3 cubeAng{ Vector3::Zero };
 
 	Transform cubeTransform{};
+	Transform cubeTransform02{};
 	cubeTransform.SetPosition(Vector3{ 0.0f, 0.0f, 0.0f });
+	cubeTransform02.SetPosition(Vector3{ 0.0f, 0.0f, 0.0f });
 	cubeTransform.SetScale(Vector3::One);
 
 	while (Gfx::ProcessMessage())
@@ -71,6 +77,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		cubeAng.z += 0.01f;
 		cubeAng = Math::NormalizeAngle(cubeAng);
 
+		// アニメーションテスト
+		debugAnim.currentTime += 1.0f / 60.0f; // 時刻を進める
+		if (debugAnim.currentTime > 0.667f) debugAnim.currentTime = 0.0f; // 一旦Runのdurationでループさせる
+
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		//// スプライトバッチテスト
@@ -89,8 +99,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawString("MeshNum : ", {0.0f, 0.0f});
 
 		// Gfx::DrawCube(cubeAng);
-
-		Gfx::DrawModel(testModel, cubeTransform);
+		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
+		// Gfx::DrawModel(testModel02, cubeTransform02);
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}

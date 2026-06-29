@@ -1,24 +1,6 @@
 ﻿#include <cmath>
 #include "Mat4x4.h"
 
-// 全て0で初期化する
-constexpr Mat4x4::Mat4x4()
-{
-	rows[0] = Vector4::Zero;
-	rows[1] = Vector4::Zero;
-	rows[2] = Vector4::Zero;
-	rows[3] = Vector4::Zero;
-}
-
-//　行で初期化する
-constexpr Mat4x4::Mat4x4(const Vector4& _row0, const Vector4& _row1, const Vector4& _row2, const Vector4& _row3)
-{
-	rows[0] = _row0;
-	rows[1] = _row1;
-	rows[2] = _row2;
-	rows[3] = _row3;
-}
-
 // 単位行列
 const Mat4x4 Mat4x4::Identity
 {

@@ -13,6 +13,7 @@
 #include "../Graphics/DrawDebug/DebugCube.h"
 #include "../Graphics/GPUMarker.h"
 #include "../Math/TSMath.h"
+#include "../Graphics/GraphicsConstant.h"
 #include "../Graphics/GraphicsType.h"
 #include "GfxInternal.h" // 外部公開しないもの
 #include "Gfx.h" // 外部公開するもの
@@ -24,6 +25,7 @@ namespace {
 	ConstantBufferData orthConstantBufferData; // 正射影行列用定数バッファのデータメンバ
 	RingConstantBuffer mvpRingCBV; // MVP行列用定数バッファのデータメンバ
 	RingConstantBuffer materialRingCBV; // material用定数バッファのデータメンバ
+	RingConstantBuffer skinningRingCBV; // スキニング行列定数バッファのデータメンバ
 	Mat4x4 vpMat; // View * Projection
 	Mat4x4 mvpMat;
 	ComPtr<ID3D12RootSignature> triangleRootSignature; // 三角形用ルートシグネチャ
@@ -42,6 +44,93 @@ namespace {
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	int screenWidth = 0; // 画面の横幅
 	int screenHeight = 0; // 画面の縦幅
+}
+
+namespace 
+{
+	// スキンメッシュ付き
+	void DrawSkinnedModel(AnimInstanceData& _anim, Transform _transform)
+	{
+		ResourceManager::Instance().UpdateGlobalPose(_anim);
+
+		ModelData* model{ ResourceManager::Instance().Lookup(_anim.handle) }; // ハンドル分解
+		if (!model) return;
+
+		auto cmd{ GraphicsDevice::Instance().GetCommandList() };
+		Mat4x4 worldMat{ _transform.GetWorldMatrix() }; // ワールド行列の取得
+		mvpMat = worldMat * vpMat;
+
+		cmd->SetGraphicsRootSignature(modelRootSignature.Get());
+		cmd->SetPipelineState(modelPipeLineState.Get());
+
+		DescriptorManager::Instance().SetDiscriptor(cmd);
+		cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4))); // MVP更新
+		cmd->SetGraphicsRootConstantBufferView(2, skinningRingCBV.Update(_anim.skinningMatrices.data(), sizeof(Mat4x4) * static_cast<UINT>(_anim.skinningMatrices.size()))); // ボーンを更新
+		cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		// サブメッシュ分回す
+		for (const SubMesh& sub : model->subMeshes)
+		{
+			// material類の更新
+			MaterialCB matCB{};
+			matCB.baseColorFactor = sub.material.baseColorFactor;
+			matCB.metallic = sub.material.metallic;
+			matCB.roughness = sub.material.roughness;
+			matCB.emissiveFactor = sub.material.emissiveFactor;
+			cmd->SetGraphicsRootConstantBufferView(1, materialRingCBV.Update(&matCB, sizeof(MaterialCB)));
+
+			TextureData* tex{ ResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
+			if (tex) cmd->SetGraphicsRootDescriptorTable(3,  tex->srvHandle.gpu);
+
+			cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
+			cmd->IASetIndexBuffer(&sub.indexBuffer.indexView);
+			cmd->DrawIndexedInstanced(sub.indexBuffer.indexCount, 1, 0, 0, 0);
+		}
+	}
+	// スキンメッシュなし
+	void DrawStaticModel(ModelHandle _model, const Transform _transform)
+	{
+		ModelData* model{ ResourceManager::Instance().Lookup(_model) };
+		if (!model) return; // 無効ハンドルガード
+		auto cmd{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリストのキャッシュ
+		Mat4x4 worldMat{ _transform.GetWorldMatrix() };
+		mvpMat = worldMat * vpMat;
+
+		// パイプライン設定
+		cmd->SetGraphicsRootSignature(modelRootSignature.Get());
+		cmd->SetPipelineState(modelPipeLineState.Get());
+
+		DescriptorManager::Instance().SetDiscriptor(cmd); // Flushと同じ考え方
+		cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)));
+		// 静的描画の場合は単位行列を送る
+		cmd->SetGraphicsRootConstantBufferView(2, skinningRingCBV.Update(&Mat4x4::Identity, sizeof(Mat4x4)));
+		cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+
+
+		// submeshループ
+		for (const SubMesh& sub : model->subMeshes)
+		{
+			// material値をCBにつめる
+			MaterialCB matCB{};
+			matCB.baseColorFactor = sub.material.baseColorFactor;
+			matCB.metallic = sub.material.metallic;
+			matCB.roughness = sub.material.roughness;
+			matCB.emissiveFactor = sub.material.emissiveFactor;
+			// Ringで送ってb1にバインドする
+			cmd->SetGraphicsRootConstantBufferView(1, materialRingCBV.Update(&matCB, sizeof(MaterialCB)));
+
+			// テクスチャをバインド
+			TextureData* tex{ ResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
+			if (tex) cmd->SetGraphicsRootDescriptorTable(3, tex->srvHandle.gpu);
+
+			// 頂点インデックスをバインド
+			cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
+			cmd->IASetIndexBuffer(&sub.indexBuffer.indexView);
+
+			cmd->DrawIndexedInstanced(sub.indexBuffer.indexCount, 1, 0, 0, 0);
+		}
+	}
 }
 
 // 初期化処理(これを呼ぶだけで初期化処理が済むようにする)
@@ -192,9 +281,10 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	orthConstantBufferData = ResourceManager::Instance().CreateConstantBuffer(&orthMat, sizeof(Mat4x4));
 
 	// 透視投影行列の作成(一旦キューブが描画できるのを確認するためにハードコーディング)
-	vpMat = Mat4x4::MakeLookAt({ 2.0f, 2.0f, -3.0f }, { 0.0f, 0.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, static_cast<float>(screenWidth) / static_cast<float>(screenHeight), 0.1f, 100.0f);
+	vpMat = Mat4x4::MakeLookAt({ 0.0f, 1.0f, -3.0f }, { 0.0f, 1.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, static_cast<float>(screenWidth) / static_cast<float>(screenHeight), 0.1f, 100.0f);
 	mvpRingCBV.Initialize(sizeof(Mat4x4)); // リングバッファ初期化
 	materialRingCBV.Initialize(sizeof(MaterialCB));  // materialのリング定数バッファを初期化
+	skinningRingCBV.Initialize(sizeof(Mat4x4) * MAX_BONE_NUM); // ボーン用の定数バッファを更新
 
 	// スプライトバッチ処理初期化
 	fgBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), orthConstantBufferData.resource.Get());
@@ -242,6 +332,7 @@ void GfxInternal::BeginFrame()
 	// 定数バッファのカウンターリセット
 	mvpRingCBV.Reset();
 	materialRingCBV.Reset();
+	skinningRingCBV.Reset();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTV
@@ -423,7 +514,7 @@ void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float
 	}
 }
 
-void Gfx::DrawModel(ModelHandle _model, Transform _transform)
+void Gfx::DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* _animData)
 {
 	{
 		// マクロがスコープを抜けるとEndEventするので囲う
@@ -431,43 +522,16 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 		bgBatch.Flush(); // 背景の上に来るように3D描画前には背景batchをFlushする
 	}
 
-	ModelData* model{ ResourceManager::Instance().Lookup(_model) };
-	if (!model) return; // 無効ハンドルガード
-	auto cmd{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリストのキャッシュ
-	Mat4x4 worldMat{ _transform.GetWorldMatrix() };
-	mvpMat = worldMat * vpMat;
-
-	// パイプライン設定
-	cmd->SetGraphicsRootSignature(modelRootSignature.Get());
-	cmd->SetPipelineState(modelPipeLineState.Get());
-
-	// SRVヒープをバインド(テクスチャを使うため)
-	DescriptorManager::Instance().SetDiscriptor(cmd); // Flushと同じ考え方
-	cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)));
-	cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	// submeshループ
-	for (const SubMesh& sub : model->subMeshes)
+	// モデルの状況によって分ける
+	if (_animData)
 	{
-		// material値をCBにつめる
-		MaterialCB matCB{};
-		matCB.baseColorFactor = sub.material.baseColorFactor;
-		matCB.metallic = sub.material.metallic;
-		matCB.roughness = sub.material.roughness;
-		matCB.emissiveFactor = sub.material.emissiveFactor;
-		// Ringで送ってb1にバインドする
-		cmd->SetGraphicsRootConstantBufferView(1,  materialRingCBV.Update(&matCB, sizeof(MaterialCB)));
-
-		// テクスチャをバインド
-		TextureData* tex{ ResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor])};
-		if (tex) cmd->SetGraphicsRootDescriptorTable(2, tex->srvHandle.gpu);
-
-		// 頂点インデックスをバインド
-		cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
-		cmd->IASetIndexBuffer(&sub.indexBuffer.indexView);
-
-		cmd->DrawIndexedInstanced(sub.indexBuffer.indexCount, 1, 0, 0, 0);
+		DrawSkinnedModel(*_animData, _transform);
 	}
+	else
+	{
+		DrawStaticModel(_model, _transform);
+	}
+	
 }
 
 void Gfx::SetBaseColor(ModelHandle model, int submeshIndex, Vector4 color)
