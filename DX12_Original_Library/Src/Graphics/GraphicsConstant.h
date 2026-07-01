@@ -10,6 +10,8 @@ constexpr size_t DSV_SLOT_COUNT{ 16 }; // GPU非可視のスロット数(DepthSt
 constexpr size_t QUAD_VERT_INDEXES{ 6 }; // Quadを描画するときの頂点インデックス数
 constexpr size_t CUBE_VERT_INDEXES{ 36 }; // cubeを描画するときの頂点インデックス数
 constexpr size_t MAX_SPRITE_COUNT{ 8192 }; // 登録できる最大のスプライト数
+constexpr size_t MAX_SHAPE_COUNT{ 8192 }; // 登録できる最大の基礎画像数
+constexpr size_t CIRCLE_DIVISION{ 32 }; // 円を描画するときの三角形分割数
 constexpr size_t MAX_CB_PER_FRAME{ 64 }; // フレーム内で使える定数バッファの最大数
 constexpr size_t MAX_BONE_NUM{ 256 }; // 最大ボーン数
 constexpr UINT INVALID_INDEX{ UINT_MAX }; // Descriptorハンドルのindex無効値

@@ -158,6 +158,7 @@
     <ClInclude Include="Src\Graphics\ResourceManager.h" />
     <ClInclude Include="Src\Graphics\RingConstantBuffer.h" />
     <ClInclude Include="Src\Graphics\ShaderSystem.h" />
+    <ClInclude Include="Src\Graphics\ShapeBatch.h" />
     <ClInclude Include="Src\Graphics\SpriteBatch.h" />
     <ClInclude Include="Src\Input\InputBase.h" />
     <ClInclude Include="Src\Input\InputConstant.h" />
@@ -198,6 +199,7 @@
     <ClCompile Include="Src\Graphics\ResourceManager.cpp" />
     <ClCompile Include="Src\Graphics\RingConstantBuffer.cpp" />
     <ClCompile Include="Src\Graphics\ShaderSystem.cpp" />
+    <ClCompile Include="Src\Graphics\ShapeBatch.cpp" />
     <ClCompile Include="Src\Graphics\SpriteBatch.cpp" />
     <ClCompile Include="Src\Input\KeyboardInput.cpp" />
     <ClCompile Include="Src\Math\Matrix\Mat4x4.cpp" />

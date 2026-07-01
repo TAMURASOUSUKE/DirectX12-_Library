@@ -53,40 +53,40 @@ void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _
 	}
 	
 	// 回転の適用
-	Vector2 leftUp{ _position.x, _position.y }; // 左上
-	Vector2 rightUp{ _position.x + _size.x, _position.y }; // 右上
-	Vector2 rightDown{ _position.x + _size.x, _position.y + _size.y }; // 右下
-	Vector2 leftDown{ _position.x, _position.y + _size.y }; // 左下
+	Vector2 leftTop{ _position.x, _position.y }; // 左上
+	Vector2 rightTop{ _position.x + _size.x, _position.y }; // 右上
+	Vector2 rightBottom{ _position.x + _size.x, _position.y + _size.y }; // 右下
+	Vector2 leftBottom{ _position.x, _position.y + _size.y }; // 左下
 	if (_radRotation != 0.0f)
 	{
 		Vector2 center{ _position + _size / 2.0f }; // 中心
 		// 相対座標を適用
-		leftUp -= center;
-		rightUp -= center;
-		rightDown -= center;
-		leftDown -= center;
+		leftTop -= center;
+		rightTop -= center;
+		rightBottom -= center;
+		leftBottom -= center;
 
 		float c{ std::cosf(_radRotation) }; // cosθ
 		float s{ std::sinf(_radRotation) }; // sinθ
 
-		leftUp = { leftUp.x * c - leftUp.y * s, leftUp.x * s + leftUp.y * c };
-		rightUp = { rightUp.x * c - rightUp.y * s, rightUp.x * s + rightUp.y * c };
-		rightDown = { rightDown.x * c - rightDown.y * s, rightDown.x * s + rightDown.y * c };
-		leftDown = { leftDown.x * c - leftDown.y * s, leftDown.x * s + leftDown.y * c };
+		leftTop = { leftTop.x * c - leftTop.y * s, leftTop.x * s + leftTop.y * c };
+		rightTop = { rightTop.x * c - rightTop.y * s, rightTop.x * s + rightTop.y * c };
+		rightBottom = { rightBottom.x * c - rightBottom.y * s, rightBottom.x * s + rightBottom.y * c };
+		leftBottom = { leftBottom.x * c - leftBottom.y * s, leftBottom.x * s + leftBottom.y * c };
 
-		leftUp = leftUp + center;
-		rightUp = rightUp + center;
-		rightDown = rightDown + center;
-		leftDown = leftDown + center;
+		leftTop = leftTop + center;
+		rightTop = rightTop + center;
+		rightBottom = rightBottom + center;
+		leftBottom = leftBottom + center;
 	}
 
 	TexVertex* vertices{ static_cast<TexVertex*>(vertBuffer.mappedPtr) }; // マップされたポインタにアクセスするためにキャスト
 	
 	// UV空間をハードコーディングするのではなく引数から受け取る形に変更
-	vertices[spriteCounter * 4 + 0] = { {leftUp.x, leftUp.y, 0.0f}, {_uvMin.x, _uvMin.y} }; // 左上
-	vertices[spriteCounter * 4 + 1] = { {rightUp.x, rightUp.y, 0.0f}, {_uvMax.x, _uvMin.y} }; // 右上
-	vertices[spriteCounter * 4 + 2] = { {rightDown.x, rightDown.y, 0.0f}, {_uvMax.x, _uvMax.y} }; // 右下
-	vertices[spriteCounter * 4 + 3] = { {leftDown.x, leftDown.y, 0.0f}, {_uvMin.x, _uvMax.y} }; // 左下
+	vertices[spriteCounter * 4 + 0] = { {leftTop.x, leftTop.y, 0.0f}, {_uvMin.x, _uvMin.y} }; // 左上
+	vertices[spriteCounter * 4 + 1] = { {rightTop.x, rightTop.y, 0.0f}, {_uvMax.x, _uvMin.y} }; // 右上
+	vertices[spriteCounter * 4 + 2] = { {rightBottom.x, rightBottom.y, 0.0f}, {_uvMax.x, _uvMax.y} }; // 右下
+	vertices[spriteCounter * 4 + 3] = { {leftBottom.x, leftBottom.y, 0.0f}, {_uvMin.x, _uvMax.y} }; // 左下
 
 	// run(描画順)を管理する
 	if (runs.empty() || runs.back().tex != _handle)
@@ -118,12 +118,12 @@ void SpriteBatch::Flush()
 	DescriptorManager::Instance().SetDiscriptor(cmd);
 
 	// 入力アセンブラを設定
-	cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // リスト設定
+	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // リスト設定
 	cmd->IASetVertexBuffers(0, 1, &vertBuffer.vertexView);
 	cmd->IASetIndexBuffer(&indexBuffer.indexView);
 
 	// ランごとにSRVの差し替えとDrawを行う
-	for (const DrawRun& run : runs)
+	for (const SpriteDrawRun& run : runs)
 	{
 		TextureData* data{ ResourceManager::Instance().Lookup(run.tex) }; // ハンドルを分解して保持
 		if (!data) continue; // 無効ハンドルはスキップ

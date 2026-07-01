@@ -186,6 +186,9 @@
     <ClInclude Include="Src\Core\Handle\ModelHandle.h">
       <Filter>Src\Core\Handle</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Graphics\ShapeBatch.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -265,6 +268,9 @@
     </ClCompile>
     <ClCompile Include="Src\External\CgltfEnable.cpp">
       <Filter>Src\Facade\Exturnal</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\ShapeBatch.cpp">
+      <Filter>Src\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

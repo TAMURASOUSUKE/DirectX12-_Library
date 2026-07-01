@@ -41,7 +41,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png") }; // Enemyのハンドル取得
 	TexHandle player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
 	ModelHandle testModel{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Playerモデルのロード
-	ModelHandle testModel02{ Gfx::LoadModel("Res/Cube.glb") }; // Playerモデルのロード
 	AnimInstanceData debugAnim{}; // アニメーション用のデータ
 	debugAnim.handle = testModel;
 	Vector2 playerPos{ 100.0f, 100.0f };
@@ -98,9 +97,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawString("MeshNum : ", {0.0f, 0.0f});
 
-		// Gfx::DrawCube(cubeAng);
 		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
-		// Gfx::DrawModel(testModel02, cubeTransform02);
+
+		Gfx::DrawBox(Vector2{100.0f, 100.0f}, Vector2{400.0f, 400.0f}, 0.0f,  Vector4{1.0f, 1.0f, 1.0f, 1.0f} , true);
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}

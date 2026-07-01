@@ -85,7 +85,7 @@ struct TexVertex
 };
 
 // 頂点定義
-struct ColorVertex
+struct ShapeVertex
 {
 	float position[3];
 	float color[4];

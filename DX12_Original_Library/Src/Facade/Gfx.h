@@ -32,6 +32,8 @@ namespace Gfx
 	void DrawTriangle();
 	// テクスチャ描画
 	void DrawTexture(); 
+	// 矩形描画
+	void DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation = 0.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f }, bool _isWireframe = false);
 	// Cube描画(角度を渡すデフォルトは0°)
 	void DrawCube(Vector3 _angle = Vector3::Zero);
 	// 文字列描画 ; デフォルトフォント使用版(文字列, 位置, スケール(デフォルト1.0f), 描画レイヤー(デフォルト前面))
