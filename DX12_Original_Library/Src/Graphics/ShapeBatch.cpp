@@ -286,20 +286,27 @@ void ShapeBatch::RegisterLine(Vector2 _startPos, Vector2 _endPos, Vector4 _color
 		droppedCounter++; // あふれているならカウントする
 		return; // 限界を超えているならreturn
 	}
+	ShapeVertex* vertices{ static_cast<ShapeVertex*>(vertBuffer.mappedPtr) }; // 頂点バッファの中のvoidPtrをShapeVertexのptrに変換
+	UINT vertexNum{ 2u }; // 頂点数
+
+	vertices[shapeVertexCounter + 0] = { {_startPos.x, _startPos.y, 0.0f}, {_color.x, _color.y, _color.z, _color.w} };
+	vertices[shapeVertexCounter + 1] = { {_endPos.x, _endPos.y, 0.0f}, {_color.x, _color.y, _color.z, _color.w} };
 
 	// run(描画順)を管理する
 	if (runs.empty() || runs.back().isWireframe != true)
 	{
 		// 配列が空もしくは一番最後のワイヤーフラグが登録しようとしているフラグと異なるなら
-		runs.push_back({ true, shapeCounter, 1 });
+		runs.push_back({ true, shapeVertexCounter, vertexNum });
 	}
 	else
 	{
 		// 同一の描画方法ならカウントを増やす
-		runs.back().count++;
+		runs.back().count += vertexNum; // 整数昇格による縮小変換防止
 	}
 
-	shapeCounter++; // カウンターを増加する
+	// カウンターを増加する
+	shapeCounter++;
+	shapeVertexCounter += vertexNum;
 }
 
 void ShapeBatch::Flush()

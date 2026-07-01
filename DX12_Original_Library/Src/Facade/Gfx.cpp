@@ -489,6 +489,11 @@ void Gfx::DrawCapsule(Vector2 _startPos, Vector2 _endPos, float _radius, Vector4
 	shapeBatch.RegisterCapsule(_startPos, _endPos, _radius, _color, _isWireframe);
 }
 
+void Gfx::DrawLine(Vector2 _startPos, Vector2 _endPos, Vector4 _color)
+{
+	shapeBatch.RegisterLine(_startPos, _endPos, _color);
+}
+
 void Gfx::DrawCube(Vector3 _angle)
 {
 	{

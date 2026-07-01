@@ -99,8 +99,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
 
-		Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
-		Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
+		//Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
+		//Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
+
+		Gfx::DrawLine({ 300.0f, 300.0f }, { 700.0f, 20.0f });
+		Gfx::DrawLine({ 300.0f, 300.0f }, { 1000.0f, 1000.0f }, {0.3f, 0.75f, 0.87f, 1.0f});
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}
