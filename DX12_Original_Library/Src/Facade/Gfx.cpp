@@ -479,6 +479,16 @@ void Gfx::DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation, Ve
 	shapeBatch.RegisterBox(_leftTop, _rightBottom, _radRotation, _color, _isWireframe);
 }
 
+void Gfx::DrawCircle(Vector2 _center, float _radius, Vector4 _color, bool _isWireframe)
+{
+	shapeBatch.RegisterCircle(_center, _radius, _color, _isWireframe);
+}
+
+void Gfx::DrawCapsule(Vector2 _startPos, Vector2 _endPos, float _radius, Vector4 _color, bool _isWireframe)
+{
+	shapeBatch.RegisterCapsule(_startPos, _endPos, _radius, _color, _isWireframe);
+}
+
 void Gfx::DrawCube(Vector3 _angle)
 {
 	{

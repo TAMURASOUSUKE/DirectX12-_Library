@@ -18,8 +18,8 @@ public:
 
 	// 基本図形の登録
 	void RegisterBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation = 0.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f },bool _isWireframe = false); // 矩形
-	void RegisterSphere(Vector2 _position, float _radius, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f },  bool _isWireframe = false); // 円
-	void RegisterCapsule(Vector2 _startPos, Vector2 _endPos, float _radius, float _radRotation = 0.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f }, bool _isWireframe = false); // カプセル
+	void RegisterCircle(Vector2 _center, float _radius, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f },  bool _isWireframe = false); // 円
+	void RegisterCapsule(Vector2 _startPos, Vector2 _endPos, float _radius, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f }, bool _isWireframe = false); // カプセル
 	void RegisterLine(Vector2 _startPos, Vector2 _endPos, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f }); // 線分
 
 	// まとめて流す
