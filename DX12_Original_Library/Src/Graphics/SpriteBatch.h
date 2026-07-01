@@ -4,7 +4,7 @@
 #include "GraphicsType.h"
 
 // 描画順を記録するためのもの
-struct DrawRun
+struct SpriteDrawRun
 {
 	TexHandle tex; // ハンドル
 	UINT startSprite; // スタート位置
@@ -26,12 +26,11 @@ public:
 
 	
 private:
-
 	VertexBuffer vertBuffer; // 頂点バッファ
 	IndexBuffer indexBuffer; // インデックスバッファ
 	UINT spriteCounter{ 0 }; // 今のフレームにどれだけスプライトが登録されているか
 	UINT droppedCounter{ 0 }; // あふれた画像数のカウンター
-	std::vector<DrawRun> runs; // 描画順をまとめた配列
+	std::vector<SpriteDrawRun> runs; // 描画順をまとめた配列
 
 	// 外部から受け取るパラメータ(Flush時にパイプライン設定などを行うため)
 	ID3D12RootSignature* rootSig{ nullptr }; // ルートシグネチャ

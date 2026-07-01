@@ -23,6 +23,9 @@ public:
 	ComPtr<ID3D12RootSignature> CreateModelRootSignature(); // モデル表示用ルートシグネチャの作成
 	ComPtr<ID3D12PipelineState> CreateModelPipeLineState(ID3D12RootSignature* _rootSig, ID3DBlob* _vsBlob, ID3DBlob* _psBlob); // モデル表示用パイプラインステート作成
 
+	ComPtr<ID3D12RootSignature> CreateShapeRootSignature(); // 2D基礎図形描画用
+	ComPtr<ID3D12PipelineState> CreateShapePipeLineState(ID3D12RootSignature* _rootSig, ID3DBlob* _vsBolb, ID3DBlob* _psBlob, bool _isWireFlag );
+ 
 	// 以下デバッグ用の関数(仮で動かすためのPSOやルートシグネチャ設定)
 	ComPtr<ID3D12RootSignature> CreateDebugTriangleRootSignature(); // 三角形表示用ルートシグネチャの作成
 	ComPtr<ID3D12PipelineState> CreateDebugTriaglePipeLineState(ID3D12RootSignature* _rootSig, ID3DBlob* _vsBlob, ID3DBlob* _psBlob); // 三角形表示用パイプラインステートオブジェクトの作成

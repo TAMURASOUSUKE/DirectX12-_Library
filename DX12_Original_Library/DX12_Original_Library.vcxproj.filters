@@ -186,6 +186,9 @@
     <ClInclude Include="Src\Core\Handle\ModelHandle.h">
       <Filter>Src\Core\Handle</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Graphics\ShapeBatch.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -266,6 +269,9 @@
     <ClCompile Include="Src\External\CgltfEnable.cpp">
       <Filter>Src\Facade\Exturnal</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Graphics\ShapeBatch.cpp">
+      <Filter>Src\Graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Src\Shaders\TriangleVS.hlsl">
@@ -290,6 +296,12 @@
       <Filter>Src\Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Src\Shaders\ModelPS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\ShapeVS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\ShapePS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
   </ItemGroup>

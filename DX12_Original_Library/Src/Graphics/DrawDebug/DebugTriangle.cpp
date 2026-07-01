@@ -6,14 +6,14 @@ void DebugTriangle::Initialize()
 {
 
 	// 頂点データの中身を埋める
-	ColorVertex vertices[]
+	ShapeVertex vertices[]
 	{
 		{{0.0f, 0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
 		{{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
 		{{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
 	};
 
-	vertexBuffer = ResourceManager::Instance().CreateVertexBuffer(vertices, sizeof(vertices), sizeof(ColorVertex)); // 頂点バッファの作成を行う
+	vertexBuffer = ResourceManager::Instance().CreateVertexBuffer(vertices, sizeof(vertices), sizeof(ShapeVertex)); // 頂点バッファの作成を行う
 }
 
 // 描画処理

@@ -7,6 +7,7 @@
 #include "../Graphics/ShaderSystem.h"
 #include "../Graphics/ResourceManager.h"
 #include "../Graphics/SpriteBatch.h"
+#include "../Graphics/ShapeBatch.h"
 #include "../Graphics/RingConstantBuffer.h"
 #include "../Graphics/DrawDebug/DebugTriangle.h"
 #include "../Graphics/DrawDebug/DebugQuad.h"
@@ -36,8 +37,12 @@ namespace {
 	ComPtr<ID3D12PipelineState> cubePipelineState; // キューブ用パイプラインステートオブジェクト
 	ComPtr<ID3D12RootSignature> modelRootSignature; // モデル用ルートシグネチャ
 	ComPtr<ID3D12PipelineState> modelPipeLineState; // モデル用パイプラインステート
+	ComPtr<ID3D12RootSignature> shapeRootSignature; // 基本図形ルートシグネチャ
+	ComPtr<ID3D12PipelineState> fillPipelineState; // 基本図形塗りつぶしのパイプラインステート
+	ComPtr<ID3D12PipelineState> wirePipelineState; // 基本図形wireのパイプラインステート
 	SpriteBatch fgBatch; // 手前のスプライトバッチ処理
 	SpriteBatch bgBatch; // 背景のスプライトバッチ処理
+	ShapeBatch shapeBatch; // 基本図形のバッチ処理
 	DebugTriangle triangle; // 三角形描画
 	DebugQuad quad; // テクスチャ描画
 	DebugCube cube; // キューブ描画
@@ -215,6 +220,18 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/ModelPS.hlsl");
 		return false; // 読み込み失敗したらfalse
 	}
+	auto shapeVSBlob{ shaderSystem.Compile(L"../Src/Shaders/ShapeVS.hlsl", "main", "vs_5_0") };
+	if (!shapeVSBlob)
+	{
+		DEBUG_LOG_ERROR("シェーダーファイルの読み込みに失敗しました ファイル : {}\n", "../Shaders/ShapeVS.hlsl");
+		return false; // 読み込み失敗したらfalse
+	}
+	auto shapePSBlob{ shaderSystem.Compile(L"../Src/Shaders/ShapePS.hlsl", "main", "ps_5_0") };
+	if (!shapePSBlob)
+	{
+		DEBUG_LOG_ERROR("シェーダーファイルの読み込みに失敗しました ファイル : {}\n", "../Shaders/ShapePS.hlsl");
+		return false; // 読み込み失敗したらfalse
+	}
 
 	triangleRootSignature = shaderSystem.CreateDebugTriangleRootSignature(); // ルートシグネチャの作成
 	if (!triangleRootSignature)
@@ -274,6 +291,25 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 		return false;
 	}
 
+	shapeRootSignature = shaderSystem.CreateShapeRootSignature();
+	if (!shapeRootSignature)
+	{
+		DEBUG_LOG_ERROR("基本図形のルートシグネチャの作成に失敗しました\n");
+		return false;
+	}
+	fillPipelineState = shaderSystem.CreateShapePipeLineState(shapeRootSignature.Get(), shapeVSBlob.Get(), shapePSBlob.Get(), false);
+	if (!fillPipelineState)
+	{
+		DEBUG_LOG_ERROR("塗りつぶし図形のパイプラインステートの作成に失敗しました\n");
+		return false;
+	}
+	wirePipelineState = shaderSystem.CreateShapePipeLineState(shapeRootSignature.Get(), shapeVSBlob.Get(), shapePSBlob.Get(), true);
+	if (!wirePipelineState)
+	{
+		DEBUG_LOG_ERROR("wire図形のパイプラインステートの作成に失敗しました\n");
+		return false;
+	}
+
 	ResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
 
 	// ピクセル座標からNDC座標へ変換
@@ -289,6 +325,7 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	// スプライトバッチ処理初期化
 	fgBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), orthConstantBufferData.resource.Get());
 	bgBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), orthConstantBufferData.resource.Get());
+	shapeBatch.Initialize(shapeRootSignature.Get(), fillPipelineState.Get(), wirePipelineState.Get(), orthConstantBufferData.resource.Get());
 
 	triangle.Initialize();  // 三角形描画用ファイルの初期化
 	quad.Initialize(); // テクスチャ描画用ファイルの初期化
@@ -329,6 +366,7 @@ void GfxInternal::BeginFrame()
 	// batch処理のカウンターリセット
 	bgBatch.Reset();
 	fgBatch.Reset();
+	shapeBatch.Reset();
 	// 定数バッファのカウンターリセット
 	mvpRingCBV.Reset();
 	materialRingCBV.Reset();
@@ -384,6 +422,11 @@ void GfxInternal::EndFrame()
 		GPU_MARKER("foreGround");
 		fgBatch.Flush();
 	}
+	// ShapeBatch描画
+	{
+		GPU_MARKER("ShapeDraw");
+		shapeBatch.Flush();
+	}
 	GraphicsDevice::Instance().EndFrame(); // フレームの最後の処理
 }
 
@@ -429,6 +472,26 @@ void Gfx::DrawTexture()
 	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(1, orthConstantBufferData.resource->GetGPUVirtualAddress());
 	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(texturePipelineState.Get());
 	quad.Draw(GraphicsDevice::Instance().GetCommandList());
+}
+
+void Gfx::DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation, Vector4 _color, bool _isWireframe)
+{
+	shapeBatch.RegisterBox(_leftTop, _rightBottom, _radRotation, _color, _isWireframe);
+}
+
+void Gfx::DrawCircle(Vector2 _center, float _radius, Vector4 _color, bool _isWireframe)
+{
+	shapeBatch.RegisterCircle(_center, _radius, _color, _isWireframe);
+}
+
+void Gfx::DrawCapsule(Vector2 _startPos, Vector2 _endPos, float _radius, Vector4 _color, bool _isWireframe)
+{
+	shapeBatch.RegisterCapsule(_startPos, _endPos, _radius, _color, _isWireframe);
+}
+
+void Gfx::DrawLine(Vector2 _startPos, Vector2 _endPos, Vector4 _color)
+{
+	shapeBatch.RegisterLine(_startPos, _endPos, _color);
 }
 
 void Gfx::DrawCube(Vector3 _angle)
