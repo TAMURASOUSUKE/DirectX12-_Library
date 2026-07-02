@@ -11,7 +11,7 @@ namespace
 
 bool InputInternal::Initialize()
 {
-	return false;
+	return true;
 }
 
 void InputInternal::Finish()
