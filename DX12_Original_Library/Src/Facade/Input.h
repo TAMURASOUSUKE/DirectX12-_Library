@@ -12,17 +12,17 @@ namespace Input
 	bool IsReleased(int _key);
 
 	 // キーボード : 押している間
-	bool IsKeyPress(int _key);
+	bool IsKeyPress(KeyCode _key);
 	// キーボード : 押した瞬間
-	bool IsKeyPushed(int _key);
+	bool IsKeyPushed(KeyCode _key);
 	// キーボード : 離した瞬間
-	bool IsKeyReleased(int _key);
+	bool IsKeyReleased(KeyCode _key);
 
 	
 	 // ゲームパッド : 押している間
-	bool IsPadPress(int _key);
+	bool IsPadPress(PadCode _key);
 	// ゲームパッド : 押した瞬間
-	bool IsPadPushed(int _key); 
+	bool IsPadPushed(PadCode _key); 
 	// ゲームパッド : 離した瞬間
-	bool IsPadReleased(int _key);
+	bool IsPadReleased(PadCode _key);
 }

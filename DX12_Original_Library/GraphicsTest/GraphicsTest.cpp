@@ -53,6 +53,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	cubeTransform02.SetPosition(Vector3{ 0.0f, 0.0f, 0.0f });
 	cubeTransform.SetScale(Vector3::One);
 
+	bool testFlag{ false };
+
 	while (Gfx::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
@@ -93,17 +95,28 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 400.0f }, Vector2{ 128.0f, 128.0f }, ang);
 		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 500.0f }, Vector2{ 128.0f, 128.0f }, ang);
 		//}
-		Gfx::DrawSprite(enemy, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f });
+		TexHandle test{};
+		if (Input::IsPadPress(PadCode::A) || Input::IsKeyPushed(KeyCode::D)) testFlag = !testFlag;
+		if (testFlag)
+		{
+			test = player;
+		}
+		else
+		{
+			test = enemy;
+		}
 
-		Gfx::DrawString("MeshNum : ", {0.0f, 0.0f});
+		Gfx::DrawSprite(test, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f });
+
+		Gfx::DrawString("MeshNum : ", { 0.0f, 0.0f });
 
 		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
 
-		//Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
-		//Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
+		Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
+		Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
 
-		Gfx::DrawLine({ 300.0f, 300.0f }, { 700.0f, 20.0f });
-		Gfx::DrawLine({ 300.0f, 300.0f }, { 1000.0f, 1000.0f }, {0.3f, 0.75f, 0.87f, 1.0f});
+		//Gfx::DrawLine({ 300.0f, 300.0f }, { 700.0f, 20.0f });
+		//Gfx::DrawLine({ 300.0f, 300.0f }, { 1000.0f, 1000.0f }, {0.3f, 0.75f, 0.87f, 1.0f});
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}

@@ -1,12 +1,12 @@
-﻿#include "../Input/InputConstant.h"
-#include "../Input/KeyboardInput.h"
-#include "../Input/InputName.h"
+﻿#include "../Input/KeyboardInput.h"
+#include "../Input/GamePadInput.h"
 #include "InputInternal.h"
 #include "Input.h"
 
 namespace
 {
 	KeyboardInput keyboard{}; // キーボード入力クラス
+	GamePadInput gamePad{}; // ゲームパッド入力クラス
 }
 
 bool InputInternal::Initialize()
@@ -22,6 +22,7 @@ void InputInternal::Finish()
 void InputInternal::BeginFrame()
 {
 	keyboard.Update(); // キーボードの入力更新
+	gamePad.Update(); // ゲームパッドの入力更新
 }
 
 void InputInternal::EndFrame()
@@ -49,34 +50,34 @@ bool Input::IsReleased(int _key)
 
 // キーボード限定
 
-bool Input::IsKeyPress(int _key)
+bool Input::IsKeyPress(KeyCode _key)
 {
-	return keyboard.IsPress(_key);
+	return keyboard.IsPress(static_cast<int>(_key));
 }
 
-bool Input::IsKeyPushed(int _key)
+bool Input::IsKeyPushed(KeyCode _key)
 {
-	return keyboard.IsPushed(_key);
+	return keyboard.IsPushed(static_cast<int>(_key));
 }
 
-bool Input::IsKeyReleased(int _key)
+bool Input::IsKeyReleased(KeyCode _key)
 {
-	return keyboard.IsReleased(_key);
+	return keyboard.IsReleased(static_cast<int>(_key));
 }
 
 // パッド限定
 
-bool Input::IsPadPress(int _key)
+bool Input::IsPadPress(PadCode _key)
 {
-	return false;
+	return gamePad.IsPress(static_cast<int>(_key));
 }
 
-bool Input::IsPadPushed(int _key)
+bool Input::IsPadPushed(PadCode _key)
 {
-	return false;
+	return gamePad.IsPushed(static_cast<int>(_key));
 }
 
-bool Input::IsPadReleased(int _key)
+bool Input::IsPadReleased(PadCode _key)
 {
-	return false;
+	return gamePad.IsReleased(static_cast<int>(_key));
 }
