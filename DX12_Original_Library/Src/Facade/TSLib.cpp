@@ -1,11 +1,16 @@
-﻿#include "GfxInternal.h"
+﻿#include "../Debug/DebugLogs.h"
+#include "GfxInternal.h"
 #include "InputInternal.h"
 #include "TSLib.h"
 
 // 初期化
 bool TSLib::Initialize(const wchar_t* _title, int _width, int _height)
 {
-	return GfxInternal::Initialize(_title, _width, _height); // グラフィックの初期化とウィンドウ作成
+	bool result{ false };
+	result = InputInternal::Initialize();
+	result = GfxInternal::Initialize(_title, _width, _height); // グラフィックの初期化とウィンドウ作成
+	if (!result) DEBUG_ASSERT(result && "ゲームの初期化に失敗しました\n");
+	return result;
 }
 
 void TSLib::BeginFrame()
