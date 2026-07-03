@@ -1,4 +1,5 @@
 ﻿#include "../Src/Facade/TSLib.h"
+#include <string> // テスト用
 #include "../Src/Graphics/GraphicsType.h" // デバッグ用に一時的に
 #include "DescriptorManager.h" // Allocator関数を呼び出しメモリ確保できるかのテスト
 
@@ -53,17 +54,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	cubeTransform02.SetPosition(Vector3{ 0.0f, 0.0f, 0.0f });
 	cubeTransform.SetScale(Vector3::One);
 
+	bool testFlag{ false };
+
 	while (Gfx::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 
-		Vector2 dir{ Vector2::Zero };
-		if (Input::IsKeyPress(KeyCode::D)) dir.x += 1.0f;
-		if (Input::IsKeyPress(KeyCode::A)) dir.x -= 1.0f;
-		if (Input::IsKeyPress(KeyCode::W)) dir.y -= 1.0f;
-		if (Input::IsKeyPress(KeyCode::S)) dir.y += 1.0f;
-
-		dir.Normalize(); // 正規化
+		Vector2 dir{ Input::GetPadStickValue(PadCode::Stick::RIGHT)};
 
 		playerPos += dir * 8.0f;
 
@@ -84,26 +81,32 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		//// スプライトバッチテスト
 		Gfx::DrawSprite(background, Vector2{ 0.0f, 0.0f }, Vector2{ 1280.0f, 720.0f }, 0.0f, Vector2::Zero, Vector2::One, LenderLayer::BackGround);
-		//for (int i = 0; i < 400; i++)
-		//{
-		//	float offset{ i * 10.0f };
-		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 100.0f}, Vector2{128.0f, 128.0f}, ang);
-		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 200.0f }, Vector2{ 128.0f, 128.0f }, ang);
-		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 300.0f }, Vector2{ 128.0f, 128.0f }, ang);
-		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 400.0f }, Vector2{ 128.0f, 128.0f }, ang);
-		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 500.0f }, Vector2{ 128.0f, 128.0f }, ang);
-		//}
-		Gfx::DrawSprite(enemy, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f });
+		Gfx::DrawSprite(player, playerPos, Vector2{128.0f, 128.0f});
 
-		Gfx::DrawString("MeshNum : ", {0.0f, 0.0f});
+		TexHandle test{};
+		if (Input::IsPadReleased(PadCode::Trigger::RIGHT) || Input::IsKeyPushed(KeyCode::Button::D)) testFlag = !testFlag;
+		if (testFlag)
+		{
+			test = player;
+		}
+		else
+		{
+			test = enemy;
+		}
+
+		Gfx::DrawSprite(test, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f });
+
+		float inputTrigger{ Input::GetPadTriggerValue(PadCode::Trigger::RIGHT) };
+		std::string triggerStr{ std::format("Input Trigger Value : {:.2f}", inputTrigger) };
+		Gfx::DrawString(triggerStr.c_str(), {0.0f, 0.0f});
 
 		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
 
-		//Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
-		//Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
+		Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
+		Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
 
-		Gfx::DrawLine({ 300.0f, 300.0f }, { 700.0f, 20.0f });
-		Gfx::DrawLine({ 300.0f, 300.0f }, { 1000.0f, 1000.0f }, {0.3f, 0.75f, 0.87f, 1.0f});
+		//Gfx::DrawLine({ 300.0f, 300.0f }, { 700.0f, 20.0f });
+		//Gfx::DrawLine({ 300.0f, 300.0f }, { 1000.0f, 1000.0f }, {0.3f, 0.75f, 0.87f, 1.0f});
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}
