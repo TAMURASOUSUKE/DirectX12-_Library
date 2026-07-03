@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "../Math/TSMath.h"
 #include "../Input/InputName.h"
 
 // 入力に関する機能をユーザーに提供する
@@ -12,17 +13,26 @@ namespace Input
 	bool IsReleased(int _key);
 
 	 // キーボード : 押している間
-	bool IsKeyPress(KeyCode _key);
+	bool IsKeyPress(KeyCode::Button _key);
 	// キーボード : 押した瞬間
-	bool IsKeyPushed(KeyCode _key);
+	bool IsKeyPushed(KeyCode::Button  _key);
 	// キーボード : 離した瞬間
-	bool IsKeyReleased(KeyCode _key);
+	bool IsKeyReleased(KeyCode::Button  _key);
 
 	
 	 // ゲームパッド : 押している間
-	bool IsPadPress(PadCode _key);
+	bool IsPadPress(PadCode::Button _key);
 	// ゲームパッド : 押した瞬間
-	bool IsPadPushed(PadCode _key); 
+	bool IsPadPushed(PadCode::Button _key);
 	// ゲームパッド : 離した瞬間
-	bool IsPadReleased(PadCode _key);
+	bool IsPadReleased(PadCode::Button _key);
+	/// <summary>
+	/// ゲームパッド : スティック値 引数: 左右, Y軸値を反転するかどうか
+	/// 値域: 各成分およそ-1〜+1、デッドゾーン内はVector2::Zero
+	/// 向き: デフォルト(false)は上に倒すとyが負（スクリーン座標系）。trueで反転し上が正
+	/// </summary>
+	/// <param name="_sitick">左右スティックの選択</param>
+	/// <param name="_isInverseY">Y軸反転を行うかどうか</param>
+	/// <returns></returns>
+	Vector2 GetPadStickValue(PadCode::Stick _sitick, bool _isInverseY = false);
 }

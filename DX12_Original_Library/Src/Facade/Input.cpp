@@ -50,34 +50,39 @@ bool Input::IsReleased(int _key)
 
 // キーボード限定
 
-bool Input::IsKeyPress(KeyCode _key)
+bool Input::IsKeyPress(KeyCode::Button _key)
 {
 	return keyboard.IsPress(static_cast<int>(_key));
 }
 
-bool Input::IsKeyPushed(KeyCode _key)
+bool Input::IsKeyPushed(KeyCode::Button _key)
 {
 	return keyboard.IsPushed(static_cast<int>(_key));
 }
 
-bool Input::IsKeyReleased(KeyCode _key)
+bool Input::IsKeyReleased(KeyCode::Button _key)
 {
 	return keyboard.IsReleased(static_cast<int>(_key));
 }
 
 // パッド限定
 
-bool Input::IsPadPress(PadCode _key)
+bool Input::IsPadPress(PadCode::Button _key)
 {
 	return gamePad.IsPress(static_cast<int>(_key));
 }
 
-bool Input::IsPadPushed(PadCode _key)
+bool Input::IsPadPushed(PadCode::Button _key)
 {
 	return gamePad.IsPushed(static_cast<int>(_key));
 }
 
-bool Input::IsPadReleased(PadCode _key)
+bool Input::IsPadReleased(PadCode::Button _key)
 {
 	return gamePad.IsReleased(static_cast<int>(_key));
+}
+
+Vector2 Input::GetPadStickValue(PadCode::Stick _stick, bool _isInverseY)
+{
+	return gamePad.GetStickValue(_stick, _isInverseY);
 }

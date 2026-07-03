@@ -1,7 +1,10 @@
 ﻿#pragma once
+#include <windows.h>
 #include <XInput.h>
+#include "InputName.h"
+#include "../Math/TSMath.h"
 #include "InputBase.h"
-#pragma comment(lib, "Xinput.lib")
+
 
 // コントローラーからの入力を受け取る(現在はXboxのみで今後Switch,PSへ拡張)
 class GamePadInput : public InputBase
@@ -12,6 +15,12 @@ public:
 	bool IsPress(int _key) override; // 押している間
 	bool IsPushed(int _key) override; // 押した瞬間
 	bool IsReleased(int _key) override; // 離した瞬間
+	
+	// 引数に入れた方のスティックの値を取得する(boolでY軸反転を行うか判断する)
+	Vector2 GetStickValue(PadCode::Stick _stick, bool _isInverseY);
+private:
+	// スティックから出力された値デッドゾーンを適用して-1～1に正規化する関数(boolはY軸反転を行うかどうか)
+	Vector2 ApplyNormalizeAndDeadZone(short _x, short _y, float _deadZone, bool _isInverseY);
 
 private:
 	XINPUT_GAMEPAD currentPad{}; // 現在の入力

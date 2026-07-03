@@ -30,4 +30,16 @@ namespace Math
 		_angle.z = NormalizeAngle(_angle.z);
 		return _angle;
 	}
+
+	// 区間と値から補間率を求める関数(0割と判断できるくらい小さい値の区間であれば0を返します)
+	constexpr float InverseLerp(float _min, float _max, float _value)
+	{
+		float fromStart{ _value - _min }; // スタートから進んだ距離
+		float totalValue{_max - _min}; // 全体の量
+		totalValue = (totalValue < 0.0f) ? totalValue * -1.0f : totalValue; // C++20ではfabsがconstexpr対応していないので自分ではがす
+		if (totalValue <= EPSILON) return 0.0f; // 0割りなら0を返す
+		return fromStart / totalValue; // 補間率を返す
+	}
+	
+	static_assert(Math::InverseLerp(10.0f, 30.0f, 15.0f) == 0.25f, "InverseLerpの計算が違う");
 }

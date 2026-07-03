@@ -59,13 +59,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 
-		Vector2 dir{ Vector2::Zero };
-		if (Input::IsKeyPress(KeyCode::D)) dir.x += 1.0f;
-		if (Input::IsKeyPress(KeyCode::A)) dir.x -= 1.0f;
-		if (Input::IsKeyPress(KeyCode::W)) dir.y -= 1.0f;
-		if (Input::IsKeyPress(KeyCode::S)) dir.y += 1.0f;
+		Vector2 dir{ Input::GetPadStickValue(PadCode::Stick::LeftStick)};
 
-		dir.Normalize(); // 正規化
+		// dir.Normalize(); // 正規化
 
 		playerPos += dir * 8.0f;
 
@@ -86,17 +82,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		//// スプライトバッチテスト
 		Gfx::DrawSprite(background, Vector2{ 0.0f, 0.0f }, Vector2{ 1280.0f, 720.0f }, 0.0f, Vector2::Zero, Vector2::One, LenderLayer::BackGround);
-		//for (int i = 0; i < 400; i++)
-		//{
-		//	float offset{ i * 10.0f };
-		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 100.0f}, Vector2{128.0f, 128.0f}, ang);
-		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 200.0f }, Vector2{ 128.0f, 128.0f }, ang);
-		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 300.0f }, Vector2{ 128.0f, 128.0f }, ang);
-		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 400.0f }, Vector2{ 128.0f, 128.0f }, ang);
-		//	Gfx::DrawSprite(player, Vector2{ playerPos.x + offset, playerPos.y + 500.0f }, Vector2{ 128.0f, 128.0f }, ang);
-		//}
+		Gfx::DrawSprite(player, playerPos, Vector2{128.0f, 128.0f});
+
 		TexHandle test{};
-		if (Input::IsPadPress(PadCode::A) || Input::IsKeyPushed(KeyCode::D)) testFlag = !testFlag;
+		if (Input::IsPadPushed(PadCode::Button::A) || Input::IsKeyPushed(KeyCode::Button::D)) testFlag = !testFlag;
 		if (testFlag)
 		{
 			test = player;
