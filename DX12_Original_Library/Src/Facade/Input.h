@@ -22,17 +22,29 @@ namespace Input
 	
 	 // ゲームパッド : 押している間
 	bool IsPadPress(PadCode::Button _key);
+	bool IsPadPress(PadCode::Trigger _trigger);
 	// ゲームパッド : 押した瞬間
 	bool IsPadPushed(PadCode::Button _key);
+	bool IsPadPushed(PadCode::Trigger _trigger);
 	// ゲームパッド : 離した瞬間
 	bool IsPadReleased(PadCode::Button _key);
+	bool IsPadReleased(PadCode::Trigger _trigger);
+	/// <summary>
+	/// ゲームパッド : トリガー値(0-1に正規化した値を返す)
+	/// 内部に用いている閾値が未押下30押下10なので
+	/// 押されていても10-29の値であればGetTriggerValueは0.0を返す
+	/// また上記の条件からGetPadTriggerValueが0より大きい -> IsPadPress = trueとなります
+	/// </summary>
+	/// <param name="_trigger">左右トリガーの選択</param>
+	/// <returns>0-1に正規化されたトリガー値</returns>
+	float GetPadTriggerValue(PadCode::Trigger _trigger);
 	/// <summary>
 	/// ゲームパッド : スティック値 引数: 左右, Y軸値を反転するかどうか
 	/// 値域: 各成分およそ-1〜+1、デッドゾーン内はVector2::Zero
 	/// 向き: デフォルト(false)は上に倒すとyが負（スクリーン座標系）。trueで反転し上が正
 	/// </summary>
-	/// <param name="_sitick">左右スティックの選択</param>
+	/// <param name="_stick">左右スティックの選択</param>
 	/// <param name="_isInverseY">Y軸反転を行うかどうか</param>
-	/// <returns></returns>
-	Vector2 GetPadStickValue(PadCode::Stick _sitick, bool _isInverseY = false);
+	/// <returns>正規化された入力ベクトル</returns>
+	Vector2 GetPadStickValue(PadCode::Stick _stick, bool _isInverseY = false);
 }

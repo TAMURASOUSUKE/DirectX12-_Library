@@ -1,4 +1,5 @@
 ﻿#include "../Src/Facade/TSLib.h"
+#include <string> // テスト用
 #include "../Src/Graphics/GraphicsType.h" // デバッグ用に一時的に
 #include "DescriptorManager.h" // Allocator関数を呼び出しメモリ確保できるかのテスト
 
@@ -59,9 +60,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 
-		Vector2 dir{ Input::GetPadStickValue(PadCode::Stick::LeftStick)};
-
-		// dir.Normalize(); // 正規化
+		Vector2 dir{ Input::GetPadStickValue(PadCode::Stick::RIGHT)};
 
 		playerPos += dir * 8.0f;
 
@@ -85,7 +84,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawSprite(player, playerPos, Vector2{128.0f, 128.0f});
 
 		TexHandle test{};
-		if (Input::IsPadPushed(PadCode::Button::A) || Input::IsKeyPushed(KeyCode::Button::D)) testFlag = !testFlag;
+		if (Input::IsPadReleased(PadCode::Trigger::RIGHT) || Input::IsKeyPushed(KeyCode::Button::D)) testFlag = !testFlag;
 		if (testFlag)
 		{
 			test = player;
@@ -97,7 +96,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawSprite(test, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f });
 
-		Gfx::DrawString("MeshNum : ", { 0.0f, 0.0f });
+		float inputTrigger{ Input::GetPadTriggerValue(PadCode::Trigger::RIGHT) };
+		std::string triggerStr{ std::format("Input Trigger Value : {:.2f}", inputTrigger) };
+		Gfx::DrawString(triggerStr.c_str(), {0.0f, 0.0f});
 
 		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
 

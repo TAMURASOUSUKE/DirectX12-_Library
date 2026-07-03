@@ -89,10 +89,10 @@ namespace PadCode
 	// ボタン類
 	enum class Button : WORD
 	{
-		DPAD_UP = 0x0001, // 十字キー上
-		DPAD_DOWN = 0x0002, // 十字キー下
-		DPAD_LEFT = 0x0004, // 十字キー左
-		DPAD_RIGHT = 0x0008, // 十字キー右
+		UP = 0x0001, // 十字キー上
+		DOWN = 0x0002, // 十字キー下
+		LEFT = 0x0004, // 十字キー左
+		RIGHT = 0x0008, // 十字キー右
 		START = 0x0010, // スタート
 		BACK = 0x0020, // バック
 		LEFT_THUMB = 0x0040, // 左スティック押し込み
@@ -108,7 +108,14 @@ namespace PadCode
 	// スティック類
 	enum class Stick
 	{
-		LeftStick, // 左スティック
-		RightStick, // 右スティック
+		LEFT, // 左スティック
+		RIGHT, // 右スティック
+	};
+
+	// 左右トリガー
+	enum class Trigger
+	{
+		LEFT, // 左トリガー
+		RIGHT, // 右トリガー
 	};
 }

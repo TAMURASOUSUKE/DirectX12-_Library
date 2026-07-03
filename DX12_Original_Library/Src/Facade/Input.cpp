@@ -72,14 +72,34 @@ bool Input::IsPadPress(PadCode::Button _key)
 	return gamePad.IsPress(static_cast<int>(_key));
 }
 
+bool Input::IsPadPress(PadCode::Trigger _trigger)
+{
+	return gamePad.IsPress(_trigger);
+}
+
 bool Input::IsPadPushed(PadCode::Button _key)
 {
 	return gamePad.IsPushed(static_cast<int>(_key));
 }
 
+bool Input::IsPadPushed(PadCode::Trigger _trigger)
+{
+	return gamePad.IsPushed(_trigger);
+}
+
 bool Input::IsPadReleased(PadCode::Button _key)
 {
 	return gamePad.IsReleased(static_cast<int>(_key));
+}
+
+bool Input::IsPadReleased(PadCode::Trigger _trigger)
+{
+	return gamePad.IsReleased(_trigger);
+}
+
+float Input::GetPadTriggerValue(PadCode::Trigger _trigger)
+{
+	return gamePad.GetTriggerValue(_trigger);
 }
 
 Vector2 Input::GetPadStickValue(PadCode::Stick _stick, bool _isInverseY)
