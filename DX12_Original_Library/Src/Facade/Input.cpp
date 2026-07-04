@@ -1,4 +1,5 @@
 ﻿#include "../Input/KeyboardInput.h"
+#include "../Input/MouseInput.h"
 #include "../Input/GamePadInput.h"
 #include "InputInternal.h"
 #include "Input.h"
@@ -6,6 +7,7 @@
 namespace
 {
 	KeyboardInput keyboard{}; // キーボード入力クラス
+	MouseInput mouse{}; // マウス入力クラス
 	GamePadInput gamePad{}; // ゲームパッド入力クラス
 }
 
@@ -22,6 +24,7 @@ void InputInternal::Finish()
 void InputInternal::BeginFrame()
 {
 	keyboard.Update(); // キーボードの入力更新
+	mouse.Update(); // マウスの更新
 	gamePad.Update(); // ゲームパッドの入力更新
 }
 
@@ -63,6 +66,23 @@ bool Input::IsKeyPushed(KeyCode::Button _key)
 bool Input::IsKeyReleased(KeyCode::Button _key)
 {
 	return keyboard.IsReleased(static_cast<int>(_key));
+}
+
+// マウス限定
+
+bool Input::IsMousePress(MouseCode::Click _click)
+{
+	return mouse.IsPress(static_cast<int>(_click));
+}
+
+bool Input::IsMousePushed(MouseCode::Click _click)
+{
+	return mouse.IsPushed(static_cast<int>(_click));
+}
+
+bool Input::IsMouseReleased(MouseCode::Click _click)
+{
+	return mouse.IsReleased(static_cast<int>(_click));
 }
 
 // パッド限定

@@ -19,7 +19,12 @@ namespace Input
 	// キーボード : 離した瞬間
 	bool IsKeyReleased(KeyCode::Button  _key);
 
-
+	// マウス : 押している間
+	bool IsMousePress(MouseCode::Click _click);
+	// マウス : 押した瞬間
+	bool IsMousePushed(MouseCode::Click _click);
+	// マウス : 離した瞬間
+	bool IsMouseReleased(MouseCode::Click _click);
 
 	
 	 // ゲームパッド : 押している間
