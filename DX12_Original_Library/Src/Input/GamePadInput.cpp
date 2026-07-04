@@ -133,6 +133,8 @@ Vector2 GamePadInput::ApplyNormalizeAndDeadZone(short _x, short _y, float _deadZ
 	if (length > _deadZone)
 	{
 		float rate{ Math::InverseLerp(_deadZone, MAX_STICK_VALUE, length) }; // 補間率
+		// スティックを倒したときの長さを基準に補間率を導出している
+		// MaxStickValueはスティックを倒したときの軸の最大値のため、角に倒すと長さは最大値を超えるためclampする必要がある
 		rate = std::clamp(rate, 0.0f, 1.0f); // 0-1の範囲に収まるようにする
 		raw.Normalize();
 		return Vector2{raw.x, (_isInverseY) ? raw.y : -raw.y} * rate;
@@ -145,7 +147,8 @@ float GamePadInput::ApplyNormalizeAndDeadZone(float _value, float _threshold)
 	// 入力された値を得る
 	if (_value >= _threshold)
 	{
-		return (Math::InverseLerp(_threshold, MAX_TRIGGER_VALUE, _value)); // 引いてから計算することで0-1に正しく動く
+		// トリガーの値は0-255なので最大値255で割れば0-1に制限できる
+		return (Math::InverseLerp(_threshold, MAX_TRIGGER_VALUE, _value)); 
 	}
 	return 0.0f;
 }
