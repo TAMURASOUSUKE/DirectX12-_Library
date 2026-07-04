@@ -70,12 +70,6 @@ namespace KeyCode
 		UP = VK_UP, // 上
 		DOWN = VK_DOWN, // 下
 
-		// クリック
-	};
-
-	// マウス類
-	enum class Mouse
-	{
 	};
 }
 
@@ -117,5 +111,20 @@ namespace PadCode
 	{
 		LEFT, // 左トリガー
 		RIGHT, // 右トリガー
+	};
+}
+
+// マウスの入力を判別するための名前空間
+// Windowsから受け取るのでVK_...系から取得する
+namespace MouseInput
+{
+	// クリック類
+	enum class Click
+	{
+		LEFT = VK_LBUTTON,  // 左クリック
+		RIGHT = VK_RBUTTON, // 右クリック
+		WHEEL = VK_MBUTTON, // 真ん中
+		SIDE01 = VK_XBUTTON1, // サイドボタン01
+		SIDE02 = VK_XBUTTON2, // サイドボタン02
 	};
 }
