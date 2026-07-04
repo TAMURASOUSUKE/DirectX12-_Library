@@ -19,6 +19,8 @@ namespace Input
 	// キーボード : 離した瞬間
 	bool IsKeyReleased(KeyCode::Button  _key);
 
+
+
 	
 	 // ゲームパッド : 押している間
 	bool IsPadPress(PadCode::Button _key);

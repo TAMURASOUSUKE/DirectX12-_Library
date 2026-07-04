@@ -116,7 +116,7 @@ namespace PadCode
 
 // マウスの入力を判別するための名前空間
 // Windowsから受け取るのでVK_...系から取得する
-namespace MouseInput
+namespace MouseCode
 {
 	// クリック類
 	enum class Click
