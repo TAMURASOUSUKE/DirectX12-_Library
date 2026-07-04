@@ -25,7 +25,7 @@ namespace Input
 	bool IsMousePushed(MouseCode::Click _click);
 	// マウス : 離した瞬間
 	bool IsMouseReleased(MouseCode::Click _click);
-	// マウス : カーソルの座標を取得する(クライアント座標で左上が原点のY座標が下向きで単位はピクセル)
+	// マウス : カーソルの座標を取得する(クライアント座標で左上が原点のY座標が下向きで単位はピクセル。画面外にカーソルを出しても負の値として出力します。)
 	Vector2Int GetMousePoint();
 	
 	 // ゲームパッド : 押している間
