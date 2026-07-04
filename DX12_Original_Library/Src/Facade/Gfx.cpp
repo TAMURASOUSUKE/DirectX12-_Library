@@ -621,3 +621,8 @@ void Gfx::Unload(ModelHandle _handle)
 {
 	ResourceManager::Instance().Unload(_handle);
 }
+
+HWND GfxInternal::GetHWND()
+{
+	return window.GetHWND();
+}

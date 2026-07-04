@@ -84,7 +84,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawSprite(player, playerPos, Vector2{128.0f, 128.0f});
 
 		TexHandle test{};
-		if (Input::IsPadReleased(PadCode::Trigger::RIGHT) || Input::IsKeyPushed(KeyCode::Button::D)) testFlag = !testFlag;
+		if (Input::IsPadReleased(PadCode::Trigger::RIGHT) || Input::IsKeyPushed(KeyCode::Button::D) || Input::IsMousePushed(MouseCode::Click::LEFT)) testFlag = !testFlag;
 		if (testFlag)
 		{
 			test = player;
@@ -98,7 +98,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		float inputTrigger{ Input::GetPadTriggerValue(PadCode::Trigger::RIGHT) };
 		std::string triggerStr{ std::format("Input Trigger Value : {:.2f}", inputTrigger) };
+		Vector2Int cursorPos{ Input::GetMousePoint() };
+		std::string cursorStr{ std::format("Input CursorPosition x : {},  y : {}", cursorPos.x, cursorPos.y) };
 		Gfx::DrawString(triggerStr.c_str(), {0.0f, 0.0f});
+		Gfx::DrawString(cursorStr.c_str(), {0.0f, 30.0f});
 
 		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
 

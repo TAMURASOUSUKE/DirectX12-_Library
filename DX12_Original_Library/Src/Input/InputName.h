@@ -6,7 +6,7 @@ namespace KeyCode
 	// Windowsの仮想キーをスコープ付き列挙(enum class)で包みユーザーが認識しやすくする
 	// KeyCodeとPadCodeの取り違えはコンパイルエラーになる（型安全）
 	// 基底型BYTE = 0〜255のキーボード添字の世界
-	// キーボードやクリック類
+	// キーボード
 	enum class Button : BYTE
 	{
 		// アルファベットキー (A-Z)
@@ -119,11 +119,11 @@ namespace PadCode
 namespace MouseCode
 {
 	// クリック類
-	enum class Click
+	enum class Click : BYTE
 	{
 		LEFT = VK_LBUTTON,  // 左クリック
 		RIGHT = VK_RBUTTON, // 右クリック
-		WHEEL = VK_MBUTTON, // 真ん中
+		MIDDLE = VK_MBUTTON, // 真ん中
 		SIDE01 = VK_XBUTTON1, // サイドボタン01
 		SIDE02 = VK_XBUTTON2, // サイドボタン02
 	};

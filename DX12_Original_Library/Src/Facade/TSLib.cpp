@@ -10,7 +10,7 @@ bool TSLib::Initialize(const wchar_t* _title, int _width, int _height)
 	result = GfxInternal::Initialize(_title, _width, _height); // グラフィックの初期化とウィンドウ作成
 	DEBUG_ASSERT(result && "ゲームの初期化に失敗しました\n");
 	if (!result) return result;
-	result = InputInternal::Initialize();
+	result = InputInternal::Initialize(GfxInternal::GetHWND());
 	DEBUG_ASSERT(result && "入力処理の初期化に失敗しました\n");
 	if (!result) return result;
 	return result;

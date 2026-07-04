@@ -165,6 +165,7 @@
     <ClInclude Include="Src\Input\GamePadInput.h" />
     <ClInclude Include="Src\Input\InputName.h" />
     <ClInclude Include="Src\Input\KeyboardInput.h" />
+    <ClInclude Include="Src\Input\MouseInput.h" />
     <ClInclude Include="Src\Math\MathConstant.h" />
     <ClInclude Include="Src\Math\Matrix\Mat4x4.h" />
     <ClInclude Include="Src\Math\Matrix\Mat4x4Format.h" />
@@ -204,6 +205,7 @@
     <ClCompile Include="Src\Graphics\SpriteBatch.cpp" />
     <ClCompile Include="Src\Input\GamePadInput.cpp" />
     <ClCompile Include="Src\Input\KeyboardInput.cpp" />
+    <ClCompile Include="Src\Input\MouseInput.cpp" />
     <ClCompile Include="Src\Math\Matrix\Mat4x4.cpp" />
     <ClCompile Include="Src\Math\Quaternion\Quaternion.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector2.cpp" />

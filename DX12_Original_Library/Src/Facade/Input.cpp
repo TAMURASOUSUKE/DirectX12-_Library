@@ -1,4 +1,5 @@
-﻿#include "../Input/KeyboardInput.h"
+﻿#include"../Debug/DebugLogs.h"
+#include "../Input/KeyboardInput.h"
 #include "../Input/MouseInput.h"
 #include "../Input/GamePadInput.h"
 #include "InputInternal.h"
@@ -11,9 +12,15 @@ namespace
 	GamePadInput gamePad{}; // ゲームパッド入力クラス
 }
 
-bool InputInternal::Initialize()
+bool InputInternal::Initialize(HWND _hwnd)
 {
-	return true;
+	DEBUG_ASSERT(_hwnd != nullptr && "InputInternalでnull状態のHWNDが渡されました\n");
+	if (_hwnd != nullptr)
+	{
+		mouse.Initialize(_hwnd);
+		return true;
+	}
+	return false;
 }
 
 void InputInternal::Finish()
@@ -83,6 +90,11 @@ bool Input::IsMousePushed(MouseCode::Click _click)
 bool Input::IsMouseReleased(MouseCode::Click _click)
 {
 	return mouse.IsReleased(static_cast<int>(_click));
+}
+
+Vector2Int Input::GetMousePoint()
+{
+	return mouse.GetCursorPoint();
 }
 
 // パッド限定
