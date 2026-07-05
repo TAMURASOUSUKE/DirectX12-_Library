@@ -19,6 +19,29 @@ namespace Input
 	// キーボード : 離した瞬間
 	bool IsKeyReleased(KeyCode::Button  _key);
 
+	// マウス : 押している間
+	bool IsMousePress(MouseCode::Click _click);
+	// マウス : 押した瞬間
+	bool IsMousePushed(MouseCode::Click _click);
+	// マウス : 離した瞬間
+	bool IsMouseReleased(MouseCode::Click _click);
+	/// <summary>
+	/// そのフレーム中のホイール回転量を基準値を含めて計算し、加算した値を返す
+	/// 回転量 * 基準値の120を返す
+	/// 回転方向は奥が+、手前が-
+	/// </summary>
+	/// <returns>1フレーム内の回転量 * 基準値加算</returns>
+	int GetMouseWheelValue();
+	/// <summary>
+	/// そのフレーム中の回転数を加算して返す
+	/// 回転方向は奥が+、手前が-
+	/// </summary>
+	/// <returns>回転量</returns>
+	int GetMouseWheelNotchValue();
+	// マウス : カーソルの座標を取得する(クライアント座標で左上が原点のY座標が下向きで単位はピクセル。画面外にカーソルが出ても負や画面越えのサイズとして出力します)
+	Vector2Int GetMousePoint();
+	// 前のフレームからのマウスの移動量を返す(変化量はフレームレートに依存します)
+	Vector2Int GetMouseDelta();
 	
 	 // ゲームパッド : 押している間
 	bool IsPadPress(PadCode::Button _key);

@@ -621,3 +621,13 @@ void Gfx::Unload(ModelHandle _handle)
 {
 	ResourceManager::Instance().Unload(_handle);
 }
+
+HWND GfxInternal::GetHWND()
+{
+	return window.GetHWND();
+}
+
+void GfxInternal::SetOnWheel(std::function<void(short)> _func)
+{
+	window.SetOnWheel(_func);
+}

@@ -1,4 +1,6 @@
-﻿#include "../Input/KeyboardInput.h"
+﻿#include"../Debug/DebugLogs.h"
+#include "../Input/KeyboardInput.h"
+#include "../Input/MouseInput.h"
 #include "../Input/GamePadInput.h"
 #include "InputInternal.h"
 #include "Input.h"
@@ -6,12 +8,19 @@
 namespace
 {
 	KeyboardInput keyboard{}; // キーボード入力クラス
+	MouseInput mouse{}; // マウス入力クラス
 	GamePadInput gamePad{}; // ゲームパッド入力クラス
 }
 
-bool InputInternal::Initialize()
+bool InputInternal::Initialize(HWND _hwnd)
 {
-	return true;
+	DEBUG_ASSERT(_hwnd != nullptr && "InputInternalでnull状態のHWNDが渡されました\n");
+	if (_hwnd != nullptr)
+	{
+		mouse.Initialize(_hwnd);
+		return true;
+	}
+	return false;
 }
 
 void InputInternal::Finish()
@@ -22,6 +31,7 @@ void InputInternal::Finish()
 void InputInternal::BeginFrame()
 {
 	keyboard.Update(); // キーボードの入力更新
+	mouse.Update(); // マウスの更新
 	gamePad.Update(); // ゲームパッドの入力更新
 }
 
@@ -63,6 +73,48 @@ bool Input::IsKeyPushed(KeyCode::Button _key)
 bool Input::IsKeyReleased(KeyCode::Button _key)
 {
 	return keyboard.IsReleased(static_cast<int>(_key));
+}
+
+// マウス限定
+
+bool Input::IsMousePress(MouseCode::Click _click)
+{
+	return mouse.IsPress(static_cast<int>(_click));
+}
+
+bool Input::IsMousePushed(MouseCode::Click _click)
+{
+	return mouse.IsPushed(static_cast<int>(_click));
+}
+
+bool Input::IsMouseReleased(MouseCode::Click _click)
+{
+	return mouse.IsReleased(static_cast<int>(_click));
+}
+
+int Input::GetMouseWheelValue()
+{
+	return mouse.GetWheelValue();
+}
+
+int Input::GetMouseWheelNotchValue()
+{
+	return mouse.GetWheelNotchValue();
+}
+
+Vector2Int Input::GetMousePoint()
+{
+	return mouse.GetCursorPoint();
+}
+
+Vector2Int Input::GetMouseDelta()
+{
+	return mouse.GetCursorDelta();
+}
+
+void InputInternal::AddMouseWheelDelta(short _delta)
+{
+	mouse.AddWheelDelta(_delta);
 }
 
 // パッド限定
