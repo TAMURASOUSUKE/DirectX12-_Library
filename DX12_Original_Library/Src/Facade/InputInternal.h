@@ -7,4 +7,7 @@ namespace InputInternal
 	void BeginFrame(); // フレーム開始処理
 	void EndFrame(); // フレーム終了処理
 	void Finish(); // 終了処理
+
+	// wheelが回された分だけ加算して積む : コールバック用関数
+	void AddMouseWheelDelta(short _delta);
 }

@@ -92,9 +92,29 @@ bool Input::IsMouseReleased(MouseCode::Click _click)
 	return mouse.IsReleased(static_cast<int>(_click));
 }
 
+int Input::GetMouseWheelValue()
+{
+	return mouse.GetWheelValue();
+}
+
+int Input::GetMouseWheelNotchValue()
+{
+	return mouse.GetWheelNotchValue();
+}
+
 Vector2Int Input::GetMousePoint()
 {
 	return mouse.GetCursorPoint();
+}
+
+Vector2 Input::GetMouseDelta()
+{
+	return mouse.GetCursorDelta();
+}
+
+void InputInternal::AddMouseWheelDelta(short _delta)
+{
+	mouse.AddWheelDelta(_delta);
 }
 
 // パッド限定

@@ -40,6 +40,10 @@ void MouseInput::Update()
 		// 上記と同様の理由
 		DEBUG_LOG_WARNING("マウスカーソル位置の取得に失敗しました\n");
 	}
+
+	currentWheel = static_cast<int>(accumWheel); // 加算された値を保存
+	accumWheel = 0; // 次のフレームようにリセット
+
 }
 
 bool MouseInput::IsPress(int _click)
@@ -57,7 +61,27 @@ bool MouseInput::IsReleased(int _click)
 	return!(currentClicks[_click] & MOST_SIGNIFICANT_BIT) && (prevClicks[_click] & MOST_SIGNIFICANT_BIT);
 }
 
+int MouseInput::GetWheelValue()
+{
+	return currentWheel;
+}
+
+int MouseInput::GetWheelNotchValue()
+{
+	return currentWheel / WHEEL_DELTA_VALUE; // 基準値の120で割って回転数を求める
+}
+
 Vector2Int MouseInput::GetCursorPoint()
 {
 	return Vector2Int{currentClientCursorPos.x, currentClientCursorPos.y};
+}
+
+Vector2 MouseInput::GetCursorDelta()
+{
+	return Vector2{ static_cast<float>(currentClientCursorPos.x - prevClientCursorPos.x), static_cast<float>(currentClientCursorPos.y - prevClientCursorPos.y) };
+}
+
+void MouseInput::AddWheelDelta(short _delta)
+{
+	accumWheel += _delta; // 積算器にためる
 }

@@ -13,6 +13,10 @@ bool TSLib::Initialize(const wchar_t* _title, int _width, int _height)
 	result = InputInternal::Initialize(GfxInternal::GetHWND());
 	DEBUG_ASSERT(result && "入力処理の初期化に失敗しました\n");
 	if (!result) return result;
+
+	// コールバックの配線接続 : ラムダで渡す
+	GfxInternal::SetOnWheel([](short _d) { InputInternal::AddMouseWheelDelta(_d); });
+	
 	return result;
 }
 

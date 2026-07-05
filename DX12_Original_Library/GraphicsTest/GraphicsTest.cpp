@@ -56,6 +56,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	bool testFlag{ false };
 
+	int testWheel{ 0 };
+	int testWheelNotch{ 0 };
+
 	while (Gfx::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
@@ -100,8 +103,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		std::string triggerStr{ std::format("Input Trigger Value : {:.2f}", inputTrigger) };
 		Vector2Int cursorPos{ Input::GetMousePoint() };
 		std::string cursorStr{ std::format("Input CursorPosition x : {},  y : {}", cursorPos.x, cursorPos.y) };
+		Vector2 cursorDelta{ Input::GetMouseDelta() };
+		std::string cursorDeltaStr{ std::format("Input CursorDelta x : {:.2f},  y : {:.2f}", cursorDelta.x, cursorDelta.y) };
+		testWheel += Input::GetMouseWheelValue();
+		std::string wheelValueStr{ std::format("Input Wheel Value : {}", testWheel) };
+		testWheelNotch += Input::GetMouseWheelNotchValue();
+		std::string wheelNotchValueStr{ std::format("Input WheelNotch Value : {}", testWheelNotch) };
 		Gfx::DrawString(triggerStr.c_str(), {0.0f, 0.0f});
 		Gfx::DrawString(cursorStr.c_str(), {0.0f, 30.0f});
+		Gfx::DrawString(cursorDeltaStr.c_str(), {0.0f, 60.0f});
+		Gfx::DrawString(wheelValueStr.c_str(), {0.0f, 90.0f});
+		Gfx::DrawString(wheelNotchValueStr.c_str(), {0.0f, 120.0f});
 
 		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
 

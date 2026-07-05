@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <windows.h>
+#include <functional>
 // グラフィックに関する関数のInitialize等ユーザーに提供しない部分をまとめた関数
 namespace GfxInternal
 {
@@ -14,4 +15,6 @@ namespace GfxInternal
 
 	// HWNDの取得(今後はsystemファサードの役目になる)
 	HWND GetHWND();
+	// ホイール関数のセット(今後はsystemファサードの役目になる)
+	void SetOnWheel(std::function<void(short)> _func);
 }
