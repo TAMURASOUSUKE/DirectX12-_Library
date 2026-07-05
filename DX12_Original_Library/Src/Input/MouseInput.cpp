@@ -76,9 +76,9 @@ Vector2Int MouseInput::GetCursorPoint()
 	return Vector2Int{currentClientCursorPos.x, currentClientCursorPos.y};
 }
 
-Vector2 MouseInput::GetCursorDelta()
+Vector2Int MouseInput::GetCursorDelta()
 {
-	return Vector2{ static_cast<float>(currentClientCursorPos.x - prevClientCursorPos.x), static_cast<float>(currentClientCursorPos.y - prevClientCursorPos.y) };
+	return Vector2Int{ currentClientCursorPos.x - prevClientCursorPos.x, currentClientCursorPos.y - prevClientCursorPos.y };
 }
 
 void MouseInput::AddWheelDelta(short _delta)

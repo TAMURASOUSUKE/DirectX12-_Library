@@ -103,8 +103,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		std::string triggerStr{ std::format("Input Trigger Value : {:.2f}", inputTrigger) };
 		Vector2Int cursorPos{ Input::GetMousePoint() };
 		std::string cursorStr{ std::format("Input CursorPosition x : {},  y : {}", cursorPos.x, cursorPos.y) };
-		Vector2 cursorDelta{ Input::GetMouseDelta() };
-		std::string cursorDeltaStr{ std::format("Input CursorDelta x : {:.2f},  y : {:.2f}", cursorDelta.x, cursorDelta.y) };
+		Vector2Int cursorDelta{ Input::GetMouseDelta() };
+		std::string cursorDeltaStr{ std::format("Input CursorDelta x : {},  y : {}", cursorDelta.x, cursorDelta.y) };
 		testWheel += Input::GetMouseWheelValue();
 		std::string wheelValueStr{ std::format("Input Wheel Value : {}", testWheel) };
 		testWheelNotch += Input::GetMouseWheelNotchValue();

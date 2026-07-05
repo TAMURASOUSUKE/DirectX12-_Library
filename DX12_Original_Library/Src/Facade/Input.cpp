@@ -107,7 +107,7 @@ Vector2Int Input::GetMousePoint()
 	return mouse.GetCursorPoint();
 }
 
-Vector2 Input::GetMouseDelta()
+Vector2Int Input::GetMouseDelta()
 {
 	return mouse.GetCursorDelta();
 }

@@ -40,8 +40,8 @@ namespace Input
 	int GetMouseWheelNotchValue();
 	// マウス : カーソルの座標を取得する(クライアント座標で左上が原点のY座標が下向きで単位はピクセル。画面外にカーソルが出ても負や画面越えのサイズとして出力します)
 	Vector2Int GetMousePoint();
-	// 前のフレームからのマウスの移動量を返す
-	Vector2 GetMouseDelta();
+	// 前のフレームからのマウスの移動量を返す(変化量はフレームレートに依存します)
+	Vector2Int GetMouseDelta();
 	
 	 // ゲームパッド : 押している間
 	bool IsPadPress(PadCode::Button _key);

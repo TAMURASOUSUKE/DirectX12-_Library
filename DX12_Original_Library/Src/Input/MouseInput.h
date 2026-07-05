@@ -34,7 +34,7 @@ public:
 	Vector2Int GetCursorPoint();
 
 	// 前のフレームからのマウスの移動量を返す
-	Vector2 GetCursorDelta();
+	Vector2Int GetCursorDelta();
 
 	// wheelが回された分だけ加算して積む。
 	void AddWheelDelta(short _delta);
