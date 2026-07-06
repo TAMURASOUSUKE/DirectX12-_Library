@@ -1,4 +1,6 @@
 ﻿#include <iostream>
+#include <variant>
+#include <string>
 #include "TSMath.h"
 
 int testCount{ 0 };
@@ -32,6 +34,9 @@ bool NearEqualVec3(const Vector3& a, const Vector3& b)
         && NearEqual(a.y, b.y)
         && NearEqual(a.z, b.z);
 }
+
+// variantテスト用
+struct Printer { std::string  operator()(int _n) { return "int!"; } std::string operator()(float _f) { return "float!"; } };
 
 int main()
 {
@@ -152,5 +157,15 @@ int main()
 
 
     std::cout << "\n" << passCount << "/" << testCount << " tests passed." << std::endl;
+
+
+    std::variant<int, float> vari{ 3 }; // intの方に代入
+    std::cout << vari.index() << std::endl; // 0が返ってくる
+    vari = 2.5f; // floatを代入、int, floatに値が入っているためindexは1を返すと予想
+    std::cout << vari.index() << std::endl; // 1が返ってくる
+    std::cout << std::visit(Printer{}, vari) << std::endl; // floatが入っているのでfloatが出力される
+    vari = 7;
+    std::cout << std::visit(Printer{}, vari) << std::endl; // intが入っているのでintが出力される
+
     return (passCount == testCount) ? 0 : 1;
 }

@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <windows.h> // VK_*（仮想キーコード）と BYTE/WORD のため
+#include <variant>
 
 namespace KeyCode
 {
@@ -128,3 +129,5 @@ namespace MouseCode
 		SIDE02 = VK_XBUTTON2, // サイドボタン02
 	};
 }
+
+using Binding = std::variant<KeyCode::Button, PadCode::Button, PadCode::Trigger, MouseCode::Click>; // ボタン系の抽象化に使う種類をまとめる
