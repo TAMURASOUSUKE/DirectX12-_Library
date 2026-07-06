@@ -2,6 +2,7 @@
 #include "../Input/KeyboardInput.h"
 #include "../Input/MouseInput.h"
 #include "../Input/GamePadInput.h"
+#include "../Input/ActionSystem.h"
 #include "InputInternal.h"
 #include "Input.h"
 
@@ -10,6 +11,7 @@ namespace
 	KeyboardInput keyboard{}; // キーボード入力クラス
 	MouseInput mouse{}; // マウス入力クラス
 	GamePadInput gamePad{}; // ゲームパッド入力クラス
+	ActionSystem actionSystem{}; // 抽象化入力クラス
 }
 
 bool InputInternal::Initialize(HWND _hwnd)
@@ -33,6 +35,7 @@ void InputInternal::BeginFrame()
 	keyboard.Update(); // キーボードの入力更新
 	mouse.Update(); // マウスの更新
 	gamePad.Update(); // ゲームパッドの入力更新
+	actionSystem.Update(keyboard, mouse, gamePad); // 抽象化の入力更新
 }
 
 void InputInternal::EndFrame()
@@ -42,22 +45,30 @@ void InputInternal::EndFrame()
 
 
 // 抽象化
-
-bool Input::IsPress(int _key)
+void Input::Detail::SetupActionImpl(int _count)
 {
-	return false;
+	actionSystem.Setup(_count);
 }
 
-bool Input::IsPushed(int _key)
+void Input::Detail::SetActionImpl(int _action, Binding _binding)
 {
-	return false;
+	actionSystem.SetAction(_action, _binding);
 }
 
-bool Input::IsReleased(int _key)
+bool Input::Detail::IsActionPressImpl(int _action)
 {
-	return false;
+	return actionSystem.IsPress(_action);
 }
 
+bool Input::Detail::IsActionPushedImpl(int _action)
+{
+	return actionSystem.IsPushed(_action);
+}
+
+bool Input::Detail::IsActionReleasedImpl(int _action)
+{
+	return actionSystem.IsReleased(_action);
+}
 // キーボード限定
 
 bool Input::IsKeyPress(KeyCode::Button _key)

@@ -160,6 +160,7 @@
     <ClInclude Include="Src\Graphics\ShaderSystem.h" />
     <ClInclude Include="Src\Graphics\ShapeBatch.h" />
     <ClInclude Include="Src\Graphics\SpriteBatch.h" />
+    <ClInclude Include="Src\Input\ActionSystem.h" />
     <ClInclude Include="Src\Input\InputBase.h" />
     <ClInclude Include="Src\Input\InputConstant.h" />
     <ClInclude Include="Src\Input\GamePadInput.h" />
@@ -203,6 +204,7 @@
     <ClCompile Include="Src\Graphics\ShaderSystem.cpp" />
     <ClCompile Include="Src\Graphics\ShapeBatch.cpp" />
     <ClCompile Include="Src\Graphics\SpriteBatch.cpp" />
+    <ClCompile Include="Src\Input\ActionSystem.cpp" />
     <ClCompile Include="Src\Input\GamePadInput.cpp" />
     <ClCompile Include="Src\Input\KeyboardInput.cpp" />
     <ClCompile Include="Src\Input\MouseInput.cpp" />

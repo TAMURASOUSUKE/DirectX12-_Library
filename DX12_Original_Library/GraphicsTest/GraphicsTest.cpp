@@ -59,6 +59,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	int testWheel{ 0 };
 	int testWheelNotch{ 0 };
 
+	enum class ActionMap{Jump, Dash, Count}; // 抽象化テスト用アクション
+	Input::SetupActions(ActionMap::Count); // 初期化
+	Input::SetAction(ActionMap::Jump, KeyCode::Button::SPACE);
+	Input::SetAction(ActionMap::Jump, PadCode::Button::A);
+	Input::SetAction(ActionMap::Jump, MouseCode::Click::LEFT);
+	Input::SetAction(ActionMap::Dash, KeyCode::Button::LSHIFT);
+	Input::SetAction(ActionMap::Dash, PadCode::Trigger::RIGHT);
+	Input::SetAction(ActionMap::Dash, MouseCode::Click::RIGHT);
+
 	while (Gfx::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
@@ -87,7 +96,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawSprite(player, playerPos, Vector2{128.0f, 128.0f});
 
 		TexHandle test{};
-		if (Input::IsPadReleased(PadCode::Trigger::RIGHT) || Input::IsKeyPushed(KeyCode::Button::D) || Input::IsMousePushed(MouseCode::Click::LEFT)) testFlag = !testFlag;
+		if (Input::IsActionPushed(ActionMap::Dash)) testFlag = !testFlag;
 		if (testFlag)
 		{
 			test = player;

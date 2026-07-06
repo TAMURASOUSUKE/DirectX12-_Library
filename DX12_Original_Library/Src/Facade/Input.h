@@ -1,16 +1,71 @@
 ﻿#pragma once
+#include  <type_traits>
 #include "../Math/TSMath.h"
 #include "../Input/InputName.h"
 
 // 入力に関する機能をユーザーに提供する
 namespace Input
 {
+
+	// ユーザーが触ってはならない部分を名前で知らせる
+	namespace Detail
+	{
+		void SetupActionImpl(int _count); // アクション数だけ内部配列を確保する
+		void SetActionImpl(int _action, Binding _binding); // アクションと設定したい物理キーを入れる
+		bool IsActionPressImpl(int _action); // Pressの内部実装
+		bool IsActionPushedImpl(int _action); // Pushedの内部実装
+		bool IsActionReleasedImpl(int _action); // Releasedの内部実装
+	}
+
+	/// <summary>
+	/// 物理入力を抽象化するアクションシステムを初期化する関数
+	/// 各アクションの定義はenum classを自作してください
+	/// その際に最後尾にはそのenum classの要素数を表すCountなどの要素を入れてください
+	/// </summary>
+	/// <typeparam name="TAction">各アクションを定義したenum class</typeparam>
+	/// <param name="_count">アクションが定義されているenum classの最後尾にある要素数を表す部分</param>
+	template<typename TAction>
+	void SetupActions(TAction _count)
+	{
+		static_assert(std::is_enum_v<TAction>, "Actionはenum classで定義してください\n");
+		Detail::SetupActionImpl(static_cast<int>(_count));
+	}
+
+	/// <summary>
+	/// 指定したアクションに物理操作を紐づける関数
+	/// 自作したenum classに指定したい操作を入れてください
+	/// </summary>
+	/// <typeparam name="TAction">自作したenum class</typeparam>
+	/// <param name="_action">自作したenum classの指定アクション</param>
+	/// <param name="_binding">設定したい物理操作</param>
+	template<typename TAction>
+	void SetAction(TAction _action, Binding _binding)
+	{
+		static_assert(std::is_enum_v<TAction>, "Actionはenum classで定義してください\n");
+		Detail::SetActionImpl(static_cast<int>(_action), _binding);
+	}
+
 	// 抽象化 : 押している間
-	bool IsPress(int _key); 
+	template<typename TAction>
+	bool IsActionPress(TAction _action)
+	{
+		static_assert(std::is_enum_v<TAction>, "Actionはenum classで定義してください\n");
+		return Detail::IsActionPressImpl(static_cast<int>(_action));
+	}
 	// 抽象化 : 押した瞬間
-	bool IsPushed(int _key);
+	template<typename TAction>
+	bool IsActionPushed(TAction _action)
+	{
+		static_assert(std::is_enum_v<TAction>, "Actionはenum classで定義してください\n");
+		return Detail::IsActionPushedImpl(static_cast<int>(_action));
+	}
 	// 抽象化 : 離した瞬間
-	bool IsReleased(int _key);
+	template<typename TAction>
+	bool IsActionReleased(TAction _action)
+	{
+		static_assert(std::is_enum_v<TAction>, "Actionはenum classで定義してください\n");
+		return Detail::IsActionReleasedImpl(static_cast<int>(_action));
+	}
 
 	 // キーボード : 押している間
 	bool IsKeyPress(KeyCode::Button _key);
