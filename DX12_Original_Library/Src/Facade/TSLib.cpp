@@ -1,6 +1,7 @@
 ﻿#include "../Debug/DebugLogs.h"
 #include "GfxInternal.h"
 #include "InputInternal.h"
+#include "SoundInternal.h"
 #include "TSLib.h"
 
 // 初期化
@@ -13,6 +14,9 @@ bool TSLib::Initialize(const wchar_t* _title, int _width, int _height)
 	result = InputInternal::Initialize(GfxInternal::GetHWND());
 	DEBUG_ASSERT(result && "入力処理の初期化に失敗しました\n");
 	if (!result) return result;
+	result = SoundInternal::Initialize(GfxInternal::GetHWND());
+	DEBUG_ASSERT(result && "音処理の初期化に失敗しました\n");
+	if (!result) return result;
 
 	// コールバックの配線接続 : ラムダで渡す
 	GfxInternal::SetOnWheel([](short _d) { InputInternal::AddMouseWheelDelta(_d); });
@@ -22,18 +26,21 @@ bool TSLib::Initialize(const wchar_t* _title, int _width, int _height)
 
 void TSLib::BeginFrame()
 {
+	SoundInternal::BeginFrame(); // 音関連のフレーム最初の処理
 	InputInternal::BeginFrame(); // 入力の最初の処理
 	GfxInternal::BeginFrame(); // グラフィックのフレーム最初の処理
 }
 
 void TSLib::EndFrame()
 {
-	InputInternal::EndFrame();
+	SoundInternal::EndFrame(); // 音関連のフレーム最後の処理
+	InputInternal::EndFrame(); // 入力関連のフレーム最後の処理
 	GfxInternal::EndFrame(); // グラフィックのフレーム最後の処理
 }
 
 void TSLib::Finish()
 {
-	InputInternal::Finish();
-	GfxInternal::Finish(); // 終了処理
+	SoundInternal::Finish(); // 音の終了処理
+	InputInternal::Finish(); // 入力の終了処理
+	GfxInternal::Finish(); // グラフィックの終了処理
 }
