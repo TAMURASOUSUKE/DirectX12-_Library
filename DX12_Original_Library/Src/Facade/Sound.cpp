@@ -1,8 +1,15 @@
+﻿#include "../Sound/SoundSystem.h"
 #include "SoundInternal.h"
 #include "Sound.h"
 
-bool SoundInternal::Initialize(HWND _hwnd)
+namespace
 {
+	SoundSystem soundSystem{};
+}
+
+bool SoundInternal::Initialize()
+{
+	if (!soundSystem.Setup()) return false;
 	return true;
 }
 
@@ -18,7 +25,7 @@ void SoundInternal::EndFrame()
 
 void SoundInternal::Finish()
 {
-
+	soundSystem.Cleanup(); // 終了処理
 }
 
 void Sound::PlaySE()

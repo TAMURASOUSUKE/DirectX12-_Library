@@ -1,5 +1,4 @@
-#pragma once
-#include "../Math/TSMath.h"
+﻿#pragma once
 
 // 音に関する機能をユーザーに提供する
 namespace Sound

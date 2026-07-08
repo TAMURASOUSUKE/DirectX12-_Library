@@ -1,4 +1,5 @@
-﻿#include "../Debug/DebugLogs.h"
+﻿#include <windows.h>
+#include "../Debug/DebugLogs.h"
 #include "GfxInternal.h"
 #include "InputInternal.h"
 #include "SoundInternal.h"
@@ -7,14 +8,24 @@
 // 初期化
 bool TSLib::Initialize(const wchar_t* _title, int _width, int _height)
 {
+	HRESULT comResult{};
+	comResult = CoInitializeEx(nullptr, COINIT_MULTITHREADED); // COMを初期化
+	DEBUG_ASSERT(SUCCEEDED(comResult));
+	if (FAILED(comResult))
+	{
+		return false;
+	}
+
+
 	bool result{ false };
+
 	result = GfxInternal::Initialize(_title, _width, _height); // グラフィックの初期化とウィンドウ作成
 	DEBUG_ASSERT(result && "ゲームの初期化に失敗しました\n");
 	if (!result) return result;
 	result = InputInternal::Initialize(GfxInternal::GetHWND());
 	DEBUG_ASSERT(result && "入力処理の初期化に失敗しました\n");
 	if (!result) return result;
-	result = SoundInternal::Initialize(GfxInternal::GetHWND());
+	result = SoundInternal::Initialize(); // XAudio2はCoInitializeに依存するため初期化が行われるGfxの後に初期化
 	DEBUG_ASSERT(result && "音処理の初期化に失敗しました\n");
 	if (!result) return result;
 
@@ -43,4 +54,5 @@ void TSLib::Finish()
 	SoundInternal::Finish(); // 音の終了処理
 	InputInternal::Finish(); // 入力の終了処理
 	GfxInternal::Finish(); // グラフィックの終了処理
+	CoUninitialize(); // COMも閉じる
 }

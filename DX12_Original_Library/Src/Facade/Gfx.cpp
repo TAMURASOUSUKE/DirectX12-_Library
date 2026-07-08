@@ -142,12 +142,6 @@ namespace
 bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 {
 	HRESULT result{};
-	result = CoInitializeEx(nullptr, COINIT_MULTITHREADED); // COMを初期化
-	DEBUG_ASSERT(SUCCEEDED(result));
-	if (FAILED(result))
-	{
-		return false;
-	}
 
 	screenWidth = _width;
 	screenHeight = _height;
@@ -435,7 +429,6 @@ void GfxInternal::Finish()
 {
 	DescriptorManager::Instance().Shutdown();
 	GraphicsDevice::Instance().Shutdown();
-	CoUninitialize(); // COMも閉じる
 }
 
 // 描画先をクリアする(色指定可能)
