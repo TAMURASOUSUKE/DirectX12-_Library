@@ -1,9 +1,9 @@
 ﻿#pragma once
 // ここでは各Handleが汎用的に扱う情報を定義する
 
- // Handle作成時にPassKeyIdiomを採用したため生成を許すクラスであるReosurceManagerを前方宣言
-class ResourceManager;
-
+ // Handle作成時にPassKeyIdiomを採用したため生成を許すクラスであるReosurceManager類を前方宣言
+class GraphicsResourceManager;
+class SoundResourceManagere;
 
 // bitpackのインデックス部分
 constexpr int INDEX_BITS{ 16 };
@@ -39,5 +39,6 @@ constexpr int UnpackGen(int _packed) { return _packed >> INDEX_BITS; }
 class PassKey
 {
 	PassKey() = default; // デフォルトコンストラクタ
-	friend class ResourceManager; // ReosurceManagerのみが鍵を作れる
+	friend class GraphicsResourceManager; // GraphicsReosurceManagerが鍵を作れる
+	friend class SoundResourceManager;  // SoundResourceManagerが鍵を作れる
 };

@@ -2,13 +2,13 @@
 #include "../Debug/DebugLogs.h"
 #include "GraphicsConstant.h"
 #include "GraphicsDevice.h"
-#include "ResourceManager.h"
+#include "GraphicsResourceManager.h"
 #include "RingConstantBuffer.h"
 
 void RingConstantBuffer::Initialize(UINT _dataSize)
 {
 	alignedSize = (_dataSize + 0xff) & ~0xff; // 256バイトへの切り上げ
-	DynamicBuffer db{ ResourceManager::Instance().CreateDynamicBuffer(FRAME_BUFFER_COUNT * MAX_CB_PER_FRAME * alignedSize) }; // 動的なバッファ確保
+	DynamicBuffer db{ GraphicsResourceManager::Instance().CreateDynamicBuffer(FRAME_BUFFER_COUNT * MAX_CB_PER_FRAME * alignedSize) }; // 動的なバッファ確保
 	if (!db.mappedPtr) return; // mapされたCPUptrを確認してnullであれば失敗判定
 
 	// メンバへ渡す

@@ -2,7 +2,7 @@
 #include "GraphicsDevice.h"
 #include "GraphicsType.h"
 #include "GraphicsConstant.h"
-#include "ResourceManager.h"
+#include "GraphicsResourceManager.h"
 #include "ShapeBatch.h"
 
 void ShapeBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _fillState, ID3D12PipelineState* _wireState, ID3D12Resource* _gpuVirtualAddres)
@@ -16,7 +16,7 @@ void ShapeBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* 
 	gpuVirtualAddres = _gpuVirtualAddres;
 
 	// 一番多く頂点を取るカプセルの頂点数(3N * 6)を最大数分確保する
-	vertBuffer = ResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SHAPE_COUNT * (3 * CIRCLE_DIVISION + 6) * sizeof(ShapeVertex), sizeof(ShapeVertex)); // 動的な頂点バッファの作成
+	vertBuffer = GraphicsResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SHAPE_COUNT * (3 * CIRCLE_DIVISION + 6) * sizeof(ShapeVertex), sizeof(ShapeVertex)); // 動的な頂点バッファの作成
 }
 
 void ShapeBatch::RegisterBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation, Vector4 _color, bool _isWireframe)

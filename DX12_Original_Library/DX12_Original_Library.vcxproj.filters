@@ -99,7 +99,7 @@
     <ClInclude Include="Src\Graphics\ShaderSystem.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Graphics\ResourceManager.h">
+    <ClInclude Include="Src\Graphics\GraphicsResourceManager.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="Src\Graphics\DrawDebug\DebugTriangle.h">
@@ -210,6 +210,18 @@
     <ClInclude Include="Src\Sound\SoundSystem.h">
       <Filter>Src\Sound</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Core\Handle\SoundHandle.h">
+      <Filter>Src\Core\Handle</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Sound\SoundType.h">
+      <Filter>Src\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Sound\SoundConstant.h">
+      <Filter>Src\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Sound\SoundResourceManager.h">
+      <Filter>Src\Sound</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -254,7 +266,7 @@
     <ClCompile Include="Src\Graphics\DrawDebug\DebugQuad.cpp">
       <Filter>Src\Graphics\DrawDebug</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Graphics\ResourceManager.cpp">
+    <ClCompile Include="Src\Graphics\GraphicsResourceManager.cpp">
       <Filter>Src\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Src\Input\KeyboardInput.cpp">
@@ -306,6 +318,9 @@
       <Filter>Src\Facade</Filter>
     </ClCompile>
     <ClCompile Include="Src\Sound\SoundSystem.cpp">
+      <Filter>Src\Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Sound\SoundResourceManager.cpp">
       <Filter>Src\Sound</Filter>
     </ClCompile>
   </ItemGroup>

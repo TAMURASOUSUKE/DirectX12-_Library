@@ -9,7 +9,7 @@
 #include "../Math/TSMath.h"
 #include "GraphicsDevice.h"
 #include "DescriptorManager.h"
-#include "ResourceManager.h"
+#include "GraphicsResourceManager.h"
 
 #pragma comment(lib, "windowscodecs.lib") // WIC（LoadFromWICFile）
 #pragma comment(lib, "ole32.lib")        // COM（CoInitializeEx / CoCreateInstance）
@@ -229,7 +229,7 @@ namespace {
 	}
 }
 
-void ResourceManager::Initialize(ID3D12Device* _device)
+void GraphicsResourceManager::Initialize(ID3D12Device* _device)
 {
 	if (_device != nullptr)
 	{
@@ -240,7 +240,7 @@ void ResourceManager::Initialize(ID3D12Device* _device)
 	whiteTexture = CreateWhiteTexture();
 }
 
-VertexBuffer ResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize)
+VertexBuffer GraphicsResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize)
 {
 	D3D12_HEAP_PROPERTIES heapProperties{}; // 頂点ヒープの設定
 	heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD; // アップロードヒープに設定
@@ -284,7 +284,7 @@ VertexBuffer ResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSi
 }
 
 // 動的に頂点バッファを確保する
-VertexBuffer ResourceManager::CreateDynamicVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize)
+VertexBuffer GraphicsResourceManager::CreateDynamicVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize)
 {
 	DynamicBuffer db{ CreateDynamicBuffer(_dataSize) }; // バッファのMapと確保を行う
 	if (!db.mappedPtr) return {}; // 失敗判定
@@ -311,7 +311,7 @@ VertexBuffer ResourceManager::CreateDynamicVertexBuffer(const void* _data, UINT 
 }
 
 // 確保とMapだけする
-DynamicBuffer ResourceManager::CreateDynamicBuffer(UINT _dataSize)
+DynamicBuffer GraphicsResourceManager::CreateDynamicBuffer(UINT _dataSize)
 {
 	D3D12_HEAP_PROPERTIES heapProps{}; // ヒープのプロパティ設定
 	heapProps.Type = D3D12_HEAP_TYPE_UPLOAD; // アップロードヒープ
@@ -343,7 +343,7 @@ DynamicBuffer ResourceManager::CreateDynamicBuffer(UINT _dataSize)
 	return buffer;
 }
 
-IndexBuffer ResourceManager::CreateIndexBuffer(const void* _data, UINT _dataSize, UINT _indexCount)
+IndexBuffer GraphicsResourceManager::CreateIndexBuffer(const void* _data, UINT _dataSize, UINT _indexCount)
 {
 	D3D12_HEAP_PROPERTIES heapProps{}; // ヒープのプロパティ設定
 	heapProps.Type = D3D12_HEAP_TYPE_UPLOAD; // アップロードヒープに設定
@@ -388,7 +388,7 @@ IndexBuffer ResourceManager::CreateIndexBuffer(const void* _data, UINT _dataSize
 }
 
 // 定数バッファの作成
-ConstantBufferData ResourceManager::CreateConstantBuffer(const void* _data, UINT _dataSize)
+ConstantBufferData GraphicsResourceManager::CreateConstantBuffer(const void* _data, UINT _dataSize)
 {
 
 	UINT alignmentedSize{ (_dataSize + 0xff) & ~0xff }; // 256の倍数に切り上げたサイズ(DX12のCBVリソースサイズが256の倍数でなければならないため)
@@ -424,7 +424,7 @@ ConstantBufferData ResourceManager::CreateConstantBuffer(const void* _data, UINT
 }
 
 // 画像の読み込み
-TexHandle ResourceManager::LoadTexture(const char* _filePath)
+TexHandle GraphicsResourceManager::LoadTexture(const char* _filePath)
 {
 
 	// DirectXTexを用いたテクスチャロード
@@ -446,7 +446,7 @@ TexHandle ResourceManager::LoadTexture(const char* _filePath)
 }
 
 // バイト列から読むタイプの画像読み込み
-TexHandle ResourceManager::LoadTextureFromMemory(const void* _data, size_t _size)
+TexHandle GraphicsResourceManager::LoadTextureFromMemory(const void* _data, size_t _size)
 {
 	// DirectXTexを用いたテクスチャロード
 	ID3D12Device* device{ GraphicsDevice::Instance().GetDevice() };
@@ -465,7 +465,7 @@ TexHandle ResourceManager::LoadTextureFromMemory(const void* _data, size_t _size
 	return CreateTextureFromScratch(scratch, metaData);
 }
 
-TextureData* ResourceManager::Lookup(TexHandle _handle)
+TextureData* GraphicsResourceManager::Lookup(TexHandle _handle)
 {
 	if (!_handle.IsValid())
 	{
@@ -488,7 +488,7 @@ TextureData* ResourceManager::Lookup(TexHandle _handle)
 	return &slot.data;
 }
 
-ModelData* ResourceManager::Lookup(ModelHandle _handle)
+ModelData* GraphicsResourceManager::Lookup(ModelHandle _handle)
 {
 	if (!_handle.IsValid())
 	{
@@ -514,7 +514,7 @@ ModelData* ResourceManager::Lookup(ModelHandle _handle)
 	return &slot.data; // 実体を返す
 }
 
-ModelHandle ResourceManager::LoadModel(const char* _filePath)
+ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 {
 	cgltf_options options{}; // 全部0(デフォルト挙動)
 	cgltf_data* data{ nullptr };
@@ -740,7 +740,7 @@ ModelHandle ResourceManager::LoadModel(const char* _filePath)
 	return ModelHandle(PassKey{}, packed);
 }
 
-void ResourceManager::Unload(TexHandle _handle)
+void GraphicsResourceManager::Unload(TexHandle _handle)
 {
 	TextureData* data{ Lookup(_handle) };
 	if (!data)
@@ -757,7 +757,7 @@ void ResourceManager::Unload(TexHandle _handle)
 	texFreeList.push(index); // indexをfreelistに入れる
 }
 
-void ResourceManager::Unload(ModelHandle _handle)
+void GraphicsResourceManager::Unload(ModelHandle _handle)
 {
 	ModelData* data{ Lookup(_handle) };
 	if (!data)
@@ -789,7 +789,7 @@ void ResourceManager::Unload(ModelHandle _handle)
 
 }
 
-TexHandle ResourceManager::CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta)
+TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta)
 {
 	HRESULT result{};
 
@@ -887,7 +887,7 @@ TexHandle ResourceManager::CreateTextureFromScratch(const DirectX::ScratchImage&
 	return TexHandle(PassKey{}, packed);
 }
 
-TexHandle ResourceManager::LoadTextureFromGltf(const cgltf_texture_view& _texView, const  std::filesystem::path& _modelDir)
+TexHandle GraphicsResourceManager::LoadTextureFromGltf(const cgltf_texture_view& _texView, const  std::filesystem::path& _modelDir)
 {
 	if (!_texView.texture || !_texView.texture->image) return TexHandle{}; // 空を返す
 	cgltf_image* image{ _texView.texture->image };
@@ -910,7 +910,7 @@ TexHandle ResourceManager::LoadTextureFromGltf(const cgltf_texture_view& _texVie
 	return TexHandle{};
 }
 
-TexHandle ResourceManager::CreateWhiteTexture()
+TexHandle GraphicsResourceManager::CreateWhiteTexture()
 {
 	DirectX::ScratchImage scratch{}; // スクラッチ
 	scratch.Initialize2D(DXGI_FORMAT_R8G8B8A8_UNORM, 1, 1, 1, 1); // 1x1, 1配列, 1mip
@@ -921,9 +921,9 @@ TexHandle ResourceManager::CreateWhiteTexture()
 }
 
 // globalポーズを計算する関数
-void ResourceManager::UpdateGlobalPose(AnimInstanceData& _instance)
+void GraphicsResourceManager::UpdateGlobalPose(AnimInstanceData& _instance)
 {
-	ModelData* model{ ResourceManager::Instance().Lookup(_instance.handle) }; // データ部分を分解する
+	ModelData* model{ GraphicsResourceManager::Instance().Lookup(_instance.handle) }; // データ部分を分解する
 	if (!model) return;
 
 	// 初回若しくはサイズが違ったときに確保しなおす
@@ -969,7 +969,7 @@ void ResourceManager::UpdateGlobalPose(AnimInstanceData& _instance)
 }
 
 
-void ResourceManager::SampleAnimation(const Animation& _anim, const std::vector<Bone>& _bones, float _time, std::vector<Mat4x4>& _outLocalPoses)
+void GraphicsResourceManager::SampleAnimation(const Animation& _anim, const std::vector<Bone>& _bones, float _time, std::vector<Mat4x4>& _outLocalPoses)
 {
 
 	size_t boneCount{ _bones.size() }; // ボーン数
@@ -1014,7 +1014,7 @@ void ResourceManager::SampleAnimation(const Animation& _anim, const std::vector<
 
 }
 
-Vector4 ResourceManager::SampleChannel(const AnimChannel& _ch, float _time)
+Vector4 GraphicsResourceManager::SampleChannel(const AnimChannel& _ch, float _time)
 {
 	if (_ch.times.empty()) { return Vector4{}; } // キーフレームが0個の場合
 	if (_ch.times.size() == 1) { return _ch.values[0]; } // キーフレームが1つなら補完せずにそのまま返す

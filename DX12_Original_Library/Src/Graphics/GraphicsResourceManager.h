@@ -17,14 +17,14 @@ namespace DirectX { class ScratchImage; struct TexMetadata; }
 struct cgltf_texture_view;
 
 
-// ShaderSystemやファサードがリソース管理を意識せず使えるようにするクラス
-class ResourceManager
+// ShaderSystemやファサードがグラフィックリソース管理を意識せず使えるようにするクラス
+class GraphicsResourceManager
 {
 public:
 	// シングルトン化
-	static ResourceManager& Instance()
+	static GraphicsResourceManager& Instance()
 	{
-		static ResourceManager instance;
+		static GraphicsResourceManager instance;
 		return instance;
 	}
 
@@ -69,11 +69,11 @@ public:
 	void Unload(ModelHandle _handle);
 private:
 	// コンストラクタ
-	ResourceManager() = default;
+	GraphicsResourceManager() = default;
 
 	// コピー禁止
-	ResourceManager(const ResourceManager& _other) = delete;
-	ResourceManager& operator =(const ResourceManager& _other) = delete;
+	GraphicsResourceManager(const GraphicsResourceManager& _other) = delete;
+	GraphicsResourceManager& operator =(const GraphicsResourceManager& _other) = delete;
 
 	// GPUテクスチャ作成からレジストリ登録まで行うヘルパー
 	TexHandle CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta);

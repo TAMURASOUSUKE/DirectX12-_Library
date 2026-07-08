@@ -1,5 +1,5 @@
 ﻿#include "../GraphicsConstant.h"
-#include "../ResourceManager.h"
+#include "../GraphicsResourceManager.h"
 #include "../DescriptorManager.h"
 #include "DebugQuad.h"
 
@@ -19,9 +19,9 @@ void DebugQuad::Initialize()
 	// 頂点データから頂点インデックスの中身を作る(左手系なので時計回りに設定する)
 	UINT indexes[QUAD_VERT_INDEXES]{ 0, 1, 2, 0, 2, 3 };
 
-	vertexBuffer = ResourceManager::Instance().CreateVertexBuffer(vertices, sizeof(vertices), sizeof(TexVertex)); // 頂点バッファの作成を行う
-	indexBuffer = ResourceManager::Instance().CreateIndexBuffer(indexes, sizeof(indexes), QUAD_VERT_INDEXES); // 頂点インデックスの作成を行う
-	textureData = ResourceManager::Instance().LoadTexture("Res/enemy.png"); // テクスチャをロードする
+	vertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(vertices, sizeof(vertices), sizeof(TexVertex)); // 頂点バッファの作成を行う
+	indexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(indexes, sizeof(indexes), QUAD_VERT_INDEXES); // 頂点インデックスの作成を行う
+	textureData = GraphicsResourceManager::Instance().LoadTexture("Res/enemy.png"); // テクスチャをロードする
 
 }
 
@@ -31,7 +31,7 @@ void DebugQuad::Draw(ID3D12GraphicsCommandList* _cmdList)
 	if (_cmdList == nullptr) return;
 	if (!textureData.IsValid()) return;
 
-	TextureData* data{ ResourceManager::Instance().Lookup(textureData) };
+	TextureData* data{ GraphicsResourceManager::Instance().Lookup(textureData) };
 
 	if (!data) return;
 
