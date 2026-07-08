@@ -236,6 +236,8 @@ void GraphicsResourceManager::Initialize(ID3D12Device* _device)
 		device = _device;
 	}
 
+	texSlots.reserve(MAX_TEXTURE_COUNT); // 先に容量確保 + Lookupガードでタングリング防止
+	modelSlots.reserve(MAX_MODEL_COUNT); // 先に容量確保 + Lookupガードでタングリング防止
 	// デフォルト用の白テクスチャを作成する(初期化時に1枚だけ)
 	whiteTexture = CreateWhiteTexture();
 }
@@ -426,6 +428,9 @@ ConstantBufferData GraphicsResourceManager::CreateConstantBuffer(const void* _da
 // 画像の読み込み
 TexHandle GraphicsResourceManager::LoadTexture(const char* _filePath)
 {
+	DEBUG_ASSERT((texSlots.size() < MAX_TEXTURE_COUNT) && "テクスチャーロードのスロットサイズが規定値を超えました\n");
+	if (texSlots.size() >= MAX_TEXTURE_COUNT) return TexHandle{};
+
 
 	// DirectXTexを用いたテクスチャロード
 	ID3D12Device* device{ GraphicsDevice::Instance().GetDevice() };
@@ -516,6 +521,9 @@ ModelData* GraphicsResourceManager::Lookup(ModelHandle _handle)
 
 ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 {
+	DEBUG_ASSERT((modelSlots.size() < MAX_MODEL_COUNT) && "モデルロードのスロットサイズが規定値を超えました\n");
+	if (modelSlots.size() >= MAX_MODEL_COUNT) return ModelHandle{};
+
 	cgltf_options options{}; // 全部0(デフォルト挙動)
 	cgltf_data* data{ nullptr };
 

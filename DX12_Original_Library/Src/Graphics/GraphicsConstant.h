@@ -14,4 +14,6 @@ constexpr size_t MAX_SHAPE_COUNT{ 8192 }; // 登録できる最大の基礎画�
 constexpr size_t CIRCLE_DIVISION{ 32 }; // 円を描画するときの三角形分割数
 constexpr size_t MAX_CB_PER_FRAME{ 64 }; // フレーム内で使える定数バッファの最大数
 constexpr size_t MAX_BONE_NUM{ 256 }; // 最大ボーン数
+constexpr size_t MAX_TEXTURE_COUNT{ 1024 }; // 最大画像ロード数
+constexpr size_t MAX_MODEL_COUNT{ 2048 }; // 最大モデルロード数
 constexpr UINT INVALID_INDEX{ UINT_MAX }; // Descriptorハンドルのindex無効値

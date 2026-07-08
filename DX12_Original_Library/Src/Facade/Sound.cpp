@@ -1,5 +1,6 @@
 ﻿#include "../Sound/SoundSystem.h"
 #include "SoundInternal.h"
+#include "../Sound/SoundResourceManager.h"
 #include "Sound.h"
 
 namespace
@@ -9,6 +10,7 @@ namespace
 
 bool SoundInternal::Initialize()
 {
+	SoundResourceManager::Instance().Initialize();
 	if (!soundSystem.Setup()) return false;
 	return true;
 }

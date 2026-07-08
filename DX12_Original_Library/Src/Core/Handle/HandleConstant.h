@@ -3,7 +3,7 @@
 
  // Handle作成時にPassKeyIdiomを採用したため生成を許すクラスであるReosurceManager類を前方宣言
 class GraphicsResourceManager;
-class SoundResourceManagere;
+class SoundResourceManager;
 
 // bitpackのインデックス部分
 constexpr int INDEX_BITS{ 16 };
