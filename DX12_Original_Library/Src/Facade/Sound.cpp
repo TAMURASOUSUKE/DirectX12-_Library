@@ -30,7 +30,12 @@ void SoundInternal::Finish()
 	soundSystem.Cleanup(); // 終了処理
 }
 
-void Sound::PlaySE()
+SoundHandle Sound::LoadSound(const char* _filePath)
+{
+	SoundResourceManager::Instance().LoadSound(_filePath);
+}
+
+void Sound::PlaySE(SoundHandle _handle)
 {
 
 }

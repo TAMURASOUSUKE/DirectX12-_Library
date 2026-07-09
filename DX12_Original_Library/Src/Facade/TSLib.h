@@ -3,6 +3,7 @@
 #include "../Debug/DebugLogs.h"  
 #include "Gfx.h"
 #include "Input.h"
+#include "Sound.h"
 // 初期化などlibrary全体の機能をまとめてユーザーに提供する
 namespace TSLib
 {

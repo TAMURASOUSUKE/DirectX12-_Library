@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
-#include "../Graphics/GraphicsType.h"
+#include "../Graphics/GraphicsType.h" // アニメーションのテスト用に持ってきているが本来見せない
 #include "../Component/Transform.h"
 #include "../Math/TSMath.h"
 
