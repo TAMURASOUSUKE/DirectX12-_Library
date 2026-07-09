@@ -22,7 +22,7 @@ void SoundInternal::BeginFrame()
 
 void SoundInternal::EndFrame()
 {
-
+	soundSystem.EndFrameCleanup();
 }
 
 void SoundInternal::Finish()
@@ -37,5 +37,5 @@ SoundHandle Sound::LoadSound(const char* _filePath)
 
 void Sound::PlaySE(SoundHandle _handle)
 {
-
+	soundSystem.PlaySE(_handle);
 }

@@ -81,7 +81,7 @@ SoundHandle SoundResourceManager::LoadSound(const char* _filePath)
 	DEBUG_LOG("1回の測定値を何bitで書くか : {}\n", sd.wavefmt.wBitsPerSample);
 	DEBUG_LOG("圧縮なしの生PCM整数か : {}\n", sd.wavefmt.wFormatTag);
 	DEBUG_LOG("曲全体のサイズ : {}\n", sd.data.size());
-	DEBUG_LOG("音の長さ : {}\n", sd.data.size() / sd.wavefmt.nAvgBytesPerSec); // 1標本(2byte) * 1フレームの全チャンネル(2byte) * 1秒で測る回数(44100)これに秒数を掛けるとdataサイズになるのでサイズを3つの要素を掛け合わせた物で割る
+	DEBUG_LOG("音の長さ : {}\n", static_cast<float>(sd.data.size()) / sd.wavefmt.nAvgBytesPerSec); // 1標本(2byte) * 1フレームの全チャンネル(2byte) * 1秒で測る回数(44100)これに秒数を掛けるとdataサイズになるのでサイズを3つの要素を掛け合わせた物で割る
 
 
 	// 作られたSoundDataをSlotsの中に入れる

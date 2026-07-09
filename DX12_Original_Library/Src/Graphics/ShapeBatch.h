@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <vector>
 #include "../Math/TSMath.h"
 #include "GraphicsType.h"
 
