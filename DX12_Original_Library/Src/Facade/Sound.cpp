@@ -32,7 +32,7 @@ void SoundInternal::Finish()
 
 SoundHandle Sound::LoadSound(const char* _filePath)
 {
-	SoundResourceManager::Instance().LoadSound(_filePath);
+	return SoundResourceManager::Instance().LoadSound(_filePath);
 }
 
 void Sound::PlaySE(SoundHandle _handle)

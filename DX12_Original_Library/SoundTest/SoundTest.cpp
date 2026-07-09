@@ -1,24 +1,9 @@
-#include "../Src/Facade/TSLib.h"
+﻿#include "../Src/Sound/SoundResourceManager.h"
 
-// 音のテスト等を行う
-int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
+// 音関連のテスト
+int main()
 {
-	// 初期化 失敗したら-1を返す
-	if (!TSLib::Initialize(L"SoundTest", 1280, 720)) return -1;
-
-	SoundHandle testSound{ Sound::LoadSound("Test.wav")};
-
-	while (Gfx::ProcessMessage())
-	{
-		TSLib::BeginFrame(); // フレーム開始処理
-
-
-
-		Gfx::ClearScreen(); // 画面クリア(黒)
-
-
-		TSLib::EndFrame(); // フレーム最後の処理
-	}
-
-	TSLib::Finish(); // 終了処理
+	SoundResourceManager::Instance().Initialize(); // reserve
+	SoundHandle h{ SoundResourceManager::Instance().LoadSound("Test.wav") };
+	return h.IsValid() ? 0 : 1; // 成否を終了コードで
 }
