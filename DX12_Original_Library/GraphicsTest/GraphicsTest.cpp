@@ -68,6 +68,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	Input::SetAction(ActionMap::Dash, PadCode::Trigger::RIGHT);
 	Input::SetAction(ActionMap::Dash, MouseCode::Click::RIGHT);
 
+	SoundHandle testSound{ Sound::LoadSound("Test.wav") };
+
 	while (Gfx::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
@@ -88,6 +90,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		// アニメーションテスト
 		debugAnim.currentTime += 1.0f / 60.0f; // 時刻を進める
 		if (debugAnim.currentTime > 0.667f) debugAnim.currentTime = 0.0f; // 一旦Runのdurationでループさせる
+
+		// 音のテスト
+		if (Input::IsKeyPushed(KeyCode::Button::G))
+		{
+			Sound::PlaySE(testSound);
+		}
+
 
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
