@@ -69,6 +69,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	Input::SetAction(ActionMap::Dash, MouseCode::Click::RIGHT);
 
 	SoundHandle testSound{ Sound::LoadSound("Test.wav") };
+	SoundHandle testSound02{ Sound::LoadSound("Phuniaya_2.wav") };
+	SoundHandle testSound03{ Sound::LoadSound("Test.wav") };
 
 	while (Gfx::ProcessMessage())
 	{
@@ -97,6 +99,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			Sound::PlaySE(testSound);
 		}
 
+		if (Input::IsKeyPushed(KeyCode::Button::SPACE))
+		{
+			Sound::PlayBGM(testSound02, false, 0.8f);
+		}
 
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
