@@ -50,6 +50,51 @@ bool SoundSystem::Setup()
 	return true;
 }
 
+void SoundSystem::Update(float _deltaTime)
+{
+	if (!isCrossfading) return; // フェード中のフラグが立っていないと行わない
+	if (currentBGM.isPaused) return; // 再生停止中なら計算も止める
+
+	crossfadeElapsedTime += (std::max)(_deltaTime, 0.0f); // 経過時間を進める
+
+	// 経過時間 / 総時間を0-1の範囲に収めてどのくらい進んでいるか割合にする
+	const float rate{ std::clamp(crossfadeElapsedTime / crossfadeTotalTime, 0.0f, 1.0f) };
+
+	if (prevBGM.voiceResource)
+	{
+		// fade中に次のfadeに移行した場合も考慮して保存していたprevFadeStartVolumeを使う
+		prevBGM.fadeVolume = prevFadeStartVolume * (1.0f - rate); // prevは小さくしていくのでrateが大きくなれば乗算する値が小さくなるように1から引く
+		ApplyVolume(prevBGM, bgmVolume);
+	}
+
+	if (currentBGM.voiceResource)
+	{
+		currentBGM.fadeVolume = rate;
+		ApplyVolume(currentBGM, bgmVolume);
+	}
+
+	// フェードが完了した場合
+	if (rate >= 1.0f)
+	{
+		DestroySoundPair(prevBGM); // フェードが完了しているので前の音は消す
+
+		if (currentBGM.voiceResource)
+		{
+			currentBGM.fadeVolume = 1.0f;
+			ApplyVolume(currentBGM, bgmVolume);
+		}
+
+		// リセット処理
+		isCrossfading = false; // フェードを終了
+		crossfadeElapsedTime = 0.0f;
+		crossfadeTotalTime = 0.0f;
+		prevFadeStartVolume = 1.0f;
+
+		DEBUG_LOG("BGMのクロスフェードが完了しました\n");
+	}
+
+}
+
 void SoundSystem::PlaySE(SoundHandle _handle, float _volume)
 {
 	SoundData* sd{ SoundResourceManager::Instance().Lookup(_handle) }; // ハンドル分解してデータを取り出す
@@ -109,17 +154,28 @@ void SoundSystem::PlayBGM(SoundHandle _handle, bool _isLoop, float _volume)
 			{
 				currentBGM.voiceResource->Start(0); // 途中から再開
 				currentBGM.isPaused = false; // 停止フラグを落とす
+
+				// クロスフェード中だった場合prevも再開させる必要がある
+				if (isCrossfading && prevBGM.voiceResource && prevBGM.isPaused)
+				{
+					currentBGM.voiceResource->Start(0); // 途中から再開
+					currentBGM.isPaused = false; // 停止フラグを落とす
+				}
+
 				DEBUG_LOG("BGMを途中から再開しました\n");
 			}
 			return;
 		}
-		DestroySoundPair(prevBGM); // 前回切り替えたBGMがまだ残っていた場合は破棄
 
-		// 即時停止(仮)。クロスフェード実装時にStopを外す
-		currentBGM.voiceResource->Stop(0);
+		// すでに再生されてる物があるなら即破棄して次へ
+		// 通常再生なので、進行中のクロスフェードを解除
+		isCrossfading = false;
+		crossfadeElapsedTime = 0.0f;
+		crossfadeTotalTime = 0.0f;
+		prevFadeStartVolume = 1.0f;
 
-		prevBGM = currentBGM;
-		currentBGM = {}; // 空にする
+		DestroySoundPair(prevBGM); 
+		DestroySoundPair(currentBGM);
 	}
 
 	HRESULT result{};
@@ -155,16 +211,107 @@ void SoundSystem::PlayBGM(SoundHandle _handle, bool _isLoop, float _volume)
 	if (FAILED(result))
 	{
 		DEBUG_LOG_ERROR("BGM再生に失敗しました\n");
-		voice->DestroyVoice();
+		DestroySoundPair(currentBGM);
 		return;
 	}
 }
 
+void SoundSystem::CrossfadeBGM(SoundHandle _afterBGM, bool _isLoop, float _totalFadeTime, float _volume)
+{
+	// 0秒以下なら即切り替え
+	if (_totalFadeTime <= 0.0f)
+	{
+		PlayBGM(_afterBGM, _isLoop, _volume);
+		return;
+	}
+
+	// 同じBGMへのクロスフェードは行わない
+	if (currentBGM.voiceResource && currentBGM.handle == _afterBGM)
+	{
+		return;
+	}
+
+	SoundData* sd{ SoundResourceManager::Instance().Lookup(_afterBGM) };
+	if (!sd) return;
+
+	IXAudio2SourceVoice* voice{ nullptr };
+
+	HRESULT result{ audioEngine->CreateSourceVoice(&voice, &sd->wavefmt) };
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("クロスフェード先のBGMの生成に失敗しました\n");
+		return;
+	}
+
+	XAUDIO2_BUFFER buffer{};
+	buffer.pAudioData = sd->data.data(); // データ本体
+	buffer.AudioBytes = static_cast<UINT32>(sd->data.size()); // データのサイズ
+	buffer.Flags = XAUDIO2_END_OF_STREAM;  // 再生終了時にBufferQueuedが0になる
+	if (_isLoop) buffer.LoopCount = XAUDIO2_LOOP_INFINITE; // 呼び出し方によってループするか決める
+	result = voice->SubmitSourceBuffer(&buffer); // キューに積む
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("クロスフェード先BGMのバッファ投入に失敗しました\n");
+		voice->DestroyVoice();
+		return;
+	}
+
+	// 先に現在のBGMをprevに渡すとその後新規ボイス制作に失敗したら中途半端になるためまずローカルで成功させる
+	SoundPair nextBGM{};
+	nextBGM.handle = _afterBGM;
+	nextBGM.voiceResource = voice;
+	nextBGM.volume = ClampVolume(_volume);
+	nextBGM.fadeVolume = 0.0f;
+	nextBGM.isPaused = false;
+	ApplyVolume(nextBGM, bgmVolume);
+
+	result = voice->Start(0);
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("クロスフェード先BGMの再生に失敗しました\n");
+		DestroySoundPair(nextBGM);
+		return;
+	}
+
+	// フェードアウト前のBGMをprevに入れたいのでprevに残っているBGMを掃除
+	DestroySoundPair(prevBGM);
+
+	// 現在のBGMをフェードアウト対象であるprevヘ
+	if (currentBGM.voiceResource)
+	{
+		prevBGM = currentBGM;
+		prevFadeStartVolume = prevBGM.fadeVolume; // 切り替え時のfadeボリュームを保存
+		currentBGM = {};
+	}
+	else
+	{
+		prevFadeStartVolume = 0.0f; // curretがないときは0.0fで掃除
+	}
+
+	// 作成に成功したBGMをフェードイン側に登録
+	currentBGM = nextBGM;
+
+	// クロスフェード用メンバ設定
+	crossfadeElapsedTime = 0.0f; // フェードがスタートするので経過時間に0を入れる
+	crossfadeTotalTime = _totalFadeTime; // 指定されたフェード時間を設定
+	isCrossfading = true; // フェード中のフラグを立てる
+}
+
 void SoundSystem::StopBGM()
 {
-	if (!currentBGM.voiceResource) return; // 現在再生されている物がないなら返す
-	currentBGM.voiceResource->Stop(0); // その場で一時停止
-	currentBGM.isPaused = true; // 停止フラグを立てる
+	// クロスフェード用に両方止める
+	
+	if (currentBGM.voiceResource)
+	{
+		currentBGM.voiceResource->Stop(0); // その場で一時停止
+		currentBGM.isPaused = true; // 停止フラグを立てる
+	}
+
+	if (prevBGM.voiceResource)
+	{
+		prevBGM.voiceResource->Stop(0);
+		prevBGM.isPaused = true;
+	}
 	DEBUG_LOG("BGMを一時停止しました\n");
 }
 
@@ -172,6 +319,13 @@ void SoundSystem::EndBGM()
 {
 	DestroySoundPair(currentBGM);
 	DestroySoundPair(prevBGM);
+
+	// 状態も初期化
+	isCrossfading = false;
+	crossfadeElapsedTime = 0.0f;
+	crossfadeTotalTime = 0.0f;
+	prevFadeStartVolume = 1.0f;
+
 	DEBUG_LOG("BGMが破棄されました\n");
 }
 
@@ -257,9 +411,6 @@ void SoundSystem::EndFrameCleanup()
 			++it; // 0でなければ次へ
 		}
 	}
-	// 一旦切り替え前BGMを即破棄
-	DestroySoundPair(prevBGM);
-
 }
 
 // 全てのSEが再生終了しているか
@@ -280,7 +431,7 @@ bool SoundSystem::IsStopAllSE()
 void SoundSystem:: Cleanup()
 {
 	// voiceをクリアする
-	for (SoundPair sound : liveVoices)
+	for (SoundPair& sound : liveVoices)
 	{
 		if (sound.voiceResource)
 		{

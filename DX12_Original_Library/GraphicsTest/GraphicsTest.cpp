@@ -70,7 +70,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	SoundHandle testSound{ Sound::LoadSound("Test.wav") };
 	SoundHandle testSound02{ Sound::LoadSound("Phuniaya_2.wav") };
-	SoundHandle testSound03{ Sound::LoadSound("Test.wav") };
+	SoundHandle testSound03{ Sound::LoadSound("Better_Days.wav") };
+	float testBolume{ 0.8f };
 
 	while (Gfx::ProcessMessage())
 	{
@@ -98,11 +99,37 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		{
 			Sound::PlaySE(testSound);
 		}
-
-		if (Input::IsKeyPushed(KeyCode::Button::SPACE))
+		if (Input::IsKeyPushed(KeyCode::Button::D2))
 		{
-			Sound::PlayBGM(testSound02, false, 0.8f);
+			Sound::PlayBGM(testSound02, false, testBolume);
 		}
+		if (Input::IsKeyPushed(KeyCode::Button::D3))
+		{
+			Sound::PlayBGM(testSound03, true, 0.8f);
+		}
+		if (Input::IsKeyPushed(KeyCode::Button::S))
+		{
+			Sound::StopBGM();
+		}
+		if (Input::IsKeyPushed(KeyCode::Button::RETURN))
+		{
+			Sound::EndBGM();
+		}
+		if (Input::IsKeyPress(KeyCode::Button::RIGHT))
+		{
+			testBolume += 0.0005f;
+			Sound::SetVolume(testSound02, testBolume);
+		}
+		if (Input::IsKeyPress(KeyCode::Button::LEFT))
+		{
+			testBolume -= 0.0005f;
+			Sound::SetVolume(testSound02, testBolume);
+		}
+		if (Input::IsKeyPress(KeyCode::Button::F))
+		{
+			Sound::CrossfadeBGM(testSound02, false, 10.0f);
+		}
+
 
 		Gfx::ClearScreen(); // 画面クリア(黒)
 

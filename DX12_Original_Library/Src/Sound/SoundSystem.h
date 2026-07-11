@@ -12,10 +12,14 @@ class SoundSystem
 public:
 	// XAudio2などの準備を行う
 	bool Setup();
+	// クロスフェードを行う用の時間更新を行う
+	void Update(float _deltaTime);
 	// ハンドルをもとにSEを再生する
 	void PlaySE(SoundHandle _handle, float _volume = 1.0f);
 	// ハンドルをもとにBGMを再生する(bool = ループさせるかどうか)
 	void PlayBGM(SoundHandle _handle, bool _isLoop, float _volume = 1.0f);
+	// クロスフェードでBGMを変える(変えたいBGMとフェードが完了するまでの時間)
+	void CrossfadeBGM(SoundHandle _afterBGM, bool _isLoop, float _totalFadeTime, float _volume = 1.0f);
 	// BGMの再生を停止する
 	void StopBGM();
 	// BGMを破棄する
@@ -43,6 +47,10 @@ private:
 	// クロスフェード用にcurrentとprevを用意する
 	SoundPair currentBGM{}; // 現在のBGM
 	SoundPair prevBGM{}; // 前のBGM
+	bool isCrossfading{ false }; // クロスフェード中かどうか
+	float crossfadeElapsedTime{ 0.0f }; // クロスフェード中の経過時間
+	float crossfadeTotalTime{ 0.0f }; // クロスフェードの総時間
+	float prevFadeStartVolume{ 0.0f }; // フェード中にさらに切り替えられたときの音量
 
 	// カテゴリ音量
 	float seVolume{ 1.0f };

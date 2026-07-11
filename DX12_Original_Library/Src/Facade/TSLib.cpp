@@ -37,7 +37,7 @@ bool TSLib::Initialize(const wchar_t* _title, int _width, int _height)
 
 void TSLib::BeginFrame()
 {
-	SoundInternal::BeginFrame(); // 音関連のフレーム最初の処理
+	SoundInternal::BeginFrame(1.0f / 60.0f); // 音関連のフレーム最初の処理(Systemファサードがないので60fps想定でdeltaTimeを渡しています)
 	InputInternal::BeginFrame(); // 入力の最初の処理
 	GfxInternal::BeginFrame(); // グラフィックのフレーム最初の処理
 }

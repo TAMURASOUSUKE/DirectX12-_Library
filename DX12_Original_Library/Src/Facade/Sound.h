@@ -10,6 +10,8 @@ namespace Sound
 	void PlaySE(SoundHandle _handle, float _volume = 1.0f);
 	// BGMを再生する(boolはループさせるかどうかを決めます)(初期音量を決定する)
 	void PlayBGM(SoundHandle _handle, bool _isLoop, float _volume = 1.0f);
+	// クロスフェードでBGMを変える(変えたいBGMとフェードが完了するまでの時間)
+	void CrossfadeBGM(SoundHandle _afterBGM, bool _isLoop, float _totalFadeTime, float _volume = 1.0f);
 	// BGMの再生を停止する
 	void StopBGM();
 	// BGMを破棄する

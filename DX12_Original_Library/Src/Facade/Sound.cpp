@@ -15,9 +15,9 @@ bool SoundInternal::Initialize()
 	return true;
 }
 
-void SoundInternal::BeginFrame()
+void SoundInternal::BeginFrame(float _deltaTime)
 {
-
+	soundSystem.Update(_deltaTime);
 }
 
 void SoundInternal::EndFrame()
@@ -43,6 +43,11 @@ void Sound::PlaySE(SoundHandle _handle, float _volume)
 void Sound::PlayBGM(SoundHandle _handle, bool _isLoop, float _volume)
 {
 	soundSystem.PlayBGM(_handle, _isLoop, _volume);
+}
+
+void Sound::CrossfadeBGM(SoundHandle _afterBGM, bool _isLoop ,float _totalFadeTime, float _volume)
+{
+	soundSystem.CrossfadeBGM(_afterBGM, _isLoop, _totalFadeTime, _volume);
 }
 
 void Sound::StopBGM()
