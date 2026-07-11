@@ -49,6 +49,9 @@
     <Filter Include="Src\Debug">
       <UniqueIdentifier>{bcbb2943-5265-438b-8294-19078d92d994}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Sound">
+      <UniqueIdentifier>{5bcc2202-caed-482d-9159-06005162a0d1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Math\MathConstant.h">
@@ -96,7 +99,7 @@
     <ClInclude Include="Src\Graphics\ShaderSystem.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Graphics\ResourceManager.h">
+    <ClInclude Include="Src\Graphics\GraphicsResourceManager.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="Src\Graphics\DrawDebug\DebugTriangle.h">
@@ -198,6 +201,27 @@
     <ClInclude Include="Src\Input\ActionSystem.h">
       <Filter>Src\Input</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Facade\Sound.h">
+      <Filter>Src\Facade</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Facade\SoundInternal.h">
+      <Filter>Src\Facade</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Sound\SoundSystem.h">
+      <Filter>Src\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Handle\SoundHandle.h">
+      <Filter>Src\Core\Handle</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Sound\SoundType.h">
+      <Filter>Src\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Sound\SoundConstant.h">
+      <Filter>Src\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Sound\SoundResourceManager.h">
+      <Filter>Src\Sound</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -242,7 +266,7 @@
     <ClCompile Include="Src\Graphics\DrawDebug\DebugQuad.cpp">
       <Filter>Src\Graphics\DrawDebug</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Graphics\ResourceManager.cpp">
+    <ClCompile Include="Src\Graphics\GraphicsResourceManager.cpp">
       <Filter>Src\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Src\Input\KeyboardInput.cpp">
@@ -289,6 +313,15 @@
     </ClCompile>
     <ClCompile Include="Src\Input\ActionSystem.cpp">
       <Filter>Src\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Facade\Sound.cpp">
+      <Filter>Src\Facade</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Sound\SoundSystem.cpp">
+      <Filter>Src\Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Sound\SoundResourceManager.cpp">
+      <Filter>Src\Sound</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -1,4 +1,4 @@
-﻿#include "../ResourceManager.h"
+﻿#include "../GraphicsResourceManager.h"
 #include "../GPUMarker.h"
 #include "../GraphicsConstant.h"
 #include "DebugCube.h"
@@ -52,8 +52,8 @@ void DebugCube::Initialize()
 		}
 	}
 
-	vertexBuffer = ResourceManager::Instance().CreateVertexBuffer(vertices, sizeof(vertices), sizeof(ShapeVertex)); // 頂点バッファの作成を行う
-	indexBuffer = ResourceManager::Instance().CreateIndexBuffer(indexes, sizeof(indexes), CUBE_VERT_INDEXES); // 頂点インデックスの作成を行う
+	vertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(vertices, sizeof(vertices), sizeof(ShapeVertex)); // 頂点バッファの作成を行う
+	indexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(indexes, sizeof(indexes), CUBE_VERT_INDEXES); // 頂点インデックスの作成を行う
 }
 
 void DebugCube::Draw(ID3D12GraphicsCommandList* _cmdList)

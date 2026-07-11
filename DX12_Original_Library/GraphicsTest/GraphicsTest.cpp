@@ -68,6 +68,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	Input::SetAction(ActionMap::Dash, PadCode::Trigger::RIGHT);
 	Input::SetAction(ActionMap::Dash, MouseCode::Click::RIGHT);
 
+	SoundHandle testSound{ Sound::LoadSound("Test.wav") };
+	SoundHandle testSound02{ Sound::LoadSound("Phuniaya_2.wav") };
+	SoundHandle testSound03{ Sound::LoadSound("Better_Days.wav") };
+	float testBolume{ 0.8f };
+
 	while (Gfx::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
@@ -89,7 +94,44 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		debugAnim.currentTime += 1.0f / 60.0f; // 時刻を進める
 		if (debugAnim.currentTime > 0.667f) debugAnim.currentTime = 0.0f; // 一旦Runのdurationでループさせる
 
-		Gfx::ClearScreen(); // 画面クリア(黒)teku
+		// 音のテスト
+		if (Input::IsKeyPushed(KeyCode::Button::G))
+		{
+			Sound::PlaySE(testSound);
+		}
+		if (Input::IsKeyPushed(KeyCode::Button::D2))
+		{
+			Sound::PlayBGM(testSound02, false, testBolume);
+		}
+		if (Input::IsKeyPushed(KeyCode::Button::D3))
+		{
+			Sound::PlayBGM(testSound03, true, 0.8f);
+		}
+		if (Input::IsKeyPushed(KeyCode::Button::S))
+		{
+			Sound::StopBGM();
+		}
+		if (Input::IsKeyPushed(KeyCode::Button::RETURN))
+		{
+			Sound::EndBGM();
+		}
+		if (Input::IsKeyPress(KeyCode::Button::RIGHT))
+		{
+			testBolume += 0.0005f;
+			Sound::SetVolume(testSound02, testBolume);
+		}
+		if (Input::IsKeyPress(KeyCode::Button::LEFT))
+		{
+			testBolume -= 0.0005f;
+			Sound::SetVolume(testSound02, testBolume);
+		}
+		if (Input::IsKeyPushed(KeyCode::Button::F))
+		{
+			Sound::CrossfadeBGM(testSound02, false, 10.0f);
+		}
+
+
+		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		//// スプライトバッチテスト
 		Gfx::DrawSprite(background, Vector2{ 0.0f, 0.0f }, Vector2{ 1280.0f, 720.0f }, 0.0f, Vector2::Zero, Vector2::One, LenderLayer::BackGround);

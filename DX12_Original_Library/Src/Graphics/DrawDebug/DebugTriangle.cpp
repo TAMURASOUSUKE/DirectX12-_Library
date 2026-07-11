@@ -1,4 +1,4 @@
-﻿#include "../ResourceManager.h"
+﻿#include "../GraphicsResourceManager.h"
 #include "DebugTriangle.h"
 
 // 初期化
@@ -13,7 +13,7 @@ void DebugTriangle::Initialize()
 		{{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
 	};
 
-	vertexBuffer = ResourceManager::Instance().CreateVertexBuffer(vertices, sizeof(vertices), sizeof(ShapeVertex)); // 頂点バッファの作成を行う
+	vertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(vertices, sizeof(vertices), sizeof(ShapeVertex)); // 頂点バッファの作成を行う
 }
 
 // 描画処理

@@ -4,7 +4,7 @@
 #include "GraphicsConstant.h"
 #include "GraphicsDevice.h"
 #include "DescriptorManager.h"
-#include "ResourceManager.h"
+#include "GraphicsResourceManager.h"
 #include "SpriteBatch.h"
 
 void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _pipelineState, ID3D12Resource* _gpuVirtualAddres)
@@ -32,8 +32,8 @@ void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 		indexArray[offset + 5] = base + 3;
 	}
 
-	indexBuffer = ResourceManager::Instance().CreateIndexBuffer(indexArray.data(), static_cast<UINT>(indexArray.size()) * sizeof(UINT), MAX_SPRITE_COUNT * 6); // インデックスバッファの作成
-	vertBuffer = ResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(TexVertex), sizeof(TexVertex)); // 動的な頂点バッファの作成
+	indexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(indexArray.data(), static_cast<UINT>(indexArray.size()) * sizeof(UINT), MAX_SPRITE_COUNT * 6); // インデックスバッファの作成
+	vertBuffer = GraphicsResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(TexVertex), sizeof(TexVertex)); // 動的な頂点バッファの作成
 }
 
 void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _size, float _radRotation, Vector2 _uvMin, Vector2 _uvMax)
@@ -125,7 +125,7 @@ void SpriteBatch::Flush()
 	// ランごとにSRVの差し替えとDrawを行う
 	for (const SpriteDrawRun& run : runs)
 	{
-		TextureData* data{ ResourceManager::Instance().Lookup(run.tex) }; // ハンドルを分解して保持
+		TextureData* data{ GraphicsResourceManager::Instance().Lookup(run.tex) }; // ハンドルを分解して保持
 		if (!data) continue; // 無効ハンドルはスキップ
 		cmd->SetGraphicsRootDescriptorTable(0, data->srvHandle.gpu); // ルートシグネチャの0番にテクスチャのGPUハンドルをセット
 		cmd->DrawIndexedInstanced(run.count * 6, 1, 0, run.startSprite * 4, 0); // 区間情報から描画位置を特定して描画する(読むインデックスの数,  開始位置)

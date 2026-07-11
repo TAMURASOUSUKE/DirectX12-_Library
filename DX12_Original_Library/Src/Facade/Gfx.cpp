@@ -5,7 +5,7 @@
 #include "../Graphics/GraphicsDevice.h"
 #include "../Graphics/DescriptorManager.h"
 #include "../Graphics/ShaderSystem.h"
-#include "../Graphics/ResourceManager.h"
+#include "../Graphics/GraphicsResourceManager.h"
 #include "../Graphics/SpriteBatch.h"
 #include "../Graphics/ShapeBatch.h"
 #include "../Graphics/RingConstantBuffer.h"
@@ -56,9 +56,9 @@ namespace
 	// スキンメッシュ付き
 	void DrawSkinnedModel(AnimInstanceData& _anim, Transform _transform)
 	{
-		ResourceManager::Instance().UpdateGlobalPose(_anim);
+		GraphicsResourceManager::Instance().UpdateGlobalPose(_anim);
 
-		ModelData* model{ ResourceManager::Instance().Lookup(_anim.handle) }; // ハンドル分解
+		ModelData* model{ GraphicsResourceManager::Instance().Lookup(_anim.handle) }; // ハンドル分解
 		if (!model) return;
 
 		auto cmd{ GraphicsDevice::Instance().GetCommandList() };
@@ -84,7 +84,7 @@ namespace
 			matCB.emissiveFactor = sub.material.emissiveFactor;
 			cmd->SetGraphicsRootConstantBufferView(1, materialRingCBV.Update(&matCB, sizeof(MaterialCB)));
 
-			TextureData* tex{ ResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
+			TextureData* tex{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
 			if (tex) cmd->SetGraphicsRootDescriptorTable(3,  tex->srvHandle.gpu);
 
 			cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
@@ -95,7 +95,7 @@ namespace
 	// スキンメッシュなし
 	void DrawStaticModel(ModelHandle _model, const Transform _transform)
 	{
-		ModelData* model{ ResourceManager::Instance().Lookup(_model) };
+		ModelData* model{ GraphicsResourceManager::Instance().Lookup(_model) };
 		if (!model) return; // 無効ハンドルガード
 		auto cmd{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリストのキャッシュ
 		Mat4x4 worldMat{ _transform.GetWorldMatrix() };
@@ -126,7 +126,7 @@ namespace
 			cmd->SetGraphicsRootConstantBufferView(1, materialRingCBV.Update(&matCB, sizeof(MaterialCB)));
 
 			// テクスチャをバインド
-			TextureData* tex{ ResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
+			TextureData* tex{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
 			if (tex) cmd->SetGraphicsRootDescriptorTable(3, tex->srvHandle.gpu);
 
 			// 頂点インデックスをバインド
@@ -142,12 +142,6 @@ namespace
 bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 {
 	HRESULT result{};
-	result = CoInitializeEx(nullptr, COINIT_MULTITHREADED); // COMを初期化
-	DEBUG_ASSERT(SUCCEEDED(result));
-	if (FAILED(result))
-	{
-		return false;
-	}
 
 	screenWidth = _width;
 	screenHeight = _height;
@@ -310,11 +304,11 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 		return false;
 	}
 
-	ResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
+	GraphicsResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
 
 	// ピクセル座標からNDC座標へ変換
 	Mat4x4 orthMat{ Mat4x4::MakeOrthGraphic(static_cast<float>(_width), static_cast<float>(_height)) }; // 変換行列の作成
-	orthConstantBufferData = ResourceManager::Instance().CreateConstantBuffer(&orthMat, sizeof(Mat4x4));
+	orthConstantBufferData = GraphicsResourceManager::Instance().CreateConstantBuffer(&orthMat, sizeof(Mat4x4));
 
 	// 透視投影行列の作成(一旦キューブが描画できるのを確認するためにハードコーディング)
 	vpMat = Mat4x4::MakeLookAt({ 0.0f, 1.0f, -3.0f }, { 0.0f, 1.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, static_cast<float>(screenWidth) / static_cast<float>(screenHeight), 0.1f, 100.0f);
@@ -435,7 +429,6 @@ void GfxInternal::Finish()
 {
 	DescriptorManager::Instance().Shutdown();
 	GraphicsDevice::Instance().Shutdown();
-	CoUninitialize(); // COMも閉じる
 }
 
 // 描画先をクリアする(色指定可能)
@@ -448,13 +441,13 @@ void Gfx::ClearScreen(float _r, float _g, float _b, float _a)
 // 画像読み込み
 TexHandle Gfx::LoadTexture(const char* _filePath)
 {
-	return ResourceManager::Instance().LoadTexture(_filePath);
+	return GraphicsResourceManager::Instance().LoadTexture(_filePath);
 }
 
 // モデル読み込み
 ModelHandle Gfx::LoadModel(const char* _filePath)
 {
-	return ResourceManager::Instance().LoadModel(_filePath);
+	return GraphicsResourceManager::Instance().LoadModel(_filePath);
 }
 
 // 三角形の描画(現状固定座標にしているが拡張し、座標と色など指定できるようにしたい)
@@ -599,14 +592,14 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* 
 
 void Gfx::SetBaseColor(ModelHandle model, int submeshIndex, Vector4 color)
 {
-	ModelData* data{ ResourceManager::Instance().Lookup(model) };
+	ModelData* data{ GraphicsResourceManager::Instance().Lookup(model) };
 	if (!data) return;  // 無効ハンドルガード
 	if (submeshIndex < 0 || submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
 	data->subMeshes[submeshIndex].material.baseColorFactor = color;
 }
 void Gfx::SetTexture(ModelHandle model, int submeshIndex, TexHandle texture)
 {
-	ModelData* data{ ResourceManager::Instance().Lookup(model) };
+	ModelData* data{ GraphicsResourceManager::Instance().Lookup(model) };
 	if (!data) return;  // 無効ハンドルガード
 	if (submeshIndex < 0 || submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
 	data->subMeshes[submeshIndex].material.textures[MaterialTex::BaseColor] = texture;
@@ -614,12 +607,12 @@ void Gfx::SetTexture(ModelHandle model, int submeshIndex, TexHandle texture)
 // 解放
 void Gfx::Unload(TexHandle _handle)
 {
-	ResourceManager::Instance().Unload(_handle);
+	GraphicsResourceManager::Instance().Unload(_handle);
 }
 
 void Gfx::Unload(ModelHandle _handle)
 {
-	ResourceManager::Instance().Unload(_handle);
+	GraphicsResourceManager::Instance().Unload(_handle);
 }
 
 HWND GfxInternal::GetHWND()

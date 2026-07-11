@@ -138,6 +138,7 @@
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\HandleConstant.h" />
     <ClInclude Include="Src\Core\Handle\ModelHandle.h" />
+    <ClInclude Include="Src\Core\Handle\SoundHandle.h" />
     <ClInclude Include="Src\Core\Handle\TexHandle.h" />
     <ClInclude Include="Src\Debug\DebugLogs.h" />
     <ClInclude Include="Src\External\cgltf.h" />
@@ -146,6 +147,8 @@
     <ClInclude Include="Src\Facade\GfxInternal.h" />
     <ClInclude Include="Src\Facade\Input.h" />
     <ClInclude Include="Src\Facade\InputInternal.h" />
+    <ClInclude Include="Src\Facade\Sound.h" />
+    <ClInclude Include="Src\Facade\SoundInternal.h" />
     <ClInclude Include="Src\Facade\TSLib.h" />
     <ClInclude Include="Src\Graphics\DescriptorManager.h" />
     <ClInclude Include="Src\Graphics\DrawDebug\DebugCube.h" />
@@ -155,7 +158,7 @@
     <ClInclude Include="Src\Graphics\GraphicsConstant.h" />
     <ClInclude Include="Src\Graphics\GraphicsDevice.h" />
     <ClInclude Include="Src\Graphics\GraphicsType.h" />
-    <ClInclude Include="Src\Graphics\ResourceManager.h" />
+    <ClInclude Include="Src\Graphics\GraphicsResourceManager.h" />
     <ClInclude Include="Src\Graphics\RingConstantBuffer.h" />
     <ClInclude Include="Src\Graphics\ShaderSystem.h" />
     <ClInclude Include="Src\Graphics\ShapeBatch.h" />
@@ -183,6 +186,10 @@
     <ClInclude Include="Src\Math\Vector\Vector3IntFormat.h" />
     <ClInclude Include="Src\Math\Vector\Vector4.h" />
     <ClInclude Include="Src\Math\Vector\Vector4Format.h" />
+    <ClInclude Include="Src\Sound\SoundConstant.h" />
+    <ClInclude Include="Src\Sound\SoundResourceManager.h" />
+    <ClInclude Include="Src\Sound\SoundSystem.h" />
+    <ClInclude Include="Src\Sound\SoundType.h" />
     <ClInclude Include="Src\Window\Window.h" />
   </ItemGroup>
   <ItemGroup>
@@ -192,6 +199,7 @@
     <ClCompile Include="Src\External\StbImageEnable.cpp" />
     <ClCompile Include="Src\Facade\Gfx.cpp" />
     <ClCompile Include="Src\Facade\Input.cpp" />
+    <ClCompile Include="Src\Facade\Sound.cpp" />
     <ClCompile Include="Src\Facade\TSLib.cpp" />
     <ClCompile Include="Src\Graphics\DescriptorManager.cpp" />
     <ClCompile Include="Src\Graphics\DrawDebug\DebuCube.cpp" />
@@ -199,7 +207,7 @@
     <ClCompile Include="Src\Graphics\DrawDebug\DebugTriangle.cpp" />
     <ClCompile Include="Src\Graphics\GPUMarker.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />
-    <ClCompile Include="Src\Graphics\ResourceManager.cpp" />
+    <ClCompile Include="Src\Graphics\GraphicsResourceManager.cpp" />
     <ClCompile Include="Src\Graphics\RingConstantBuffer.cpp" />
     <ClCompile Include="Src\Graphics\ShaderSystem.cpp" />
     <ClCompile Include="Src\Graphics\ShapeBatch.cpp" />
@@ -215,6 +223,8 @@
     <ClCompile Include="Src\Math\Vector\Vector3.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector3Int.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector4.cpp" />
+    <ClCompile Include="Src\Sound\SoundResourceManager.cpp" />
+    <ClCompile Include="Src\Sound\SoundSystem.cpp" />
     <ClCompile Include="Src\Window\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
