@@ -329,9 +329,9 @@ void SoundSystem::EndBGM()
 	DEBUG_LOG("BGMが破棄されました\n");
 }
 
-void SoundSystem::SetVolume(SoundHandle _handle, float _valume)
+void SoundSystem::SetVolume(SoundHandle _handle, float _volume)
 {
-	const float volume{ ClampVolume(_valume) }; // 0-1に単位化
+	const float volume{ ClampVolume(_volume) }; // 0-1に単位化
 
 	// SEだった場合
 	for (SoundPair& sound : liveVoices)

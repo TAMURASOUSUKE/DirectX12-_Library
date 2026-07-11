@@ -125,7 +125,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			testBolume -= 0.0005f;
 			Sound::SetVolume(testSound02, testBolume);
 		}
-		if (Input::IsKeyPress(KeyCode::Button::F))
+		if (Input::IsKeyPushed(KeyCode::Button::F))
 		{
 			Sound::CrossfadeBGM(testSound02, false, 10.0f);
 		}
