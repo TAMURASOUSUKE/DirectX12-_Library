@@ -158,8 +158,8 @@ void SoundSystem::PlayBGM(SoundHandle _handle, bool _isLoop, float _volume)
 				// クロスフェード中だった場合prevも再開させる必要がある
 				if (isCrossfading && prevBGM.voiceResource && prevBGM.isPaused)
 				{
-					currentBGM.voiceResource->Start(0); // 途中から再開
-					currentBGM.isPaused = false; // 停止フラグを落とす
+					prevBGM.voiceResource->Start(0); // 途中から再開
+					prevBGM.isPaused = false; // 停止フラグを落とす
 				}
 
 				DEBUG_LOG("BGMを途中から再開しました\n");
@@ -421,8 +421,14 @@ bool SoundSystem::IsStopAllSE()
 	{
 		if (sound.voiceResource)
 		{
-			// 一つでも再生中のものがあればfalseになる
-			if (!sound.isPaused) result = false;
+			XAUDIO2_VOICE_STATE state{};
+			sound.voiceResource->GetState(&state);
+			// 一つでも再生されていればそこでループをやめてfalseを返す
+			if (state.BuffersQueued >= 0)
+			{
+				result = false; 
+				break;
+			}
 		}
 	}
 	return result;
