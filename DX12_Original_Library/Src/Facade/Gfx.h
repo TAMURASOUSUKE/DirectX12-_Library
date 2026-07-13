@@ -28,10 +28,6 @@ namespace Gfx
 	TexHandle LoadTexture(const char* _filePath);
 	// モデル読み込み
 	ModelHandle LoadModel(const char* _filePath);
-	// 三角形描画
-	void DrawTriangle();
-	// テクスチャ描画
-	void DrawTexture(); 
 	// 矩形描画
 	void DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation = 0.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f }, bool _isWireframe = false);
 	// 円描画
@@ -40,8 +36,6 @@ namespace Gfx
 	void DrawCapsule(Vector2 _startPos, Vector2 _endPos, float _radius, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f }, bool _isWireframe = false);
 	// 線分描画
 	void DrawLine(Vector2 _startPos, Vector2 _endPos, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f });
-	// Cube描画(角度を渡すデフォルトは0°)
-	void DrawCube(Vector3 _angle = Vector3::Zero);
 	// 文字列描画 ; デフォルトフォント使用版(文字列, 位置, スケール(デフォルト1.0f), 描画レイヤー(デフォルト前面))
 	void DrawString(const char* _string, Vector2 _position, float _scale = 1.0f, LenderLayer _layer = LenderLayer::ForeGround);
 	// 文字描画 : 独自フォント使用版(フォント(構造体による別途設定必須), 文字列, 位置, スケール(デフォルト1.0f), 描画レイヤー(デフォルト前面))

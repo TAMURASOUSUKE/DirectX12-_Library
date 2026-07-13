@@ -25,6 +25,82 @@ enum class LenderLayer
 	ForeGround, // 3Dオブジェクトより手前に来る画像
 };
 
+// 規定のパイプラインステートを選ぶためのID
+enum class PipelineID
+{
+	Sprite, // 画像
+	Model, // 3Dモデル
+	ShapeFill, //  2D基本図形塗りつぶし
+	ShapeWire, // 2D基本図形ワイヤー
+	Count,
+};
+
+// 規定のルートシグネチャを選ぶためのID
+enum class RootSigID
+{
+	Texture, // 画像用
+	Model, // 3Dモデル
+	Shape, // 2D基本形状
+	Count,
+};
+
+// ブレンドモードの設定
+enum class BlendMode
+{
+	Opaque, // 不透明
+	Alpha,  // 透明度計算含み
+	Count,
+};
+
+// セマンティクス設定を選択するためのもの
+enum class InputLayout
+{
+	Texture, // 画像
+	Model, // 3Dモデル
+	Shape, // 2D形状
+	Count,
+};
+
+// 深度を表す
+enum class DepthParam
+{
+	None, // 深度計算なし
+	ReadWrite, // 読み込み書き込みができる
+	ReadOnly, // 読み込みだけ
+	Count,
+};
+
+// DescriptorTabel内の1レンジ
+struct DescriptorRangeDesc
+{
+
+};
+
+// GraphicsのPSO生成時に使う設定構造体
+struct GraphicsPipelineDesc
+{
+	RootSigID rootSignatureID{}; // ルートシグネチャの鍵
+	PipelineID pipelineID{}; // パイプラインステートの鍵
+	const wchar_t* vsPath{ nullptr }; // 頂点シェーダーパス
+	const wchar_t* psPath{ nullptr }; // ピクセルシェーダーパス
+	const wchar_t* hsPath{ nullptr }; // ハルシェーダーパス
+	const wchar_t* dsPath{ nullptr }; // ドメインシェーダーパス
+	const wchar_t* gsPath{ nullptr }; // ジオメトリシェーダーパス
+	InputLayout layout{}; // 入力レイアウト
+	BlendMode blend{}; // ブレンドモード
+	DepthParam depth{}; // 深度設定
+	D3D12_PRIMITIVE_TOPOLOGY_TYPE topology{ D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE }; // 形状
+	bool wireframe{ false }; // wireかどうか
+};
+
+// Compute用PSO生成時に使う設定構造体
+struct ComputePipelineDesc
+{
+	PipelineID pipelineStateID{}; // パイプラインステートの鍵
+	RootSigID rootSignatureID{}; // ルートシグネチャの鍵
+	const wchar_t* csPath{ nullptr }; // コンピュートシェーダーパス
+};
+
 // 書き込みを行うためのCPUハンドルと読み取るためのGPUハンドルとそのインデックスをまとめたハンドル
 struct DescriptorHandle
 {
