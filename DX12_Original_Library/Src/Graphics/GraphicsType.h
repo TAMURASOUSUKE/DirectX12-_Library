@@ -55,6 +55,7 @@ enum class BlendMode
 // セマンティクス設定を選択するためのもの
 enum class InputLayout
 {
+	None, // なし(ポストエフェクト等に対応させるため)
 	Texture, // 画像
 	Model, // 3Dモデル
 	Shape, // 2D形状
@@ -73,7 +74,36 @@ enum class DepthParam
 // DescriptorTabel内の1レンジ
 struct DescriptorRangeDesc
 {
+	D3D12_DESCRIPTOR_RANGE_TYPE type{ D3D12_DESCRIPTOR_RANGE_TYPE_SRV }; // リソースの種類
+	UINT numDescriptors{ 1 }; // 個数
+	UINT baseShaderRegister{ 0 }; // 開始レジスタ番号
+	UINT registerSpace{ 0 }; // レジスタの空間区切り
+	UINT offset{ D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND }; // オフセット
+};
 
+// ルートパラーメータ1つ
+struct RootParamDesc
+{
+	D3D12_ROOT_PARAMETER_TYPE type{ D3D12_ROOT_PARAMETER_TYPE_CBV }; // 種類 : デフォルトはCBV
+	D3D12_SHADER_VISIBILITY visibility{ D3D12_SHADER_VISIBILITY_ALL }; // アクセスできる範囲
+	// CBV/SRV/UAV,Constant用
+	UINT shaderRegister{ 0 };
+	UINT registerSpace{ 0 };
+	UINT num32BitValues{ 0 };
+
+	// DescriptorTableの場合のみ使用
+	std::vector<DescriptorRangeDesc> ranges{};
+};
+
+// RootSignature全体
+struct RootSignatureDesc
+{
+	RootSigID id{};
+
+	std::vector<RootParamDesc> parameters{}; // パラメータ
+	std::vector<D3D12_STATIC_SAMPLER_DESC> staticSamplers{}; // サンプラー
+
+	D3D12_ROOT_SIGNATURE_FLAGS flags{ D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT };
 };
 
 // GraphicsのPSO生成時に使う設定構造体
@@ -90,14 +120,14 @@ struct GraphicsPipelineDesc
 	BlendMode blend{}; // ブレンドモード
 	DepthParam depth{}; // 深度設定
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE topology{ D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE }; // 形状
-	bool wireframe{ false }; // wireかどうか
+	D3D12_FILL_MODE fillMode{ D3D12_FILL_MODE_SOLID };
 };
 
 // Compute用PSO生成時に使う設定構造体
 struct ComputePipelineDesc
 {
-	PipelineID pipelineStateID{}; // パイプラインステートの鍵
 	RootSigID rootSignatureID{}; // ルートシグネチャの鍵
+	PipelineID pipelineStateID{}; // パイプラインステートの鍵
 	const wchar_t* csPath{ nullptr }; // コンピュートシェーダーパス
 };
 

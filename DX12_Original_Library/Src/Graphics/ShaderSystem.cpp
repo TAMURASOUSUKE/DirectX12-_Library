@@ -119,7 +119,16 @@ namespace
 		UINT count;
 	};
 	// enumと同じ順に並べたlayout
-	constexpr LayoutEntry LAYOUT_TABLE[]{ {TEX_LAYOUT, _countof(TEX_LAYOUT)}, {MODEL_LAYOUT, _countof(MODEL_LAYOUT)}, {SHAPE_LAYOUT, _countof(SHAPE_LAYOUT)}};
+	constexpr LayoutEntry LAYOUT_TABLE[]{
+		// None
+		{nullptr, 0},
+		// Texture
+		{ TEX_LAYOUT, _countof(TEX_LAYOUT) },
+		// 3DModel
+		{MODEL_LAYOUT, _countof(MODEL_LAYOUT)},
+		// Shape
+		{SHAPE_LAYOUT, _countof(SHAPE_LAYOUT)}
+	};
 	static_assert(_countof(LAYOUT_TABLE) == static_cast<size_t>(InputLayout::Count), "InputLayoutのID数と実値の総数が合いません\n");
 
 	// 不透明
@@ -155,6 +164,125 @@ namespace
 	// BlendModeをenumと同期させる
 	constexpr D3D12_RENDER_TARGET_BLEND_DESC BLEND_TABLE[]{ BLEND_OPAQUE, BLEND_ALPHA };
 	static_assert(_countof(BLEND_TABLE) == static_cast<size_t>(BlendMode::Count), "BlendModeのID数と実値の総数が合いません\n");
+
+	// ステンシルを使わない場合の共通設定
+	constexpr D3D12_DEPTH_STENCILOP_DESC STENCIL_DISABLED_OP
+	{
+		D3D12_STENCIL_OP_KEEP, //StencilFaileOp = stencilテストに失敗したとき
+		D3D12_STENCIL_OP_KEEP, //StencilDepthFailOp = stencilテストに成功したが深度テストに失敗したとき
+		D3D12_STENCIL_OP_KEEP, //StencilPassOp = stencilテスト、深度テストに成功したとき
+		D3D12_COMPARISON_FUNC_ALWAYS, //StencilFunc = stencil比較関数
+
+	};
+
+	// 深度なし
+	constexpr D3D12_DEPTH_STENCIL_DESC DEPTH_NONE
+	{
+		false, // 有効かどうか
+		D3D12_DEPTH_WRITE_MASK_ZERO, // 奥行情報を深度バッファに保存しない
+		D3D12_COMPARISON_FUNC_ALWAYS,  // DepthFunc(深度比較関数) : 常に比較成功
+		false, // Stancil比較しない
+		static_cast<UINT8>(D3D12_DEFAULT_STENCIL_READ_MASK), // 全てのビット対象
+		static_cast<UINT8>(D3D12_DEFAULT_STENCIL_WRITE_MASK), // 全てのビット対象
+		// 表側と裏側の操作
+		STENCIL_DISABLED_OP, // FrontFace
+		STENCIL_DISABLED_OP  // BackFace
+	};
+
+	// 深度書き込み読み込み
+	constexpr D3D12_DEPTH_STENCIL_DESC DEPTH_READ_WRITE
+	{
+		true, // 有効
+		D3D12_DEPTH_WRITE_MASK_ALL, // 奥行情報を深度バッファに保存する
+		D3D12_COMPARISON_FUNC_LESS, // DepthFunc(深度比較関数) : 手前(数値が小さい)にあれば成功
+		false, // stencil比較しない
+		static_cast<UINT8>(D3D12_DEFAULT_STENCIL_READ_MASK), // 全てのビット対象
+		static_cast<UINT8>(D3D12_DEFAULT_STENCIL_WRITE_MASK), // 全てのビット対象
+		// 表側と裏側の操作
+		STENCIL_DISABLED_OP, // FrontFace
+		STENCIL_DISABLED_OP  // BackFace
+	};
+
+	// 深度読み込みのみ
+	constexpr D3D12_DEPTH_STENCIL_DESC DEPTH_READ_ONLY
+	{
+		true, // 有効
+		D3D12_DEPTH_WRITE_MASK_ZERO, // 奥行情報を深度バッファに保存しない
+		D3D12_COMPARISON_FUNC_LESS, // DepthFunc(深度比較関数) : 手前(数値が小さい)にあれば成功
+		false, // stencil比較しない
+		static_cast<UINT8>(D3D12_DEFAULT_STENCIL_READ_MASK), // 全てのビット対象
+		static_cast<UINT8>(D3D12_DEFAULT_STENCIL_WRITE_MASK), // 全てのビット対象
+		// 表側と裏側の操作
+		STENCIL_DISABLED_OP, // FrontFace
+		STENCIL_DISABLED_OP  // BackFace
+	};
+
+	// ステートとフォーマットをまとめる
+	struct DepthEntry
+	{
+		D3D12_DEPTH_STENCIL_DESC state{};
+		DXGI_FORMAT dsvFormat;
+	};
+
+	constexpr DepthEntry DEPTH_TABLE[]
+	{
+		// None
+		{DEPTH_NONE, DXGI_FORMAT_UNKNOWN},
+		// ReadWrite
+		{DEPTH_READ_WRITE, DXGI_FORMAT_D24_UNORM_S8_UINT},
+		// ReadOnly
+		{DEPTH_READ_ONLY, DXGI_FORMAT_D24_UNORM_S8_UINT}
+	};
+	static_assert(_countof(DEPTH_TABLE) == static_cast<size_t>(DepthParam::Count),"DepthParamのID数と実値の総数が合いません\n");
+
+	// 共通部品作成ヘルパー関数
+	RootParamDesc MakeRootCBV(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+	{
+		RootParamDesc desc{};
+		desc.type = D3D12_ROOT_PARAMETER_TYPE_CBV; // 定数バッファに設定
+		desc.shaderRegister = _shaderRegister;
+		desc.registerSpace = 0;
+		desc.visibility = _visibility;
+		return desc;
+	}
+
+	RootParamDesc MakeSRVTable(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+	{
+		RootParamDesc desc{};
+		desc.type = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // ディスクリプタ―テーブル指定
+		desc.visibility = _visibility;
+
+		DescriptorRangeDesc range{}; // レンジ設定
+		range.type = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // SRV指定
+		range.numDescriptors = 1;
+		range.baseShaderRegister = _shaderRegister;
+		range.registerSpace = 0;
+		desc.ranges.push_back(range);
+		return desc;
+	}
+
+	// 線形での繰り返しを取るサンプラー設定
+	D3D12_STATIC_SAMPLER_DESC MakeLinearWrapSampler(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+	{
+		D3D12_STATIC_SAMPLER_DESC desc{};
+		desc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; // 画像の拡縮補間を線形で
+
+		desc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
+		desc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
+		desc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
+
+		desc.MipLODBias = 0.0f; // 遠景用画像に切り替わる度合(基準)
+		desc.MaxAnisotropy = 1; // 異方性フィルタリングの倍率
+		desc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;  // 色の比較テストを行わない
+		desc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK; // 画像の範囲外を黒で塗りつぶす
+		desc.MinLOD = 0.0f; // ミップレベルの使用下限は0
+		desc.MaxLOD = D3D12_FLOAT32_MAX; // ミップレベルの使用上限は最大
+		desc.ShaderRegister = _shaderRegister;
+		desc.RegisterSpace = 0;
+		desc.ShaderVisibility = _visibility;
+		return desc;
+	}
+
 }
 
 // 初期化処理
@@ -234,7 +362,7 @@ ComPtr<ID3DBlob> ShaderSystem::Compile(const wchar_t* _filePath, const char* _en
 	return compiledShader; // コンパイルされたShaderのオブジェクトを返す
 }
 
-bool ShaderSystem::CreateRootSignature()
+bool ShaderSystem::CreateRootSignature(const RootSignatureDesc& _desc)
 {
 	return true;
 }

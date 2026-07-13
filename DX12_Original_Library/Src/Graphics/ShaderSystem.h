@@ -19,7 +19,7 @@ public:
 	ComPtr<ID3DBlob> Compile(const wchar_t* _filePath, const char* _entryPoint, const char* _target); // HLSLシェーダーをコンパイルする(ファイル名は日本語が含まれる可能性を考慮しワイド文字)
 	
 	// ShapeFillとWireは共通のRootSignatureのため共通関数を残す
-	bool CreateRootSignature();
+	bool CreateRootSignature(const RootSignatureDesc& _desc);
 	// VS,HS,DS,GS,PS用のGraphicsPipelineを生成する
 	bool CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc);
 	// CS用のPipelineを生成する
