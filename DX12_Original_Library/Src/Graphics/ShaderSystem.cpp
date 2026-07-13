@@ -15,7 +15,7 @@ namespace
 			0, // セマンティクス番号
 			DXGI_FORMAT_R32G32B32_FLOAT, // float3
 			0, // 入力スロット
-			0, // 頂点構造体のオフセット
+			D3D12_APPEND_ALIGNED_ELEMENT,   // 前の要素の直後に配置
 			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
 			0
 		},
@@ -96,7 +96,7 @@ namespace
 			0,  // セマンティクス番号
 			DXGI_FORMAT_R32G32B32_FLOAT, // float3
 			0, // 入力スロット
-			0, // 頂点構造体のオフセット
+			D3D12_APPEND_ALIGNED_ELEMENT,   // 前の要素の直後に配置
 			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
 			0
 		},
@@ -272,7 +272,7 @@ namespace
 		desc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
 
 		desc.MipLODBias = 0.0f; // 遠景用画像に切り替わる度合(基準)
-		desc.MaxAnisotropy = 1; // 異方性フィルタリングの倍率
+		desc.MaxAnisotropy = 1; // 異方性フィルタリングの倍率(現在は異方性フィルターではないため実質未使用)
 		desc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;  // 色の比較テストを行わない
 		desc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK; // 画像の範囲外を黒で塗りつぶす
 		desc.MinLOD = 0.0f; // ミップレベルの使用下限は0

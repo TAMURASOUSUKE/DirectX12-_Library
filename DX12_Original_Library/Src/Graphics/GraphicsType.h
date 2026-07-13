@@ -98,7 +98,7 @@ struct RootParamDesc
 // RootSignature全体
 struct RootSignatureDesc
 {
-	RootSigID id{};
+	RootSigID rootSignatureID{RootSigID::Count}; // IDを無効値として設定する
 
 	std::vector<RootParamDesc> parameters{}; // パラメータ
 	std::vector<D3D12_STATIC_SAMPLER_DESC> staticSamplers{}; // サンプラー
@@ -109,16 +109,17 @@ struct RootSignatureDesc
 // GraphicsのPSO生成時に使う設定構造体
 struct GraphicsPipelineDesc
 {
-	RootSigID rootSignatureID{}; // ルートシグネチャの鍵
-	PipelineID pipelineID{}; // パイプラインステートの鍵
+	RootSigID rootSignatureID{ RootSigID::Count }; // ルートシグネチャの鍵
+	PipelineID pipelineID{PipelineID::Count}; // パイプラインステートの鍵
 	const wchar_t* vsPath{ nullptr }; // 頂点シェーダーパス
 	const wchar_t* psPath{ nullptr }; // ピクセルシェーダーパス
 	const wchar_t* hsPath{ nullptr }; // ハルシェーダーパス
 	const wchar_t* dsPath{ nullptr }; // ドメインシェーダーパス
 	const wchar_t* gsPath{ nullptr }; // ジオメトリシェーダーパス
-	InputLayout layout{}; // 入力レイアウト
-	BlendMode blend{}; // ブレンドモード
-	DepthParam depth{}; // 深度設定
+	InputLayout layout{InputLayout::None}; // 入力レイアウト
+	BlendMode blend{BlendMode::Opaque}; // ブレンドモード
+	DepthParam depth{DepthParam::None
+	}; // 深度設定
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE topology{ D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE }; // 形状
 	D3D12_FILL_MODE fillMode{ D3D12_FILL_MODE_SOLID };
 };
@@ -126,7 +127,7 @@ struct GraphicsPipelineDesc
 // Compute用PSO生成時に使う設定構造体
 struct ComputePipelineDesc
 {
-	RootSigID rootSignatureID{}; // ルートシグネチャの鍵
+	RootSigID rootSignatureID{ RootSigID::Count }; // ルートシグネチャの鍵
 	PipelineID pipelineStateID{}; // パイプラインステートの鍵
 	const wchar_t* csPath{ nullptr }; // コンピュートシェーダーパス
 };

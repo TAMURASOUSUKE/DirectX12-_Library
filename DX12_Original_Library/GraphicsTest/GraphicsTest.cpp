@@ -127,7 +127,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		}
 		if (Input::IsKeyPushed(KeyCode::Button::F))
 		{
-			Sound::CrossfadeBGM(testSound02, false, 10.0f);
+			Sound::CrossfadeBGM(testSound02, false, 100.0f);
 		}
 
 
