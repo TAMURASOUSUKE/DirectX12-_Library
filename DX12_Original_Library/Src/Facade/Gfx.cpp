@@ -181,7 +181,7 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	// rootSignatureをつかってPSOを作成
 	for (const GraphicsPipelineDesc& desc : PIPELINE_TABLE)
 	{
-		if (shaderSystem.CreateGraphicsPipeline(desc))
+		if (!shaderSystem.CreateGraphicsPipeline(desc))
 		{
 			DEBUG_LOG_ERROR("GraphicsPipelineの作成に失敗しました\n");
 			return false;
