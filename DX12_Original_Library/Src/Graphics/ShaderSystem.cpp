@@ -235,55 +235,6 @@ namespace
 		{DEPTH_READ_ONLY, DXGI_FORMAT_D24_UNORM_S8_UINT}
 	};
 	static_assert(_countof(DEPTH_TABLE) == static_cast<size_t>(DepthParam::Count),"DepthParamのID数と実値の総数が合いません\n");
-
-	// 共通部品作成ヘルパー関数
-	RootParamDesc MakeRootCBV(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
-	{
-		RootParamDesc desc{};
-		desc.type = D3D12_ROOT_PARAMETER_TYPE_CBV; // 定数バッファに設定
-		desc.shaderRegister = _shaderRegister;
-		desc.registerSpace = 0;
-		desc.visibility = _visibility;
-		return desc;
-	}
-
-	RootParamDesc MakeSRVTable(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
-	{
-		RootParamDesc desc{};
-		desc.type = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // ディスクリプタ―テーブル指定
-		desc.visibility = _visibility;
-
-		DescriptorRangeDesc range{}; // レンジ設定
-		range.type = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // SRV指定
-		range.numDescriptors = 1;
-		range.baseShaderRegister = _shaderRegister;
-		range.registerSpace = 0;
-		desc.ranges.push_back(range);
-		return desc;
-	}
-
-	// 線形での繰り返しを取るサンプラー設定
-	D3D12_STATIC_SAMPLER_DESC MakeLinearWrapSampler(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
-	{
-		D3D12_STATIC_SAMPLER_DESC desc{};
-		desc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; // 画像の拡縮補間を線形で
-
-		desc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
-		desc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
-		desc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
-
-		desc.MipLODBias = 0.0f; // 遠景用画像に切り替わる度合(基準)
-		desc.MaxAnisotropy = 1; // 異方性フィルタリングの倍率(現在は異方性フィルターではないため実質未使用)
-		desc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;  // 色の比較テストを行わない
-		desc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK; // 画像の範囲外を黒で塗りつぶす
-		desc.MinLOD = 0.0f; // ミップレベルの使用下限は0
-		desc.MaxLOD = D3D12_FLOAT32_MAX; // ミップレベルの使用上限は最大
-		desc.ShaderRegister = _shaderRegister;
-		desc.RegisterSpace = 0;
-		desc.ShaderVisibility = _visibility;
-		return desc;
-	}
-
 }
 
 // 初期化処理
@@ -372,7 +323,7 @@ bool ShaderSystem::CreateRootSignature(const RootSignatureDesc& _desc)
 	}
 
 	const size_t id{ static_cast<size_t>(_desc.rootSignatureID) }; // IDを数値化
-	// 範囲外かつ無効値(Count以外か)を見る
+	// 範囲外かつ無効値(Count)を見る
 	if (id >= static_cast<size_t>(RootSigID::Count))
 	{
 		DEBUG_LOG_ERROR("RootSignatureが範囲外でした\n");
@@ -761,6 +712,53 @@ bool ShaderSystem::CreateComputePipeline(const ComputePipelineDesc& _desc)
 	pipelines[pipelineID] = pipeline;
 
 	return true;
+}
+
+RootParamDesc ShaderSystem::MakeRootCBV(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+{
+	RootParamDesc desc{};
+	desc.type = D3D12_ROOT_PARAMETER_TYPE_CBV; // 定数バッファに設定
+	desc.shaderRegister = _shaderRegister;
+	desc.registerSpace = 0;
+	desc.visibility = _visibility;
+	return desc;
+}
+
+RootParamDesc ShaderSystem::MakeSRVTable(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+{
+	RootParamDesc desc{};
+	desc.type = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // ディスクリプタ―テーブル指定
+	desc.visibility = _visibility;
+
+	DescriptorRangeDesc range{}; // レンジ設定
+	range.type = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // SRV指定
+	range.numDescriptors = 1;
+	range.baseShaderRegister = _shaderRegister;
+	range.registerSpace = 0;
+	desc.ranges.push_back(range);
+	return desc;
+}
+
+// 線形での繰り返しを取るサンプラー設定
+D3D12_STATIC_SAMPLER_DESC ShaderSystem::MakeLinearWrapSampler(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+{
+	D3D12_STATIC_SAMPLER_DESC desc{};
+	desc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; // 画像の拡縮補間を線形で
+
+	desc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
+	desc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
+	desc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
+
+	desc.MipLODBias = 0.0f; // 遠景用画像に切り替わる度合(基準)
+	desc.MaxAnisotropy = 1; // 異方性フィルタリングの倍率(現在は異方性フィルターではないため実質未使用)
+	desc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;  // 色の比較テストを行わない
+	desc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK; // 画像の範囲外を黒で塗りつぶす
+	desc.MinLOD = 0.0f; // ミップレベルの使用下限は0
+	desc.MaxLOD = D3D12_FLOAT32_MAX; // ミップレベルの使用上限は最大
+	desc.ShaderRegister = _shaderRegister;
+	desc.RegisterSpace = 0;
+	desc.ShaderVisibility = _visibility;
+	return desc;
 }
 
 // ルートシグネチャの作成

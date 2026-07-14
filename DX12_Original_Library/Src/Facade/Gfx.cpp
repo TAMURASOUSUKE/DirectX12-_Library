@@ -39,10 +39,29 @@ namespace {
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	int screenWidth = 0; // 画面の横幅
 	int screenHeight = 0; // 画面の縦幅
+
+	constexpr GraphicsPipelineDesc PIPELINE_TABLE[]{
+		// 図形塗りつぶし
+		{.rootSignatureID = RootSigID::Shape, .pipelineID = PipelineID::ShapeFill,
+		  .vsPath = L"../Src/Shaders/ShapeVS.hlsl", .psPath = L"../Src/Shaders/ShapePS.hlsl",
+		  .layout = InputLayout::Shape, .blend = BlendMode::Alpha, .depth = DepthParam::None },
+		  // 図形ワイヤー
+		{.rootSignatureID = RootSigID::Shape, .pipelineID = PipelineID::ShapeWire,
+		  .vsPath = L"../Src/Shaders/ShapeVS.hlsl", .psPath = L"../Src/Shaders/ShapePS.hlsl",
+		  .layout = InputLayout::Shape, .blend = BlendMode::Alpha, .depth = DepthParam::None,
+		  .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE },
+		  // 3Dモデル
+		{.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::Model,
+		 .vsPath = L"../Src/Shaders/ModelVS.hlsl", .psPath = L"../Src/Shaders/ModelPS.hlsl",
+		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite},
+		 // テクスチャ 
+		 {.rootSignatureID = RootSigID::Texture, .pipelineID = PipelineID::Sprite,
+		  .vsPath = L"../Src/Shaders/TextureVS.hlsl", .psPath = L"../Src/Shaders/TexturePS.hlsl",
+		  .layout = InputLayout::Texture, .blend = BlendMode::Alpha, .depth = DepthParam::None},
+	};
 }
 
-namespace 
-{
+namespace {
 	// スキンメッシュ付き
 	void DrawSkinnedModel(AnimInstanceData& _anim, Transform _transform)
 	{
@@ -75,7 +94,7 @@ namespace
 			cmd->SetGraphicsRootConstantBufferView(1, materialRingCBV.Update(&matCB, sizeof(MaterialCB)));
 
 			TextureData* tex{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
-			if (tex) cmd->SetGraphicsRootDescriptorTable(3,  tex->srvHandle.gpu);
+			if (tex) cmd->SetGraphicsRootDescriptorTable(3, tex->srvHandle.gpu);
 
 			cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
 			cmd->IASetIndexBuffer(&sub.indexBuffer.indexView);
@@ -486,7 +505,7 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* 
 	{
 		DrawStaticModel(_model, _transform);
 	}
-	
+
 }
 
 void Gfx::SetBaseColor(ModelHandle model, int submeshIndex, Vector4 color)
