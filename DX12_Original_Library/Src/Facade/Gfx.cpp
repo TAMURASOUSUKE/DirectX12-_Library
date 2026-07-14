@@ -177,9 +177,9 @@ namespace {
 			}
 		}
 
-		for (UINT z = 0; z < GRID_SIZE; z++)
+		for (UINT z = 0; z < GRID_SIZE - 1; z++)
 		{
-			for (UINT x = 0; x < GRID_SIZE; x++)
+			for (UINT x = 0; x < GRID_SIZE - 1; x++)
 			{
 				const uint32_t i0{ z * GRID_SIZE + x };
 				const uint32_t i1{ i0 + 1 };
@@ -212,7 +212,51 @@ namespace {
 	// Terrain描画の内部処理
 	void DrawTerrainInternal(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap)
 	{
+		if (_scale <= 0.0f)
+		{
+			DEBUG_LOG_WARNING("Terrainのスケールは0より大きくしてください\n");
+			return;
+		}
 		ID3D12GraphicsCommandList* cmd{ GraphicsDevice::Instance().GetCommandList() };
+		if (!cmd || !terrainVertexBuffer.resource || !terrainIndexBuffer.resource) return;
+
+		// 指定されたHeightMapの実データ取得
+		TextureData* heightMap{ GraphicsResourceManager::Instance().Lookup(_heightMap) };
+		float effectiveHeightScale{ _heightScale }; // 高さのキャッシュ
+		if (!heightMap) // heightMapがないとき
+		{
+			const TexHandle fallback{ GraphicsResourceManager::Instance().GetWhiteTexture() };
+			heightMap = GraphicsResourceManager::Instance().Lookup(fallback); // 白テクスチャを使う
+			effectiveHeightScale = 0.0f; // ハイトマップがないときは高さ0にする
+		}
+		if (!heightMap) return;
+
+		// Terrain用RootSigとPSO
+		cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Terrain));
+		cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::TerrainWire));
+		DescriptorManager::Instance().SetDiscriptor(cmd); // SRVを使うのでDescriptorHeapをセット
+		//XZ方向に拡大
+		const Mat4x4 scaleMat{ Mat4x4::MakeScaling(Vector3{_scale, 1.0f, _scale}) };
+		const Mat4x4 translationMat{ Mat4x4::MakeTranslation(_position) };
+		const Mat4x4 worldMat{ scaleMat * translationMat }; // 行優先なのでS->T
+		TerrainCB cb{};
+		cb.mvp = worldMat * vpMat;
+		cb.color = _color;
+		cb.heightScale = effectiveHeightScale;
+		cb.tessFactor = std::clamp(_tessFactor, 1.0f, 64.0f); // HSの分割係数の有効範囲内(1-64)にClamp
+		// 同じCBをHSとDSへ渡す
+		const D3D12_GPU_VIRTUAL_ADDRESS cbAddress{ terrainRingCBV.Update(&cb, sizeof(TerrainCB)) };
+		// RootParam[0] : HS b0
+		cmd->SetGraphicsRootConstantBufferView(0, cbAddress);
+		// RootParam[1] : DS b0
+		cmd->SetGraphicsRootConstantBufferView(1, cbAddress);
+		// RootParam[2] : DS t0
+		cmd->SetGraphicsRootDescriptorTable(2, heightMap->srvHandle.gpu);
+		cmd->IASetVertexBuffers(0, 1, &terrainVertexBuffer.vertexView);
+		cmd->IASetIndexBuffer(&terrainIndexBuffer.indexView);
+		// 3インデックスで1つの三角形パッチとして渡す
+		cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
+		cmd->DrawIndexedInstanced(terrainIndexBuffer.indexCount, 1, 0, 0, 0);
 	}
 }
 
@@ -323,6 +367,7 @@ void GfxInternal::BeginFrame()
 	mvpRingCBV.Reset();
 	materialRingCBV.Reset();
 	skinningRingCBV.Reset();
+	terrainRingCBV.Reset();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTV
@@ -518,7 +563,13 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* 
 
 void Gfx::DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap)
 {
+	{
+		// マクロがスコープを抜けるとEndEventするので囲う
+		GPU_MARKER("backGround");
+		bgBatch.Flush(); // 背景の上に来るように3D描画前には背景batchをFlushする
+	}
 
+	DrawTerrainInternal(_position, _scale, _tessFactor, _heightScale, _color, _heightMap);
 }
 
 void Gfx::SetBaseColor(ModelHandle model, int submeshIndex, Vector4 color)

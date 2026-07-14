@@ -810,5 +810,6 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	terrain.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_DOMAIN)); // DS用のCBV 番号が同じでもステージが違うから共存できる
 	terrain.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_DOMAIN)); // DS用のテクスチャ
 	terrain.staticSamplers.push_back(MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_DOMAIN)); // サンプラー
+	descs.push_back(std::move(terrain)); // shape変数は使わないのでmoveして空にする(コピーの必要性なし)
 	return descs;
 }

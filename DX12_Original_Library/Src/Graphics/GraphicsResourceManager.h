@@ -67,6 +67,9 @@ public:
 	// リソースを解放する
 	void Unload(TexHandle _handle);
 	void Unload(ModelHandle _handle);
+
+	// デフォルト用の白テクスチャを取得する
+	TexHandle GetWhiteTexture() const { return whiteTexture; }
 private:
 	// コンストラクタ
 	GraphicsResourceManager() = default;
@@ -83,8 +86,6 @@ private:
 	
 	// デフォルト用の白色のテクスチャを作成するヘルパー(Initializeで作成用)
 	TexHandle CreateWhiteTexture();
-	// デフォルト用の白テクスチャを取得する
-	TexHandle GetWhiteTexture() const { return whiteTexture; }
 
 	// Animation補完を助けるキーフレーム補完ヘルパー
 	Vector4 SampleChannel(const AnimChannel& _ch, float _time);
