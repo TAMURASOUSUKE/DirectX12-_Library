@@ -24,11 +24,8 @@ public:
 	bool CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc);
 	// CS用のPipelineを生成する
 	bool CreateComputePipeline(const ComputePipelineDesc& _desc);
-
-	// 共通部品作成ヘルパー関数
-	RootParamDesc MakeRootCBV(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility); // CBV作成
-	RootParamDesc MakeSRVTable(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility); // DescriptorTableでのSRV作成
-	D3D12_STATIC_SAMPLER_DESC MakeLinearWrapSampler(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility); // 線形での繰り返しを取るサンプラー設定
+	// 汎用RootSignatureDescを作成する関数
+	std::vector<RootSignatureDesc> MakeRootSignatureDescs();
 
 	ComPtr<ID3D12RootSignature> CreateTextureRootSignature(); // テクスチャ表示用ルートシグネチャの作成
 	ComPtr<ID3D12PipelineState> CreateTexturePipeLineState(ID3D12RootSignature* _rootSig, ID3DBlob* _vsBlob, ID3DBlob* _psBlob); // テクスチャ表示用パイプラインステートオブジェクトの作成

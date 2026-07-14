@@ -237,6 +237,59 @@ namespace
 	static_assert(_countof(DEPTH_TABLE) == static_cast<size_t>(DepthParam::Count),"DepthParamのID数と実値の総数が合いません\n");
 }
 
+namespace
+{
+	// 共通部品作成ヘルパー関数
+	// CBV作成
+	RootParamDesc MakeRootCBV(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+	{
+		RootParamDesc desc{};
+		desc.type = D3D12_ROOT_PARAMETER_TYPE_CBV; // 定数バッファに設定
+		desc.shaderRegister = _shaderRegister;
+		desc.registerSpace = 0;
+		desc.visibility = _visibility;
+		return desc;
+	}
+
+	// DescriptorTableでのSRV作成
+	RootParamDesc MakeSRVTable(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+	{
+		RootParamDesc desc{};
+		desc.type = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // ディスクリプタ―テーブル指定
+		desc.visibility = _visibility;
+
+		DescriptorRangeDesc range{}; // レンジ設定
+		range.type = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // SRV指定
+		range.numDescriptors = 1;
+		range.baseShaderRegister = _shaderRegister;
+		range.registerSpace = 0;
+		desc.ranges.push_back(range);
+		return desc;
+	}
+
+	// 線形での繰り返しを取るサンプラー設定
+	D3D12_STATIC_SAMPLER_DESC MakeLinearWrapSampler(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+	{
+		D3D12_STATIC_SAMPLER_DESC desc{};
+		desc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; // 画像の拡縮補間を線形で
+
+		desc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
+		desc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
+		desc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
+
+		desc.MipLODBias = 0.0f; // 遠景用画像に切り替わる度合(基準)
+		desc.MaxAnisotropy = 1; // 異方性フィルタリングの倍率(現在は異方性フィルターではないため実質未使用)
+		desc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;  // 色の比較テストを行わない
+		desc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK; // 画像の範囲外を黒で塗りつぶす
+		desc.MinLOD = 0.0f; // ミップレベルの使用下限は0
+		desc.MaxLOD = D3D12_FLOAT32_MAX; // ミップレベルの使用上限は最大
+		desc.ShaderRegister = _shaderRegister;
+		desc.RegisterSpace = 0;
+		desc.ShaderVisibility = _visibility;
+		return desc;
+	}
+}
+
 // 初期化処理
 void ShaderSystem::Initialize(ID3D12Device* _device)
 {
@@ -714,52 +767,32 @@ bool ShaderSystem::CreateComputePipeline(const ComputePipelineDesc& _desc)
 	return true;
 }
 
-RootParamDesc ShaderSystem::MakeRootCBV(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs()
 {
-	RootParamDesc desc{};
-	desc.type = D3D12_ROOT_PARAMETER_TYPE_CBV; // 定数バッファに設定
-	desc.shaderRegister = _shaderRegister;
-	desc.registerSpace = 0;
-	desc.visibility = _visibility;
-	return desc;
+	std::vector<RootSignatureDesc> descs{};
+	// SpriteRootSignature
+	RootSignatureDesc texture{};
+	texture.rootSignatureID = RootSigID::Texture;
+	texture.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_PIXEL)); // rootParamの0番目にはテクスチャ(t0)
+	texture.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // rootParamの1番目には座標変換用(b0)
+	texture.staticSamplers.push_back(MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL)); // staticSampler0番目(s0)
+	descs.push_back(std::move(texture)); // texture変数は使わないのでmoveして空にする(コピーの必要性なし)
+	// ModelRootSignature
+	RootSignatureDesc model{};
+	model.rootSignatureID = RootSigID::Model;
+	model.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // 座標変換などの定数バッファ(b0)
+	model.parameters.push_back(MakeRootCBV(1, D3D12_SHADER_VISIBILITY_PIXEL)); // material用定数バッファ(b1)
+	model.parameters.push_back(MakeRootCBV(2, D3D12_SHADER_VISIBILITY_VERTEX)); // スキニング行列(b2)
+	model.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_PIXEL)); // テクスチャ(t0)
+	model.staticSamplers.push_back(MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL)); // サンプラー設定(s0)
+	descs.push_back(std::move(model)); // model変数は使わないのでmoveして空にする(コピーの必要性なし)
+	// Shape用
+	RootSignatureDesc shape{};
+	shape.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // 座標変換(b0)
+	descs.push_back(std::move(shape)); // shape変数は使わないのでmoveして空にする(コピーの必要性なし)
+	return descs;
 }
 
-RootParamDesc ShaderSystem::MakeSRVTable(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
-{
-	RootParamDesc desc{};
-	desc.type = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // ディスクリプタ―テーブル指定
-	desc.visibility = _visibility;
-
-	DescriptorRangeDesc range{}; // レンジ設定
-	range.type = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // SRV指定
-	range.numDescriptors = 1;
-	range.baseShaderRegister = _shaderRegister;
-	range.registerSpace = 0;
-	desc.ranges.push_back(range);
-	return desc;
-}
-
-// 線形での繰り返しを取るサンプラー設定
-D3D12_STATIC_SAMPLER_DESC ShaderSystem::MakeLinearWrapSampler(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
-{
-	D3D12_STATIC_SAMPLER_DESC desc{};
-	desc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; // 画像の拡縮補間を線形で
-
-	desc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
-	desc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
-	desc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
-
-	desc.MipLODBias = 0.0f; // 遠景用画像に切り替わる度合(基準)
-	desc.MaxAnisotropy = 1; // 異方性フィルタリングの倍率(現在は異方性フィルターではないため実質未使用)
-	desc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;  // 色の比較テストを行わない
-	desc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK; // 画像の範囲外を黒で塗りつぶす
-	desc.MinLOD = 0.0f; // ミップレベルの使用下限は0
-	desc.MaxLOD = D3D12_FLOAT32_MAX; // ミップレベルの使用上限は最大
-	desc.ShaderRegister = _shaderRegister;
-	desc.RegisterSpace = 0;
-	desc.ShaderVisibility = _visibility;
-	return desc;
-}
 
 // ルートシグネチャの作成
 ComPtr<ID3D12RootSignature> ShaderSystem::CreateTextureRootSignature()
