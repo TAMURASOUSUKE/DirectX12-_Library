@@ -547,10 +547,10 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 		return false;
 	}
 
-	// VSは必須とする
-	if (!_desc.vsPath)
+	// VS・PSは必須とする
+	if (!_desc.vsPath || !_desc.psPath)
 	{
-		DEBUG_LOG_ERROR("VSのパスが設定されていませ\n");
+		DEBUG_LOG_ERROR("VSもしくはPSのパスが設定されていません\n");
 		return false;
 	}
 
@@ -566,7 +566,7 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 	ComPtr<ID3DBlob> gsBlob{}; // ジオメトリ
 
 	// テッセレーションではHSとDSはセットで扱う
-	if ((hsBlob == nullptr) != (dsBlob == nullptr))
+	if ((_desc.hsPath == nullptr) != (_desc.dsPath == nullptr))
 	{
 		DEBUG_LOG_ERROR("HSとDSは両方設定する必要があります\n");
 		return false;
@@ -582,12 +582,21 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 		return false;
 	}
 
-	hsBlob = Compile(_desc.hsPath, "main", "hs_5_0"); // ハル
-	if (!hsBlob) { DEBUG_LOG_ERROR("HSのコンパイルに失敗しました\n"); return false; }
-	dsBlob = Compile(_desc.dsPath, "main", "ds_5_0"); // ドメイン
-	if (!dsBlob) { DEBUG_LOG_ERROR("DSのコンパイルに失敗しました\n"); return false; }
-	gsBlob = Compile(_desc.gsPath, "main", "gs_5_0"); // ジオメトリ
-	if (!gsBlob) { DEBUG_LOG_ERROR("GSのコンパイルに失敗しました\n"); return false; }
+	if (_desc.hsPath)
+	{
+		hsBlob = Compile(_desc.hsPath, "main", "hs_5_0"); // ハル
+		if (!hsBlob) { DEBUG_LOG_ERROR("HSのコンパイルに失敗しました\n"); return false; }
+	}
+	if (_desc.dsPath)
+	{
+		dsBlob = Compile(_desc.dsPath, "main", "ds_5_0"); // ドメイン
+		if (!dsBlob) { DEBUG_LOG_ERROR("DSのコンパイルに失敗しました\n"); return false; }
+	}
+	if (_desc.gsPath)
+	{
+		gsBlob = Compile(_desc.gsPath, "main", "gs_5_0"); // ジオメトリ
+		if (!gsBlob) { DEBUG_LOG_ERROR("GSのコンパイルに失敗しました\n"); return false; }
+	}
 
 	// PSOの実際のDescを組み立てる
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC nativeDesc{};
@@ -673,6 +682,71 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 
 bool ShaderSystem::CreateComputePipeline(const ComputePipelineDesc& _desc)
 {
+	if (!device)
+	{
+		DEBUG_LOG_ERROR("Deviceが設定されていません\n");
+		return false;
+	}
+
+	const size_t pipelineID{ static_cast<size_t>(_desc.pipelineID) }; // IDを取り出す
+	const size_t rootSignatureID{ static_cast<size_t>(_desc.rootSignatureID) };
+
+	// 台帳配列の範囲外になっていないか確認する
+	if (pipelineID >= static_cast<size_t>(PipelineID::Count) ||
+		rootSignatureID >= static_cast<size_t>(RootSigID::Count))
+	{
+		DEBUG_LOG_ERROR("ComputePipelineDescに無効なIDが指定されています\n");
+		return false;
+	}
+
+	// RootSignatureはPipelineより先に作成されている必要がある
+	if (!rootSigs[rootSignatureID])
+	{
+		DEBUG_LOG_ERROR("指定されたCompute用RootSignatureが作成されていません\n");
+		return false;
+	}
+
+	// CSは必須
+	if (!_desc.csPath)
+	{
+		DEBUG_LOG_ERROR("CSのパスが設定されていません\n");
+		return false;
+	}
+
+	// 同じIDを上書きすると外部で保持している生ポインタが無効になる可能性があるため禁止する
+	if (pipelines[pipelineID])
+	{
+		DEBUG_LOG_ERROR("同じPipelineIDのPSOが既に登録されています\n");
+		return false;
+	}
+
+	ComPtr<ID3DBlob> csBlob{ Compile(_desc.csPath, "main", "cs_5_0") };
+	if (!csBlob)
+	{
+		DEBUG_LOG_ERROR("CSのコンパイルに失敗しました\n");
+		return false;
+	}
+
+	// ComputePipeline用のD3D12ネイティブDescを作る
+	D3D12_COMPUTE_PIPELINE_STATE_DESC nativeDesc{};
+	nativeDesc.pRootSignature = rootSigs[rootSignatureID].Get();
+	nativeDesc.CS.pShaderBytecode = csBlob->GetBufferPointer();
+	nativeDesc.CS.BytecodeLength = csBlob->GetBufferSize();
+	nativeDesc.NodeMask = 0; // 複数GPUを明示的に扱わないので0
+	nativeDesc.CachedPSO = {}; // 既存PSOキャッシュは現在使用しない
+	nativeDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+	ComPtr<ID3D12PipelineState> pipeline{};
+	HRESULT result{ device->CreateComputePipelineState(&nativeDesc, IID_PPV_ARGS(&pipeline)) };
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("ComputePipelineStateの作成に失敗しました\n");
+		return false;
+	}
+
+	// 台帳への記録
+	pipelines[pipelineID] = pipeline;
+
 	return true;
 }
 

@@ -128,7 +128,7 @@ struct GraphicsPipelineDesc
 struct ComputePipelineDesc
 {
 	RootSigID rootSignatureID{ RootSigID::Count }; // ルートシグネチャの鍵
-	PipelineID pipelineStateID{}; // パイプラインステートの鍵
+	PipelineID pipelineID{}; // パイプラインステートの鍵
 	const wchar_t* csPath{ nullptr }; // コンピュートシェーダーパス
 };
 
