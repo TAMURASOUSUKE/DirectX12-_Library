@@ -26,13 +26,6 @@ namespace {
 	RingConstantBuffer skinningRingCBV; // スキニング行列定数バッファのデータメンバ
 	Mat4x4 vpMat; // View * Projection
 	Mat4x4 mvpMat;
-	ComPtr<ID3D12RootSignature> textureRootSignature; // テクスチャ用ルートシグネチャ
-	ComPtr<ID3D12PipelineState> texturePipelineState; // テクスチャ用パイプラインステートオブジェクト
-	ComPtr<ID3D12RootSignature> modelRootSignature; // モデル用ルートシグネチャ
-	ComPtr<ID3D12PipelineState> modelPipeLineState; // モデル用パイプラインステート
-	ComPtr<ID3D12RootSignature> shapeRootSignature; // 基本図形ルートシグネチャ
-	ComPtr<ID3D12PipelineState> fillPipelineState; // 基本図形塗りつぶしのパイプラインステート
-	ComPtr<ID3D12PipelineState> wirePipelineState; // 基本図形wireのパイプラインステート
 	SpriteBatch fgBatch; // 手前のスプライトバッチ処理
 	SpriteBatch bgBatch; // 背景のスプライトバッチ処理
 	ShapeBatch shapeBatch; // 基本図形のバッチ処理
@@ -74,8 +67,8 @@ namespace {
 		Mat4x4 worldMat{ _transform.GetWorldMatrix() }; // ワールド行列の取得
 		mvpMat = worldMat * vpMat;
 
-		cmd->SetGraphicsRootSignature(modelRootSignature.Get());
-		cmd->SetPipelineState(modelPipeLineState.Get());
+		cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Model));
+		cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::Model));
 
 		DescriptorManager::Instance().SetDiscriptor(cmd);
 		cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4))); // MVP更新
@@ -111,8 +104,8 @@ namespace {
 		mvpMat = worldMat * vpMat;
 
 		// パイプライン設定
-		cmd->SetGraphicsRootSignature(modelRootSignature.Get());
-		cmd->SetPipelineState(modelPipeLineState.Get());
+		cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Model));
+		cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::Model));
 
 		DescriptorManager::Instance().SetDiscriptor(cmd); // Flushと同じ考え方
 		cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)));
@@ -174,89 +167,25 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 
 	shaderSystem.Initialize(GraphicsDevice::Instance().GetDevice()); // ShaderSystemの初期化
 
-	// シェーダーのコンパイル(今はいったん仮で固定)
-	auto textureVSBlob = shaderSystem.Compile(L"../Src/Shaders/TextureVS.hlsl", "main", "vs_5_0"); // テクスチャ
-	if (!textureVSBlob)
+	// 汎用するRootSignatureの作成
+	const std::vector<RootSignatureDesc> rootSignatureDescs{ shaderSystem.MakeRootSignatureDescs() };
+	for (const RootSignatureDesc& desc : rootSignatureDescs)
 	{
-		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/TextureVS.hlsl");
-		return false; // 読み込み失敗したらfalse
-	}
-	auto texturePSBlob = shaderSystem.Compile(L"../Src/Shaders/TexturePS.hlsl", "main", "ps_5_0"); // テクスチャ
-	if (!texturePSBlob)
-	{
-		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", ".. / Src / Shaders / TexturePS.hlsl");
-		return false; // 読み込み失敗したらfalse
-	}
-	auto modelVSBlob{ shaderSystem.Compile(L"../Src/Shaders/ModelVS.hlsl", "main", "vs_5_0") }; // モデル
-	if (!modelVSBlob)
-	{
-		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/ModelVS.hlsl");
-		return false; // 読み込み失敗したらfalse
-	}
-	auto modelPSBlob{ shaderSystem.Compile(L"../Src/Shaders/ModelPS.hlsl", "main", "ps_5_0") }; // モデル
-	if (!modelPSBlob)
-	{
-		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/ModelPS.hlsl");
-		return false; // 読み込み失敗したらfalse
-	}
-	auto shapeVSBlob{ shaderSystem.Compile(L"../Src/Shaders/ShapeVS.hlsl", "main", "vs_5_0") };
-	if (!shapeVSBlob)
-	{
-		DEBUG_LOG_ERROR("シェーダーファイルの読み込みに失敗しました ファイル : {}\n", "../Shaders/ShapeVS.hlsl");
-		return false; // 読み込み失敗したらfalse
-	}
-	auto shapePSBlob{ shaderSystem.Compile(L"../Src/Shaders/ShapePS.hlsl", "main", "ps_5_0") };
-	if (!shapePSBlob)
-	{
-		DEBUG_LOG_ERROR("シェーダーファイルの読み込みに失敗しました ファイル : {}\n", "../Shaders/ShapePS.hlsl");
-		return false; // 読み込み失敗したらfalse
+		if (!shaderSystem.CreateRootSignature(desc))
+		{
+			DEBUG_LOG_ERROR("RootSignatureの作成に失敗しました\n");
+			return false;
+		}
 	}
 
-	textureRootSignature = shaderSystem.CreateTextureRootSignature(); // ルートシグネチャの作成
-	if (!textureRootSignature)
+	// rootSignatureをつかってPSOを作成
+	for (const GraphicsPipelineDesc& desc : PIPELINE_TABLE)
 	{
-		DEBUG_LOG_ERROR("テクスチャルートシグネチャの作成に失敗しました\n");
-		return false;
-	}
-
-	texturePipelineState = shaderSystem.CreateTexturePipeLineState(textureRootSignature.Get(), textureVSBlob.Get(), texturePSBlob.Get()); // パイプラインステートオブジェクトを作成
-	if (!texturePipelineState)
-	{
-		DEBUG_LOG_ERROR("テクスチャPSOの作成に失敗しました\n");
-		return false;
-	}
-
-	modelRootSignature = shaderSystem.CreateModelRootSignature(); // モデルのルートシグネチャの作成
-	if (!modelRootSignature)
-	{
-		DEBUG_LOG_ERROR("モデルルートシグネチャの作成に失敗しました\n");
-		return false;
-	}
-
-	modelPipeLineState = shaderSystem.CreateModelPipeLineState(modelRootSignature.Get(), modelVSBlob.Get(), modelPSBlob.Get()); // モデルパイプラインステートの作成
-	if (!modelPipeLineState)
-	{
-		DEBUG_LOG_ERROR("モデルPSOの作成に失敗しました\n");
-		return false;
-	}
-
-	shapeRootSignature = shaderSystem.CreateShapeRootSignature();
-	if (!shapeRootSignature)
-	{
-		DEBUG_LOG_ERROR("基本図形のルートシグネチャの作成に失敗しました\n");
-		return false;
-	}
-	fillPipelineState = shaderSystem.CreateShapePipeLineState(shapeRootSignature.Get(), shapeVSBlob.Get(), shapePSBlob.Get(), false);
-	if (!fillPipelineState)
-	{
-		DEBUG_LOG_ERROR("塗りつぶし図形のパイプラインステートの作成に失敗しました\n");
-		return false;
-	}
-	wirePipelineState = shaderSystem.CreateShapePipeLineState(shapeRootSignature.Get(), shapeVSBlob.Get(), shapePSBlob.Get(), true);
-	if (!wirePipelineState)
-	{
-		DEBUG_LOG_ERROR("wire図形のパイプラインステートの作成に失敗しました\n");
-		return false;
+		if (shaderSystem.CreateGraphicsPipeline(desc))
+		{
+			DEBUG_LOG_ERROR("GraphicsPipelineの作成に失敗しました\n");
+			return false;
+		}
 	}
 
 	GraphicsResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
@@ -272,9 +201,9 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	skinningRingCBV.Initialize(sizeof(Mat4x4) * MAX_BONE_NUM); // ボーン用の定数バッファを更新
 
 	// スプライトバッチ処理初期化
-	fgBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), orthConstantBufferData.resource.Get());
-	bgBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), orthConstantBufferData.resource.Get());
-	shapeBatch.Initialize(shapeRootSignature.Get(), fillPipelineState.Get(), wirePipelineState.Get(), orthConstantBufferData.resource.Get());
+	fgBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
+	bgBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
+	shapeBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Shape),shaderSystem.GetPipeline(PipelineID::ShapeFill), shaderSystem.GetPipeline(PipelineID::ShapeWire), orthConstantBufferData.resource.Get());
 
 	// 文字列構造体初期化
 	defaultFont.texture = Gfx::LoadTexture("../Src/External/Res/DejaVu Sans Mono.png"); // デフォルトフォント
