@@ -304,7 +304,19 @@ void ShaderSystem::Initialize(ID3D12Device* _device)
 // 終了処理
 void ShaderSystem::Shutdown()
 {
+	// PSOはRootSigを使って作成しているため先にPSOを解放する
+	for (ComPtr<ID3D12PipelineState>& pipeline : pipelines)
+	{
+		pipeline.Reset();
+	}
 
+	// PipelineState解放の後にRootSigを解放する
+	for (ComPtr<ID3D12RootSignature>& rootSig : rootSigs)
+	{
+		rootSig.Reset();
+	}
+	// deviceをnull化して今後使わないようにする
+	device = nullptr;
 }
 
 // Shaderのコンパイル
@@ -561,7 +573,7 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 		return false;
 	}
 
-	// VS・PSは必須とする
+	// VSは必須とする
 	if (!_desc.vsPath)
 	{
 		DEBUG_LOG_ERROR("VSパスが設定されていません\n");
@@ -767,7 +779,7 @@ bool ShaderSystem::CreateComputePipeline(const ComputePipelineDesc& _desc)
 	return true;
 }
 
-std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs()
+std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 {
 	std::vector<RootSignatureDesc> descs{};
 	// SpriteRootSignature

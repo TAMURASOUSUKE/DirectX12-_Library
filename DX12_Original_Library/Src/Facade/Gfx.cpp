@@ -307,6 +307,7 @@ void GfxInternal::EndFrame()
 // 終了処理
 void GfxInternal::Finish()
 {
+	shaderSystem.Shutdown();
 	DescriptorManager::Instance().Shutdown();
 	GraphicsDevice::Instance().Shutdown();
 }

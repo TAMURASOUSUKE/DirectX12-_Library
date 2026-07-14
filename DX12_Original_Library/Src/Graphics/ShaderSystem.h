@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <d3d12.h>
 #include <wrl/client.h>
+#include <vector>
 #include "GraphicsType.h"
 using Microsoft::WRL::ComPtr;
 #pragma comment(lib, "d3d12.lib")
@@ -25,7 +26,7 @@ public:
 	// CS用のPipelineを生成する
 	bool CreateComputePipeline(const ComputePipelineDesc& _desc);
 	// 汎用RootSignatureDescを作成する関数
-	std::vector<RootSignatureDesc> MakeRootSignatureDescs();
+	std::vector<RootSignatureDesc> MakeRootSignatureDescs() const;
 
 	// 指定したIDでPipelineを引くことができるGetter
 	ID3D12PipelineState* GetPipeline(PipelineID _id) const { return pipelines[static_cast<int>(_id)].Get(); }
