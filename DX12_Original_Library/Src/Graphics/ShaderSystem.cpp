@@ -434,6 +434,7 @@ bool ShaderSystem::CreateRootSignature(const RootSignatureDesc& _desc)
 			// DescriptorTableには最低1つのRangeが必要
 			if (src.ranges.empty())
 			{
+				DEBUG_LOG_ERROR("DescriptorTableにRangeがありません\n");
 				return false;
 			}
 
@@ -472,6 +473,7 @@ bool ShaderSystem::CreateRootSignature(const RootSignatureDesc& _desc)
 			break;
 		}
 		default:
+			DEBUG_LOG_ERROR("未対応のRootParameterTypeです\n");
 			return false;
 		}
 	}
@@ -547,10 +549,18 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 		return false;
 	}
 
-	// VS・PSは必須とする
-	if (!_desc.vsPath || !_desc.psPath)
+	if (pipelines[pipelineID])
 	{
-		DEBUG_LOG_ERROR("VSもしくはPSのパスが設定されていません\n");
+		DEBUG_LOG_ERROR(
+			"同じPipelineIDのPSOが既に登録されています\n"
+		);
+		return false;
+	}
+
+	// VS・PSは必須とする
+	if (!_desc.vsPath)
+	{
+		DEBUG_LOG_ERROR("VSパスが設定されていません\n");
 		return false;
 	}
 
@@ -558,9 +568,7 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 	ComPtr<ID3DBlob> vsBlob{ Compile(_desc.vsPath, "main", "vs_5_0") }; // 頂点
 	if (!vsBlob) { DEBUG_LOG_ERROR("VSのコンパイルに失敗しました\n"); return false; }
 
-	ComPtr<ID3DBlob> psBlob{ Compile(_desc.psPath, "main", "ps_5_0") }; // ピクセル
-	if (!psBlob) { DEBUG_LOG_ERROR("PSのコンパイルに失敗しました\n"); return false; }
-
+	ComPtr<ID3DBlob> psBlob{}; // ピクセル
 	ComPtr<ID3DBlob> hsBlob{}; // ハル
 	ComPtr<ID3DBlob> dsBlob{}; // ドメイン
 	ComPtr<ID3DBlob> gsBlob{}; // ジオメトリ
@@ -571,17 +579,22 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 		DEBUG_LOG_ERROR("HSとDSは両方設定する必要があります\n");
 		return false;
 	}
-	if ((hsBlob != nullptr) && _desc.topology != D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
+	if ((_desc.hsPath != nullptr) && _desc.topology != D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
 	{
 		DEBUG_LOG_ERROR("HSとDSを使用する場合はTopologyTypeをPATCHにしてください\n");
 		return false;
 	}
-	if ((hsBlob == nullptr) && _desc.topology == D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
+	if ((_desc.hsPath == nullptr) && _desc.topology == D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
 	{
 		DEBUG_LOG_ERROR("PATCHを使用する場合はHSとDSが必要です\n");
 		return false;
 	}
 
+	if (_desc.psPath)
+	{
+		psBlob = Compile(_desc.psPath, "main", "ps_5_0");
+		if (!psBlob) { DEBUG_LOG_ERROR("PSのコンパイルに失敗しました\n"); return false; }
+	}
 	if (_desc.hsPath)
 	{
 		hsBlob = Compile(_desc.hsPath, "main", "hs_5_0"); // ハル
