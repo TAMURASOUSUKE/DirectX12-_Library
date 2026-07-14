@@ -841,7 +841,7 @@ TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::Scrat
 			UpdateSubresources(_cmd, texResource.Get(), uploadBuffer.Get(), 0, 0, static_cast<UINT>(subresources.size()), subresources.data());
 
 			// バリアを使ってDESTからPIXEL_SHADER_RESOURCEへ遷移
-			D3D12_RESOURCE_BARRIER barrier{ CD3DX12_RESOURCE_BARRIER::Transition(texResource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE) };
+			D3D12_RESOURCE_BARRIER barrier{ CD3DX12_RESOURCE_BARRIER::Transition(texResource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
 			_cmd->ResourceBarrier(1, &barrier);
 		}
 	);
