@@ -32,6 +32,7 @@ enum class PipelineID
 	Model, // 3Dモデル
 	ShapeFill, //  2D基本図形塗りつぶし
 	ShapeWire, // 2D基本図形ワイヤー
+	TerrainWire, // テッセレーションデモ
 	Count,
 };
 
@@ -41,6 +42,7 @@ enum class RootSigID
 	Texture, // 画像用
 	Model, // 3Dモデル
 	Shape, // 2D基本形状
+	Terrain, // テッセレーションデモ
 	Count,
 };
 
@@ -319,10 +321,19 @@ struct AnimInstanceData
 	float currentTime{ 0.0f }; // 再生時刻
 }; 
 
-
 // 管理するスロット
 struct ModelSlot
 {
 	ModelData data; // 実体
 	uint32_t generation{ 0 }; // 世代
+};
+
+// TerrainのCB
+struct TerrainCB
+{
+	Mat4x4 mvp{ Mat4x4::Identity }; // mvp行列
+	Vector4 color{ 1.0f, 1.0f, 1.0f, 1.0f }; // 色
+	float heightScale{ 1.0f }; // 高さ具合
+	float tessFactor{ 4.0f }; // 分割係数
+	float padding[2]{};
 };

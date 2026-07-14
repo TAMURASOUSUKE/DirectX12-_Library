@@ -803,5 +803,12 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	shape.rootSignatureID = RootSigID::Shape;
 	shape.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // 座標変換(b0)
 	descs.push_back(std::move(shape)); // shape変数は使わないのでmoveして空にする(コピーの必要性なし)
+	// Terrain用
+	RootSignatureDesc terrain{};
+	terrain.rootSignatureID = RootSigID::Terrain;
+	terrain.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_HULL)); // HS用のCBV
+	terrain.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_DOMAIN)); // DS用のCBV 番号が同じでもステージが違うから共存できる
+	terrain.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_DOMAIN)); // DS用のテクスチャ
+	terrain.staticSamplers.push_back(MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_DOMAIN)); // サンプラー
 	return descs;
 }

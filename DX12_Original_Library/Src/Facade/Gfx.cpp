@@ -24,6 +24,11 @@ namespace {
 	RingConstantBuffer mvpRingCBV; // MVP行列用定数バッファのデータメンバ
 	RingConstantBuffer materialRingCBV; // material用定数バッファのデータメンバ
 	RingConstantBuffer skinningRingCBV; // スキニング行列定数バッファのデータメンバ
+	// 毎回内容を更新する定数バッファ
+	RingConstantBuffer terrainRingCBV{};
+	// 全Terrain描画で共有するグリッド
+	VertexBuffer terrainVertexBuffer{};
+	IndexBuffer terrainIndexBuffer{};
 	Mat4x4 vpMat; // View * Projection
 	Mat4x4 mvpMat;
 	SpriteBatch fgBatch; // 手前のスプライトバッチ処理
@@ -51,6 +56,12 @@ namespace {
 		 {.rootSignatureID = RootSigID::Texture, .pipelineID = PipelineID::Sprite,
 		  .vsPath = L"../Src/Shaders/TextureVS.hlsl", .psPath = L"../Src/Shaders/TexturePS.hlsl",
 		  .layout = InputLayout::Texture, .blend = BlendMode::Alpha, .depth = DepthParam::None},
+		  // Terrain
+		{.rootSignatureID = RootSigID::Terrain, .pipelineID = PipelineID::TerrainWire,
+		.vsPath = L"../Src/Shaders/TerrainVS.hlsl", .psPath = L"../Src/Shaders/TerrainPS.hlsl",
+		.hsPath = L"../Src/Shaders/TerrainHS.hlsl", .dsPath = L"../Src/Shaders/TerrainDS.hlsl",
+		.layout = InputLayout::Texture, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite, // textureを流用できる
+		.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH, .fillMode = D3D12_FILL_MODE_WIREFRAME} // hsとdsを使うのでパッチ系のpipelineという大分類にする , 分割された三角形を確認できるようにワイヤー
 	};
 }
 
@@ -138,6 +149,71 @@ namespace {
 			cmd->DrawIndexedInstanced(sub.indexBuffer.indexCount, 1, 0, 0, 0);
 		}
 	}
+
+	// Terrainのリソースを初期化する
+	bool InitializeTerrainResources()
+	{
+		constexpr UINT GRID_SIZE{ 8 };
+		std::vector<TexVertex> vertices{};
+		std::vector<uint32_t> indices{};
+		vertices.reserve(GRID_SIZE * GRID_SIZE); // 正方形
+		indices.reserve((GRID_SIZE - 1) * (GRID_SIZE - 1) * 6);
+
+		for (UINT z = 0; z < GRID_SIZE; z++)
+		{
+			for (UINT x = 0; x < GRID_SIZE; x++)
+			{
+				const float u{ static_cast<float>(x) / static_cast<float>(GRID_SIZE - 1) };
+				const float v{ static_cast<float>(z) / static_cast<float>(GRID_SIZE - 1) };
+				TexVertex vertex{};
+
+				// 1x1のサイズで中心が原点のXZ平面を作る(実際の大きさはWorld行列で変更)
+				vertex.position[0] = u - 0.5f;
+				vertex.position[1] = 0.0f;
+				vertex.position[2] = v - 0.5f;
+				vertex.uv[0] = u;
+				vertex.uv[1] = v;
+				vertices.push_back(vertex);
+			}
+		}
+
+		for (UINT z = 0; z < GRID_SIZE; z++)
+		{
+			for (UINT x = 0; x < GRID_SIZE; x++)
+			{
+				const uint32_t i0{ z * GRID_SIZE + x };
+				const uint32_t i1{ i0 + 1 };
+				const uint32_t i2{ i0 + GRID_SIZE };
+				const uint32_t i3{ i2 + 1 };
+
+				// 1マス目の三角形
+				indices.push_back(i0);
+				indices.push_back(i2);
+				indices.push_back(i1);
+
+				// 2枚目の三角形
+				indices.push_back(i1);
+				indices.push_back(i2);
+				indices.push_back(i3);
+			}
+		}
+
+		terrainVertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(vertices.data(), static_cast<UINT>(vertices.size() * sizeof(TexVertex)), sizeof(TexVertex));
+		terrainIndexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(indices.data(), static_cast<UINT>(indices.size() * sizeof(uint32_t)), static_cast<UINT>(indices.size()));
+		if (!terrainIndexBuffer.resource || !terrainVertexBuffer.resource)
+		{
+			DEBUG_LOG_ERROR("Terrainグリッドの作成に失敗しました\n");
+			return false;
+		}
+		terrainRingCBV.Initialize(sizeof(TerrainCB));
+		return true;
+	}
+
+	// Terrain描画の内部処理
+	void DrawTerrainInternal(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap)
+	{
+		ID3D12GraphicsCommandList* cmd{ GraphicsDevice::Instance().GetCommandList() };
+	}
 }
 
 // 初期化処理(これを呼ぶだけで初期化処理が済むようにする)
@@ -189,6 +265,8 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	}
 
 	GraphicsResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
+	// グリッドとCBの作成
+	if (!InitializeTerrainResources()) return false;
 
 	// ピクセル座標からNDC座標へ変換
 	Mat4x4 orthMat{ Mat4x4::MakeOrthGraphic(static_cast<float>(_width), static_cast<float>(_height)) }; // 変換行列の作成
@@ -435,6 +513,11 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* 
 	{
 		DrawStaticModel(_model, _transform);
 	}
+
+}
+
+void Gfx::DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap)
+{
 
 }
 

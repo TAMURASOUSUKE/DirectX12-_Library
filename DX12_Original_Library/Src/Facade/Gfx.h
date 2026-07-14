@@ -44,6 +44,8 @@ namespace Gfx
 	void DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation = 0.0f, Vector2 _uvMin = { Vector2::Zero }, Vector2 _uvMax = { Vector2::One }, LenderLayer _layer = LenderLayer::ForeGround);
 	// モデルを描画する(テスト用にAnimDataを受け取っているが後で修正)
 	void DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* _animData = nullptr);
+	// terrainを描画する : 位置, 大きさ(xz平面にのみかかります), 分割係数 , 高さ ,変形形状を決めるheightMap(無ければplane描画になります)
+	void DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap = {});
 	// 色の変更(今後は引数を変更)
 	void SetBaseColor(ModelHandle model, int submeshIndex, Vector4 color);
 	// テクスチャの変更(今後は引数を変更)
