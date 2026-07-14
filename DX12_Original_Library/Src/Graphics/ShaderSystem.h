@@ -27,15 +27,6 @@ public:
 	// 汎用RootSignatureDescを作成する関数
 	std::vector<RootSignatureDesc> MakeRootSignatureDescs();
 
-	ComPtr<ID3D12RootSignature> CreateTextureRootSignature(); // テクスチャ表示用ルートシグネチャの作成
-	ComPtr<ID3D12PipelineState> CreateTexturePipeLineState(ID3D12RootSignature* _rootSig, ID3DBlob* _vsBlob, ID3DBlob* _psBlob); // テクスチャ表示用パイプラインステートオブジェクトの作成
-
-	ComPtr<ID3D12RootSignature> CreateModelRootSignature(); // モデル表示用ルートシグネチャの作成
-	ComPtr<ID3D12PipelineState> CreateModelPipeLineState(ID3D12RootSignature* _rootSig, ID3DBlob* _vsBlob, ID3DBlob* _psBlob); // モデル表示用パイプラインステート作成
-
-	ComPtr<ID3D12RootSignature> CreateShapeRootSignature(); // 2D基礎図形描画用
-	ComPtr<ID3D12PipelineState> CreateShapePipeLineState(ID3D12RootSignature* _rootSig, ID3DBlob* _vsBolb, ID3DBlob* _psBlob, bool _isWireFlag );
-
 	// 指定したIDでPipelineを引くことができるGetter
 	ID3D12PipelineState* GetPipeline(PipelineID _id) const { return pipelines[static_cast<int>(_id)].Get(); }
 	// 指定したIDでRootSinatureを引くことができるGetter
