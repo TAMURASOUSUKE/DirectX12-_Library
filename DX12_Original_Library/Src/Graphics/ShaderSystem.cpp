@@ -788,6 +788,7 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs()
 	descs.push_back(std::move(model)); // model変数は使わないのでmoveして空にする(コピーの必要性なし)
 	// Shape用
 	RootSignatureDesc shape{};
+	shape.rootSignatureID = RootSigID::Shape;
 	shape.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // 座標変換(b0)
 	descs.push_back(std::move(shape)); // shape変数は使わないのでmoveして空にする(コピーの必要性なし)
 	return descs;
