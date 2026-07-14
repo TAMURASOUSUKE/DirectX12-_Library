@@ -809,7 +809,13 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	terrain.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_HULL)); // HS用のCBV
 	terrain.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_DOMAIN)); // DS用のCBV 番号が同じでもステージが違うから共存できる
 	terrain.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_DOMAIN)); // DS用のテクスチャ
-	terrain.staticSamplers.push_back(MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_DOMAIN)); // サンプラー
+	// サンプラー
+	D3D12_STATIC_SAMPLER_DESC terrainSampler{ MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_DOMAIN) }; // 基本的なサンプラー設定
+	// UV範囲外では端のピクセルにする
+	terrainSampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	terrainSampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	terrainSampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	terrain.staticSamplers.push_back(terrainSampler);
 	descs.push_back(std::move(terrain)); // shape変数は使わないのでmoveして空にする(コピーの必要性なし)
 	return descs;
 }

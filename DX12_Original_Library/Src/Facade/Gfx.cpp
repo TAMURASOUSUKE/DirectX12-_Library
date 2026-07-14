@@ -229,7 +229,11 @@ namespace {
 			heightMap = GraphicsResourceManager::Instance().Lookup(fallback); // 白テクスチャを使う
 			effectiveHeightScale = 0.0f; // ハイトマップがないときは高さ0にする
 		}
-		if (!heightMap) return;
+		if (!heightMap)
+		{
+			DEBUG_LOG_ERROR("heighMapがデフォルトを含め失敗しました\n");
+			return;
+		}
 
 		// Terrain用RootSigとPSO
 		cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Terrain));
