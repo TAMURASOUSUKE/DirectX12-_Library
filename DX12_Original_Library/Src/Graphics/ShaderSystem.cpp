@@ -1,6 +1,7 @@
 ﻿#include <algorithm>
 #include <string>
 #include <d3dcompiler.h>
+#include "../Debug/DebugLogs.h"
 #include "ShaderSystem.h"
 
 // GraphicsTypeに設定されているenumを実の値へと変換する
@@ -364,11 +365,309 @@ ComPtr<ID3DBlob> ShaderSystem::Compile(const wchar_t* _filePath, const char* _en
 
 bool ShaderSystem::CreateRootSignature(const RootSignatureDesc& _desc)
 {
+	if (!device)
+	{
+		DEBUG_LOG_ERROR("Deviceが設定されていません\n");
+		return false;
+	}
+
+	const size_t id{ static_cast<size_t>(_desc.rootSignatureID) }; // IDを数値化
+	// 範囲外かつ無効値(Count以外か)を見る
+	if (id >= static_cast<size_t>(RootSigID::Count))
+	{
+		DEBUG_LOG_ERROR("RootSignatureが範囲外でした\n");
+		return false;
+	}
+
+	// 既に使われているIDを上書きすると、
+	// Batchが保持している生ポインタが無効になる可能性がある
+	if (rootSigs[id])
+	{
+		DEBUG_LOG_ERROR("同じRootSigIDのRootSignatureが既に登録されています\n");
+		return false;
+	}
+
+	// 独自のRootSignatureDescをD3D12用にする
+	std::vector<D3D12_ROOT_PARAMETER> nativeParams(_desc.parameters.size());
+
+	// DescriptorTableごとのRange配列
+	std::vector<std::vector<D3D12_DESCRIPTOR_RANGE>> nativeRangeStorage(_desc.parameters.size());
+
+	// パラメータをひとつづつ変換する
+	for (size_t i = 0; i < _desc.parameters.size(); i++)
+	{
+		const RootParamDesc& src{ _desc.parameters[i] }; // パラメータを取り出す
+
+		D3D12_ROOT_PARAMETER& dst{ nativeParams[i] }; // パラメータを取り出す
+		dst = {}; // unionが含まれるのでまず0初期化する
+
+		// RootParameterの種類と参照可能なShaderStageは共通
+		dst.ParameterType = src.type;
+		dst.ShaderVisibility = src.visibility;
+
+		switch (src.type)
+		{
+		case D3D12_ROOT_PARAMETER_TYPE_CBV:
+		case D3D12_ROOT_PARAMETER_TYPE_SRV: 
+		case D3D12_ROOT_PARAMETER_TYPE_UAV: 
+			// RootDescriptorの場合処理 cbvならb番号、srvならt番号、uavならu番号
+			dst.Descriptor.ShaderRegister = src.shaderRegister;
+			dst.Descriptor.RegisterSpace = src.registerSpace;
+			break;
+
+		case D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS:
+			// RootConstantの場合
+			dst.Constants.ShaderRegister = src.shaderRegister;
+			dst.Constants.RegisterSpace = src.registerSpace;
+			dst.Constants.Num32BitValues = src.num32BitValues;
+
+			// 要素数0のRootConstantsは意味がない
+			if (src.num32BitValues == 0)
+			{
+				DEBUG_LOG_ERROR("RootConstantの要素数が0でした\n");
+				return false;
+			}
+			break;
+
+		case D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
+		{
+			// DescriptorTableには最低1つのRangeが必要
+			if (src.ranges.empty())
+			{
+				return false;
+			}
+
+			std::vector<D3D12_DESCRIPTOR_RANGE>& ranges{ nativeRangeStorage[i] };
+			ranges.reserve(src.ranges.size()); // push_backよる再確保を避ける
+
+
+			for (const DescriptorRangeDesc& rangeSrc : src.ranges)
+			{
+				D3D12_DESCRIPTOR_RANGE range{};
+
+				// SRV/CBV/UAV/Samplerのどれを並べるか
+				range.RangeType = rangeSrc.type;
+				// Descriptorを連続して何個並べるか
+				range.NumDescriptors = rangeSrc.numDescriptors;
+				// 開始番号
+				range.BaseShaderRegister = rangeSrc.baseShaderRegister;
+				// 通常space0
+				range.RegisterSpace = rangeSrc.registerSpace;
+				// Table内の配置位置
+				range.OffsetInDescriptorsFromTableStart = rangeSrc.offset;
+
+				// 個数0のRangeは無効
+				if (range.NumDescriptors == 0)
+				{
+					DEBUG_LOG_ERROR("Rangeの個数が0でした\n");
+					return false;
+				}
+
+				ranges.push_back(range); // データを詰め込む
+			}
+			dst.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(ranges.size());
+			// rangesの全要素を追加し終わってからdata()を取得する
+			// 先に取得すると、再確保によるポインタ無効を引き起こす可能性がある
+			dst.DescriptorTable.pDescriptorRanges = ranges.data();
+			break;
+		}
+		default:
+			return false;
+		}
+	}
+	D3D12_ROOT_SIGNATURE_DESC nativeDesc{};
+	// IAの入力レイアウトを使用可能にするなどのフラグ
+	nativeDesc.Flags = _desc.flags;
+
+	// RootParameter配列を渡す
+	nativeDesc.NumParameters = static_cast<UINT>(nativeParams.size());
+	nativeDesc.pParameters = nativeParams.empty() ? nullptr : nativeParams.data(); // パラメータが空かチェックする
+	// Static Samplerは独自Desc側でD3D12型を直接保有しているのでそのままポインタを渡す
+	nativeDesc.NumStaticSamplers = static_cast<UINT>(_desc.staticSamplers.size());
+	nativeDesc.pStaticSamplers = _desc.staticSamplers.empty() ? nullptr : _desc.staticSamplers.data();
+	// _descは関数終了まで存在するのでdataはserialize中有効
+	ComPtr<ID3DBlob> signatureBlob{};
+	ComPtr<ID3DBlob> errorBlob{};
+
+	// serialize(RootSignatureの設計図をGPUドライバが扱えるバイナリに変換する)
+	HRESULT result{D3D12SerializeRootSignature(&nativeDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &signatureBlob, &errorBlob)};
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("RootSignatureのserialize化に失敗しました\n");
+		if (errorBlob)
+		{
+			OutputDebugStringA(static_cast<const char*>(errorBlob->GetBufferPointer()));
+			OutputDebugStringA("\n");
+		}
+		return false;
+	}
+	// 実際にRootSingatureを作る
+	ComPtr<ID3D12RootSignature> rootSignature{}; // 失敗してもComPtrなので自動解放してくれる
+	result = device->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("RootSingatureの作成に失敗しました\n");
+		return false;
+	}
+	// すべて成功した状態で登録を行う
+	rootSigs[id] = rootSignature;
+
 	return true;
 }
 
 bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 {
+	if (!device)
+	{
+		DEBUG_LOG_ERROR("Deviceが設定されていません\n");
+		return false;
+	}
+
+	const size_t pipelineID{static_cast<size_t>(_desc.pipelineID)}; // IDを取り出す
+	const size_t rootSignatureID{ static_cast<size_t>(_desc.rootSignatureID) };
+	const size_t layoutID{ static_cast<size_t>(_desc.layout) };
+	const size_t blendID{ static_cast<size_t>(_desc.blend) };
+	const size_t depthID{ static_cast<size_t>(_desc.depth) };
+
+	// 各enumがテーブルの範囲内にあるか確認する
+	if (pipelineID >= static_cast<size_t>(PipelineID::Count) ||
+		rootSignatureID >= static_cast<size_t>(RootSigID::Count) ||
+		layoutID >= static_cast<size_t>(InputLayout::Count) ||
+		blendID >= static_cast<size_t>(BlendMode::Count) ||
+		depthID >= static_cast<size_t>(DepthParam::Count))
+	{
+		DEBUG_LOG_ERROR("GraphicsPipelineDescに無効なIDが指定されています\n");
+		return false;
+	}
+
+	// RootSignatureが先に作られているか確認
+	if (!rootSigs[rootSignatureID])
+	{
+		DEBUG_LOG_ERROR("指定されたRootSignatureが作成されていません\n");
+		return false;
+	}
+
+	// VSは必須とする
+	if (!_desc.vsPath)
+	{
+		DEBUG_LOG_ERROR("VSのパスが設定されていませ\n");
+		return false;
+	}
+
+	// 各シェーダーのコンパイル
+	ComPtr<ID3DBlob> vsBlob{ Compile(_desc.vsPath, "main", "vs_5_0") }; // 頂点
+	if (!vsBlob) { DEBUG_LOG_ERROR("VSのコンパイルに失敗しました\n"); return false; }
+
+	ComPtr<ID3DBlob> psBlob{ Compile(_desc.psPath, "main", "ps_5_0") }; // ピクセル
+	if (!psBlob) { DEBUG_LOG_ERROR("PSのコンパイルに失敗しました\n"); return false; }
+
+	ComPtr<ID3DBlob> hsBlob{}; // ハル
+	ComPtr<ID3DBlob> dsBlob{}; // ドメイン
+	ComPtr<ID3DBlob> gsBlob{}; // ジオメトリ
+
+	// テッセレーションではHSとDSはセットで扱う
+	if ((hsBlob == nullptr) != (dsBlob == nullptr))
+	{
+		DEBUG_LOG_ERROR("HSとDSは両方設定する必要があります\n");
+		return false;
+	}
+	if ((hsBlob != nullptr) && _desc.topology != D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
+	{
+		DEBUG_LOG_ERROR("HSとDSを使用する場合はTopologyTypeをPATCHにしてください\n");
+		return false;
+	}
+	if ((hsBlob == nullptr) && _desc.topology == D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
+	{
+		DEBUG_LOG_ERROR("PATCHを使用する場合はHSとDSが必要です\n");
+		return false;
+	}
+
+	hsBlob = Compile(_desc.hsPath, "main", "hs_5_0"); // ハル
+	if (!hsBlob) { DEBUG_LOG_ERROR("HSのコンパイルに失敗しました\n"); return false; }
+	dsBlob = Compile(_desc.dsPath, "main", "ds_5_0"); // ドメイン
+	if (!dsBlob) { DEBUG_LOG_ERROR("DSのコンパイルに失敗しました\n"); return false; }
+	gsBlob = Compile(_desc.gsPath, "main", "gs_5_0"); // ジオメトリ
+	if (!gsBlob) { DEBUG_LOG_ERROR("GSのコンパイルに失敗しました\n"); return false; }
+
+	// PSOの実際のDescを組み立てる
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC nativeDesc{};
+	// PSO対応するRootSingatureを出す
+	nativeDesc.pRootSignature = rootSigs[rootSignatureID].Get();
+
+	// shader群(現状VSは必須としているのでif無し)
+	nativeDesc.VS.pShaderBytecode = vsBlob->GetBufferPointer();
+	nativeDesc.VS.BytecodeLength = vsBlob->GetBufferSize();
+
+	if (psBlob)
+	{
+		nativeDesc.PS.pShaderBytecode = psBlob->GetBufferPointer();
+		nativeDesc.PS.BytecodeLength = psBlob->GetBufferSize();
+	}
+	if (hsBlob)
+	{
+		nativeDesc.HS.pShaderBytecode = hsBlob->GetBufferPointer();
+		nativeDesc.HS.BytecodeLength = hsBlob->GetBufferSize();
+	}
+	if (dsBlob)
+	{
+		nativeDesc.DS.pShaderBytecode = dsBlob->GetBufferPointer();
+		nativeDesc.DS.BytecodeLength = dsBlob->GetBufferSize();
+	}
+	if (gsBlob)
+	{
+		nativeDesc.GS.pShaderBytecode = gsBlob->GetBufferPointer();
+		nativeDesc.GS.BytecodeLength = gsBlob->GetBufferSize();
+	}
+	// InputLayoutはTableを使う
+	const LayoutEntry& layout{ LAYOUT_TABLE[layoutID] };
+	nativeDesc.InputLayout.pInputElementDescs = layout.elements; // noneだとnull
+	nativeDesc.InputLayout.NumElements = layout.count; // noneだと0
+
+	// Blend設定
+	const D3D12_RENDER_TARGET_BLEND_DESC& blend{ BLEND_TABLE[blendID] };
+	nativeDesc.BlendState.AlphaToCoverageEnable = false; // αテスト無し
+	nativeDesc.BlendState.IndependentBlendEnable = false; // それぞれのパイプラインステートに対して個別のブレンドステートを割り当てない
+	nativeDesc.BlendState.RenderTarget[0] = blend;
+
+	// 深度ステートとDSVフォーマットは組で選択する
+	const DepthEntry& depth{ DEPTH_TABLE[depthID] };
+	nativeDesc.DepthStencilState = depth.state;
+	nativeDesc.DSVFormat = depth.dsvFormat;
+		 
+	// ラスタライザ設定
+	nativeDesc.RasterizerState.FillMode = _desc.fillMode; // 塗るかwireか
+	nativeDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE; // 一旦全てNone(今後モデル等では拡張する可能性あり)
+	nativeDesc.RasterizerState.FrontCounterClockwise = false;
+
+	// 深度範囲外の頂点をクリップする
+	nativeDesc.RasterizerState.DepthClipEnable = true;
+	nativeDesc.RasterizerState.MultisampleEnable = false;
+	nativeDesc.RasterizerState.AntialiasedLineEnable = false;
+	nativeDesc.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+
+	// 残りの設定
+	nativeDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+	nativeDesc.PrimitiveTopologyType = _desc.topology;
+
+	// とりあえず今はRenderTargetを1枚だけ使用する
+	nativeDesc.NumRenderTargets = 1;
+	nativeDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+	// MSAAなし
+	nativeDesc.SampleDesc.Count = 1;
+	nativeDesc.SampleDesc.Quality = 0;
+
+	// 生成して登録
+	ComPtr<ID3D12PipelineState> pipeline{};
+	HRESULT result{ device->CreateGraphicsPipelineState(&nativeDesc, IID_PPV_ARGS(&pipeline)) };
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("パイプラインステートの作成に失敗しました。\n");
+		return false;
+	}
+
+	// 台帳へ登録
+	pipelines[pipelineID] = pipeline;
 	return true;
 }
 
