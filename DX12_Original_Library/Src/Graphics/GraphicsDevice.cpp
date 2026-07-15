@@ -208,6 +208,42 @@ void GraphicsDevice::Shutdown()
 	}
 }
 
+bool GraphicsDevice::WaitForGPU()
+{
+	// コマンドキューとフェンスガン変えればそもそも失敗
+	if (!cmdQueue || !fence)
+	{
+		return false;
+	}
+	const UINT64 waitValue{ ++fenceValueCounter };
+	HRESULT result{ cmdQueue->Signal(fence.Get(), waitValue) };  // フェンス値の設定
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("フェンス値の設定に失敗しました\n");
+		return false;
+	}
+
+	// 設定したフェンス値になっているか設定
+	if (fence->GetCompletedValue() < waitValue)
+	{
+		HANDLE event{ CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS) };
+		DEBUG_ASSERT(event != nullptr); // デバッグ時失敗したら場所を知らせる
+		if (!event) return; // nullチェック
+		// フェンスの値が第一引数以上になるとeventがシグナル状態になる
+		fence->SetEventOnCompletion(waitValue, event);
+
+		// eventがシグナル状態になるまで待機
+		const DWORD waitResult{ WaitForSingleObject(event, INFINITE) };
+		CloseHandle(event); // eventを閉じる
+		if (waitResult != WAIT_OBJECT_0)
+		{
+			DEBUG_LOG_ERROR("GPU待機処理が失敗しました\n");
+			return false;
+		}
+	}
+	return true;
+}
+
 // フレームの最初に行う処理
 void GraphicsDevice::BeginFrame()
 {

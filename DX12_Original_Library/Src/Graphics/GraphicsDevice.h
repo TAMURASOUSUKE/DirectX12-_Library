@@ -21,6 +21,8 @@ public:
 	void Initialize(HWND _hwnd, int _width, int _height);
 	// 終了処理
 	void Shutdown();
+	// GPU待機処理
+	bool WaitForGPU();
 
 	// フレームの最初に呼び出す関数
 	void BeginFrame();
