@@ -9,7 +9,11 @@ void RingConstantBuffer::Initialize(UINT _dataSize)
 {
 	alignedSize = (_dataSize + 0xff) & ~0xff; // 256バイトへの切り上げ
 	DynamicBuffer db{ GraphicsResourceManager::Instance().CreateDynamicBuffer(FRAME_BUFFER_COUNT * MAX_CB_PER_FRAME * alignedSize) }; // 動的なバッファ確保
-	if (!db.mappedPtr) return; // mapされたCPUptrを確認してnullであれば失敗判定
+	if (!db.mappedPtr)
+	{
+		DEBUG_LOG_ERROR("MapされたCPUPtrがnullでした\n");
+		return; // mapされたCPUptrを確認してnullであれば失敗判定
+	}
 
 	// メンバへ渡す
 	resource = db.resource; // リソースオブジェクト

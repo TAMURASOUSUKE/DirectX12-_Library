@@ -40,6 +40,12 @@ public:
 	// 現在のフレームインデックスを取得する
 	UINT GetCurrentFrameIndex() const;
 
+	// GPUが処理完了したところまでのフェンス値を取得する
+	UINT64 GetCompletedFenceValue() const;
+
+	// CPU側が最後にGPUへ通知したフェンス値を取得する
+	UINT64 GetLastSubmittedFenceValue() const;
+
 	// ヘルパー
 	HRESULT ExecuteUpdate(std::function<void(ID3D12GraphicsCommandList*)> _recode); // アップロードヘルパー
 

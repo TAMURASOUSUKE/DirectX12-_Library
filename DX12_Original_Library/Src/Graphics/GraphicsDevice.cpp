@@ -430,3 +430,21 @@ HRESULT GraphicsDevice::ExecuteUpdate(std::function<void(ID3D12GraphicsCommandLi
 
 	return S_OK; // ここまで来たら成功を返す
 }
+
+UINT64 GraphicsDevice::GetCompletedFenceValue() const
+{
+	// Shutdown後など、フェンスが存在しない場合の保険
+	if (fence == nullptr)
+	{
+		return 0;
+	}
+
+	// GPUが実際に処理を完了したフェンス値
+	return fence->GetCompletedValue();
+}
+
+UINT64 GraphicsDevice::GetLastSubmittedFenceValue() const
+{
+	// CPU側が最後にSignalへ使用したフェンス値
+	return fenceValueCounter;
+}

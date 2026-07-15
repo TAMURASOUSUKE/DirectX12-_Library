@@ -48,7 +48,7 @@ namespace Gfx
 	void DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap = {});
 	// 色の変更(今後は引数を変更)
 	void SetBaseColor(ModelHandle model, int submeshIndex, Vector4 color);
-	// テクスチャの変更(今後は引数を変更)
+	// テクスチャの変更(今後は引数を変更) : セットしたモデルがUnloadされた場合セットしたTextureは解放されません(個別で解放が必要)
 	void SetTexture(ModelHandle model, int submeshIndex, TexHandle texture);
 	// テクスチャリソースの解放
 	void Unload(TexHandle _handle);
