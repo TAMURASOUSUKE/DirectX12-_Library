@@ -25,6 +25,115 @@ enum class LenderLayer
 	ForeGround, // 3Dオブジェクトより手前に来る画像
 };
 
+// 規定のパイプラインステートを選ぶためのID
+enum class PipelineID
+{
+	Sprite, // 画像
+	Model, // 3Dモデル
+	ShapeFill, //  2D基本図形塗りつぶし
+	ShapeWire, // 2D基本図形ワイヤー
+	TerrainWire, // テッセレーションデモ
+	Count,
+};
+
+// 規定のルートシグネチャを選ぶためのID
+enum class RootSigID
+{
+	Texture, // 画像用
+	Model, // 3Dモデル
+	Shape, // 2D基本形状
+	Terrain, // テッセレーションデモ
+	Count,
+};
+
+// ブレンドモードの設定
+enum class BlendMode
+{
+	Opaque, // 不透明
+	Alpha,  // 透明度計算含み
+	Count,
+};
+
+// セマンティクス設定を選択するためのもの
+enum class InputLayout
+{
+	None, // なし(ポストエフェクト等に対応させるため)
+	Texture, // 画像
+	Model, // 3Dモデル
+	Shape, // 2D形状
+	Count,
+};
+
+// 深度を表す
+enum class DepthParam
+{
+	None, // 深度計算なし
+	ReadWrite, // 読み込み書き込みができる
+	ReadOnly, // 読み込みだけ
+	Count,
+};
+
+// DescriptorTabel内の1レンジ
+struct DescriptorRangeDesc
+{
+	D3D12_DESCRIPTOR_RANGE_TYPE type{ D3D12_DESCRIPTOR_RANGE_TYPE_SRV }; // リソースの種類
+	UINT numDescriptors{ 1 }; // 個数
+	UINT baseShaderRegister{ 0 }; // 開始レジスタ番号
+	UINT registerSpace{ 0 }; // レジスタの空間区切り
+	UINT offset{ D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND }; // オフセット
+};
+
+// ルートパラーメータ1つ
+struct RootParamDesc
+{
+	D3D12_ROOT_PARAMETER_TYPE type{ D3D12_ROOT_PARAMETER_TYPE_CBV }; // 種類 : デフォルトはCBV
+	D3D12_SHADER_VISIBILITY visibility{ D3D12_SHADER_VISIBILITY_ALL }; // アクセスできる範囲
+	// CBV/SRV/UAV,Constant用
+	UINT shaderRegister{ 0 };
+	UINT registerSpace{ 0 };
+	UINT num32BitValues{ 0 };
+
+	// DescriptorTableの場合のみ使用
+	std::vector<DescriptorRangeDesc> ranges{};
+};
+
+// RootSignature全体
+struct RootSignatureDesc
+{
+	RootSigID rootSignatureID{RootSigID::Count}; // IDを無効値として設定する
+
+	std::vector<RootParamDesc> parameters{}; // パラメータ
+	std::vector<D3D12_STATIC_SAMPLER_DESC> staticSamplers{}; // サンプラー
+
+	D3D12_ROOT_SIGNATURE_FLAGS flags{ D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT };
+};
+
+// GraphicsのPSO生成時に使う設定構造体
+struct GraphicsPipelineDesc
+{
+	RootSigID rootSignatureID{ RootSigID::Count }; // ルートシグネチャの鍵
+	PipelineID pipelineID{PipelineID::Count}; // パイプラインステートの鍵
+	const wchar_t* vsPath{ nullptr }; // 頂点シェーダーパス
+	const wchar_t* psPath{ nullptr }; // ピクセルシェーダーパス
+	const wchar_t* hsPath{ nullptr }; // ハルシェーダーパス
+	const wchar_t* dsPath{ nullptr }; // ドメインシェーダーパス
+	const wchar_t* gsPath{ nullptr }; // ジオメトリシェーダーパス
+	InputLayout layout{InputLayout::None}; // 入力レイアウト
+	BlendMode blend{BlendMode::Opaque}; // ブレンドモード
+	DepthParam depth{DepthParam::None
+	}; // 深度設定
+	D3D12_PRIMITIVE_TOPOLOGY_TYPE topology{ D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE }; // 形状
+	D3D12_FILL_MODE fillMode{ D3D12_FILL_MODE_SOLID };
+};
+
+// Compute用PSO生成時に使う設定構造体
+struct ComputePipelineDesc
+{
+	RootSigID rootSignatureID{ RootSigID::Count }; // ルートシグネチャの鍵
+	PipelineID pipelineID{}; // パイプラインステートの鍵
+	const wchar_t* csPath{ nullptr }; // コンピュートシェーダーパス
+};
+
 // 書き込みを行うためのCPUハンドルと読み取るためのGPUハンドルとそのインデックスをまとめたハンドル
 struct DescriptorHandle
 {
@@ -212,10 +321,19 @@ struct AnimInstanceData
 	float currentTime{ 0.0f }; // 再生時刻
 }; 
 
-
 // 管理するスロット
 struct ModelSlot
 {
 	ModelData data; // 実体
 	uint32_t generation{ 0 }; // 世代
+};
+
+// TerrainのCB
+struct TerrainCB
+{
+	Mat4x4 mvp{ Mat4x4::Identity }; // mvp行列
+	Vector4 color{ 1.0f, 1.0f, 1.0f, 1.0f }; // 色
+	float heightScale{ 1.0f }; // 高さ具合
+	float tessFactor{ 4.0f }; // 分割係数
+	float padding[2]{};
 };

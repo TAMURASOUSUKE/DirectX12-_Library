@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include <windows.h>
 #include <functional>
+#include <vector>
+#include "../Graphics/GraphicsType.h"
 // グラフィックに関する関数のInitialize等ユーザーに提供しない部分をまとめた関数
 namespace GfxInternal
 {
@@ -12,6 +14,7 @@ namespace GfxInternal
 	void EndFrame();
 	// 終了処理
 	void Finish();
+
 
 	// HWNDの取得(今後はsystemファサードの役目になる)
 	HWND GetHWND();

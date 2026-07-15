@@ -9,9 +9,6 @@
 #include "../Graphics/SpriteBatch.h"
 #include "../Graphics/ShapeBatch.h"
 #include "../Graphics/RingConstantBuffer.h"
-#include "../Graphics/DrawDebug/DebugTriangle.h"
-#include "../Graphics/DrawDebug/DebugQuad.h"
-#include "../Graphics/DrawDebug/DebugCube.h"
 #include "../Graphics/GPUMarker.h"
 #include "../Math/TSMath.h"
 #include "../Graphics/GraphicsConstant.h"
@@ -27,32 +24,48 @@ namespace {
 	RingConstantBuffer mvpRingCBV; // MVP行列用定数バッファのデータメンバ
 	RingConstantBuffer materialRingCBV; // material用定数バッファのデータメンバ
 	RingConstantBuffer skinningRingCBV; // スキニング行列定数バッファのデータメンバ
+	// 毎回内容を更新する定数バッファ
+	RingConstantBuffer terrainRingCBV{};
+	// 全Terrain描画で共有するグリッド
+	VertexBuffer terrainVertexBuffer{};
+	IndexBuffer terrainIndexBuffer{};
 	Mat4x4 vpMat; // View * Projection
 	Mat4x4 mvpMat;
-	ComPtr<ID3D12RootSignature> triangleRootSignature; // 三角形用ルートシグネチャ
-	ComPtr<ID3D12RootSignature> textureRootSignature; // テクスチャ用ルートシグネチャ
-	ComPtr<ID3D12RootSignature> cubeRootSignature; // キューブ用用ルートシグネチャ
-	ComPtr<ID3D12PipelineState> trianglePipelineState; // 三角形用パイプラインステートオブジェクト
-	ComPtr<ID3D12PipelineState> texturePipelineState; // テクスチャ用パイプラインステートオブジェクト
-	ComPtr<ID3D12PipelineState> cubePipelineState; // キューブ用パイプラインステートオブジェクト
-	ComPtr<ID3D12RootSignature> modelRootSignature; // モデル用ルートシグネチャ
-	ComPtr<ID3D12PipelineState> modelPipeLineState; // モデル用パイプラインステート
-	ComPtr<ID3D12RootSignature> shapeRootSignature; // 基本図形ルートシグネチャ
-	ComPtr<ID3D12PipelineState> fillPipelineState; // 基本図形塗りつぶしのパイプラインステート
-	ComPtr<ID3D12PipelineState> wirePipelineState; // 基本図形wireのパイプラインステート
 	SpriteBatch fgBatch; // 手前のスプライトバッチ処理
 	SpriteBatch bgBatch; // 背景のスプライトバッチ処理
 	ShapeBatch shapeBatch; // 基本図形のバッチ処理
-	DebugTriangle triangle; // 三角形描画
-	DebugQuad quad; // テクスチャ描画
-	DebugCube cube; // キューブ描画
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	int screenWidth = 0; // 画面の横幅
 	int screenHeight = 0; // 画面の縦幅
+
+	constexpr GraphicsPipelineDesc PIPELINE_TABLE[]{
+		// 図形塗りつぶし
+		{.rootSignatureID = RootSigID::Shape, .pipelineID = PipelineID::ShapeFill,
+		  .vsPath = L"../Src/Shaders/ShapeVS.hlsl", .psPath = L"../Src/Shaders/ShapePS.hlsl", 
+		  .layout = InputLayout::Shape, .blend = BlendMode::Alpha, .depth = DepthParam::None },
+		  // 図形ワイヤー
+		{.rootSignatureID = RootSigID::Shape, .pipelineID = PipelineID::ShapeWire,
+		  .vsPath = L"../Src/Shaders/ShapeVS.hlsl", .psPath = L"../Src/Shaders/ShapePS.hlsl",
+		  .layout = InputLayout::Shape, .blend = BlendMode::Alpha, .depth = DepthParam::None,
+		  .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE },
+		  // 3Dモデル
+		{.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::Model,
+		 .vsPath = L"../Src/Shaders/ModelVS.hlsl", .psPath = L"../Src/Shaders/ModelPS.hlsl",
+		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite},
+		 // テクスチャ 
+		 {.rootSignatureID = RootSigID::Texture, .pipelineID = PipelineID::Sprite,
+		  .vsPath = L"../Src/Shaders/TextureVS.hlsl", .psPath = L"../Src/Shaders/TexturePS.hlsl",
+		  .layout = InputLayout::Texture, .blend = BlendMode::Alpha, .depth = DepthParam::None},
+		  // Terrain
+		{.rootSignatureID = RootSigID::Terrain, .pipelineID = PipelineID::TerrainWire,
+		.vsPath = L"../Src/Shaders/TerrainVS.hlsl", .psPath = L"../Src/Shaders/TerrainPS.hlsl",
+		.hsPath = L"../Src/Shaders/TerrainHS.hlsl", .dsPath = L"../Src/Shaders/TerrainDS.hlsl",
+		.layout = InputLayout::Texture, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite, // textureを流用できる
+		.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH, .fillMode = D3D12_FILL_MODE_WIREFRAME} // hsとdsを使うのでパッチ系のpipelineという大分類にする , 分割された三角形を確認できるようにワイヤー
+	};
 }
 
-namespace 
-{
+namespace {
 	// スキンメッシュ付き
 	void DrawSkinnedModel(AnimInstanceData& _anim, Transform _transform)
 	{
@@ -65,8 +78,8 @@ namespace
 		Mat4x4 worldMat{ _transform.GetWorldMatrix() }; // ワールド行列の取得
 		mvpMat = worldMat * vpMat;
 
-		cmd->SetGraphicsRootSignature(modelRootSignature.Get());
-		cmd->SetPipelineState(modelPipeLineState.Get());
+		cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Model));
+		cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::Model));
 
 		DescriptorManager::Instance().SetDiscriptor(cmd);
 		cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4))); // MVP更新
@@ -85,7 +98,7 @@ namespace
 			cmd->SetGraphicsRootConstantBufferView(1, materialRingCBV.Update(&matCB, sizeof(MaterialCB)));
 
 			TextureData* tex{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
-			if (tex) cmd->SetGraphicsRootDescriptorTable(3,  tex->srvHandle.gpu);
+			if (tex) cmd->SetGraphicsRootDescriptorTable(3, tex->srvHandle.gpu);
 
 			cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
 			cmd->IASetIndexBuffer(&sub.indexBuffer.indexView);
@@ -102,8 +115,8 @@ namespace
 		mvpMat = worldMat * vpMat;
 
 		// パイプライン設定
-		cmd->SetGraphicsRootSignature(modelRootSignature.Get());
-		cmd->SetPipelineState(modelPipeLineState.Get());
+		cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Model));
+		cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::Model));
 
 		DescriptorManager::Instance().SetDiscriptor(cmd); // Flushと同じ考え方
 		cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)));
@@ -136,6 +149,119 @@ namespace
 			cmd->DrawIndexedInstanced(sub.indexBuffer.indexCount, 1, 0, 0, 0);
 		}
 	}
+
+	// Terrainのリソースを初期化する
+	bool InitializeTerrainResources()
+	{
+		constexpr UINT GRID_SIZE{ 8 };
+		std::vector<TexVertex> vertices{};
+		std::vector<uint32_t> indices{};
+		vertices.reserve(GRID_SIZE * GRID_SIZE); // 正方形
+		indices.reserve((GRID_SIZE - 1) * (GRID_SIZE - 1) * 6);
+
+		for (UINT z = 0; z < GRID_SIZE; z++)
+		{
+			for (UINT x = 0; x < GRID_SIZE; x++)
+			{
+				const float u{ static_cast<float>(x) / static_cast<float>(GRID_SIZE - 1) };
+				const float v{ static_cast<float>(z) / static_cast<float>(GRID_SIZE - 1) };
+				TexVertex vertex{};
+
+				// 1x1のサイズで中心が原点のXZ平面を作る(実際の大きさはWorld行列で変更)
+				vertex.position[0] = u - 0.5f;
+				vertex.position[1] = 0.0f;
+				vertex.position[2] = v - 0.5f;
+				vertex.uv[0] = u;
+				vertex.uv[1] = v;
+				vertices.push_back(vertex);
+			}
+		}
+
+		for (UINT z = 0; z < GRID_SIZE - 1; z++)
+		{
+			for (UINT x = 0; x < GRID_SIZE - 1; x++)
+			{
+				const uint32_t i0{ z * GRID_SIZE + x };
+				const uint32_t i1{ i0 + 1 };
+				const uint32_t i2{ i0 + GRID_SIZE };
+				const uint32_t i3{ i2 + 1 };
+
+				// 1マス目の三角形
+				indices.push_back(i0);
+				indices.push_back(i2);
+				indices.push_back(i1);
+
+				// 2枚目の三角形
+				indices.push_back(i1);
+				indices.push_back(i2);
+				indices.push_back(i3);
+			}
+		}
+
+		terrainVertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(vertices.data(), static_cast<UINT>(vertices.size() * sizeof(TexVertex)), sizeof(TexVertex));
+		terrainIndexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(indices.data(), static_cast<UINT>(indices.size() * sizeof(uint32_t)), static_cast<UINT>(indices.size()));
+		if (!terrainIndexBuffer.resource || !terrainVertexBuffer.resource)
+		{
+			DEBUG_LOG_ERROR("Terrainグリッドの作成に失敗しました\n");
+			return false;
+		}
+		terrainRingCBV.Initialize(sizeof(TerrainCB));
+		return true;
+	}
+
+	// Terrain描画の内部処理
+	void DrawTerrainInternal(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap)
+	{
+		if (_scale <= 0.0f)
+		{
+			DEBUG_LOG_WARNING("Terrainのスケールは0より大きくしてください\n");
+			return;
+		}
+		ID3D12GraphicsCommandList* cmd{ GraphicsDevice::Instance().GetCommandList() };
+		if (!cmd || !terrainVertexBuffer.resource || !terrainIndexBuffer.resource) return;
+
+		// 指定されたHeightMapの実データ取得
+		TextureData* heightMap{ GraphicsResourceManager::Instance().Lookup(_heightMap) };
+		float effectiveHeightScale{ _heightScale }; // 高さのキャッシュ
+		if (!heightMap) // heightMapがないとき
+		{
+			const TexHandle fallback{ GraphicsResourceManager::Instance().GetWhiteTexture() };
+			heightMap = GraphicsResourceManager::Instance().Lookup(fallback); // 白テクスチャを使う
+			effectiveHeightScale = 0.0f; // ハイトマップがないときは高さ0にする
+		}
+		if (!heightMap)
+		{
+			DEBUG_LOG_ERROR("heighMapがデフォルトを含め失敗しました\n");
+			return;
+		}
+
+		// Terrain用RootSigとPSO
+		cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Terrain));
+		cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::TerrainWire));
+		DescriptorManager::Instance().SetDiscriptor(cmd); // SRVを使うのでDescriptorHeapをセット
+		//XZ方向に拡大
+		const Mat4x4 scaleMat{ Mat4x4::MakeScaling(Vector3{_scale, 1.0f, _scale}) };
+		const Mat4x4 translationMat{ Mat4x4::MakeTranslation(_position) };
+		const Mat4x4 worldMat{ scaleMat * translationMat }; // 行優先なのでS->T
+		TerrainCB cb{};
+		cb.mvp = worldMat * vpMat;
+		cb.color = _color;
+		cb.heightScale = effectiveHeightScale;
+		cb.tessFactor = std::clamp(_tessFactor, 1.0f, 64.0f); // HSの分割係数の有効範囲内(1-64)にClamp
+		// 同じCBをHSとDSへ渡す
+		const D3D12_GPU_VIRTUAL_ADDRESS cbAddress{ terrainRingCBV.Update(&cb, sizeof(TerrainCB)) };
+		// RootParam[0] : HS b0
+		cmd->SetGraphicsRootConstantBufferView(0, cbAddress);
+		// RootParam[1] : DS b0
+		cmd->SetGraphicsRootConstantBufferView(1, cbAddress);
+		// RootParam[2] : DS t0
+		cmd->SetGraphicsRootDescriptorTable(2, heightMap->srvHandle.gpu);
+		cmd->IASetVertexBuffers(0, 1, &terrainVertexBuffer.vertexView);
+		cmd->IASetIndexBuffer(&terrainIndexBuffer.indexView);
+		// 3インデックスで1つの三角形パッチとして渡す
+		cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
+		cmd->DrawIndexedInstanced(terrainIndexBuffer.indexCount, 1, 0, 0, 0);
+	}
 }
 
 // 初期化処理(これを呼ぶだけで初期化処理が済むようにする)
@@ -165,165 +291,45 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 
 	shaderSystem.Initialize(GraphicsDevice::Instance().GetDevice()); // ShaderSystemの初期化
 
-	// シェーダーのコンパイル(今はいったん仮で固定)
-	auto triangleVSBlob{ shaderSystem.Compile(L"../Src/Shaders/TriangleVS.hlsl", "main", "vs_5_0") }; // 三角形
-	if (!triangleVSBlob)
+	// 汎用するRootSignatureの作成
+	const std::vector<RootSignatureDesc> rootSignatureDescs{ shaderSystem.MakeRootSignatureDescs() };
+	for (const RootSignatureDesc& desc : rootSignatureDescs)
 	{
-		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/TriangleVS.hlsl");
-		return false; // 読み込み失敗したらfalse
-	}
-	auto textureVSBlob = shaderSystem.Compile(L"../Src/Shaders/TextureVS.hlsl", "main", "vs_5_0"); // テクスチャ
-	if (!textureVSBlob)
-	{
-		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/TextureVS.hlsl");
-		return false; // 読み込み失敗したらfalse
-	}
-	auto trianglePSBlob{ shaderSystem.Compile(L"../Src/Shaders/TrianglePS.hlsl", "main", "ps_5_0") }; // 三角形
-	if (!trianglePSBlob)
-	{
-		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/TrianglePS.hlsl");
-		return false; // 読み込み失敗したらfalse
-	}
-	auto texturePSBlob = shaderSystem.Compile(L"../Src/Shaders/TexturePS.hlsl", "main", "ps_5_0"); // テクスチャ
-	if (!texturePSBlob)
-	{
-		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", ".. / Src / Shaders / TexturePS.hlsl");
-		return false; // 読み込み失敗したらfalse
-	}
-	auto cubeVSBlob{ shaderSystem.Compile(L"../Src/Shaders/CubeVS.hlsl", "main", "vs_5_0") }; // キューブ
-	if (!cubeVSBlob)
-	{
-		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/CubeVS.hlsl");
-		return false; // 読み込み失敗したらfalse
-	}
-	auto cubePSBlob{ shaderSystem.Compile(L"../Src/Shaders/CubePS.hlsl", "main", "ps_5_0") }; // キューブ
-	if (!cubePSBlob)
-	{
-		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/CubePS.hlsl");
-		return false; // 読み込み失敗したらfalse
-	}
-	auto modelVSBlob{ shaderSystem.Compile(L"../Src/Shaders/ModelVS.hlsl", "main", "vs_5_0") }; // モデル
-	if (!modelVSBlob)
-	{
-		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/ModelVS.hlsl");
-		return false; // 読み込み失敗したらfalse
-	}
-	auto modelPSBlob{ shaderSystem.Compile(L"../Src/Shaders/ModelPS.hlsl", "main", "ps_5_0") }; // モデル
-	if (!modelPSBlob)
-	{
-		DEBUG_LOG_ERROR("シェーダーファイル読み込みに失敗しました ファイル : {}\n", "../Src/Shaders/ModelPS.hlsl");
-		return false; // 読み込み失敗したらfalse
-	}
-	auto shapeVSBlob{ shaderSystem.Compile(L"../Src/Shaders/ShapeVS.hlsl", "main", "vs_5_0") };
-	if (!shapeVSBlob)
-	{
-		DEBUG_LOG_ERROR("シェーダーファイルの読み込みに失敗しました ファイル : {}\n", "../Shaders/ShapeVS.hlsl");
-		return false; // 読み込み失敗したらfalse
-	}
-	auto shapePSBlob{ shaderSystem.Compile(L"../Src/Shaders/ShapePS.hlsl", "main", "ps_5_0") };
-	if (!shapePSBlob)
-	{
-		DEBUG_LOG_ERROR("シェーダーファイルの読み込みに失敗しました ファイル : {}\n", "../Shaders/ShapePS.hlsl");
-		return false; // 読み込み失敗したらfalse
+		if (!shaderSystem.CreateRootSignature(desc))
+		{
+			DEBUG_LOG_ERROR("RootSignatureの作成に失敗しました\n");
+			return false;
+		}
 	}
 
-	triangleRootSignature = shaderSystem.CreateDebugTriangleRootSignature(); // ルートシグネチャの作成
-	if (!triangleRootSignature)
+	// rootSignatureをつかってPSOを作成
+	for (const GraphicsPipelineDesc& desc : PIPELINE_TABLE)
 	{
-		DEBUG_LOG_ERROR("三角形ルートシグネチャの作成に失敗しました\n");
-		return false; // 作成失敗したらfalse
-
-	}
-
-	textureRootSignature = shaderSystem.CreateTextureRootSignature(); // ルートシグネチャの作成
-	if (!textureRootSignature)
-	{
-		DEBUG_LOG_ERROR("テクスチャルートシグネチャの作成に失敗しました\n");
-		return false;
-	}
-
-	cubeRootSignature = shaderSystem.CreateDebugCubeRootSignature(); // ルートシグネチャの作成
-	if (!cubeRootSignature)
-	{
-		DEBUG_LOG_ERROR("Cubeシグネチャの作成に失敗しました\n");
-		return false;
-	}
-
-	trianglePipelineState = shaderSystem.CreateDebugTriaglePipeLineState(triangleRootSignature.Get(), triangleVSBlob.Get(), trianglePSBlob.Get()); // パイプラインステートオブジェクトを作成
-	if (!trianglePipelineState)
-	{
-		DEBUG_LOG_ERROR("三角形PSOの作成に失敗しました\n");
-		return false;
-	}
-
-
-	texturePipelineState = shaderSystem.CreateTexturePipeLineState(textureRootSignature.Get(), textureVSBlob.Get(), texturePSBlob.Get()); // パイプラインステートオブジェクトを作成
-	if (!texturePipelineState)
-	{
-		DEBUG_LOG_ERROR("テクスチャPSOの作成に失敗しました\n");
-		return false;
-	}
-
-	cubePipelineState = shaderSystem.CreateDebugCubePipeLineState(cubeRootSignature.Get(), cubeVSBlob.Get(), cubePSBlob.Get()); // パイプラインステートオブジェクトを作成
-	if (!cubePipelineState)
-	{
-		DEBUG_LOG_ERROR("テクスチャPSOの作成に失敗しました\n");
-		return false;
-	}
-
-	modelRootSignature = shaderSystem.CreateModelRootSignature(); // モデルのルートシグネチャの作成
-	if (!modelRootSignature)
-	{
-		DEBUG_LOG_ERROR("モデルルートシグネチャの作成に失敗しました\n");
-		return false;
-	}
-
-	modelPipeLineState = shaderSystem.CreateModelPipeLineState(modelRootSignature.Get(), modelVSBlob.Get(), modelPSBlob.Get()); // モデルパイプラインステートの作成
-	if (!modelPipeLineState)
-	{
-		DEBUG_LOG_ERROR("モデルPSOの作成に失敗しました\n");
-		return false;
-	}
-
-	shapeRootSignature = shaderSystem.CreateShapeRootSignature();
-	if (!shapeRootSignature)
-	{
-		DEBUG_LOG_ERROR("基本図形のルートシグネチャの作成に失敗しました\n");
-		return false;
-	}
-	fillPipelineState = shaderSystem.CreateShapePipeLineState(shapeRootSignature.Get(), shapeVSBlob.Get(), shapePSBlob.Get(), false);
-	if (!fillPipelineState)
-	{
-		DEBUG_LOG_ERROR("塗りつぶし図形のパイプラインステートの作成に失敗しました\n");
-		return false;
-	}
-	wirePipelineState = shaderSystem.CreateShapePipeLineState(shapeRootSignature.Get(), shapeVSBlob.Get(), shapePSBlob.Get(), true);
-	if (!wirePipelineState)
-	{
-		DEBUG_LOG_ERROR("wire図形のパイプラインステートの作成に失敗しました\n");
-		return false;
+		if (!shaderSystem.CreateGraphicsPipeline(desc))
+		{
+			DEBUG_LOG_ERROR("GraphicsPipelineの作成に失敗しました\n");
+			return false;
+		}
 	}
 
 	GraphicsResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
+	// グリッドとCBの作成
+	if (!InitializeTerrainResources()) return false;
 
 	// ピクセル座標からNDC座標へ変換
 	Mat4x4 orthMat{ Mat4x4::MakeOrthGraphic(static_cast<float>(_width), static_cast<float>(_height)) }; // 変換行列の作成
 	orthConstantBufferData = GraphicsResourceManager::Instance().CreateConstantBuffer(&orthMat, sizeof(Mat4x4));
 
 	// 透視投影行列の作成(一旦キューブが描画できるのを確認するためにハードコーディング)
-	vpMat = Mat4x4::MakeLookAt({ 0.0f, 1.0f, -3.0f }, { 0.0f, 1.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, static_cast<float>(screenWidth) / static_cast<float>(screenHeight), 0.1f, 100.0f);
+	vpMat = Mat4x4::MakeLookAt({ 0.0f, 3.0f, -3.0f }, { 0.0f, 1.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, static_cast<float>(screenWidth) / static_cast<float>(screenHeight), 0.1f, 100.0f);
 	mvpRingCBV.Initialize(sizeof(Mat4x4)); // リングバッファ初期化
 	materialRingCBV.Initialize(sizeof(MaterialCB));  // materialのリング定数バッファを初期化
 	skinningRingCBV.Initialize(sizeof(Mat4x4) * MAX_BONE_NUM); // ボーン用の定数バッファを更新
 
 	// スプライトバッチ処理初期化
-	fgBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), orthConstantBufferData.resource.Get());
-	bgBatch.Initialize(textureRootSignature.Get(), texturePipelineState.Get(), orthConstantBufferData.resource.Get());
-	shapeBatch.Initialize(shapeRootSignature.Get(), fillPipelineState.Get(), wirePipelineState.Get(), orthConstantBufferData.resource.Get());
-
-	triangle.Initialize();  // 三角形描画用ファイルの初期化
-	quad.Initialize(); // テクスチャ描画用ファイルの初期化
-	cube.Initialize(); // キューブ初期化
+	fgBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
+	bgBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
+	shapeBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Shape),shaderSystem.GetPipeline(PipelineID::ShapeFill), shaderSystem.GetPipeline(PipelineID::ShapeWire), orthConstantBufferData.resource.Get());
 
 	// 文字列構造体初期化
 	defaultFont.texture = Gfx::LoadTexture("../Src/External/Res/DejaVu Sans Mono.png"); // デフォルトフォント
@@ -365,6 +371,7 @@ void GfxInternal::BeginFrame()
 	mvpRingCBV.Reset();
 	materialRingCBV.Reset();
 	skinningRingCBV.Reset();
+	terrainRingCBV.Reset();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTV
@@ -427,6 +434,7 @@ void GfxInternal::EndFrame()
 // 終了処理
 void GfxInternal::Finish()
 {
+	shaderSystem.Shutdown();
 	DescriptorManager::Instance().Shutdown();
 	GraphicsDevice::Instance().Shutdown();
 }
@@ -450,23 +458,6 @@ ModelHandle Gfx::LoadModel(const char* _filePath)
 	return GraphicsResourceManager::Instance().LoadModel(_filePath);
 }
 
-// 三角形の描画(現状固定座標にしているが拡張し、座標と色など指定できるようにしたい)
-void Gfx::DrawTriangle()
-{
-	// パイプライン設定
-	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(triangleRootSignature.Get());
-	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(trianglePipelineState.Get());
-	triangle.Draw(GraphicsDevice::Instance().GetCommandList());
-}
-
-void Gfx::DrawTexture()
-{
-	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootSignature(textureRootSignature.Get());
-	GraphicsDevice::Instance().GetCommandList()->SetGraphicsRootConstantBufferView(1, orthConstantBufferData.resource->GetGPUVirtualAddress());
-	GraphicsDevice::Instance().GetCommandList()->SetPipelineState(texturePipelineState.Get());
-	quad.Draw(GraphicsDevice::Instance().GetCommandList());
-}
-
 void Gfx::DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation, Vector4 _color, bool _isWireframe)
 {
 	shapeBatch.RegisterBox(_leftTop, _rightBottom, _radRotation, _color, _isWireframe);
@@ -485,22 +476,6 @@ void Gfx::DrawCapsule(Vector2 _startPos, Vector2 _endPos, float _radius, Vector4
 void Gfx::DrawLine(Vector2 _startPos, Vector2 _endPos, Vector4 _color)
 {
 	shapeBatch.RegisterLine(_startPos, _endPos, _color);
-}
-
-void Gfx::DrawCube(Vector3 _angle)
-{
-	{
-		// マクロがスコープを抜けるとEndEventするので囲う
-		GPU_MARKER("backGround");
-		bgBatch.Flush(); // 背景の上に来るように3D描画前には背景batchをFlushする
-	}
-	cube.SetRotation(_angle);
-	mvpMat = cube.GetWorldMat() * vpMat; // mvp行列
-	auto cmd{ GraphicsDevice::Instance().GetCommandList() }; // キャッシュ
-	cmd->SetGraphicsRootSignature(cubeRootSignature.Get());
-	cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4))); // 定数バッファの更新
-	cmd->SetPipelineState(cubePipelineState.Get());
-	cube.Draw(cmd);
 }
 
 // 文字列描画(デフォルトフォント)
@@ -587,7 +562,18 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* 
 	{
 		DrawStaticModel(_model, _transform);
 	}
-	
+
+}
+
+void Gfx::DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap)
+{
+	{
+		// マクロがスコープを抜けるとEndEventするので囲う
+		GPU_MARKER("backGround");
+		bgBatch.Flush(); // 背景の上に来るように3D描画前には背景batchをFlushする
+	}
+
+	DrawTerrainInternal(_position, _scale, _tessFactor, _heightScale, _color, _heightMap);
 }
 
 void Gfx::SetBaseColor(ModelHandle model, int submeshIndex, Vector4 color)
