@@ -242,6 +242,54 @@ void GraphicsResourceManager::Initialize(ID3D12Device* _device)
 	whiteTexture = CreateWhiteTexture();
 }
 
+void GraphicsResourceManager::Shutdown()
+{
+	auto releaseTexture = [](TextureData& _texture)
+		{
+			// GPUは停止済みなのでDescriptorを即座に返す
+			if (_texture.srvHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, _texture.srvHandle);
+			_texture = TextureData{}; // ComPtrも含めて空にする
+		};
+
+	// まだUnloadされていないtextureを空にする
+	for (TextureSlot& slot : texSlots)
+	{
+		releaseTexture(slot.data);
+	}
+	// EndFrame前にUnloadされ、Fence値が未確定のtexture
+	for (TextureData& texture : pendingRelease.textures)
+	{
+		releaseTexture(texture);
+	}
+	// Fence完了待ちだったtexture
+	for (DeferredReleaseBatch& batch : deferredReleases)
+	{
+		for (TextureData& texture : batch.textures)
+		{
+			releaseTexture(texture);
+		}
+	}
+	// 生存しているmodel
+	modelSlots.clear(); // ComPtrも解放
+	// Unload済みで解放待ちだったmodel
+	pendingRelease.models.clear();
+	// DeferredReleaseBatch内のmodel
+	deferredReleases.clear();
+	texSlots.clear();
+	pendingRelease = DeferredReleaseBatch{}; // 空にする
+	// FreeListも初期状態へ戻す
+	while (!texFreeList.empty())
+	{
+		texFreeList.pop();
+	}
+	while (!modelFreeList.empty())
+	{
+		modelFreeList.pop();
+	}
+	whiteTexture = TexHandle{};
+	device = nullptr;
+}
+
 void GraphicsResourceManager::CommitPendingRelease(UINT64 _submittedFenceValue)
 {
 	// 空チェック

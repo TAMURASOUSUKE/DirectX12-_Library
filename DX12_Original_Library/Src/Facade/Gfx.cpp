@@ -440,9 +440,10 @@ void GfxInternal::Finish()
 		DEBUG_LOG_ERROR("Finish関数にてGPU待機処理に失敗しました\n");
 		return;
 	}
-	shaderSystem.Shutdown();
-	DescriptorManager::Instance().Shutdown();
-	GraphicsDevice::Instance().Shutdown();
+	GraphicsResourceManager::Instance().Shutdown(); // 残っている全てのGraphicsResource解放
+	shaderSystem.Shutdown(); // PS・RootSignature解放
+	DescriptorManager::Instance().Shutdown(); // 全てのDescriptorが不要になった後に解放
+	GraphicsDevice::Instance().Shutdown(); // Deviceの解放
 }
 
 // 描画先をクリアする(色指定可能)

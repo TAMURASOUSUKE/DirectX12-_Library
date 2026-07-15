@@ -183,12 +183,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		TSLib::EndFrame(); // フレーム終了処理
 	}
 
-	// 解放
-	Gfx::Unload(background);
-	Gfx::Unload(enemy);
-	Gfx::Unload(player);
-	Gfx::Unload(testModel);
-
 	TSLib::Finish(); // 終了
 	return 0;
 }
