@@ -41,6 +41,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	TexHandle background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
 	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png") }; // Enemyのハンドル取得
 	TexHandle player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
+	TexHandle heightMap{ Gfx::LoadTexture("Res/T_001_rennga_01_01_b.png") }; // ハイトマップ取得
 	ModelHandle testModel{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Playerモデルのロード
 	AnimInstanceData debugAnim{}; // アニメーション用のデータ
 	debugAnim.handle = testModel;
@@ -58,6 +59,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	int testWheel{ 0 };
 	int testWheelNotch{ 0 };
+	float heightFactor{ 0.0f };
 
 	enum class ActionMap{Jump, Dash, Count}; // 抽象化テスト用アクション
 	Input::SetupActions(ActionMap::Count); // 初期化
@@ -117,12 +119,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		}
 		if (Input::IsKeyPress(KeyCode::Button::RIGHT))
 		{
+			heightFactor += 0.05f;
 			testBolume += 0.0005f;
 			Sound::SetVolume(testSound02, testBolume);
 		}
 		if (Input::IsKeyPress(KeyCode::Button::LEFT))
 		{
 			testBolume -= 0.0005f;
+			heightFactor -= 0.05f;
 			Sound::SetVolume(testSound02, testBolume);
 		}
 		if (Input::IsKeyPushed(KeyCode::Button::F))
@@ -166,6 +170,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawString(wheelValueStr.c_str(), {0.0f, 90.0f});
 		Gfx::DrawString(wheelNotchValueStr.c_str(), {0.0f, 120.0f});
 
+		Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 30.0f, 4.0f, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
 		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
 
 		Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);

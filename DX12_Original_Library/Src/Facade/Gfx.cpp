@@ -41,7 +41,7 @@ namespace {
 	constexpr GraphicsPipelineDesc PIPELINE_TABLE[]{
 		// 図形塗りつぶし
 		{.rootSignatureID = RootSigID::Shape, .pipelineID = PipelineID::ShapeFill,
-		  .vsPath = L"../Src/Shaders/ShapeVS.hlsl", .psPath = L"../Src/Shaders/ShapePS.hlsl",
+		  .vsPath = L"../Src/Shaders/ShapeVS.hlsl", .psPath = L"../Src/Shaders/ShapePS.hlsl", 
 		  .layout = InputLayout::Shape, .blend = BlendMode::Alpha, .depth = DepthParam::None },
 		  // 図形ワイヤー
 		{.rootSignatureID = RootSigID::Shape, .pipelineID = PipelineID::ShapeWire,
@@ -321,7 +321,7 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	orthConstantBufferData = GraphicsResourceManager::Instance().CreateConstantBuffer(&orthMat, sizeof(Mat4x4));
 
 	// 透視投影行列の作成(一旦キューブが描画できるのを確認するためにハードコーディング)
-	vpMat = Mat4x4::MakeLookAt({ 0.0f, 1.0f, -3.0f }, { 0.0f, 1.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, static_cast<float>(screenWidth) / static_cast<float>(screenHeight), 0.1f, 100.0f);
+	vpMat = Mat4x4::MakeLookAt({ 0.0f, 3.0f, -3.0f }, { 0.0f, 1.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, static_cast<float>(screenWidth) / static_cast<float>(screenHeight), 0.1f, 100.0f);
 	mvpRingCBV.Initialize(sizeof(Mat4x4)); // リングバッファ初期化
 	materialRingCBV.Initialize(sizeof(MaterialCB));  // materialのリング定数バッファを初期化
 	skinningRingCBV.Initialize(sizeof(Mat4x4) * MAX_BONE_NUM); // ボーン用の定数バッファを更新
