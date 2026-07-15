@@ -195,17 +195,24 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 // 終了処理
 void GraphicsDevice::Shutdown()
 {
-	// GPUが全処理終了するのを待ってから終了する(リソースが残ったまま開放するとクラッシュする)
-	cmdQueue->Signal(fence.Get(), ++fenceValueCounter);
-	if (fence->GetCompletedValue() < fenceValueCounter)
+	cmdList.Reset();
+	for (ComPtr<ID3D12CommandAllocator>& allocator : cmdAllocators)
 	{
-		HANDLE event{ CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS) };
-		DEBUG_ASSERT(event != nullptr); // デバッグ時失敗したら場所を知らせる
-		if (!event) return; // nullチェック
-		fence->SetEventOnCompletion(fenceValueCounter, event);
-		WaitForSingleObject(event, INFINITE);
-		CloseHandle(event);
+		allocator.Reset();
 	}
+
+	for (ComPtr<ID3D12Resource>& backBuffer : backBuffers)
+	{
+		backBuffer.Reset();
+	}
+
+	dsvResource.Reset();
+	rtvHeap.Reset();
+	dsvHeap.Reset();
+	swapChain.Reset();
+	fence.Reset();
+	cmdQueue.Reset();
+	device.Reset();
 }
 
 bool GraphicsDevice::WaitForGPU()

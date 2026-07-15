@@ -19,7 +19,7 @@ public:
 
 	// 初期化処理(ウィンドウハンドルと画面横サイズ、縦サイズ)
 	void Initialize(HWND _hwnd, int _width, int _height);
-	// 終了処理
+	// GPUが待機済みを前提に、内部オブジェクトを解放する終了処理
 	void Shutdown();
 	// GPU待機処理
 	bool WaitForGPU();

@@ -242,6 +242,46 @@ void GraphicsResourceManager::Initialize(ID3D12Device* _device)
 	whiteTexture = CreateWhiteTexture();
 }
 
+void GraphicsResourceManager::CommitPendingRelease(UINT64 _submittedFenceValue)
+{
+	// 空チェック
+	if (pendingRelease.textures.empty() && pendingRelease.models.empty())
+	{
+		return;
+	}
+
+	// このフェンス値までGPUが進めば安全に解放できる
+	pendingRelease.fenceValue = _submittedFenceValue;
+	deferredReleases.push_back(std::move(pendingRelease));
+
+	// 次のフレーム用に空にする
+	pendingRelease = DeferredReleaseBatch{};
+}
+
+void GraphicsResourceManager::CollectDeferredReleases(UINT64 _completedFenceValue)
+{
+	// 解放待ちが入っている分だけ回す
+	while (!deferredReleases.empty())
+	{
+		DeferredReleaseBatch& batch{ deferredReleases.front() }; // 先頭を取り出す
+
+		// 先頭の荷物をGPUがまだ使っている
+		if (batch.fenceValue > _completedFenceValue)
+		{
+			break;
+		}
+
+		// GPUが使い終わったのでDescriptorを返す
+		for (TextureData& texture : batch.textures)
+		{
+			DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texture.srvHandle);
+		}
+
+		// pop_frontによってTextureData、ModelDataが破棄されて内部のComPtrもここで解放
+		deferredReleases.pop_front();
+	}
+}
+
 VertexBuffer GraphicsResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize)
 {
 	D3D12_HEAP_PROPERTIES heapProperties{}; // 頂点ヒープの設定
@@ -678,14 +718,19 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 			SubMesh sub{}; // サブメッシュ
 			sub.vertexBuffer = vertBuffer;
 			sub.indexBuffer = indexBuffer;
+			
+			TexHandle baseColor{ LoadTextureFromGltf(prim.material->pbr_metallic_roughness.base_color_texture, modelDir) }; // ベースカラーテクスチャ
+			TexHandle normalMap{ LoadTextureFromGltf(prim.material->normal_texture, modelDir) }; // ノーマルマップ
+			TexHandle metallic{ LoadTextureFromGltf(prim.material->pbr_metallic_roughness.metallic_roughness_texture, modelDir) }; // メタリック
+			TexHandle emissive{ LoadTextureFromGltf(prim.material->emissive_texture, modelDir) }; // 自己発光
 
 			// テクスチャや各パラメータの代入
 			if (prim.material)
 			{
-				sub.material.textures[MaterialTex::BaseColor] = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.base_color_texture, modelDir);
-				sub.material.textures[MaterialTex::Normal] = LoadTextureFromGltf(prim.material->normal_texture, modelDir);
-				sub.material.textures[MaterialTex::MetallicRoughness] = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.metallic_roughness_texture, modelDir);
-				sub.material.textures[MaterialTex::Emissive] = LoadTextureFromGltf(prim.material->emissive_texture, modelDir);
+				sub.material.textures[MaterialTex::BaseColor] = baseColor;
+				sub.material.textures[MaterialTex::Normal] = normalMap;
+				sub.material.textures[MaterialTex::MetallicRoughness] = metallic;
+				sub.material.textures[MaterialTex::Emissive] = emissive;
 				sub.material.baseColorFactor = ToVec4(prim.material->pbr_metallic_roughness.base_color_factor);
 				sub.material.metallic = prim.material->pbr_metallic_roughness.metallic_factor;
 				sub.material.roughness = prim.material->pbr_metallic_roughness.roughness_factor;
@@ -696,6 +741,28 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 			if (!sub.material.textures[MaterialTex::BaseColor].IsValid())
 			{
 				sub.material.textures[MaterialTex::BaseColor] = whiteTexture;
+			}
+
+			// 自分のテクスチャを登録していく(同じTextureを重複登録しない)
+			if (baseColor.IsValid() && baseColor != whiteTexture && std::find(modelData.ownedTextures.begin(), modelData.ownedTextures.end(), baseColor) == modelData.ownedTextures.end())
+			{
+				// baseColor
+				modelData.ownedTextures.push_back(baseColor);
+			}
+			if (normalMap.IsValid() && std::find(modelData.ownedTextures.begin(), modelData.ownedTextures.end(), normalMap) == modelData.ownedTextures.end())
+			{
+				// normalMap
+				modelData.ownedTextures.push_back(normalMap);
+			}
+			if (metallic.IsValid() && std::find(modelData.ownedTextures.begin(), modelData.ownedTextures.end(), metallic) == modelData.ownedTextures.end())
+			{
+				// metallic
+				modelData.ownedTextures.push_back(metallic);
+			}
+			if (emissive.IsValid() && std::find(modelData.ownedTextures.begin(), modelData.ownedTextures.end(), emissive) == modelData.ownedTextures.end())
+			{
+				// emissive
+				modelData.ownedTextures.push_back(emissive);
 			}
 
 			modelData.subMeshes.push_back(sub); // 詰め込む
@@ -758,11 +825,12 @@ void GraphicsResourceManager::Unload(TexHandle _handle)
 		return;
 	}
 	int index{ UnpackIndex(_handle.GetRaw(PassKey{})) }; // indexの取り出し
-
-	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texSlots[index].data.srvHandle); // スロットの返却
-	texSlots[index].data = TextureData{}; // null化を行う
-	texSlots[index].generation++; // 世代を増やして既存ハンドルを無効化
-	texFreeList.push(index); // indexをfreelistに入れる
+	// ComPtrとDescriptorHanldeを解放待ちへ移動する
+	pendingRelease.textures.push_back(std::move(texSlots[index].data));
+	// CPU側のハンドルは無効化する
+	texSlots[index].data = TextureData{};
+	texSlots[index].generation++;
+	texFreeList.push(index);
 }
 
 void GraphicsResourceManager::Unload(ModelHandle _handle)
@@ -775,22 +843,20 @@ void GraphicsResourceManager::Unload(ModelHandle _handle)
 		return;
 	}
 	int index{ UnpackIndex(_handle.GetRaw(PassKey{})) }; // indexを取り出す
-	for (SubMesh& sub : modelSlots[index].data.subMeshes)
-	{
-		/*
-			頂点バッファやインデックスバッファはComPtrで管理しているので自動Freeされる
-		*/
 
-		// テクスチャの開放
-		for (TexHandle& tex : sub.material.textures)
+	ModelData& model{ modelSlots[index].data }; // 実データ取り出し
+
+	// このモデル自身が持っているテクスチャのみを解放する
+	for (TexHandle texture : model.ownedTextures)
+	{
+		if (texture.IsValid() && texture != whiteTexture)
 		{
-			if (tex.IsValid() && tex != whiteTexture)
-			{
-				Unload(tex);
-			}
+			Unload(texture);
 		}
 	}
 
+
+	pendingRelease.models.push_back(std::move(model)); // VB,IBも含めComPtrとDescriptorHanldeを解放待ちへ移動
 	modelSlots[index].data = ModelData{}; // 空を入れてsubMeshごと破棄
 	modelSlots[index].generation++; // 世代を増やして既存を無効化
 	modelFreeList.push(index); // freelistへ返す

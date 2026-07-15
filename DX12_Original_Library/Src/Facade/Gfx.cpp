@@ -434,6 +434,12 @@ void GfxInternal::EndFrame()
 // 終了処理
 void GfxInternal::Finish()
 {
+	bool result{ GraphicsDevice::Instance().WaitForGPU() }; // GPUの待機をしてから各終了処理を行う
+	if (!result)
+	{
+		DEBUG_LOG_ERROR("Finish関数にてGPU待機処理に失敗しました\n");
+		return;
+	}
 	shaderSystem.Shutdown();
 	DescriptorManager::Instance().Shutdown();
 	GraphicsDevice::Instance().Shutdown();
@@ -588,7 +594,7 @@ void Gfx::SetTexture(ModelHandle model, int submeshIndex, TexHandle texture)
 	ModelData* data{ GraphicsResourceManager::Instance().Lookup(model) };
 	if (!data) return;  // 無効ハンドルガード
 	if (submeshIndex < 0 || submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
-	data->subMeshes[submeshIndex].material.textures[MaterialTex::BaseColor] = texture;
+	data->subMeshes[submeshIndex].material.textures[MaterialTex::BaseColor] = texture; // 外部テクスチャなのでownerTextureには追加しない
 }
 // 解放
 void Gfx::Unload(TexHandle _handle)

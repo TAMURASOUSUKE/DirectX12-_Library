@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <vector>
 #include <stack>
+#include <dque>
 #include "../Core/Handle/TexHandle.h"
 #include"../Core/Handle/ModelHandle.h"
 #include "GraphicsType.h"
@@ -30,6 +31,11 @@ public:
 
 	// 初期化処理
 	void Initialize(ID3D12Device* _device);
+	// EndFrame時にFence値を構造体へ
+	void CommitPendingRelease(UINT64 _submittedFenceValue);
+	// GPUが完了した時に溜まっている解放待ちを解放する処理
+	void CollectDeferredReleases(UINT64 _completedFenceValue);
+
 
 	// 頂点バッファの作成(Map->UnMapの固定)
 	VertexBuffer CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize);
@@ -97,4 +103,6 @@ private:
 	std::vector <ModelSlot> modelSlots; // モデルリソースのスロット
 	std::stack<int> texFreeList; // テクスチャリソースのフリーリスト
 	std::stack<int> modelFreeList; // モデルリソースのフリーリスト
+	DeferredReleaseBatch pendingRelease{}; // まだEndFrameしていないのでFence値が決まっていない荷物
+	std::deque<DeferredReleaseBatch> deferredReleases{}; // EndFrame済みでGPU完了を待っている荷物
 };
