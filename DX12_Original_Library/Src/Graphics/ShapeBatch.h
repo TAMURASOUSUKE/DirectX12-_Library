@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <d3d12.h>
 #include <vector>
 #include "../Math/TSMath.h"
 #include "GraphicsType.h"
@@ -16,6 +17,8 @@ class ShapeBatch
 public:
 	// 初期化処理
 	void Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _fillState, ID3D12PipelineState* _wireState ,ID3D12Resource* _gpuVirtualAddres);
+	// 終了処理
+	void Shutdown();
 
 	// 基本図形の登録
 	void RegisterBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation = 0.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f },bool _isWireframe = false); // 矩形

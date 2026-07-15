@@ -235,7 +235,7 @@ bool GraphicsDevice::WaitForGPU()
 	{
 		HANDLE event{ CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS) };
 		DEBUG_ASSERT(event != nullptr); // デバッグ時失敗したら場所を知らせる
-		if (!event) return; // nullチェック
+		if (!event) return false; // nullチェック
 		// フェンスの値が第一引数以上になるとeventがシグナル状態になる
 		fence->SetEventOnCompletion(waitValue, event);
 
@@ -248,6 +248,8 @@ bool GraphicsDevice::WaitForGPU()
 			return false;
 		}
 	}
+
+
 	return true;
 }
 

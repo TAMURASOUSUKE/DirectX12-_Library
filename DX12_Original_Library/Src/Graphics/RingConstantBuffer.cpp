@@ -17,6 +17,15 @@ void RingConstantBuffer::Initialize(UINT _dataSize)
 	baseGPUVA = resource->GetGPUVirtualAddress(); // ベースの仮想アドレスをキャッシュして保持
 }
 
+void RingConstantBuffer::Shutdown()
+{
+	resource.Reset();
+	baseCPUPtr = nullptr;
+	baseGPUVA = 0;
+	alignedSize = 0;
+	frameCounter = 0;
+}
+
 D3D12_GPU_VIRTUAL_ADDRESS RingConstantBuffer::Update(const void* _src, UINT _size)
 {
 	// データサイズが境界調整済みサイズより大きいと隣のCBデータにはみ出してバグの原因になるのでチェックする

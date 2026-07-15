@@ -262,6 +262,28 @@ namespace {
 		cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
 		cmd->DrawIndexedInstanced(terrainIndexBuffer.indexCount, 1, 0, 0, 0);
 	}
+
+	void ShutdownGfxOwnedResources()
+	{
+		// 仮で作っているTerrainのVB.IBを解放する(これは一時的な物なので3Dの基本図形描画時になくなる予定)
+		terrainIndexBuffer = IndexBuffer{};
+		terrainVertexBuffer = VertexBuffer{};
+		// 正射影用CB
+		if (orthConstantBufferData.cbvHandle.IsValid())
+		{
+			DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, orthConstantBufferData.cbvHandle);
+		}
+		orthConstantBufferData = ConstantBufferData{};
+		// RingConstantBufferの解放
+		mvpRingCBV.Shutdown();
+		materialRingCBV.Shutdown();
+		skinningRingCBV.Shutdown();
+		terrainRingCBV.Shutdown();
+		// Batchが所有するVB,IBを解放
+		fgBatch.Shutdown();
+		bgBatch.Shutdown();
+		shapeBatch.Shutdown();
+	}
 }
 
 // 初期化処理(これを呼ぶだけで初期化処理が済むようにする)
@@ -440,6 +462,8 @@ void GfxInternal::Finish()
 		DEBUG_LOG_ERROR("Finish関数にてGPU待機処理に失敗しました\n");
 		return;
 	}
+
+	ShutdownGfxOwnedResources(); // Gfxが所有するリソースの削除
 	GraphicsResourceManager::Instance().Shutdown(); // 残っている全てのGraphicsResource解放
 	shaderSystem.Shutdown(); // PS・RootSignature解放
 	DescriptorManager::Instance().Shutdown(); // 全てのDescriptorが不要になった後に解放

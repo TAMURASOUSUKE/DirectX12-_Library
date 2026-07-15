@@ -19,6 +19,19 @@ void ShapeBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* 
 	vertBuffer = GraphicsResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SHAPE_COUNT * (3 * CIRCLE_DIVISION + 6) * sizeof(ShapeVertex), sizeof(ShapeVertex)); // 動的な頂点バッファの作成
 }
 
+void ShapeBatch::Shutdown()
+{
+	vertBuffer = VertexBuffer{};
+	droppedCounter = 0;
+	shapeCounter = 0;
+	shapeVertexCounter = 0;
+	runs = std::vector<ShapeDrawRun>{}; // vectorの確保容量も返す
+	rootSig = nullptr;
+	wireState = nullptr;
+	fillState = nullptr;
+	gpuVirtualAddres = nullptr;
+}
+
 void ShapeBatch::RegisterBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation, Vector4 _color, bool _isWireframe)
 {
 	if (shapeCounter >= MAX_SHAPE_COUNT)

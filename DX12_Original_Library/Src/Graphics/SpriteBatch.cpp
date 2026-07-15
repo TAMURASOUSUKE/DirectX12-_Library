@@ -36,6 +36,18 @@ void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 	vertBuffer = GraphicsResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(TexVertex), sizeof(TexVertex)); // 動的な頂点バッファの作成
 }
 
+void SpriteBatch::Shutdown()
+{
+	vertBuffer = VertexBuffer{};
+	indexBuffer = IndexBuffer{};
+	spriteCounter = 0;
+	droppedCounter = 0;
+	runs = std::vector<SpriteDrawRun>{}; // vectorの確保容量も返す
+	rootSig = nullptr;
+	pipelineState = nullptr;
+	gpuVirtualAddres = nullptr;
+}
+
 void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _size, float _radRotation, Vector2 _uvMin, Vector2 _uvMax)
 {
 	if (!_handle.IsValid())
