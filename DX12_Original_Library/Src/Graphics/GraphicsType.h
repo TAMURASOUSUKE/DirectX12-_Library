@@ -247,7 +247,7 @@ struct MaterialCB
 struct Material
 {
 	TexHandle textures[MaterialTex::Count]; // テクスチャ群
-	Vector4 baseColorFactor{ 1.0f, 0.0f, 0.0f, 1.0f }; // 拡散色(デフォルトは白)
+	Vector4 baseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f }; // 拡散色(デフォルトは白)
 	float metallic{ 1.0f }; //　金属度
 	float roughness{ 1.0f }; // 粗さ
 	Vector3 emissiveFactor{ 0.0f, 0.0f, 0.0f }; // 自己発光色

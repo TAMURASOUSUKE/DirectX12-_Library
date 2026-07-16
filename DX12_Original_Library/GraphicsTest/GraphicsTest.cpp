@@ -38,6 +38,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		OutputDebugStringA("[FAIL] : 一度戻した後違うインデックスが返っています\n");
 	}
 
+	// 掃除
+	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, h1);
+	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, h3);
+
 	// ハンドルの取得
 	TexHandle background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
 	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png") }; // Enemyのハンドル取得
@@ -59,35 +63,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	cubeTransform.SetScale(Vector3::One);
 
 	bool testFlag{ false };
-
 	int testWheel{ 0 };
 	int testWheelNotch{ 0 };
-	float heightFactor{ 0.0f };
-	float tessFactor{ 4.0f };
 
-	enum class ActionMap{Jump, Dash, Count}; // 抽象化テスト用アクション
-	Input::SetupActions(ActionMap::Count); // 初期化
-	Input::SetAction(ActionMap::Jump, KeyCode::Button::SPACE);
-	Input::SetAction(ActionMap::Jump, PadCode::Button::A);
-	Input::SetAction(ActionMap::Jump, MouseCode::Click::LEFT);
-	Input::SetAction(ActionMap::Dash, KeyCode::Button::LSHIFT);
-	Input::SetAction(ActionMap::Dash, PadCode::Trigger::RIGHT);
-	Input::SetAction(ActionMap::Dash, MouseCode::Click::RIGHT);
+	float t{ 0.0f }; // 時間
+	float tessFactor{ 4.0f }; // HSでの分割数
+	float heightFactor{ 0.0f }; // Terrainの高さ
 
-	SoundHandle testSound{ Sound::LoadSound("Test.wav") };
-	SoundHandle testSound02{ Sound::LoadSound("Phuniaya_2.wav") };
-	SoundHandle testSound03{ Sound::LoadSound("Better_Days.wav") };
-	float testBolume{ 0.8f };
-	float t{ 0.0f };
-	while (Gfx::ProcessMessage())
+	while (TSLib::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 
 		t += 0.0167f;
-
-		Vector2 dir{ Input::GetPadStickValue(PadCode::Stick::RIGHT)};
-
-		playerPos += dir * 8.0f;
 
 		ang += 0.01f;
 
@@ -102,87 +89,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		debugAnim.currentTime += 1.0f / 60.0f; // 時刻を進める
 		if (debugAnim.currentTime > 0.667f) debugAnim.currentTime = 0.0f; // 一旦Runのdurationでループさせる
 
-		// 音のテスト
-		if (Input::IsKeyPushed(KeyCode::Button::G))
-		{
-			Sound::PlaySE(testSound);
-		}
-		if (Input::IsKeyPushed(KeyCode::Button::D2))
-		{
-			Sound::PlayBGM(testSound02, false, testBolume);
-		}
-		if (Input::IsKeyPushed(KeyCode::Button::D3))
-		{
-			Sound::PlayBGM(testSound03, true, 0.8f);
-		}
-		if (Input::IsKeyPushed(KeyCode::Button::S))
-		{
-			Sound::StopBGM();
-		}
-		if (Input::IsKeyPushed(KeyCode::Button::RETURN))
-		{
-			Sound::EndBGM();
-		}
-		if (Input::IsKeyPress(KeyCode::Button::RIGHT))
-		{
-			heightFactor += 0.05f;
-			testBolume += 0.005f;
-			Sound::SetVolume(testSound02, testBolume);
-		}
-		if (Input::IsKeyPress(KeyCode::Button::LEFT))
-		{
-			testBolume -= 0.005f;
-			heightFactor -= 0.05f;
-			Sound::SetVolume(testSound02, testBolume);
-		}
-		if (Input::IsKeyPushed(KeyCode::Button::F))
-		{
-			Sound::CrossfadeBGM(testSound02, false, 10.0f);
-		}
-		if(Input::IsKeyPushed(KeyCode::Button::L))
-		{
-			tessFactor *= 2.0f;
-		}
-		if (Input::IsKeyPushed(KeyCode::Button::J))
-		{
-			tessFactor /= 2.0f;
-		}
+		// Terrain操作
+		if (Input::IsKeyPress(KeyCode::Button::RIGHT)) heightFactor += 0.05f;
+		if (Input::IsKeyPress(KeyCode::Button::LEFT)) heightFactor -= 0.05f;
+		if(Input::IsKeyPushed(KeyCode::Button::L)) tessFactor *= 2.0f;
+		if (Input::IsKeyPushed(KeyCode::Button::J)) tessFactor /= 2.0f;
 		if (tessFactor < 2.0f) tessFactor = 2.0f;
 
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		//// スプライトバッチテスト
 		Gfx::DrawSprite(background, Vector2{ 0.0f, 0.0f }, Vector2{ 1280.0f, 720.0f }, 0.0f, Vector2::Zero, Vector2::One, LenderLayer::BackGround);
-		Gfx::DrawSprite(player, playerPos, Vector2{128.0f, 128.0f});
-
-		TexHandle test{};
-		if (Input::IsActionPushed(ActionMap::Dash)) testFlag = !testFlag;
-		if (testFlag)
-		{
-			test = player;
-		}
-		else
-		{
-			test = enemy;
-		}
-
-		Gfx::DrawSprite(test, Vector2{ 800.0f, 400.0f }, Vector2{ 128.0f, 128.0f });
-
-		float inputTrigger{ Input::GetPadTriggerValue(PadCode::Trigger::RIGHT) };
-		std::string triggerStr{ std::format("Input Trigger Value : {:.2f}", inputTrigger) };
-		Vector2Int cursorPos{ Input::GetMousePoint() };
-		std::string cursorStr{ std::format("Input CursorPosition x : {},  y : {}", cursorPos.x, cursorPos.y) };
-		Vector2Int cursorDelta{ Input::GetMouseDelta() };
-		std::string cursorDeltaStr{ std::format("Input CursorDelta x : {},  y : {}", cursorDelta.x, cursorDelta.y) };
-		testWheel += Input::GetMouseWheelValue();
-		std::string wheelValueStr{ std::format("Input Wheel Value : {}", testWheel) };
-		testWheelNotch += Input::GetMouseWheelNotchValue();
-		std::string wheelNotchValueStr{ std::format("Input WheelNotch Value : {}", testWheelNotch) };
-		Gfx::DrawString(triggerStr.c_str(), {0.0f, 0.0f});
-		Gfx::DrawString(cursorStr.c_str(), {0.0f, 30.0f});
-		Gfx::DrawString(cursorDeltaStr.c_str(), {0.0f, 60.0f});
-		Gfx::DrawString(wheelValueStr.c_str(), {0.0f, 90.0f});
-		Gfx::DrawString(wheelNotchValueStr.c_str(), {0.0f, 120.0f});
+		Gfx::DrawSprite(enemy, { 350.0f, 350.0f }, Vector2{ 128.0f, 128.0f });
 
 		Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
 

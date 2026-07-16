@@ -396,18 +396,6 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	return true;
 }
 
-// メッセージループ
-bool Gfx::ProcessMessage()
-{
-	MSG msg{}; // イベント情報を格納する型
-	while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
-	{
-		if (msg.message == WM_QUIT) return false;
-		DispatchMessage(&msg);
-	}
-	return true;
-}
-
 // フレーム開始処理
 void GfxInternal::BeginFrame()
 {
@@ -671,19 +659,19 @@ void Gfx::DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float 
 	DrawTerrainInternal(_position, _scale, _tessFactor, _heightScale, _color, _heightMap);
 }
 
-void Gfx::SetBaseColor(ModelHandle model, int submeshIndex, Vector4 color)
+void Gfx::SetBaseColor(ModelHandle _model, int _submeshIndex, Vector4 _color)
 {
-	ModelData* data{ GraphicsResourceManager::Instance().Lookup(model) };
+	ModelData* data{ GraphicsResourceManager::Instance().Lookup(_model) };
 	if (!data) return;  // 無効ハンドルガード
-	if (submeshIndex < 0 || submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
-	data->subMeshes[submeshIndex].material.baseColorFactor = color;
+	if (_submeshIndex < 0 || _submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
+	data->subMeshes[_submeshIndex].material.baseColorFactor = _color;
 }
-void Gfx::SetTexture(ModelHandle model, int submeshIndex, TexHandle texture)
+void Gfx::SetTexture(ModelHandle _model, int _submeshIndex, TexHandle _texture)
 {
-	ModelData* data{ GraphicsResourceManager::Instance().Lookup(model) };
+	ModelData* data{ GraphicsResourceManager::Instance().Lookup(_model) };
 	if (!data) return;  // 無効ハンドルガード
-	if (submeshIndex < 0 || submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
-	data->subMeshes[submeshIndex].material.textures[MaterialTex::BaseColor] = texture; // 外部テクスチャなのでownerTextureには追加しない
+	if (_submeshIndex < 0 || _submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
+	data->subMeshes[_submeshIndex].material.textures[MaterialTex::BaseColor] = _texture; // 外部テクスチャなのでownerTextureには追加しない
 }
 // 解放
 void Gfx::Unload(TexHandle _handle)

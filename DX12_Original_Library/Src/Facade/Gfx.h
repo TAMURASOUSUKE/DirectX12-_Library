@@ -19,9 +19,6 @@ namespace Gfx
 		int cols{ 0 }; // 1行あたりのセルの量
 		int firstCode{ 0 }; // 先頭セルが表す文字コード(CP437配列なら0, スペース始まりなら32)
 	};
-
-	// メッセージループ
-	bool ProcessMessage();
 	// 画面のクリア(引数で色を設定できるデフォルトは黒)
 	void ClearScreen(float _r = 0.0f, float _g = 0.0f, float _b = 0.0f, float _a = 1.0f);
 	//画像読み込み
@@ -47,9 +44,9 @@ namespace Gfx
 	// terrainを描画する : 位置, 大きさ(xz平面にのみかかります), 分割係数 , 高さ ,変形形状を決めるheightMap(無ければplane描画になります)
 	void DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap = {});
 	// 色の変更(今後は引数を変更)
-	void SetBaseColor(ModelHandle model, int submeshIndex, Vector4 color);
+	void SetBaseColor(ModelHandle _model, int _submeshIndex, Vector4 _color);
 	// テクスチャの変更(今後は引数を変更) : セットしたモデルがUnloadされた場合セットしたTextureは解放されません(個別で解放が必要)
-	void SetTexture(ModelHandle model, int submeshIndex, TexHandle texture);
+	void SetTexture(ModelHandle _model, int _submeshIndex, TexHandle _texture);
 	// テクスチャリソースの解放
 	void Unload(TexHandle _handle);
 	void Unload(ModelHandle _hanlde);

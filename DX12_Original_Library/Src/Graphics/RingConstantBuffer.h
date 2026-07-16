@@ -15,7 +15,7 @@ public:
 	// 更新(書き込み先,読み込み元,データサイズ) そのスライスのGPUアドレスを返す
 	D3D12_GPU_VIRTUAL_ADDRESS Update(const void* _src, UINT _size);
 	// GPUアドレスを返す(オフセットを計算した状態)
-	D3D12_GPU_VIRTUAL_ADDRESS GetCurrentVertualAddress() const;
+	D3D12_GPU_VIRTUAL_ADDRESS GetCurrentVirtualAddress() const;
 	// フレームの頭で読んでカウンターをリセットする
 	void Reset();
 private:

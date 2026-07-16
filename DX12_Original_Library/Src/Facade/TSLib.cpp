@@ -35,6 +35,18 @@ bool TSLib::Initialize(const wchar_t* _title, int _width, int _height)
 	return result;
 }
 
+// メッセージループ
+bool TSLib::ProcessMessage()
+{
+	MSG msg{}; // イベント情報を格納する型
+	while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+	{
+		if (msg.message == WM_QUIT) return false;
+		DispatchMessage(&msg);
+	}
+	return true;
+}
+
 void TSLib::BeginFrame()
 {
 	SoundInternal::BeginFrame(1.0f / 60.0f); // 音関連のフレーム最初の処理(Systemファサードがないので60fps想定でdeltaTimeを渡しています)

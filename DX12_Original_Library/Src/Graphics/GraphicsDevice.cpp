@@ -217,7 +217,7 @@ void GraphicsDevice::Shutdown()
 
 bool GraphicsDevice::WaitForGPU()
 {
-	// コマンドキューとフェンスガン変えればそもそも失敗
+	// コマンドキューとフェンスがなければそもそも失敗
 	if (!cmdQueue || !fence)
 	{
 		return false;
