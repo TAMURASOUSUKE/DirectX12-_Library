@@ -32,7 +32,7 @@ public:
 	// カウンター等をリセットする
 	void Reset();
 private:
-	VertexBuffer vertBuffer; // 頂点バッファ
+	VertexBuffer vertBuffers[FRAME_BUFFER_COUNT]; // 頂点バッファ : BackBufferごとに動的頂点バッファを分けてGPUが読み込んでいるときにCPUが上書きしないため
 	// 一旦インデックスバッファは使わずに作成する = 簡単な図形のため影響が少ない(今後拡張してインデックスを使う)
 	UINT shapeCounter{ 0 }; // 今のフレームにどれだけ基礎図形が登録されているか
 	UINT shapeVertexCounter{ 0 }; // 頂点数をカウントする(次の開始位置を求める物として使う)
