@@ -186,10 +186,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
 
-		 Gfx::SetTexture(testModel, 0, enemy);
-
-		 Gfx::Unload(enemy);
-
 		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
 
 		Gfx::DrawSprite(enemy, {500.0f, 500.0f}, Vector2{ 128.0f, 128.0f });

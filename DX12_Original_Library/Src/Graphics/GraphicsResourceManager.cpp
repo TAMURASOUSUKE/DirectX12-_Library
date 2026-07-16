@@ -239,7 +239,9 @@ void GraphicsResourceManager::Initialize(ID3D12Device* _device)
 	texSlots.reserve(MAX_TEXTURE_COUNT); // 先に容量確保 + Lookupガードでタングリング防止
 	modelSlots.reserve(MAX_MODEL_COUNT); // 先に容量確保 + Lookupガードでタングリング防止
 	// デフォルト用の白テクスチャを作成する(初期化時に1枚だけ)
-	whiteTexture = CreateWhiteTexture();
+	defaultTexture = CreateMetaTexture({1.0f, 1.0f, 1.0f});
+	// エラー用のピンクテクスチャを作成する
+	errorTexture = CreateMetaTexture({ 1.0f, 0.0f, 1.0f });
 }
 
 void GraphicsResourceManager::Shutdown()
@@ -286,7 +288,8 @@ void GraphicsResourceManager::Shutdown()
 	{
 		modelFreeList.pop();
 	}
-	whiteTexture = TexHandle{};
+	defaultTexture = TexHandle{};
+	errorTexture = TexHandle{};
 	device = nullptr;
 }
 
@@ -788,11 +791,11 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 			// BaseColorハンドルが無効なら白にする
 			if (!sub.material.textures[MaterialTex::BaseColor].IsValid())
 			{
-				sub.material.textures[MaterialTex::BaseColor] = whiteTexture;
+				sub.material.textures[MaterialTex::BaseColor] = defaultTexture;
 			}
 
 			// 自分のテクスチャを登録していく(同じTextureを重複登録しない)
-			if (baseColor.IsValid() && baseColor != whiteTexture && std::find(modelData.ownedTextures.begin(), modelData.ownedTextures.end(), baseColor) == modelData.ownedTextures.end())
+			if (baseColor.IsValid() && baseColor != defaultTexture && std::find(modelData.ownedTextures.begin(), modelData.ownedTextures.end(), baseColor) == modelData.ownedTextures.end())
 			{
 				// baseColor
 				modelData.ownedTextures.push_back(baseColor);
@@ -897,7 +900,7 @@ void GraphicsResourceManager::Unload(ModelHandle _handle)
 	// このモデル自身が持っているテクスチャのみを解放する
 	for (TexHandle texture : model.ownedTextures)
 	{
-		if (texture.IsValid() && texture != whiteTexture)
+		if (texture.IsValid() && texture != defaultTexture)
 		{
 			Unload(texture);
 		}
@@ -1032,13 +1035,16 @@ TexHandle GraphicsResourceManager::LoadTextureFromGltf(const cgltf_texture_view&
 	return TexHandle{};
 }
 
-TexHandle GraphicsResourceManager::CreateWhiteTexture()
+TexHandle GraphicsResourceManager::CreateMetaTexture(Vector3 _color)
 {
+	// 各要素を0-1に制限した色
+	Vector3 metaColor{ std::clamp(_color.x, 0.0f, 1.0f), std::clamp(_color.y, 0.0f, 1.0f), std::clamp(_color.z, 0.0f, 1.0f) };
+
 	DirectX::ScratchImage scratch{}; // スクラッチ
 	scratch.Initialize2D(DXGI_FORMAT_R8G8B8A8_UNORM, 1, 1, 1, 1); // 1x1, 1配列, 1mip
 
-	uint8_t white[4]{ 255, 255, 255 ,255 }; // RGBA白
-	memcpy(scratch.GetPixels(), white, 4); // 生のメモリに白を書く
+	uint8_t meta[4]{ static_cast<uint8_t>(metaColor.x * 255.0f), static_cast<uint8_t>(metaColor.y * 255.0f), static_cast<uint8_t>(metaColor.z * 255.0f) ,255 }; // 色
+	memcpy(scratch.GetPixels(), meta, 4); // 生のメモリに白を書く
 	return CreateTextureFromScratch(scratch, scratch.GetMetadata());
 }
 

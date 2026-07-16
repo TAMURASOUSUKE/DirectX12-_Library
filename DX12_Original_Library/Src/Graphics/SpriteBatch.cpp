@@ -144,11 +144,18 @@ void SpriteBatch::Flush()
 	cmd->IASetVertexBuffers(0, 1, &vertBuffers[frameIndex].vertexView);
 	cmd->IASetIndexBuffer(&indexBuffer.indexView);
 
+	GraphicsResourceManager& resourceManager{ GraphicsResourceManager::Instance() };
+
 	// ランごとにSRVの差し替えとDrawを行う
 	for (const SpriteDrawRun& run : runs)
 	{
 		TextureData* data{ GraphicsResourceManager::Instance().Lookup(run.tex) }; // ハンドルを分解して保持
-		if (!data) continue; // 無効ハンドルはスキップ
+		if (!data)
+		{
+			DEBUG_LOG_WARNING("Sprite描画前にテクスチャが無効になったため、エラーテクスチャへ差し替えます\n");
+			data = resourceManager.Lookup(resourceManager.GetErrorTexture());
+		}
+		if (!data) continue; //エラーテクスチャまで取得できない場合は描画不可能
 		cmd->SetGraphicsRootDescriptorTable(0, data->srvHandle.gpu); // ルートシグネチャの0番にテクスチャのGPUハンドルをセット
 		cmd->DrawIndexedInstanced(run.count * 6, 1, 0, run.startSprite * 4, 0); // 区間情報から描画位置を特定して描画する(読むインデックスの数,  開始位置)
 	}

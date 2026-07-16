@@ -98,7 +98,21 @@ namespace {
 			cmd->SetGraphicsRootConstantBufferView(1, materialRingCBV.Update(&matCB, sizeof(MaterialCB)));
 
 			TextureData* tex{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
-			if (tex) cmd->SetGraphicsRootDescriptorTable(3, tex->srvHandle.gpu);
+			if (tex)
+			{
+				cmd->SetGraphicsRootDescriptorTable(3, tex->srvHandle.gpu);
+			}
+			else
+			{
+				DEBUG_LOG_ERROR("モデルのLookUpに失敗しました\n");
+				TextureData* error{ GraphicsResourceManager::Instance().Lookup(GraphicsResourceManager::Instance().GetErrorTexture()) }; // エラーハンドルを分解
+				if (!error)
+				{
+					DEBUG_LOG_ERROR("モデルLookup失敗時にエラー用テクスチャのLookUpに失敗しました\n");
+					return;
+				}
+				cmd->SetGraphicsRootDescriptorTable(3, error->srvHandle.gpu);
+			}
 
 			cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
 			cmd->IASetIndexBuffer(&sub.indexBuffer.indexView);
@@ -140,7 +154,21 @@ namespace {
 
 			// テクスチャをバインド
 			TextureData* tex{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
-			if (tex) cmd->SetGraphicsRootDescriptorTable(3, tex->srvHandle.gpu);
+			if (tex)
+			{
+				cmd->SetGraphicsRootDescriptorTable(3, tex->srvHandle.gpu);
+			}
+			else
+			{
+				DEBUG_LOG_ERROR("モデルのLookUpに失敗しました\n");
+				TextureData* error{ GraphicsResourceManager::Instance().Lookup(GraphicsResourceManager::Instance().GetErrorTexture()) }; // エラーハンドルを分解
+				if (!error)
+				{
+					DEBUG_LOG_ERROR("モデルLookup失敗時にエラー用テクスチャのLookUpに失敗しました\n");
+					return;
+				}
+				cmd->SetGraphicsRootDescriptorTable(3, error->srvHandle.gpu);
+			}
 
 			// 頂点インデックスをバインド
 			cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
@@ -225,7 +253,7 @@ namespace {
 		float effectiveHeightScale{ _heightScale }; // 高さのキャッシュ
 		if (!heightMap) // heightMapがないとき
 		{
-			const TexHandle fallback{ GraphicsResourceManager::Instance().GetWhiteTexture() };
+			const TexHandle fallback{ GraphicsResourceManager::Instance().GetDefaultTexture() };
 			heightMap = GraphicsResourceManager::Instance().Lookup(fallback); // 白テクスチャを使う
 			effectiveHeightScale = 0.0f; // ハイトマップがないときは高さ0にする
 		}
