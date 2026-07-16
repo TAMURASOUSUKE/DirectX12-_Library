@@ -28,7 +28,7 @@ public:
 
 	
 private:
-	VertexBuffer vertBuffer; // 頂点バッファ
+	VertexBuffer vertBuffers[FRAME_BUFFER_COUNT]; // 頂点バッファ : BackBufferごとに動的頂点バッファを分けてGPUが読み込んでいるときにCPUが上書きしないため
 	IndexBuffer indexBuffer; // インデックスバッファ
 	UINT spriteCounter{ 0 }; // 今のフレームにどれだけスプライトが登録されているか
 	UINT droppedCounter{ 0 }; // あふれた画像数のカウンター

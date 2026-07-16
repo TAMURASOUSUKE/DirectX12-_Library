@@ -33,12 +33,18 @@ void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 	}
 
 	indexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(indexArray.data(), static_cast<UINT>(indexArray.size()) * sizeof(UINT), MAX_SPRITE_COUNT * 6); // インデックスバッファの作成
-	vertBuffer = GraphicsResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(TexVertex), sizeof(TexVertex)); // 動的な頂点バッファの作成
+	for (UINT i = 0; i < FRAME_BUFFER_COUNT; i++)
+	{
+		vertBuffers[i] = GraphicsResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(TexVertex), sizeof(TexVertex)); // 動的な頂点バッファの作成
+	}
 }
 
 void SpriteBatch::Shutdown()
 {
-	vertBuffer = VertexBuffer{};
+	for (VertexBuffer& buffer : vertBuffers)
+	{
+		buffer = VertexBuffer{};
+	}
 	indexBuffer = IndexBuffer{};
 	spriteCounter = 0;
 	droppedCounter = 0;
@@ -92,7 +98,9 @@ void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _
 		leftBottom = leftBottom + center;
 	}
 
-	TexVertex* vertices{ static_cast<TexVertex*>(vertBuffer.mappedPtr) }; // マップされたポインタにアクセスするためにキャスト
+	// 今描画しているBackBufferと同じ番号の頂点バッファへ書き込む
+	const UINT frameIndex{ GraphicsDevice::Instance().GetCurrentFrameIndex() };
+	TexVertex* vertices{ static_cast<TexVertex*>(vertBuffers[frameIndex].mappedPtr)}; // マップされたポインタにアクセスするためにキャスト
 	
 	// UV空間をハードコーディングするのではなく引数から受け取る形に変更
 	vertices[spriteCounter * 4 + 0] = { {leftTop.x, leftTop.y, 0.0f}, {_uvMin.x, _uvMin.y} }; // 左上
@@ -120,6 +128,8 @@ void SpriteBatch::Flush()
 	if (runs.empty()) return; // 何もなければパイプライン設定などもせずに即return
 
 	auto* cmd{GraphicsDevice::Instance().GetCommandList()}; // コマンドリストをキャッシュ
+	// 今描画しているBackBufferと同じ番号の頂点バッファへ書き込む
+	const UINT frameIndex{ GraphicsDevice::Instance().GetCurrentFrameIndex() };
 
 	// パイプライン設定
 	cmd->SetGraphicsRootSignature(rootSig);
@@ -131,7 +141,7 @@ void SpriteBatch::Flush()
 
 	// 入力アセンブラを設定
 	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // リスト設定
-	cmd->IASetVertexBuffers(0, 1, &vertBuffer.vertexView);
+	cmd->IASetVertexBuffers(0, 1, &vertBuffers[frameIndex].vertexView);
 	cmd->IASetIndexBuffer(&indexBuffer.indexView);
 
 	// ランごとにSRVの差し替えとDrawを行う

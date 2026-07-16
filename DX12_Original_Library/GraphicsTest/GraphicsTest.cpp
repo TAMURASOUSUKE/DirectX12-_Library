@@ -182,17 +182,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 30.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
 
-		Gfx::SetTexture(testModel, 0, enemy);
+		// Gfx::SetTexture(testModel, 0, enemy);
 
-		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
+		//Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
 
-		Gfx::Unload(testModel);
+		//Gfx::Unload(testModel);
 
 		Gfx::DrawSprite(enemy, {500.0f, 500.0f}, Vector2{ 128.0f, 128.0f });
 
 		Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
 		Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
 		Gfx::DrawCircle({ 120.0f, 300.0f }, 30.0f, { 1.0f, 0.0f, 1.0f, 1.0f });
+		Gfx::DrawCircle({ 800.0f, 300.0f }, 30.0f, { 1.0f, 0.0f, 1.0f, 1.0f });
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}
