@@ -9,12 +9,25 @@ void RingConstantBuffer::Initialize(UINT _dataSize)
 {
 	alignedSize = (_dataSize + 0xff) & ~0xff; // 256バイトへの切り上げ
 	DynamicBuffer db{ GraphicsResourceManager::Instance().CreateDynamicBuffer(FRAME_BUFFER_COUNT * MAX_CB_PER_FRAME * alignedSize) }; // 動的なバッファ確保
-	if (!db.mappedPtr) return; // mapされたCPUptrを確認してnullであれば失敗判定
+	if (!db.mappedPtr)
+	{
+		DEBUG_LOG_ERROR("MapされたCPUPtrがnullで失敗しました\n");
+		return; // mapされたCPUptrを確認してnullであれば失敗判定
+	}
 
 	// メンバへ渡す
 	resource = db.resource; // リソースオブジェクト
 	baseCPUPtr = db.mappedPtr; // マップしたCPUポインタ
 	baseGPUVA = resource->GetGPUVirtualAddress(); // ベースの仮想アドレスをキャッシュして保持
+}
+
+void RingConstantBuffer::Shutdown()
+{
+	resource.Reset();
+	baseCPUPtr = nullptr;
+	baseGPUVA = 0;
+	alignedSize = 0;
+	frameCounter = 0;
 }
 
 D3D12_GPU_VIRTUAL_ADDRESS RingConstantBuffer::Update(const void* _src, UINT _size)
@@ -31,7 +44,7 @@ D3D12_GPU_VIRTUAL_ADDRESS RingConstantBuffer::Update(const void* _src, UINT _siz
 
 }
 
-D3D12_GPU_VIRTUAL_ADDRESS RingConstantBuffer::GetCurrentVertualAddress() const
+D3D12_GPU_VIRTUAL_ADDRESS RingConstantBuffer::GetCurrentVirtualAddress() const
 {
 	// ベースのGPUの仮想アドレス + offsetを返す
 	return baseGPUVA + CalculateOffset();

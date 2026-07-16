@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{c13ccc51-b0c9-43c7-b3b6-c08e0b45f79d}</ProjectGuid>
-    <RootNamespace>SoundTest</RootNamespace>
+    <ProjectGuid>{92f5e192-7f57-4ca0-9982-8ea768e91d8a}</ProjectGuid>
+    <RootNamespace>InputTest</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -147,7 +147,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="SoundTest.cpp" />
+    <ClCompile Include="InputTest.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

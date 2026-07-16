@@ -239,7 +239,98 @@ void GraphicsResourceManager::Initialize(ID3D12Device* _device)
 	texSlots.reserve(MAX_TEXTURE_COUNT); // 先に容量確保 + Lookupガードでタングリング防止
 	modelSlots.reserve(MAX_MODEL_COUNT); // 先に容量確保 + Lookupガードでタングリング防止
 	// デフォルト用の白テクスチャを作成する(初期化時に1枚だけ)
-	whiteTexture = CreateWhiteTexture();
+	defaultTexture = CreateMetaTexture({1.0f, 1.0f, 1.0f});
+	// エラー用のピンクテクスチャを作成する
+	errorTexture = CreateMetaTexture({ 1.0f, 0.0f, 1.0f });
+}
+
+void GraphicsResourceManager::Shutdown()
+{
+	auto releaseTexture = [](TextureData& _texture)
+		{
+			// GPUは停止済みなのでDescriptorを即座に返す
+			if (_texture.srvHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, _texture.srvHandle);
+			_texture = TextureData{}; // ComPtrも含めて空にする
+		};
+
+	// まだUnloadされていないtextureを空にする
+	for (TextureSlot& slot : texSlots)
+	{
+		releaseTexture(slot.data);
+	}
+	// EndFrame前にUnloadされ、Fence値が未確定のtexture
+	for (TextureData& texture : pendingRelease.textures)
+	{
+		releaseTexture(texture);
+	}
+	// Fence完了待ちだったtexture
+	for (DeferredReleaseBatch& batch : deferredReleases)
+	{
+		for (TextureData& texture : batch.textures)
+		{
+			releaseTexture(texture);
+		}
+	}
+	// 生存しているmodel
+	modelSlots.clear(); // ComPtrも解放
+	// Unload済みで解放待ちだったmodel
+	pendingRelease.models.clear();
+	// DeferredReleaseBatch内のmodel
+	deferredReleases.clear();
+	texSlots.clear();
+	pendingRelease = DeferredReleaseBatch{}; // 空にする
+	// FreeListも初期状態へ戻す
+	while (!texFreeList.empty())
+	{
+		texFreeList.pop();
+	}
+	while (!modelFreeList.empty())
+	{
+		modelFreeList.pop();
+	}
+	defaultTexture = TexHandle{};
+	errorTexture = TexHandle{};
+	device = nullptr;
+}
+
+void GraphicsResourceManager::CommitPendingRelease(UINT64 _submittedFenceValue)
+{
+	// 空チェック
+	if (pendingRelease.textures.empty() && pendingRelease.models.empty())
+	{
+		return;
+	}
+
+	// このフェンス値までGPUが進めば安全に解放できる
+	pendingRelease.fenceValue = _submittedFenceValue;
+	deferredReleases.push_back(std::move(pendingRelease));
+
+	// 次のフレーム用に空にする
+	pendingRelease = DeferredReleaseBatch{};
+}
+
+void GraphicsResourceManager::CollectDeferredReleases(UINT64 _completedFenceValue)
+{
+	// 解放待ちが入っている分だけ回す
+	while (!deferredReleases.empty())
+	{
+		DeferredReleaseBatch& batch{ deferredReleases.front() }; // 先頭を取り出す
+
+		// 先頭の荷物をGPUがまだ使っている
+		if (batch.fenceValue > _completedFenceValue)
+		{
+			break;
+		}
+
+		// GPUが使い終わったのでDescriptorを返す
+		for (TextureData& texture : batch.textures)
+		{
+			DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texture.srvHandle);
+		}
+
+		// pop_frontによってTextureData、ModelDataが破棄されて内部のComPtrもここで解放
+		deferredReleases.pop_front();
+	}
 }
 
 VertexBuffer GraphicsResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize)
@@ -678,14 +769,19 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 			SubMesh sub{}; // サブメッシュ
 			sub.vertexBuffer = vertBuffer;
 			sub.indexBuffer = indexBuffer;
+			
+			TexHandle baseColor{ LoadTextureFromGltf(prim.material->pbr_metallic_roughness.base_color_texture, modelDir) }; // ベースカラーテクスチャ
+			TexHandle normalMap{ LoadTextureFromGltf(prim.material->normal_texture, modelDir) }; // ノーマルマップ
+			TexHandle metallic{ LoadTextureFromGltf(prim.material->pbr_metallic_roughness.metallic_roughness_texture, modelDir) }; // メタリック
+			TexHandle emissive{ LoadTextureFromGltf(prim.material->emissive_texture, modelDir) }; // 自己発光
 
 			// テクスチャや各パラメータの代入
 			if (prim.material)
 			{
-				sub.material.textures[MaterialTex::BaseColor] = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.base_color_texture, modelDir);
-				sub.material.textures[MaterialTex::Normal] = LoadTextureFromGltf(prim.material->normal_texture, modelDir);
-				sub.material.textures[MaterialTex::MetallicRoughness] = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.metallic_roughness_texture, modelDir);
-				sub.material.textures[MaterialTex::Emissive] = LoadTextureFromGltf(prim.material->emissive_texture, modelDir);
+				sub.material.textures[MaterialTex::BaseColor] = baseColor;
+				sub.material.textures[MaterialTex::Normal] = normalMap;
+				sub.material.textures[MaterialTex::MetallicRoughness] = metallic;
+				sub.material.textures[MaterialTex::Emissive] = emissive;
 				sub.material.baseColorFactor = ToVec4(prim.material->pbr_metallic_roughness.base_color_factor);
 				sub.material.metallic = prim.material->pbr_metallic_roughness.metallic_factor;
 				sub.material.roughness = prim.material->pbr_metallic_roughness.roughness_factor;
@@ -695,7 +791,29 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 			// BaseColorハンドルが無効なら白にする
 			if (!sub.material.textures[MaterialTex::BaseColor].IsValid())
 			{
-				sub.material.textures[MaterialTex::BaseColor] = whiteTexture;
+				sub.material.textures[MaterialTex::BaseColor] = defaultTexture;
+			}
+
+			// 自分のテクスチャを登録していく(同じTextureを重複登録しない)
+			if (baseColor.IsValid() && baseColor != defaultTexture && std::find(modelData.ownedTextures.begin(), modelData.ownedTextures.end(), baseColor) == modelData.ownedTextures.end())
+			{
+				// baseColor
+				modelData.ownedTextures.push_back(baseColor);
+			}
+			if (normalMap.IsValid() && std::find(modelData.ownedTextures.begin(), modelData.ownedTextures.end(), normalMap) == modelData.ownedTextures.end())
+			{
+				// normalMap
+				modelData.ownedTextures.push_back(normalMap);
+			}
+			if (metallic.IsValid() && std::find(modelData.ownedTextures.begin(), modelData.ownedTextures.end(), metallic) == modelData.ownedTextures.end())
+			{
+				// metallic
+				modelData.ownedTextures.push_back(metallic);
+			}
+			if (emissive.IsValid() && std::find(modelData.ownedTextures.begin(), modelData.ownedTextures.end(), emissive) == modelData.ownedTextures.end())
+			{
+				// emissive
+				modelData.ownedTextures.push_back(emissive);
 			}
 
 			modelData.subMeshes.push_back(sub); // 詰め込む
@@ -758,11 +876,12 @@ void GraphicsResourceManager::Unload(TexHandle _handle)
 		return;
 	}
 	int index{ UnpackIndex(_handle.GetRaw(PassKey{})) }; // indexの取り出し
-
-	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texSlots[index].data.srvHandle); // スロットの返却
-	texSlots[index].data = TextureData{}; // null化を行う
-	texSlots[index].generation++; // 世代を増やして既存ハンドルを無効化
-	texFreeList.push(index); // indexをfreelistに入れる
+	// ComPtrとDescriptorHanldeを解放待ちへ移動する
+	pendingRelease.textures.push_back(std::move(texSlots[index].data));
+	// CPU側のハンドルは無効化する
+	texSlots[index].data = TextureData{};
+	texSlots[index].generation++;
+	texFreeList.push(index);
 }
 
 void GraphicsResourceManager::Unload(ModelHandle _handle)
@@ -775,22 +894,20 @@ void GraphicsResourceManager::Unload(ModelHandle _handle)
 		return;
 	}
 	int index{ UnpackIndex(_handle.GetRaw(PassKey{})) }; // indexを取り出す
-	for (SubMesh& sub : modelSlots[index].data.subMeshes)
-	{
-		/*
-			頂点バッファやインデックスバッファはComPtrで管理しているので自動Freeされる
-		*/
 
-		// テクスチャの開放
-		for (TexHandle& tex : sub.material.textures)
+	ModelData& model{ modelSlots[index].data }; // 実データ取り出し
+
+	// このモデル自身が持っているテクスチャのみを解放する
+	for (TexHandle texture : model.ownedTextures)
+	{
+		if (texture.IsValid() && texture != defaultTexture)
 		{
-			if (tex.IsValid() && tex != whiteTexture)
-			{
-				Unload(tex);
-			}
+			Unload(texture);
 		}
 	}
 
+
+	pendingRelease.models.push_back(std::move(model)); // VB,IBも含めComPtrとDescriptorHanldeを解放待ちへ移動
 	modelSlots[index].data = ModelData{}; // 空を入れてsubMeshごと破棄
 	modelSlots[index].generation++; // 世代を増やして既存を無効化
 	modelFreeList.push(index); // freelistへ返す
@@ -918,13 +1035,16 @@ TexHandle GraphicsResourceManager::LoadTextureFromGltf(const cgltf_texture_view&
 	return TexHandle{};
 }
 
-TexHandle GraphicsResourceManager::CreateWhiteTexture()
+TexHandle GraphicsResourceManager::CreateMetaTexture(Vector3 _color)
 {
+	// 各要素を0-1に制限した色
+	Vector3 metaColor{ std::clamp(_color.x, 0.0f, 1.0f), std::clamp(_color.y, 0.0f, 1.0f), std::clamp(_color.z, 0.0f, 1.0f) };
+
 	DirectX::ScratchImage scratch{}; // スクラッチ
 	scratch.Initialize2D(DXGI_FORMAT_R8G8B8A8_UNORM, 1, 1, 1, 1); // 1x1, 1配列, 1mip
 
-	uint8_t white[4]{ 255, 255, 255 ,255 }; // RGBA白
-	memcpy(scratch.GetPixels(), white, 4); // 生のメモリに白を書く
+	uint8_t meta[4]{ static_cast<uint8_t>(metaColor.x * 255.0f), static_cast<uint8_t>(metaColor.y * 255.0f), static_cast<uint8_t>(metaColor.z * 255.0f) ,255 }; // 色
+	memcpy(scratch.GetPixels(), meta, 4); // 生のメモリに白を書く
 	return CreateTextureFromScratch(scratch, scratch.GetMetadata());
 }
 

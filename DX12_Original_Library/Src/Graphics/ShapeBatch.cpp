@@ -16,7 +16,26 @@ void ShapeBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* 
 	gpuVirtualAddres = _gpuVirtualAddres;
 
 	// 一番多く頂点を取るカプセルの頂点数(3N * 6)を最大数分確保する
-	vertBuffer = GraphicsResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SHAPE_COUNT * (3 * CIRCLE_DIVISION + 6) * sizeof(ShapeVertex), sizeof(ShapeVertex)); // 動的な頂点バッファの作成
+	for (UINT i = 0; i < FRAME_BUFFER_COUNT; i++)
+	{
+		vertBuffers[i] = GraphicsResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SHAPE_COUNT * (3 * CIRCLE_DIVISION + 6) * sizeof(ShapeVertex), sizeof(ShapeVertex)); // 動的な頂点バッファの作成
+	}
+}
+
+void ShapeBatch::Shutdown()
+{
+	for (VertexBuffer& buffer : vertBuffers)
+	{
+		buffer = VertexBuffer{};
+	}
+	droppedCounter = 0;
+	shapeCounter = 0;
+	shapeVertexCounter = 0;
+	runs = std::vector<ShapeDrawRun>{}; // vectorの確保容量も返す
+	rootSig = nullptr;
+	wireState = nullptr;
+	fillState = nullptr;
+	gpuVirtualAddres = nullptr;
 }
 
 void ShapeBatch::RegisterBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation, Vector4 _color, bool _isWireframe)
@@ -33,7 +52,8 @@ void ShapeBatch::RegisterBox(Vector2 _leftTop, Vector2 _rightBottom, float _radR
 	Vector2 leftBottom{ _leftTop.x, _leftTop.y + size.y }; // 左下
 	if (_radRotation != 0.0f)
 	{
-		Vector2 center{ (_rightBottom - _leftTop) / 2.0f }; // 中心
+		// 左上頂点に半サイズを足す
+		Vector2 center{ _leftTop + size / 2.0f }; // 中心
 		// 相対座標を適用(中心からの位置)
 		_leftTop -= center;
 		rightTop -= center;
@@ -53,8 +73,9 @@ void ShapeBatch::RegisterBox(Vector2 _leftTop, Vector2 _rightBottom, float _radR
 		_rightBottom = _rightBottom + center;
 		leftBottom = leftBottom + center;
 	}
-
-	ShapeVertex* vertices{ static_cast<ShapeVertex*>(vertBuffer.mappedPtr) }; // 頂点バッファの中のvoidPtrをShapeVertexのptrに変換
+	// 今描画しているBackBufferと同じ番号の頂点バッファへ書き込む
+	const UINT frameIndex{ GraphicsDevice::Instance().GetCurrentFrameIndex() };
+	ShapeVertex* vertices{ static_cast<ShapeVertex*>(vertBuffers[frameIndex].mappedPtr)}; // 頂点バッファの中のvoidPtrをShapeVertexのptrに変換
 	// カラーを引数から受け取る(今はインデックスを使わないので頂点を直書きしていく)
 	if (_isWireframe)
 	{
@@ -104,7 +125,9 @@ void ShapeBatch::RegisterCircle(Vector2 _center, float _radius, Vector4 _color, 
 		droppedCounter++; // あふれているならカウントする
 		return; // 限界を超えているならreturn
 	}
-	ShapeVertex* vertices{ static_cast<ShapeVertex*>(vertBuffer.mappedPtr) }; // 頂点バッファの中のvoidPtrをShapeVertexのptrに変換
+	// 今描画しているBackBufferと同じ番号の頂点バッファへ書き込む
+	const UINT frameIndex{ GraphicsDevice::Instance().GetCurrentFrameIndex() };
+	ShapeVertex* vertices{ static_cast<ShapeVertex*>(vertBuffers[frameIndex].mappedPtr)}; // 頂点バッファの中のvoidPtrをShapeVertexのptrに変換
 	UINT vertexNum{ (_isWireframe) ? 2u * CIRCLE_DIVISION : 3u * CIRCLE_DIVISION }; // 頂点数
 	float theta{ (2.0f * Math::PI) / CIRCLE_DIVISION };
 
@@ -166,8 +189,9 @@ void ShapeBatch::RegisterCapsule(Vector2 _startPos, Vector2 _endPos, float _radi
 		droppedCounter++; // あふれているならカウントする
 		return; // 限界を超えているならreturn
 	}
-
-	ShapeVertex* vertices{ static_cast<ShapeVertex*>(vertBuffer.mappedPtr) }; // 頂点バッファの中のvoidPtrをShapeVertexのptrに変換
+	// 今描画しているBackBufferと同じ番号の頂点バッファへ書き込む
+	const UINT frameIndex{ GraphicsDevice::Instance().GetCurrentFrameIndex() };
+	ShapeVertex* vertices{ static_cast<ShapeVertex*>(vertBuffers[frameIndex].mappedPtr)}; // 頂点バッファの中のvoidPtrをShapeVertexのptrに変換
 	Vector2 d{ _endPos - _startPos }; // 始点から終点までのベクトル
 	d.Normalize(); // 正規化
 	Vector2 normal{ -d.y, d.x }; // 90度回転した方向
@@ -286,7 +310,9 @@ void ShapeBatch::RegisterLine(Vector2 _startPos, Vector2 _endPos, Vector4 _color
 		droppedCounter++; // あふれているならカウントする
 		return; // 限界を超えているならreturn
 	}
-	ShapeVertex* vertices{ static_cast<ShapeVertex*>(vertBuffer.mappedPtr) }; // 頂点バッファの中のvoidPtrをShapeVertexのptrに変換
+	// 今描画しているBackBufferと同じ番号の頂点バッファへ書き込む
+	const UINT frameIndex{ GraphicsDevice::Instance().GetCurrentFrameIndex() };
+	ShapeVertex* vertices{ static_cast<ShapeVertex*>(vertBuffers[frameIndex].mappedPtr)}; // 頂点バッファの中のvoidPtrをShapeVertexのptrに変換
 	UINT vertexNum{ 2u }; // 頂点数
 
 	vertices[shapeVertexCounter + 0] = { {_startPos.x, _startPos.y, 0.0f}, {_color.x, _color.y, _color.z, _color.w} };
@@ -314,10 +340,12 @@ void ShapeBatch::Flush()
 	if (runs.empty()) return; // 何もなければパイプライン設定などもせずに即return
 
 	auto* cmd{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリストをキャッシュ
+	// 今描画しているBackBufferと同じ番号の頂点バッファへ書き込む
+	const UINT frameIndex{ GraphicsDevice::Instance().GetCurrentFrameIndex() };
 
 	cmd->SetGraphicsRootSignature(rootSig);
 	cmd->SetGraphicsRootConstantBufferView(0, gpuVirtualAddres->GetGPUVirtualAddress());
-	cmd->IASetVertexBuffers(0, 1, &vertBuffer.vertexView);
+	cmd->IASetVertexBuffers(0, 1, &vertBuffers[frameIndex].vertexView);
 	// ワイヤーフラグでrunを切り替えるのでrunごとに確認する
 	for (const ShapeDrawRun& run : runs)
 	{

@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <d3d12.h>
 #include <vector>
 #include "../Math/TSMath.h"
 #include "GraphicsType.h"
@@ -16,6 +17,8 @@ class ShapeBatch
 public:
 	// 初期化処理
 	void Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _fillState, ID3D12PipelineState* _wireState ,ID3D12Resource* _gpuVirtualAddres);
+	// 終了処理
+	void Shutdown();
 
 	// 基本図形の登録
 	void RegisterBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation = 0.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f },bool _isWireframe = false); // 矩形
@@ -29,7 +32,7 @@ public:
 	// カウンター等をリセットする
 	void Reset();
 private:
-	VertexBuffer vertBuffer; // 頂点バッファ
+	VertexBuffer vertBuffers[FRAME_BUFFER_COUNT]; // 頂点バッファ : BackBufferごとに動的頂点バッファを分けてGPUが読み込んでいるときにCPUが上書きしないため
 	// 一旦インデックスバッファは使わずに作成する = 簡単な図形のため影響が少ない(今後拡張してインデックスを使う)
 	UINT shapeCounter{ 0 }; // 今のフレームにどれだけ基礎図形が登録されているか
 	UINT shapeVertexCounter{ 0 }; // 頂点数をカウントする(次の開始位置を求める物として使う)

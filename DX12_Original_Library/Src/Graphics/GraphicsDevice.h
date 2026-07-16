@@ -19,8 +19,10 @@ public:
 
 	// 初期化処理(ウィンドウハンドルと画面横サイズ、縦サイズ)
 	void Initialize(HWND _hwnd, int _width, int _height);
-	// 終了処理
+	// GPUが待機済みを前提に、内部オブジェクトを解放する終了処理
 	void Shutdown();
+	// GPU待機処理
+	bool WaitForGPU();
 
 	// フレームの最初に呼び出す関数
 	void BeginFrame();
@@ -37,6 +39,12 @@ public:
 	D3D12_CPU_DESCRIPTOR_HANDLE GetDSV() const;
 	// 現在のフレームインデックスを取得する
 	UINT GetCurrentFrameIndex() const;
+
+	// GPUが処理完了したところまでのフェンス値を取得する
+	UINT64 GetCompletedFenceValue() const;
+
+	// CPU側が最後にGPUへ通知したフェンス値を取得する
+	UINT64 GetLastSubmittedFenceValue() const;
 
 	// ヘルパー
 	HRESULT ExecuteUpdate(std::function<void(ID3D12GraphicsCommandList*)> _recode); // アップロードヘルパー

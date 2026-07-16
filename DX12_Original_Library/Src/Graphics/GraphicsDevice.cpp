@@ -195,17 +195,62 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 // 終了処理
 void GraphicsDevice::Shutdown()
 {
-	// GPUが全処理終了するのを待ってから終了する(リソースが残ったまま開放するとクラッシュする)
-	cmdQueue->Signal(fence.Get(), ++fenceValueCounter);
-	if (fence->GetCompletedValue() < fenceValueCounter)
+	cmdList.Reset();
+	for (ComPtr<ID3D12CommandAllocator>& allocator : cmdAllocators)
+	{
+		allocator.Reset();
+	}
+
+	for (ComPtr<ID3D12Resource>& backBuffer : backBuffers)
+	{
+		backBuffer.Reset();
+	}
+
+	dsvResource.Reset();
+	rtvHeap.Reset();
+	dsvHeap.Reset();
+	swapChain.Reset();
+	fence.Reset();
+	cmdQueue.Reset();
+	device.Reset();
+}
+
+bool GraphicsDevice::WaitForGPU()
+{
+	// コマンドキューとフェンスがなければそもそも失敗
+	if (!cmdQueue || !fence)
+	{
+		return false;
+	}
+	const UINT64 waitValue{ ++fenceValueCounter };
+	HRESULT result{ cmdQueue->Signal(fence.Get(), waitValue) };  // フェンス値の設定
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("フェンス値の設定に失敗しました\n");
+		return false;
+	}
+
+	// 設定したフェンス値になっているか設定
+	if (fence->GetCompletedValue() < waitValue)
 	{
 		HANDLE event{ CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS) };
 		DEBUG_ASSERT(event != nullptr); // デバッグ時失敗したら場所を知らせる
-		if (!event) return; // nullチェック
-		fence->SetEventOnCompletion(fenceValueCounter, event);
-		WaitForSingleObject(event, INFINITE);
-		CloseHandle(event);
+		if (!event) return false; // nullチェック
+		// フェンスの値が第一引数以上になるとeventがシグナル状態になる
+		fence->SetEventOnCompletion(waitValue, event);
+
+		// eventがシグナル状態になるまで待機
+		const DWORD waitResult{ WaitForSingleObject(event, INFINITE) };
+		CloseHandle(event); // eventを閉じる
+		if (waitResult != WAIT_OBJECT_0)
+		{
+			DEBUG_LOG_ERROR("GPU待機処理が失敗しました\n");
+			return false;
+		}
 	}
+
+
+	return true;
 }
 
 // フレームの最初に行う処理
@@ -384,4 +429,22 @@ HRESULT GraphicsDevice::ExecuteUpdate(std::function<void(ID3D12GraphicsCommandLi
 	}
 
 	return S_OK; // ここまで来たら成功を返す
+}
+
+UINT64 GraphicsDevice::GetCompletedFenceValue() const
+{
+	// Shutdown後など、フェンスが存在しない場合の保険
+	if (fence == nullptr)
+	{
+		return 0;
+	}
+
+	// GPUが実際に処理を完了したフェンス値
+	return fence->GetCompletedValue();
+}
+
+UINT64 GraphicsDevice::GetLastSubmittedFenceValue() const
+{
+	// CPU側が最後にSignalへ使用したフェンス値
+	return fenceValueCounter;
 }

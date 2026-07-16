@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <vector>
 #include <stack>
+#include <deque>
 #include "../Core/Handle/TexHandle.h"
 #include"../Core/Handle/ModelHandle.h"
 #include "GraphicsType.h"
@@ -30,6 +31,13 @@ public:
 
 	// 初期化処理
 	void Initialize(ID3D12Device* _device);
+	// 終了処理
+	void Shutdown();
+	// EndFrame時にFence値を構造体へ
+	void CommitPendingRelease(UINT64 _submittedFenceValue);
+	// GPUが完了した時に溜まっている解放待ちを解放する処理
+	void CollectDeferredReleases(UINT64 _completedFenceValue);
+
 
 	// 頂点バッファの作成(Map->UnMapの固定)
 	VertexBuffer CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize);
@@ -69,7 +77,9 @@ public:
 	void Unload(ModelHandle _handle);
 
 	// デフォルト用の白テクスチャを取得する
-	TexHandle GetWhiteTexture() const { return whiteTexture; }
+	TexHandle GetDefaultTexture() const { return defaultTexture; }
+	// エラー用のピンクテクスチャを取得する
+	TexHandle GetErrorTexture() const { return errorTexture; }
 private:
 	// コンストラクタ
 	GraphicsResourceManager() = default;
@@ -84,17 +94,20 @@ private:
 	// テクスチャの種類を受け取りuri/bufferviewを探索してロードするヘルパー
 	TexHandle LoadTextureFromGltf(const cgltf_texture_view& _texView, const  std::filesystem::path& _modelDir);
 	
-	// デフォルト用の白色のテクスチャを作成するヘルパー(Initializeで作成用)
-	TexHandle CreateWhiteTexture();
+	// 内部で使うメタテクスチャを作成するヘルパー(Initializeで作成用)
+	TexHandle CreateMetaTexture(Vector3 _color);
 
 	// Animation補完を助けるキーフレーム補完ヘルパー
 	Vector4 SampleChannel(const AnimChannel& _ch, float _time);
 
 private:
 	ID3D12Device* device{ nullptr }; // Initializeでデバイスを受け取って保持する
-	TexHandle whiteTexture; // デフォルトの白テクスチャ
+	TexHandle defaultTexture; // デフォルトの白テクスチャ
+	TexHandle errorTexture; // エラー用のピンクテクスチャ
 	std::vector<TextureSlot> texSlots; // テクスチャリソースのスロット
 	std::vector <ModelSlot> modelSlots; // モデルリソースのスロット
 	std::stack<int> texFreeList; // テクスチャリソースのフリーリスト
 	std::stack<int> modelFreeList; // モデルリソースのフリーリスト
+	DeferredReleaseBatch pendingRelease{}; // まだEndFrameしていないのでFence値が決まっていない荷物
+	std::deque<DeferredReleaseBatch> deferredReleases{}; // EndFrame済みでGPU完了を待っている荷物
 };

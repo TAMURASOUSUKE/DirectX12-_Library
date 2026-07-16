@@ -247,7 +247,7 @@ struct MaterialCB
 struct Material
 {
 	TexHandle textures[MaterialTex::Count]; // テクスチャ群
-	Vector4 baseColorFactor{ 1.0f, 0.0f, 0.0f, 1.0f }; // 拡散色(デフォルトは白)
+	Vector4 baseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f }; // 拡散色(デフォルトは白)
 	float metallic{ 1.0f }; //　金属度
 	float roughness{ 1.0f }; // 粗さ
 	Vector3 emissiveFactor{ 0.0f, 0.0f, 0.0f }; // 自己発光色
@@ -309,6 +309,7 @@ struct ModelData
 	std::vector<Bone> bones; // 構成するボーン
 	std::vector<Animation> animations; // 構成するアニメーション
 	Mat4x4 skeletonRoot{ Mat4x4::Identity }; // Armature変換用(ルートの親)
+	std::vector<TexHandle> ownedTextures; // モデル読み込み時にこのモデル用としてReosurceManagerが用意したTexture群
 };
 
 // 個体ごとのアニメーションの状態
@@ -336,4 +337,12 @@ struct TerrainCB
 	float heightScale{ 1.0f }; // 高さ具合
 	float tessFactor{ 4.0f }; // 分割係数
 	float padding[2]{};
+};
+
+// 1回のGPU送信に対応する解放待ちのリソース
+struct DeferredReleaseBatch
+{
+	UINT64 fenceValue{ 0 }; // GPUがこの値まで完了したら解放可能
+	std::vector<TextureData> textures{}; // SRVとTextureResourceを保持する
+	std::vector<ModelData> models{}; // VB・IB・Material等を保持する
 };

@@ -424,7 +424,7 @@ bool SoundSystem::IsStopAllSE()
 			XAUDIO2_VOICE_STATE state{};
 			sound.voiceResource->GetState(&state);
 			// 一つでも再生されていればそこでループをやめてfalseを返す
-			if (state.BuffersQueued >= 0)
+			if (state.BuffersQueued > 0)
 			{
 				result = false; 
 				break;
