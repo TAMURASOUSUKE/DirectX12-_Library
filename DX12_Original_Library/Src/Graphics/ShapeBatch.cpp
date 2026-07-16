@@ -47,12 +47,13 @@ void ShapeBatch::RegisterBox(Vector2 _leftTop, Vector2 _rightBottom, float _radR
 	}
 
 	// 回転の適用
-	Vector2 size{ _leftTop + _rightBottom };
+	Vector2 size{ _rightBottom - _leftTop };
 	Vector2 rightTop{ _leftTop.x + size.x, _leftTop.y }; // 右上
 	Vector2 leftBottom{ _leftTop.x, _leftTop.y + size.y }; // 左下
 	if (_radRotation != 0.0f)
 	{
-		Vector2 center{ (_leftTop + _rightBottom) / 2.0f }; // 中心
+		// 左上頂点に半サイズを足す
+		Vector2 center{ _leftTop + size / 2.0f }; // 中心
 		// 相対座標を適用(中心からの位置)
 		_leftTop -= center;
 		rightTop -= center;
