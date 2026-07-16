@@ -1,5 +1,6 @@
 ﻿#include "../Src/Facade/TSLib.h"
 #include <string> // テスト用
+#include <algorithm>
 #include "../Src/Graphics/GraphicsType.h" // デバッグ用に一時的に
 #include "DescriptorManager.h" // Allocator関数を呼び出しメモリ確保できるかのテスト
 
@@ -76,10 +77,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	SoundHandle testSound02{ Sound::LoadSound("Phuniaya_2.wav") };
 	SoundHandle testSound03{ Sound::LoadSound("Better_Days.wav") };
 	float testBolume{ 0.8f };
-
+	float t{ 0.0f };
 	while (Gfx::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
+
+		t += 0.0167f;
 
 		Vector2 dir{ Input::GetPadStickValue(PadCode::Stick::RIGHT)};
 
@@ -193,7 +196,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
 		Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
 		Gfx::DrawCircle({ 120.0f, 300.0f }, 30.0f, { 1.0f, 0.0f, 1.0f, 1.0f });
-		Gfx::DrawCircle({ 800.0f, 300.0f }, 30.0f, { 1.0f, 0.0f, 1.0f, 1.0f });
+		Gfx::DrawCircle({ std::sinf(t) * 50.0f + 600.0f, 300.0f}, 30.0f, {std::clamp(std::sinf(t), 0.0f, 1.0f), 0.0f, 0.0f, 1.0f});
+		Gfx::DrawBox({ 200.0f, 200.0f }, {400.0f, 400.0f}, 30.0f * Math::DEG_TO_RAD);
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}
