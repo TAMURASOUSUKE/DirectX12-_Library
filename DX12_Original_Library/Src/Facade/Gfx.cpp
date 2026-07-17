@@ -113,6 +113,7 @@ namespace {
 			if (materialUpdate <= 0)
 			{
 				DEBUG_LOG_ERROR("マテリアルringbufferのUpateで失敗しました\n");
+				return; // materialのUpdateで失敗したらモデルをあきらめる
 			}
 			cmd->SetGraphicsRootConstantBufferView(1, materialUpdate);
 
@@ -181,6 +182,7 @@ namespace {
 			if (materialUpdate <= 0)
 			{
 				DEBUG_LOG_ERROR("マテリアルringbufferのUpateで失敗しました\n");
+				return; // materialのUpdateで失敗したらモデルをあきらめる
 			}
 			// Ringで送ってb1にバインドする
 			cmd->SetGraphicsRootConstantBufferView(1, materialUpdate);
