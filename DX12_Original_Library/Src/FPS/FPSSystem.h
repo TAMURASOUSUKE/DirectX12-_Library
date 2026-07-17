@@ -31,6 +31,8 @@ public:
 	// 固定更新1回分の時間を蓄積時間から消費する
 	void ConsumeFixedTime();
 
+	void SetTargetFPS(int _targetFPS);
+	int GetTargetFPS() const;
 	float GetDeltaTime() const { return deltaTime; }
 	float GetFixedDeltaTime() const { return fixedDeltaTime; }
 	float GetCurrentFPS() const { return currentFPS; }

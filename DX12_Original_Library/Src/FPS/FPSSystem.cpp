@@ -99,3 +99,14 @@ void FPSSystem::CalculateAlpha()
 	// 固定更新後に余った時間が次の固定更新までの何割かを表す
 	alpha = std::clamp(accumulator / fixedDeltaTime, 0.0f,1.0f);
 }
+
+void FPSSystem::SetTargetFPS(int _targetFPS)
+{
+	// FPS制限だけを変更し、DeltaTimeなどはリセットしない
+	limiter.SetTargetFPS(_targetFPS);
+}
+
+int FPSSystem::GetTargetFPS() const
+{
+	return limiter.GetTargetFPS();
+}

@@ -57,3 +57,13 @@ void Time::ConsumeFixedTime()
 {
 	fpsSystem.ConsumeFixedTime();
 }
+
+void Time::SetTargetFPS(int _targetFPS)
+{
+	fpsSystem.SetTargetFPS(_targetFPS);
+}
+
+int Time::GetTargetFPS()
+{
+	return fpsSystem.GetTargetFPS();
+}

@@ -15,4 +15,8 @@ namespace Time
 	bool IsFixedUpdateRequired();
 	// 固定更新一回分の時間を消費する
 	void ConsumeFixedTime();
+	// FPSの上限値を設定する(0を指定するとFPS制限値を解除する)
+	void SetTargetFPS(int _targetFPS = 60);
+	// 現在設定されているFPS上限を取得する
+	int GetTargetFPS();
 }

@@ -1,12 +1,5 @@
 #pragma once
 
-// FPS制御に関連する定数
-// 目標FPS
-constexpr int TARGET_FPS{ 60 };
-
-// FPSを計測するときのサンプルフレーム数
-constexpr int FPS_SAMPLE_FRAME_COUNT{ 60 };
-
 // 1秒をマイクロ秒に変換した値
 constexpr long long MICROSECONDS_PER_SECOND{ 1'000'000LL };
 

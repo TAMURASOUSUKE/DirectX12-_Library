@@ -6,22 +6,32 @@
 
 void FPSLimiter::Initialize(int _targetFPS)
 {
-	Reset();
+	SetTargetFPS(_targetFPS);
+}
 
-	// 0以下ならFPS制限を行わない
-	if (_targetFPS <= 0)
+void FPSLimiter::SetTargetFPS(int  _targetFPS)
+{
+	// 負数もFPS制限なし
+	targetFPS = (std::max)(_targetFPS, 0);
+
+	// 前のFPSで計算した目標時刻は使用できないので破棄
+	nextFrameTime = {};
+
+	// FPS制限がない場合は狙う経過時間をゼロに
+	if (targetFPS == 0)
 	{
+		targetDuration = std::chrono::microseconds::zero();
 		return;
 	}
 
-	// 整数除算で0マイクロ秒にならないよう、最低値を1にする
-	const long long durationMicroseconds{(std::max)(1LL, MICROSECONDS_PER_SECOND / static_cast<long long>(_targetFPS))};
-
-	targetDuration = std::chrono::microseconds{ durationMicroseconds };
+	// 指定したFPSから経過時間を求める
+	const long long durationMicroseconds{ (std::max)(1LL, MICROSECONDS_PER_SECOND / static_cast<long long>(targetFPS)) };
+	targetDuration = std::chrono::microseconds{durationMicroseconds};
 }
 
 void FPSLimiter::Reset()
 {
+	targetFPS = 0;
 	targetDuration = std::chrono::microseconds::zero();
 	nextFrameTime = {};
 }
