@@ -49,6 +49,9 @@
     <Filter Include="Src\Sound">
       <UniqueIdentifier>{5bcc2202-caed-482d-9159-06005162a0d1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Collision">
+      <UniqueIdentifier>{77a055a2-e327-4937-99a0-94da2116e416}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Math\MathConstant.h">
@@ -210,6 +213,15 @@
     <ClInclude Include="Src\Sound\SoundResourceManager.h">
       <Filter>Src\Sound</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Collision\CollisionSystem.h">
+      <Filter>Src\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Collision\Collider.h">
+      <Filter>Src\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Facade\Collision.h">
+      <Filter>Src\Facade</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -301,6 +313,12 @@
     </ClCompile>
     <ClCompile Include="Src\Graphics\DescriptorManager.cpp">
       <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Collision\CollisionSystem.cpp">
+      <Filter>Src\Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Facade\Collision.cpp">
+      <Filter>Src\Facade</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

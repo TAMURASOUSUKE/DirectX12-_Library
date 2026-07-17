@@ -70,6 +70,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	float tessFactor{ 4.0f }; // HSでの分割数
 	float heightFactor{ 0.0f }; // Terrainの高さ
 
+	Rect testRect01{ {200.0f, 200.0f}, {30.0f, 30.0f} };
+	Rect testRect02{ {400.0f, 400.0f}, {30.0f, 30.0f} };
+	Vector4 debugColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+
 	while (TSLib::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
@@ -96,6 +100,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPushed(KeyCode::Button::J)) tessFactor /= 2.0f;
 		if (tessFactor < 2.0f) tessFactor = 2.0f;
 
+		Vector2 dir{ Vector2::Zero };
+		if (Input::IsKeyPress(KeyCode::Button::W)) dir.y -= 1.0f;
+		if (Input::IsKeyPress(KeyCode::Button::A)) dir.x -= 1.0f;
+		if (Input::IsKeyPress(KeyCode::Button::S)) dir.y += 1.0f;
+		if (Input::IsKeyPress(KeyCode::Button::D)) dir.x += 1.0f;
+		dir.Normalize();
+
+		testRect01.position += dir * 8.0f;
+
+		if (Collision::Intersect(testRect01, testRect02))
+		{
+			debugColor = { 1.0f, 0.0f, 0.0f, 1.0f };
+		}
+		else
+		{
+			debugColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+		}
+
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		//// スプライトバッチテスト
@@ -108,13 +130,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawSprite(enemy, {500.0f, 500.0f}, { 128.0f, 128.0f });
 
-		Gfx::DrawSprite(heightMap, { 800.0f, 400.0f }, {652.0f, 527.0f});
+		//Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
+		//Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
+		//Gfx::DrawCircle({ 120.0f, 300.0f }, 30.0f, { 1.0f, 0.0f, 1.0f, 1.0f });
+		//Gfx::DrawCircle({ std::sinf(t) * 50.0f + 600.0f, 300.0f}, 30.0f, {std::clamp(std::sinf(t), 0.0f, 1.0f), 0.0f, 0.0f, 1.0f});
 
-		Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
-		Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
-		Gfx::DrawCircle({ 120.0f, 300.0f }, 30.0f, { 1.0f, 0.0f, 1.0f, 1.0f });
-		Gfx::DrawCircle({ std::sinf(t) * 50.0f + 600.0f, 300.0f}, 30.0f, {std::clamp(std::sinf(t), 0.0f, 1.0f), 0.0f, 0.0f, 1.0f});
-		Gfx::DrawBox({ 200.0f, 200.0f }, {400.0f, 400.0f}, 30.0f * Math::DEG_TO_RAD);
+		Gfx::DrawBox(testRect01.GetMinPos(), testRect01.GetMaxPos());
+		Gfx::DrawBox(testRect02.GetMinPos(), testRect02.GetMaxPos(), 0.0f, debugColor);
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}

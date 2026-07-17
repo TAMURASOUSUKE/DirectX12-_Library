@@ -22,7 +22,7 @@ struct Rect
 		return position;
 	}
 
-	Vector2 GetMaxPosition() const
+	Vector2 GetMaxPos() const
 	{
 		return position + size;
 	}
