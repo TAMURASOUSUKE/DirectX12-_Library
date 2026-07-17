@@ -35,7 +35,15 @@ D3D12_GPU_VIRTUAL_ADDRESS RingConstantBuffer::Update(const void* _src, UINT _siz
 	// データサイズが境界調整済みサイズより大きいと隣のCBデータにはみ出してバグの原因になるのでチェックする
 	DEBUG_ASSERT(_size <= alignedSize && "データが境界調整済みサイズより大きいです");
 	DEBUG_ASSERT(frameCounter < MAX_CB_PER_FRAME && "1フレームのCB数が上限超過");
+	if (_size > alignedSize)
+	{
+		return 0;
+	}
 
+	if (frameCounter >= MAX_CB_PER_FRAME)
+	{
+		return 0;
+	}
 	UINT offset{ CalculateOffset() }; // 今のフレームのオフセット
 	memcpy(static_cast<uint8_t*>(baseCPUPtr) + offset, _src, _size); // CPUデータをGPUメモリにコピー
 	D3D12_GPU_VIRTUAL_ADDRESS addr{ baseGPUVA + offset }; // 同じオフセットのアドレス
