@@ -105,9 +105,6 @@
     <ClInclude Include="Src\Graphics\GraphicsResourceManager.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="Src\External\stb_image.h">
-      <Filter>Src\Facade\Exturnal</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Input\KeyboardInput.h">
       <Filter>Src\Input</Filter>
     </ClInclude>
@@ -274,9 +271,6 @@
     </ClCompile>
     <ClCompile Include="Src\Graphics\ShaderSystem.cpp">
       <Filter>Src\Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\External\StbImageEnable.cpp">
-      <Filter>Src\Facade\Exturnal</Filter>
     </ClCompile>
     <ClCompile Include="Src\Graphics\GraphicsResourceManager.cpp">
       <Filter>Src\Graphics</Filter>
