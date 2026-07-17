@@ -4,6 +4,7 @@
 // 形状定義
 struct Rect
 {
+	Rect() = default;
 	Rect(Vector2 _position, Vector2 _size) : position{ _position }, size{ _size }{}
 
 	// Getter類
