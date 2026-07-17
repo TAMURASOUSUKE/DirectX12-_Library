@@ -381,7 +381,7 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 
 	DescriptorManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // ディスクリプタマネージャーをデバイスを使って初期化
 
-	shaderSystem.Initialize(GraphicsDevice::Instance().GetDevice()); // ShaderSystemの初期化
+	shaderSystem.Setup(GraphicsDevice::Instance().GetDevice()); // ShaderSystemの初期化
 
 	// 汎用するRootSignatureの作成
 	const std::vector<RootSignatureDesc> rootSignatureDescs{ shaderSystem.MakeRootSignatureDescs() };

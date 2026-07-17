@@ -291,7 +291,7 @@ namespace
 }
 
 // 初期化処理
-void ShaderSystem::Initialize(ID3D12Device* _device)
+void ShaderSystem::Setup(ID3D12Device* _device)
 {
 	// 作成されたデバイスと結合
 	if (_device != nullptr)

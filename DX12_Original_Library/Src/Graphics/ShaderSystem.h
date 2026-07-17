@@ -14,7 +14,7 @@ public:
 	ShaderSystem() = default; // デフォルトコンストラクタ(ファサードから使われないためシングルトンにする必要はない)
 	~ShaderSystem() = default; // デフォルトデストラクタ
 
-	void Initialize(ID3D12Device* _device); // 初期化処理
+	void Setup(ID3D12Device* _device); // 初期化処理
 	void Shutdown(); // 終了処理
 
 	ComPtr<ID3DBlob> Compile(const wchar_t* _filePath, const char* _entryPoint, const char* _target); // HLSLシェーダーをコンパイルする(ファイル名は日本語が含まれる可能性を考慮しワイド文字)
