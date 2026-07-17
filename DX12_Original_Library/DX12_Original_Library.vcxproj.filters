@@ -52,6 +52,9 @@
     <Filter Include="Src\Collision">
       <UniqueIdentifier>{77a055a2-e327-4937-99a0-94da2116e416}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\FPS">
+      <UniqueIdentifier>{718ef046-6ae7-4b59-aa27-4ce2264c5575}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Math\MathConstant.h">
@@ -222,6 +225,24 @@
     <ClInclude Include="Src\Facade\Collision.h">
       <Filter>Src\Facade</Filter>
     </ClInclude>
+    <ClInclude Include="Src\FPS\FPSSystem.h">
+      <Filter>Src\FPS</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\FPS\FPSConstant.h">
+      <Filter>Src\FPS</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\FPS\FPSCounter.h">
+      <Filter>Src\FPS</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\FPS\FPSLimiter.h">
+      <Filter>Src\FPS</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Facade\Time.h">
+      <Filter>Src\Facade</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Facade\TimeInternal.h">
+      <Filter>Src\Facade</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -318,6 +339,18 @@
       <Filter>Src\Collision</Filter>
     </ClCompile>
     <ClCompile Include="Src\Facade\Collision.cpp">
+      <Filter>Src\Facade</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\FPS\FPSSystem.cpp">
+      <Filter>Src\FPS</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\FPS\FPSLimiter.cpp">
+      <Filter>Src\FPS</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\FPS\FPSCounter.cpp">
+      <Filter>Src\FPS</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Facade\Time.cpp">
       <Filter>Src\Facade</Filter>
     </ClCompile>
   </ItemGroup>

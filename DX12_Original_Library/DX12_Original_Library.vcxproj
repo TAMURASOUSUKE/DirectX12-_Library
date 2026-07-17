@@ -152,7 +152,13 @@
     <ClInclude Include="Src\Facade\InputInternal.h" />
     <ClInclude Include="Src\Facade\Sound.h" />
     <ClInclude Include="Src\Facade\SoundInternal.h" />
+    <ClInclude Include="Src\Facade\Time.h" />
+    <ClInclude Include="Src\Facade\TimeInternal.h" />
     <ClInclude Include="Src\Facade\TSLib.h" />
+    <ClInclude Include="Src\FPS\FPSConstant.h" />
+    <ClInclude Include="Src\FPS\FPSLimiter.h" />
+    <ClInclude Include="Src\FPS\FPSSystem.h" />
+    <ClInclude Include="Src\FPS\FPSCounter.h" />
     <ClInclude Include="Src\Graphics\DescriptorManager.h" />
     <ClInclude Include="Src\Graphics\GPUMarker.h" />
     <ClInclude Include="Src\Graphics\GraphicsConstant.h" />
@@ -202,7 +208,11 @@
     <ClCompile Include="Src\Facade\Gfx.cpp" />
     <ClCompile Include="Src\Facade\Input.cpp" />
     <ClCompile Include="Src\Facade\Sound.cpp" />
+    <ClCompile Include="Src\Facade\Time.cpp" />
     <ClCompile Include="Src\Facade\TSLib.cpp" />
+    <ClCompile Include="Src\FPS\FPSCounter.cpp" />
+    <ClCompile Include="Src\FPS\FPSLimiter.cpp" />
+    <ClCompile Include="Src\FPS\FPSSystem.cpp" />
     <ClCompile Include="Src\Graphics\DescriptorManager.cpp" />
     <ClCompile Include="Src\Graphics\GPUMarker.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />

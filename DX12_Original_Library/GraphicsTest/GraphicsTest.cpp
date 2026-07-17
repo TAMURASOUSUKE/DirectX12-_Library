@@ -10,7 +10,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	// 初期化 失敗したら-1を返す
 	if (!TSLib::Initialize(L"GraphicsTest", 1280, 720)) return -1;
-
+	Time::SetTargetFPS(0);
 
 	DescriptorHandle h1{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // GPU可視
 	DescriptorHandle h2{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // GPU可視
@@ -53,8 +53,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	AnimInstanceData debugAnim{}; // アニメーション用のデータ
 	debugAnim.handle = testModel;
 	Vector2 playerPos{ 100.0f, 100.0f };
-	float ang{ 0.0f }; // 角度加算用のテスト
-	Vector3 cubeAng{ Vector3::Zero };
 
 	Transform cubeTransform{};
 	Transform cubeTransform02{};
@@ -70,35 +68,28 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	float tessFactor{ 4.0f }; // HSでの分割数
 	float heightFactor{ 0.0f }; // Terrainの高さ
 
+	// あたり判定(テスト)
 	Rect testRect01{ {200.0f, 200.0f}, {30.0f, 30.0f} };
 	Rect testRect02{ {400.0f, 400.0f}, {30.0f, 30.0f} };
 	Vector4 debugColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+
+	// タイムスケール
+	float timeScale{ 1.0f };
 
 	while (TSLib::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 
-		t += 0.0167f;
-
-		ang += 0.01f;
-
-		ang = Math::NormalizeAngle(ang); // 角度の正規化
-
-		cubeAng.x += 0.01f;
-		cubeAng.y += 0.01f;
-		cubeAng.z += 0.01f;
-		cubeAng = Math::NormalizeAngle(cubeAng);
-
 		// アニメーションテスト
-		debugAnim.currentTime += 1.0f / 60.0f; // 時刻を進める
+		debugAnim.currentTime += Time::DeltaTime(); // 時刻を進める
 		if (debugAnim.currentTime > 0.667f) debugAnim.currentTime = 0.0f; // 一旦Runのdurationでループさせる
 
 		// Terrain操作
-		if (Input::IsKeyPress(KeyCode::Button::RIGHT)) heightFactor += 0.05f;
-		if (Input::IsKeyPress(KeyCode::Button::LEFT)) heightFactor -= 0.05f;
-		if(Input::IsKeyPushed(KeyCode::Button::L)) tessFactor *= 2.0f;
-		if (Input::IsKeyPushed(KeyCode::Button::J)) tessFactor /= 2.0f;
-		if (tessFactor < 2.0f) tessFactor = 2.0f;
+		if (Input::IsKeyPress(KeyCode::Button::UP)) heightFactor += 0.05f;
+		if (Input::IsKeyPress(KeyCode::Button::DOWN)) heightFactor -= 0.05f;
+		if(Input::IsKeyPushed(KeyCode::Button::D2)) tessFactor *= 2.0f;
+		if (Input::IsKeyPushed(KeyCode::Button::D1)) tessFactor /= 2.0f;
+		tessFactor = std::clamp(tessFactor, 2.0f, 64.0f);
 
 		Vector2 dir{ Vector2::Zero };
 		if (Input::IsKeyPress(KeyCode::Button::W)) dir.y -= 1.0f;
@@ -107,7 +98,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPress(KeyCode::Button::D)) dir.x += 1.0f;
 		dir.Normalize();
 
-		testRect01.position += dir * 8.0f;
+		float moveSpeed{ 80.0f }; // 1秒間に移動するピクセル
+		testRect01.position += dir * moveSpeed * Time::DeltaTime();
 
 		if (Collision::Intersect(testRect01, testRect02))
 		{
@@ -117,6 +109,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		{
 			debugColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 		}
+
+		if (Input::IsKeyPushed(KeyCode::Button::D3)) Time::SetTargetFPS(30); // 30FPS
+		if (Input::IsKeyPushed(KeyCode::Button::D6)) Time::SetTargetFPS(60); // 60FPS
+		if (Input::IsKeyPushed(KeyCode::Button::D0)) Time::SetTargetFPS(120); // 120FPS モニターが120Hz以上である必要あり
+		if (Input::IsKeyPushed(KeyCode::Button::RIGHT)) timeScale += 1.0f;
+		if (Input::IsKeyPushed(KeyCode::Button::LEFT)) timeScale -= 1.0f;
+		timeScale =  std::clamp(timeScale, 0.0f, 10.0f); // 最大でもタイムスケールは10にとどめておく
+		Time::SetTimeScale(timeScale);
+
+
+		std::string fpsValue{ std::format("CurrentMeasuredFPS : {:.1f}", Time::FPS()) };
+		std::string targetFPS{ std::format("CurrentSettingFPS : {}", Time::GetTargetFPS()) };
+		std::string unscaledDeltaTime{ std::format("CurrentUnscaledDeltaTime: {:.3f}", Time::UnscaledDeltaTime()) };
+		std::string deltaTime{ std::format("CurrentDeltaTime : {:.3f}", Time::DeltaTime()) };
+		std::string timeScale{ std::format("CurrentTimeScale : {:.2f}", Time::GetTimeScale()) };
 
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
@@ -137,6 +144,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawBox(testRect01.GetMinPos(), testRect01.GetMaxPos());
 		Gfx::DrawBox(testRect02.GetMinPos(), testRect02.GetMaxPos(), 0.0f, debugColor);
+		Gfx::DrawString(fpsValue.c_str(), {0.0f, 0.0f});
+		Gfx::DrawString(targetFPS.c_str(), {0.0f, 30.0f});
+		Gfx::DrawString(unscaledDeltaTime.c_str(), {0.0f, 60.0f});
+		Gfx::DrawString(deltaTime.c_str(), {0.0f, 90.0f});
+		Gfx::DrawString(timeScale.c_str(), {0.0f, 120.0f});
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}

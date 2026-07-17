@@ -3,6 +3,7 @@
 #include "GfxInternal.h"
 #include "InputInternal.h"
 #include "SoundInternal.h"
+#include "TimeInternal.h"
 #include "TSLib.h"
 
 // 初期化
@@ -19,6 +20,7 @@ bool TSLib::Initialize(const wchar_t* _title, int _width, int _height)
 
 	bool result{ false };
 
+	TimeInternal::Initialize();
 	result = GfxInternal::Initialize(_title, _width, _height); // グラフィックの初期化とウィンドウ作成
 	DEBUG_ASSERT(result && "ゲームの初期化に失敗しました\n");
 	if (!result) return result;
@@ -49,16 +51,18 @@ bool TSLib::ProcessMessage()
 
 void TSLib::BeginFrame()
 {
-	SoundInternal::BeginFrame(1.0f / 60.0f); // 音関連のフレーム最初の処理(Systemファサードがないので60fps想定でdeltaTimeを渡しています)
+	TimeInternal::BeginFrame(); // 時間関連のフレーム最初の処理
 	InputInternal::BeginFrame(); // 入力の最初の処理
 	GfxInternal::BeginFrame(); // グラフィックのフレーム最初の処理
+	SoundInternal::BeginFrame(1.0f / 60.0f); // 音関連のフレーム最初の処理(Systemファサードがないので60fps想定でdeltaTimeを渡しています)
 }
 
 void TSLib::EndFrame()
 {
 	SoundInternal::EndFrame(); // 音関連のフレーム最後の処理
-	InputInternal::EndFrame(); // 入力関連のフレーム最後の処理
 	GfxInternal::EndFrame(); // グラフィックのフレーム最後の処理
+	InputInternal::EndFrame(); // 入力関連のフレーム最後の処理
+	TimeInternal::EndFrame(); // 時間関連のフレーム最後の処理
 }
 
 void TSLib::Finish()
@@ -66,5 +70,6 @@ void TSLib::Finish()
 	SoundInternal::Finish(); // 音の終了処理
 	InputInternal::Finish(); // 入力の終了処理
 	GfxInternal::Finish(); // グラフィックの終了処理
+	TimeInternal::Finish(); // 時間管理の終了処理
 	CoUninitialize(); // COMも閉じる
 }
