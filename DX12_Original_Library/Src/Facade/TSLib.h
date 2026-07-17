@@ -2,6 +2,7 @@
 #include "../Math/TSMath.h"
 #include "../Collision/Collider.h"
 #include "../Debug/DebugLogs.h"  
+#include "Time.h"
 #include "Gfx.h"
 #include "Collision.h"
 #include "Input.h"

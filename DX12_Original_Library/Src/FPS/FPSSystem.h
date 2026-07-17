@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <chrono>
 #include "FPSCounter.h"
 #include "FPSLimiter.h"
@@ -30,9 +30,12 @@ public:
 
 	// 固定更新1回分の時間を蓄積時間から消費する
 	void ConsumeFixedTime();
-
+	
+	void SetTimeScale(float _timeScale);
 	void SetTargetFPS(int _targetFPS);
-	int GetTargetFPS() const;
+	int GetTargetFPS() const { return limiter.GetTargetFPS(); }
+	float GetTimeScale() const { return  timeScale; }
+	float GetUnscaledDeltaTime() const { return unscaledDeltaTime; }
 	float GetDeltaTime() const { return deltaTime; }
 	float GetFixedDeltaTime() const { return fixedDeltaTime; }
 	float GetCurrentFPS() const { return currentFPS; }
@@ -49,7 +52,9 @@ private:
 	FPSCounter counter{};
 	FPSLimiter limiter{};
 
-	float deltaTime{ 0.0f }; // 前フレームからの経過秒数
+	float unscaledDeltaTime{ 0.0f }; // TimeScale適用前の実時間
+	float deltaTime{ 0.0f }; // TimeScale適用後の前フレームからの経過秒数
+	float timeScale{ 1.0f }; // ゲーム時間の進行倍率
 	float currentFPS{ 0.0f }; // 現在のFPS
 	float fixedDeltaTime{ 0.0f }; // 固定更新1回分の秒数
 	float accumulator{ 0.0f }; // 固定更新用の蓄積時間

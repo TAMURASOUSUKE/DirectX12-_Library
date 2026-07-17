@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <chrono>
 
 // 指定したFPSを超えないようにCPUを待機させる

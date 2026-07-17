@@ -1,4 +1,4 @@
-#include "FPSConstant.h"
+﻿#include "FPSConstant.h"
 #include "FPSCounter.h"
 
 void FPSCounter::Reset()
@@ -8,8 +8,7 @@ void FPSCounter::Reset()
 	currentFPS = 0.0f;
 }
 
-void FPSCounter::Update(
-	const std::chrono::steady_clock::time_point& _currentTime)
+void FPSCounter::Update(const std::chrono::steady_clock::time_point& _currentTime)
 {
 	// 初回は計測開始時刻だけを記録する
 	if (sampleStartTime.time_since_epoch().count() == 0)
@@ -20,14 +19,14 @@ void FPSCounter::Update(
 
 	++frameCounter;
 
-	// 指定フレーム数が溜まるまでは計算しない
-	if (frameCounter < FPS_SAMPLE_FRAME_COUNT)
+	// 計測開始時刻から現在までの秒数を取得
+	const std::chrono::duration<float> elapsed{ _currentTime - sampleStartTime };
+
+	// 約1秒経過するまではFPSを更新しない
+	if (elapsed.count() < FPS_SAMPLE_TIME)
 	{
 		return;
 	}
-
-	// 計測開始時刻から現在までの秒数を取得する
-	const std::chrono::duration<float> elapsed{ _currentTime - sampleStartTime };
 
 	if (elapsed.count() > 0.0f)
 	{

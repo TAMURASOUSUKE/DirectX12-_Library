@@ -29,6 +29,8 @@ public:
 	// フレームの最後に呼び出す関数
 	void EndFrame();
 
+	// 垂直同期の有効状態を設定する
+	void SetVSync(bool _isEnabled) { isVSyncEnabled = _isEnabled; }
 	// デバイスのGetter
 	ID3D12Device* GetDevice() const;
 	// コマンドリストのGetter
@@ -57,6 +59,8 @@ private:
 	GraphicsDevice& operator=(const GraphicsDevice&) = delete;
 
 private:
+	bool isVSyncEnabled{ true }; // デフォルトは垂直同期を有効にする
+
 	// GPUとの接続
 	ComPtr<IDXGIFactory6> factory; // GPU列挙用
 	ComPtr<ID3D12Device> device; // GPU通信の中心

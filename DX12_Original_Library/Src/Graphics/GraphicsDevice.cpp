@@ -303,8 +303,10 @@ void GraphicsDevice::EndFrame()
 	ID3D12CommandList* cmdLists[]{ cmdList.Get() }; // 複数のコマンドリストを投げられるよう配列管理する
 	cmdQueue->ExecuteCommandLists(1, cmdLists);
 
+	const UINT vsync{ isVSyncEnabled ? 1u : 0u };
+
 	// バッファ交換を行う(Present)
-	swapChain->Present(1, 0); // 第一引数 : VSyncの間隔(1 = 60fps同期) 今後この戻り値はassert候補
+	swapChain->Present(vsync, 0); // 第一引数 : VSyncの間隔(1 = モニターの垂直同期を一回待つ) 今後この戻り値はassert候補
 
 	// フェンスシグナルを出す(このフレームの命令が全て終わったらカウンタをこの値にしろという命令)
 	fenceValues[currentFrameIndex] = ++fenceValueCounter;

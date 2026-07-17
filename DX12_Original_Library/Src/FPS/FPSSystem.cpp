@@ -1,4 +1,4 @@
-#include <algorithm>
+﻿#include <algorithm>
 #include "FPSConstant.h"
 #include "FPSSystem.h"
 
@@ -7,7 +7,10 @@ void FPSSystem::Setup(int _targetFPS)
 	frameStartTime = {};
 	prevFrameStartTime = {};
 
+	unscaledDeltaTime = 0.0f;
 	deltaTime = 0.0f;
+	timeScale = 1.0f;
+
 	currentFPS = 0.0f;
 	fixedDeltaTime = FIXED_DELTA_TIME;
 	accumulator = 0.0f;
@@ -30,7 +33,10 @@ void FPSSystem::BeginFrame()
 
 		// ブレークポイントや処理落ちによって
 		// DeltaTimeが極端に大きくなるのを防ぐ
-		deltaTime = std::clamp(elapsed.count(), 0.0f, MAX_DELTA_TIME);
+		unscaledDeltaTime = std::clamp(elapsed.count(), 0.0f, MAX_DELTA_TIME);
+
+		// ゲーム時間へTimeScaleを適用する
+		deltaTime = unscaledDeltaTime * timeScale;
 	}
 
 	prevFrameStartTime = now;
@@ -57,7 +63,10 @@ void FPSSystem::Finish()
 	frameStartTime = {};
 	prevFrameStartTime = {};
 
+	unscaledDeltaTime = 0.0f;
 	deltaTime = 0.0f;
+	timeScale = 1.0f;
+
 	currentFPS = 0.0f;
 	fixedDeltaTime = 0.0f;
 	accumulator = 0.0f;
@@ -106,7 +115,8 @@ void FPSSystem::SetTargetFPS(int _targetFPS)
 	limiter.SetTargetFPS(_targetFPS);
 }
 
-int FPSSystem::GetTargetFPS() const
+void FPSSystem::SetTimeScale(float _timeScale)
 {
-	return limiter.GetTargetFPS();
+	// 負数による逆再生は行わない
+	timeScale = (std::max)(_timeScale, 0.0f);
 }

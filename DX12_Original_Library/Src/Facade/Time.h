@@ -1,12 +1,18 @@
-#pragma once
+﻿#pragma once
 // 時間に関係する機能を提供する
 
 namespace Time
 {
-	// 前フレームからの経過時間を秒単位で取得する
+	// TimeScaleを考慮した前フレームからの経過時間を秒単位で取得する
 	float DeltaTime();
+	// TimeScale適用前の実時間を取得する
+	float UnscaledDeltaTime();
 	// 固定更新1回文の時間を単位で取得する
 	float FixedDeltaTime();
+	// ゲーム時間の進行倍率を設定する
+	void SetTimeScale(float _timeScale);
+	// ゲーム時間の進行倍率を取得する
+	float GetTimeScale();
 	// 現在計測されているFPSを取得する
 	float FPS();
 	// 固定更新後に残った時間の割合を取得する

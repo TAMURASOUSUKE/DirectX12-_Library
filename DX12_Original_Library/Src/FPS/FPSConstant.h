@@ -1,4 +1,11 @@
-#pragma once
+﻿#pragma once
+
+// FPS制御に関連する定数
+// 目標FPS デフォルトは0でVSync有効
+ constexpr int TARGET_FPS{ 0 };
+
+ // FPSを再計算する時間間隔
+ constexpr float FPS_SAMPLE_TIME{ 1.0f };
 
 // 1秒をマイクロ秒に変換した値
 constexpr long long MICROSECONDS_PER_SECOND{ 1'000'000LL };

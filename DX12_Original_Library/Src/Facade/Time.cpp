@@ -1,3 +1,4 @@
+﻿#include "../Graphics/GraphicsDevice.h" // VSync制御で使う
 #include "../FPS/FPSConstant.h"
 #include "../FPS/FPSSystem.h"
 #include "TimeInternal.h"
@@ -28,9 +29,29 @@ void TimeInternal::Finish()
 	fpsSystem.Finish();
 }
 
+void TimeInternal::SetVSync(bool _isVSyncEnabled)
+{
+	GraphicsDevice::Instance().SetVSync(_isVSyncEnabled);
+}
+
+float Time::UnscaledDeltaTime()
+{
+	return fpsSystem.GetUnscaledDeltaTime();
+}
+
 float Time::DeltaTime()
 {
 	return fpsSystem.GetDeltaTime();
+}
+
+void Time::SetTimeScale(float _timeScale)
+{
+	fpsSystem.SetTimeScale(_timeScale);
+}
+
+float Time::GetTimeScale()
+{
+	return fpsSystem.GetTimeScale();
 }
 
 float Time::FixedDeltaTime()
@@ -60,7 +81,12 @@ void Time::ConsumeFixedTime()
 
 void Time::SetTargetFPS(int _targetFPS)
 {
-	fpsSystem.SetTargetFPS(_targetFPS);
+	const int target{ (std::max)(0, _targetFPS) };
+
+	fpsSystem.SetTargetFPS(target);
+
+	const bool useVSync{ target == 0 };
+	TimeInternal::SetVSync(useVSync);
 }
 
 int Time::GetTargetFPS()

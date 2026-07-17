@@ -1,4 +1,4 @@
-#include <algorithm>
+﻿#include <algorithm>
 #include <intrin.h>
 #include <thread>
 #include "FPSConstant.h"

@@ -1,4 +1,4 @@
-#include "../Math/TSMath.h"
+﻿#include "../Math/TSMath.h"
 #include "CollisionSystem.h"
 
 bool CollisionSystem::Intersect(Rect _rect01, Rect _rect02)

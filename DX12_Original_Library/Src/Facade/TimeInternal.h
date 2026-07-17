@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 // 外部に公開しない時間を制御する関数群
 
 namespace TimeInternal
@@ -11,4 +11,6 @@ namespace TimeInternal
 	void EndFrame();
 	// 最後の処理
 	void Finish();
+	// VSyncの有効無効を設定
+	void SetVSync(bool _isVSyncEnabled);
 }

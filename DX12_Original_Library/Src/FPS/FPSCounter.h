@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <chrono>
 
 // 一定フレーム間の経過時間からFPSを計測する
