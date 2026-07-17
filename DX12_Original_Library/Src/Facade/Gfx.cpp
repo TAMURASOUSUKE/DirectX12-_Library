@@ -71,6 +71,13 @@ namespace {
 	{
 		GraphicsResourceManager::Instance().UpdateGlobalPose(_anim);
 
+		// skinningRingCBVはMAX_BONE_NUM個分しか確保していないため GPUへ送る前に上限を確認する
+		if (_anim.skinningMatrices.size() > MAX_BONE_NUM)
+		{
+			DEBUG_LOG_ERROR("モデルのボーン数が上限を超えています ""boneCount:{} max:{}\n", _anim.skinningMatrices.size(), MAX_BONE_NUM);
+			return;
+		}
+
 		ModelData* model{ GraphicsResourceManager::Instance().Lookup(_anim.handle) }; // ハンドル分解
 		if (!model) return;
 
@@ -296,12 +303,6 @@ namespace {
 		// 仮で作っているTerrainのVB.IBを解放する(これは一時的な物なので3Dの基本図形描画時になくなる予定)
 		terrainIndexBuffer = IndexBuffer{};
 		terrainVertexBuffer = VertexBuffer{};
-		// 正射影用CB
-		if (orthConstantBufferData.cbvHandle.IsValid())
-		{
-			DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, orthConstantBufferData.cbvHandle);
-		}
-		orthConstantBufferData = ConstantBufferData{};
 		// RingConstantBufferの解放
 		mvpRingCBV.Shutdown();
 		materialRingCBV.Shutdown();
@@ -311,6 +312,14 @@ namespace {
 		fgBatch.Shutdown();
 		bgBatch.Shutdown();
 		shapeBatch.Shutdown();
+
+		// 正射影CBを解放する
+		if (orthConstantBufferData.cbvHandle.IsValid())
+		{
+			DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV,orthConstantBufferData.cbvHandle);
+		}
+
+		orthConstantBufferData = ConstantBufferData{};
 	}
 }
 

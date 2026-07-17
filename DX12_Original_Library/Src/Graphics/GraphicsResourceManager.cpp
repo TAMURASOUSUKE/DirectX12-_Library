@@ -236,8 +236,8 @@ void GraphicsResourceManager::Initialize(ID3D12Device* _device)
 		device = _device;
 	}
 
-	texSlots.reserve(MAX_TEXTURE_COUNT); // 先に容量確保 + Lookupガードでタングリング防止
-	modelSlots.reserve(MAX_MODEL_COUNT); // 先に容量確保 + Lookupガードでタングリング防止
+	texSlots.reserve(MAX_TEXTURE_COUNT); // 先に容量確保 + Lookupガードでダングリング防止
+	modelSlots.reserve(MAX_MODEL_COUNT); // 先に容量確保 + Lookupガードでダングリング防止
 	// デフォルト用の白テクスチャを作成する(初期化時に1枚だけ)
 	defaultTexture = CreateMetaTexture({1.0f, 1.0f, 1.0f});
 	// エラー用のピンクテクスチャを作成する
@@ -519,9 +519,6 @@ ConstantBufferData GraphicsResourceManager::CreateConstantBuffer(const void* _da
 // 画像の読み込み
 TexHandle GraphicsResourceManager::LoadTexture(const char* _filePath)
 {
-	DEBUG_ASSERT((texSlots.size() < MAX_TEXTURE_COUNT) && "テクスチャーロードのスロットサイズが規定値を超えました\n");
-	if (texSlots.size() >= MAX_TEXTURE_COUNT) return TexHandle{};
-
 
 	// DirectXTexを用いたテクスチャロード
 	ID3D12Device* device{ GraphicsDevice::Instance().GetDevice() };
@@ -612,8 +609,19 @@ ModelData* GraphicsResourceManager::Lookup(ModelHandle _handle)
 
 ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 {
-	DEBUG_ASSERT((modelSlots.size() < MAX_MODEL_COUNT) && "モデルロードのスロットサイズが規定値を超えました\n");
-	if (modelSlots.size() >= MAX_MODEL_COUNT) return ModelHandle{};
+	// 新規スロットを追加できる、または解放済みスロットを再利用できるか
+	const bool canRegister{ !modelFreeList.empty() || modelSlots.size() < MAX_MODEL_COUNT};
+
+	DEBUG_ASSERT(canRegister && "モデルの登録上限に達しました\n");
+
+	if (!canRegister)
+	{
+		DEBUG_LOG_ERROR(
+			"モデルの登録上限に達しました\n"
+		);
+		return ModelHandle{};
+	}
+
 
 	cgltf_options options{}; // 全部0(デフォルト挙動)
 	cgltf_data* data{ nullptr };
@@ -636,7 +644,12 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 		return ModelHandle{}; // 失敗したら空を返す
 	}
 
-	if (data->meshes_count <= 0) return ModelHandle{}; // メッシュがなければ空を返す
+	if (data->meshes_count <= 0)
+	{
+		DEBUG_LOG_WARNING(	"モデル内にメッシュがありません\n");
+		cgltf_free(data);
+		return ModelHandle{}; // メッシュがなければ空を返す
+	}
 	DEBUG_LOG("mesh_count : {}\n", data->meshes_count);
 
 	ModelData modelData{}; // SubMeshを溜めるデータ
@@ -770,14 +783,19 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 			sub.vertexBuffer = vertBuffer;
 			sub.indexBuffer = indexBuffer;
 			
-			TexHandle baseColor{ LoadTextureFromGltf(prim.material->pbr_metallic_roughness.base_color_texture, modelDir) }; // ベースカラーテクスチャ
-			TexHandle normalMap{ LoadTextureFromGltf(prim.material->normal_texture, modelDir) }; // ノーマルマップ
-			TexHandle metallic{ LoadTextureFromGltf(prim.material->pbr_metallic_roughness.metallic_roughness_texture, modelDir) }; // メタリック
-			TexHandle emissive{ LoadTextureFromGltf(prim.material->emissive_texture, modelDir) }; // 自己発光
+			TexHandle baseColor{}; // ベースカラーテクスチャ
+			TexHandle normalMap{}; // ノーマルマップ
+			TexHandle metallic{}; // メタリック
+			TexHandle emissive{}; // 自己発光
 
 			// テクスチャや各パラメータの代入
 			if (prim.material)
 			{
+				baseColor = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.base_color_texture, modelDir); // ベースカラーテクスチャ
+				normalMap = LoadTextureFromGltf(prim.material->normal_texture, modelDir); // ノーマルマップ
+				metallic = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.metallic_roughness_texture, modelDir); // メタリック
+				emissive = LoadTextureFromGltf(prim.material->emissive_texture, modelDir); // 自己発光
+
 				sub.material.textures[MaterialTex::BaseColor] = baseColor;
 				sub.material.textures[MaterialTex::Normal] = normalMap;
 				sub.material.textures[MaterialTex::MetallicRoughness] = metallic;
@@ -917,6 +935,13 @@ void GraphicsResourceManager::Unload(ModelHandle _handle)
 TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta)
 {
 	HRESULT result{};
+
+	// 空きスロットもなく、これ以上vectorを伸ばせない場合
+	if (texFreeList.empty() && texSlots.size() >= MAX_TEXTURE_COUNT)
+	{
+		DEBUG_LOG_ERROR("テクスチャの登録上限に達しました\n");
+		return TexHandle{};
+	}
 
 	// Defaultヒープに空のテクスチャを作る(CreateTextureは非Xbox環境の場合はCOMMONで返す。formatはmetadataのものを保持する)
 	ComPtr<ID3D12Resource> texResource;
