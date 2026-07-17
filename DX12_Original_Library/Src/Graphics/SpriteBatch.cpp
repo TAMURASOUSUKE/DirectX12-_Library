@@ -60,7 +60,7 @@ void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _
 	{
 		// DEBUG_LOG_WARNING("無効ハンドルが渡されました\n");
 		// 現状単一スレッドのためAssertにしているがマルチスレッドにしたらそれ専用の待機にする
-		DEBUG_ASSERT(_handle.IsValid());
+		DEBUG_ASSERT(_handle.IsValid() && "無効ハンドルが渡されました\n");
 		return; // 無効ハンドルか
 	}
 

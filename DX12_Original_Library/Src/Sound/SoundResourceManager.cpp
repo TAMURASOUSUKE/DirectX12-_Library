@@ -11,7 +11,7 @@
 
 void SoundResourceManager::Initialize()
 {
-	slots.reserve(MAX_SOUND_COUNT); // あらかじめサイズを確保しておく + これ以上のサイズになることをLoad側で防ぐことによって確保位置の移動を行わせないようにしてタングリングを防止する
+	slots.reserve(MAX_SOUND_COUNT); // あらかじめサイズを確保しておく + これ以上のサイズになることをLoad側で防ぐことによって確保位置の移動を行わせないようにしてダングリングを防止する
 }
 
 SoundHandle SoundResourceManager::LoadSound(const char* _filePath)
