@@ -89,8 +89,15 @@ namespace {
 		cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::Model));
 
 		DescriptorManager::Instance().SetDiscriptor(cmd);
-		cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4))); // MVP更新
-		cmd->SetGraphicsRootConstantBufferView(2, skinningRingCBV.Update(_anim.skinningMatrices.data(), sizeof(Mat4x4) * static_cast<UINT>(_anim.skinningMatrices.size()))); // ボーンを更新
+		const D3D12_GPU_VIRTUAL_ADDRESS mvpUpdate{ mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)) };
+		const D3D12_GPU_VIRTUAL_ADDRESS skinningUpdate{ skinningRingCBV.Update(_anim.skinningMatrices.data(), sizeof(Mat4x4) * static_cast<UINT>(_anim.skinningMatrices.size())) };
+		if ((mvpUpdate <= 0) || (skinningUpdate <= 0))
+		{
+			DEBUG_LOG_ERROR("mvpもしくはスキンのUpdateで失敗しました\n");
+			return;
+		}
+		cmd->SetGraphicsRootConstantBufferView(0, mvpUpdate); // MVP更新
+		cmd->SetGraphicsRootConstantBufferView(2, skinningUpdate); // ボーンを更新
 		cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 		// サブメッシュ分回す
@@ -102,7 +109,12 @@ namespace {
 			matCB.metallic = sub.material.metallic;
 			matCB.roughness = sub.material.roughness;
 			matCB.emissiveFactor = sub.material.emissiveFactor;
-			cmd->SetGraphicsRootConstantBufferView(1, materialRingCBV.Update(&matCB, sizeof(MaterialCB)));
+			const D3D12_GPU_VIRTUAL_ADDRESS materialUpdate{ materialRingCBV.Update(&matCB, sizeof(MaterialCB)) };
+			if (materialUpdate <= 0)
+			{
+				DEBUG_LOG_ERROR("マテリアルringbufferのUpateで失敗しました\n");
+			}
+			cmd->SetGraphicsRootConstantBufferView(1, materialUpdate);
 
 			TextureData* tex{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
 			if (tex)
@@ -140,9 +152,18 @@ namespace {
 		cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::Model));
 
 		DescriptorManager::Instance().SetDiscriptor(cmd); // Flushと同じ考え方
-		cmd->SetGraphicsRootConstantBufferView(0, mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)));
+
+		const D3D12_GPU_VIRTUAL_ADDRESS mvpUpdate{ mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)) };
+		const D3D12_GPU_VIRTUAL_ADDRESS skinningUpdate{ skinningRingCBV.Update(&Mat4x4::Identity, sizeof(Mat4x4)) };
+		if ((mvpUpdate <= 0) || (skinningUpdate <= 0))
+		{
+			DEBUG_LOG_ERROR("mvpもしくはスキンのUpdateで失敗しました\n");
+			return;
+		}
+
+		cmd->SetGraphicsRootConstantBufferView(0, mvpUpdate);
 		// 静的描画の場合は単位行列を送る
-		cmd->SetGraphicsRootConstantBufferView(2, skinningRingCBV.Update(&Mat4x4::Identity, sizeof(Mat4x4)));
+		cmd->SetGraphicsRootConstantBufferView(2, skinningUpdate);
 		cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 
@@ -156,8 +177,13 @@ namespace {
 			matCB.metallic = sub.material.metallic;
 			matCB.roughness = sub.material.roughness;
 			matCB.emissiveFactor = sub.material.emissiveFactor;
+			const D3D12_GPU_VIRTUAL_ADDRESS materialUpdate{ materialRingCBV.Update(&matCB, sizeof(MaterialCB)) };
+			if (materialUpdate <= 0)
+			{
+				DEBUG_LOG_ERROR("マテリアルringbufferのUpateで失敗しました\n");
+			}
 			// Ringで送ってb1にバインドする
-			cmd->SetGraphicsRootConstantBufferView(1, materialRingCBV.Update(&matCB, sizeof(MaterialCB)));
+			cmd->SetGraphicsRootConstantBufferView(1, materialUpdate);
 
 			// テクスチャをバインド
 			TextureData* tex{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
@@ -285,6 +311,11 @@ namespace {
 		cb.tessFactor = std::clamp(_tessFactor, 1.0f, 64.0f); // HSの分割係数の有効範囲内(1-64)にClamp
 		// 同じCBをHSとDSへ渡す
 		const D3D12_GPU_VIRTUAL_ADDRESS cbAddress{ terrainRingCBV.Update(&cb, sizeof(TerrainCB)) };
+		if (cbAddress <= 0)
+		{
+			DEBUG_LOG_ERROR("terrainのリングバッファUpdateに失敗しました\n");
+			return;
+		}
 		// RootParam[0] : HS b0
 		cmd->SetGraphicsRootConstantBufferView(0, cbAddress);
 		// RootParam[1] : DS b0
