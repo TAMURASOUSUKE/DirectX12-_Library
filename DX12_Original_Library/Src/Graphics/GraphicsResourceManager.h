@@ -106,8 +106,10 @@ private:
 	TexHandle errorTexture; // エラー用のピンクテクスチャ
 	std::vector<TextureSlot> texSlots; // テクスチャリソースのスロット
 	std::vector <ModelSlot> modelSlots; // モデルリソースのスロット
+	std::vector<RenderTargetSlot> rtSlots; // RenderTargetのスロット
 	std::stack<int> texFreeList; // テクスチャリソースのフリーリスト
 	std::stack<int> modelFreeList; // モデルリソースのフリーリスト
+	std::stack<int> renderTargetFreeList; // RenderTargetのフリーリスト
 	DeferredReleaseBatch pendingRelease{}; // まだEndFrameしていないのでFence値が決まっていない荷物
 	std::deque<DeferredReleaseBatch> deferredReleases{}; // EndFrame済みでGPU完了を待っている荷物
 };
