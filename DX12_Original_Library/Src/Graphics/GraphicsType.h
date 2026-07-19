@@ -346,3 +346,20 @@ struct DeferredReleaseBatch
 	std::vector<TextureData> textures{}; // SRVとTextureResourceを保持する
 	std::vector<ModelData> models{}; // VB・IB・Material等を保持する
 };
+
+// オフスクリーン描画先1個分
+struct RenderTargetData
+{
+	ComPtr<ID3D12Resource> resource{}; // 画像を保持するgpuリソース
+	DescriptorHandle rtvHandle{}; // RenderTargetとして書き込むview
+	DescriptorHandle srvHandle{}; // Shaderから読み込むview
+	UINT width{ 0 }; // 横幅
+	UINT height{ 0 }; // 縦幅
+};
+
+// RenderTarget管理スロット
+struct RenderTargetSlot
+{
+	RenderTargetData data{}; // 実データ
+	uint32_t generation{ 0 }; // 世代
+};
