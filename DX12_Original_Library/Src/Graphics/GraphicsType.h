@@ -339,14 +339,6 @@ struct TerrainCB
 	float padding[2]{};
 };
 
-// 1回のGPU送信に対応する解放待ちのリソース
-struct DeferredReleaseBatch
-{
-	UINT64 fenceValue{ 0 }; // GPUがこの値まで完了したら解放可能
-	std::vector<TextureData> textures{}; // SRVとTextureResourceを保持する
-	std::vector<ModelData> models{}; // VB・IB・Material等を保持する
-};
-
 // オフスクリーン描画先1個分
 struct RenderTargetData
 {
@@ -362,4 +354,13 @@ struct RenderTargetSlot
 {
 	RenderTargetData data{}; // 実データ
 	uint32_t generation{ 0 }; // 世代
+};
+
+// 1回のGPU送信に対応する解放待ちのリソース
+struct DeferredReleaseBatch
+{
+	UINT64 fenceValue{ 0 }; // GPUがこの値まで完了したら解放可能
+	std::vector<TextureData> textures{}; // SRVとTextureResourceを保持する
+	std::vector<ModelData> models{}; // VB・IB・Material等を保持する
+	std::vector<RenderTargetData> renderTargets{}; // RenderTargetのリソースとRTV/SRVを保持する
 };

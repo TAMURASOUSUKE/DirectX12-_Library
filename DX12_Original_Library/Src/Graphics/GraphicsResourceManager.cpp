@@ -236,8 +236,9 @@ void GraphicsResourceManager::Initialize(ID3D12Device* _device)
 		device = _device;
 	}
 
-	texSlots.reserve(MAX_TEXTURE_COUNT); // 先に容量確保 + Lookupガードでダングリング防止
-	modelSlots.reserve(MAX_MODEL_COUNT); // 先に容量確保 + Lookupガードでダングリング防止
+	texSlots.reserve(MAX_TEXTURE_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
+	modelSlots.reserve(MAX_MODEL_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
+	rtSlots.reserve(MAX_RENDER_TARGET_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
 	// デフォルト用の白テクスチャを作成する(初期化時に1枚だけ)
 	defaultTexture = CreateMetaTexture({1.0f, 1.0f, 1.0f});
 	// エラー用のピンクテクスチャを作成する
@@ -246,12 +247,16 @@ void GraphicsResourceManager::Initialize(ID3D12Device* _device)
 
 void GraphicsResourceManager::Shutdown()
 {
-	auto releaseTexture = [](TextureData& _texture)
+	// テクスチャ削除ラムダ
+	auto releaseTexture
+	{
+		[](TextureData& _texture)
 		{
 			// GPUは停止済みなのでDescriptorを即座に返す
 			if (_texture.srvHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, _texture.srvHandle);
 			_texture = TextureData{}; // ComPtrも含めて空にする
-		};
+		}
+	};
 
 	// まだUnloadされていないtextureを空にする
 	for (TextureSlot& slot : texSlots)
@@ -271,6 +276,39 @@ void GraphicsResourceManager::Shutdown()
 			releaseTexture(texture);
 		}
 	}
+
+	// RT削除ラムダ
+	auto releaseRenderTarget
+	{
+		[](RenderTargetData& _rt)
+		{
+			// RTVとSRVを解放する
+			if (_rt.rtvHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::RTV, _rt.rtvHandle);
+			if(_rt.srvHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, _rt.srvHandle);
+			_rt = RenderTargetData{}; // 初期状態へ戻す
+		}
+	};
+
+	// まだUnloadされていないRT
+	for (RenderTargetSlot& slot : rtSlots)
+	{
+		releaseRenderTarget(slot.data);
+	}
+	// EndFrame前にUnloadされたRT
+	for (RenderTargetData& rt : pendingRelease.renderTargets)
+	{
+		releaseRenderTarget(rt);
+	}
+	// Fence待ちのRT
+	for (DeferredReleaseBatch& batch : deferredReleases)
+	{
+		for (RenderTargetData& rt : batch.renderTargets)
+		{
+			releaseRenderTarget(rt);
+		}
+	}
+	rtSlots.clear(); // 空にする
+
 	// 生存しているmodel
 	modelSlots.clear(); // ComPtrも解放
 	// Unload済みで解放待ちだったmodel
@@ -288,6 +326,10 @@ void GraphicsResourceManager::Shutdown()
 	{
 		modelFreeList.pop();
 	}
+	while (!renderTargetFreeList.empty())
+	{
+		renderTargetFreeList.pop();
+	}
 	defaultTexture = TexHandle{};
 	errorTexture = TexHandle{};
 	device = nullptr;
@@ -296,7 +338,7 @@ void GraphicsResourceManager::Shutdown()
 void GraphicsResourceManager::CommitPendingRelease(UINT64 _submittedFenceValue)
 {
 	// 空チェック
-	if (pendingRelease.textures.empty() && pendingRelease.models.empty())
+	if (pendingRelease.textures.empty() && pendingRelease.models.empty() && pendingRelease.renderTargets.empty())
 	{
 		return;
 	}
@@ -328,7 +370,14 @@ void GraphicsResourceManager::CollectDeferredReleases(UINT64 _completedFenceValu
 			DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texture.srvHandle);
 		}
 
-		// pop_frontによってTextureData、ModelDataが破棄されて内部のComPtrもここで解放
+		for (RenderTargetData& rt : batch.renderTargets)
+		{
+			// 両方ともここで開放
+			DescriptorManager::Instance().Free(HeapType::RTV, rt.rtvHandle);
+			DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, rt.srvHandle);
+		}
+
+		// pop_frontによって各リソースが破棄されて内部のComPtrもここで解放
 		deferredReleases.pop_front();
 	}
 }
@@ -634,6 +683,32 @@ ModelData* GraphicsResourceManager::Lookup(ModelHandle _handle)
 	return &slot.data; // 実体を返す
 }
 
+RenderTargetData* GraphicsResourceManager::Lookup(RTHandle _handle)
+{
+	if (!_handle.IsValid())
+	{
+		DEBUG_LOG_ERROR("無効なハンドルです\n");
+		return nullptr; // 無効なハンドルならnull
+	}
+
+	int packed{ _handle.GetRaw(PassKey{}) }; // 生の値(内部ハンドルを取得)
+	int index{ UnpackIndex(packed) }; // index部分を取り出す
+	// 範囲外チェック
+	if (index < 0 || index >= static_cast<int>(rtSlots.size()))
+	{
+		DEBUG_LOG_ERROR("ハンドルに範囲外のサイズが渡されました\n");
+		return nullptr; // 範囲チェック
+	}
+	RenderTargetSlot& slot{ rtSlots[index] }; // スロットの指定ハンドル部分を取り出す
+	// 世代チェック
+	if (UnpackGen(packed) != static_cast<int>(slot.generation))
+	{
+		DEBUG_LOG_WARNING("世代が異なります\n");
+		return nullptr; // 世代チェック
+	}
+	return &slot.data; // 実体を返す
+}
+
 ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 {
 	// 新規スロットを追加できる、または解放済みスロットを再利用できるか
@@ -911,6 +986,109 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 	return ModelHandle(PassKey{}, packed);
 }
 
+
+RTHandle GraphicsResourceManager::CreateRenderTarget(UINT _width, UINT _height)
+{
+	// 満杯ガードを入れる
+	if (renderTargetFreeList.empty() && rtSlots.size() >= MAX_RENDER_TARGET_COUNT)
+	{
+		DEBUG_LOG_ERROR("RenderTargetの登録上限に達しました\n");
+		return RTHandle{};
+	}
+
+	if (!device || _width == 0 || _height == 0)
+	{
+		DEBUG_LOG_ERROR("RenderTargetの作成条件が不正です\n");
+
+		return RTHandle{};
+	}
+
+	D3D12_HEAP_PROPERTIES heapProperties{};
+	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+	D3D12_RESOURCE_DESC resourceDesc{};
+	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D; // 描画先なのでTexture2D
+	resourceDesc.Width = _width; // 横幅
+	resourceDesc.Height = _height; // 縦幅
+	resourceDesc.DepthOrArraySize = 1; // 深度または配列数
+	resourceDesc.MipLevels = 1; // ミップマップのレベル数
+	resourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB; // 画素フォーマット
+	resourceDesc.SampleDesc.Count = 1; // マルチサンプル数いったんMSAAを使用しない
+	resourceDesc.SampleDesc.Quality = 0; // マルチサンプルの品質MSAAが無効なので0
+	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN; // メモリ上のデータ配列pattern
+
+	// このリソースを描画先として使用可能にする
+	resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+
+	ComPtr<ID3D12Resource> resource{};
+	// 作成直後は描画先として使用して最適化ClearValueは今回使用しない(高速クリア用の推奨色を設定しない)
+	HRESULT result{ device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_RENDER_TARGET, nullptr, IID_PPV_ARGS(&resource)) };
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		return RTHandle{};
+	}
+
+	// RTVとSRVを作る
+	DescriptorHandle rtv{DescriptorManager::Instance().Allocate(HeapType::RTV)}; // RTVで確保
+	if (!rtv.IsValid())
+	{
+		DEBUG_LOG_ERROR("RTVでのDescriptorHandleの確保に失敗しました\n");
+		return RTHandle{};
+	}
+	DescriptorHandle srv{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // SRVで確保
+	if (!srv.IsValid())
+	{
+		DEBUG_LOG_ERROR("SRVでのDescriptorHandleの確保に失敗しました\n");
+		DescriptorManager::Instance().Free(HeapType::RTV, rtv); // SRV確保に失敗したので先に取ったRTVを返す
+		return RTHandle{};
+	}
+
+	// RTVの作成
+	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
+	rtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+	rtvDesc.Texture2D.MipSlice = 0;
+	rtvDesc.Texture2D.PlaneSlice = 0;
+	device->CreateRenderTargetView(resource.Get(), &rtvDesc, rtv.cpu); // 作成
+
+	// SRVの作成
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+	srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Texture2D.MipLevels = 1;
+	device->CreateShaderResourceView(resource.Get(), &srvDesc, srv.cpu);
+
+	RenderTargetData data{};
+	data.resource = resource;
+	data.width = _width;
+	data.height = _height;
+	data.rtvHandle = rtv;
+	data.srvHandle = srv;
+
+
+	int index;
+	// 空ではないなら再利用する
+	if (!renderTargetFreeList.empty())
+	{
+		index = renderTargetFreeList.top(); // freelistから取り出す
+		renderTargetFreeList.pop(); // 削除
+		rtSlots[index].data = data; // Unload時点で++されるので世代は据え置き
+	}
+	// 空なら伸ばす
+	else
+	{
+		// 新しく追加するので現在のスロット数を新しいindexとする
+		index = static_cast<int>(rtSlots.size());
+		rtSlots.push_back({ data, 0 }); // 新規なので世代は0で
+	}
+
+	int packed{ Pack(index, rtSlots[index].generation) }; // パックしたハンドルを入れる
+
+	return RTHandle(PassKey{}, packed);
+}
+
 void GraphicsResourceManager::Unload(TexHandle _handle)
 {
 	TextureData* data{ Lookup(_handle) };
@@ -957,6 +1135,25 @@ void GraphicsResourceManager::Unload(ModelHandle _handle)
 	modelSlots[index].generation++; // 世代を増やして既存を無効化
 	modelFreeList.push(index); // freelistへ返す
 
+}
+
+void GraphicsResourceManager::Unload(RTHandle _handle)
+{
+	RenderTargetData* data{ Lookup(_handle)};
+	if (!data)
+	{
+		// 無効なハンドル
+		DEBUG_LOG_ERROR("無効なハンドルです\n");
+		return;
+	}
+	int index{ UnpackIndex(_handle.GetRaw(PassKey{})) }; // indexを取り出す
+
+	// ComPtrとDescriptorHanldeを解放待ちへ移動する
+	pendingRelease.renderTargets.push_back(std::move(rtSlots[index].data));
+	// CPU側のハンドルは無効化する
+	rtSlots[index].data = RenderTargetData{};
+	rtSlots[index].generation++;
+	renderTargetFreeList.push(index);
 }
 
 TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta)

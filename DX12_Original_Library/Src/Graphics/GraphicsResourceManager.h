@@ -7,7 +7,8 @@
 #include <stack>
 #include <deque>
 #include "../Core/Handle/TexHandle.h"
-#include"../Core/Handle/ModelHandle.h"
+#include "../Core/Handle/ModelHandle.h"
+#include "../Core/Handle/RTHandle.h"
 #include "GraphicsType.h"
 using Microsoft::WRL::ComPtr;
 #pragma comment(lib, "d3d12.lib")
@@ -63,9 +64,13 @@ public:
 	// ファイル名を引数にモデルをロードする関数
 	ModelHandle LoadModel(const char* _filePath);
 
+	// 指定サイズのオフスクリーン描画先を作成する
+	RTHandle CreateRenderTarget(UINT _width, UINT _height);
+
 	// Handleをindex部分と世代部分に分ける
 	TextureData* Lookup(TexHandle _handle);
 	ModelData* Lookup(ModelHandle _handle);
+	RenderTargetData* Lookup(RTHandle _handle);
 
 	// ボーンのグローバルポーズを計算する
 	void UpdateGlobalPose(AnimInstanceData& _instance);
@@ -75,6 +80,7 @@ public:
 	// リソースを解放する
 	void Unload(TexHandle _handle);
 	void Unload(ModelHandle _handle);
+	void Unload(RTHandle _hanlde);
 
 	// デフォルト用の白テクスチャを取得する
 	TexHandle GetDefaultTexture() const { return defaultTexture; }

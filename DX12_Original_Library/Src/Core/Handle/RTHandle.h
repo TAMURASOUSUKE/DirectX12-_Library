@@ -6,9 +6,7 @@ class RTHandle
 {
 public:
 	RTHandle() = default;
-	RTHandle(PassKey, int _packed)
-		: value{ _packed }
-	{}
+	RTHandle(PassKey, int _packed) : value{ _packed } {}
 
 	int GetRaw(PassKey) const
 	{

@@ -19,6 +19,7 @@
 // 無名名前空間で変数を保持する
 namespace {
 	Window window; // window作成クラス
+	RTHandle sceneRenderTarget{}; // シーン全体を描画する内部用RenderTarget
 	ShaderSystem shaderSystem; // Shader読み込みなどを管理するファイル
 	ConstantBufferData orthConstantBufferData; // 正射影行列用定数バッファのデータメンバ
 	RingConstantBuffer mvpRingCBV; // MVP行列用定数バッファのデータメンバ
