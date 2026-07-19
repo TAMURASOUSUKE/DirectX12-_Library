@@ -16,7 +16,7 @@ VSOutput main(uint _vertexID : SV_VertexID)
     // 1 : (2, 0)
     // 2 : (0, 2)
     float2 uv = float2((_vertexID << 1) & 2, _vertexID & 2);
-    output = uv;
+    output.uv = uv;
     // UVをNDC座標へ変換する
     // (-1,  1)
 	// ( 3,  1)

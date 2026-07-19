@@ -66,7 +66,7 @@ namespace {
 		.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH, .fillMode = D3D12_FILL_MODE_WIREFRAME},// hsとdsを使うのでパッチ系のpipelineという大分類にする , 分割された三角形を確認できるようにワイヤー
 		// PostEffect
 		{.rootSignatureID = RootSigID::PostEffect, .pipelineID = PipelineID::PostEffect,
-		 .vsPath = L"../Src/Shaders/PostEffectVS.hlsl", .psPath = L"../Scr/Shaders/PostEffectPS.hlsl",
+		 .vsPath = L"../Src/Shaders/PostEffectVS.hlsl", .psPath = L"../Src/Shaders/PostEffectPS.hlsl",
 		 .layout = InputLayout::None, .blend = BlendMode::Opaque, // レイアウトはSV_VertexIDから直接作るので頂点入力はない、Blendも完全に画面を置き換えるのでブレンド無し
 		 .depth = DepthParam::None, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE} // 2D画像を画面へ貼るだけなので深度は使わない
 	};
