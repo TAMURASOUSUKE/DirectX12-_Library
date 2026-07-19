@@ -572,9 +572,18 @@ void Gfx::ClearScreen(float _r, float _g, float _b, float _a)
 }
 
 // 画像読み込み
-TexHandle Gfx::LoadTexture(const char* _filePath)
+TexHandle Gfx::LoadTexture(const char* _filePath, TextureUsage _usage)
 {
-	return GraphicsResourceManager::Instance().LoadTexture(_filePath);
+	bool isData{ false };
+	if (_usage == TextureUsage::Color)
+	{
+		isData = false;
+	}
+	else
+	{
+		isData = true;
+	}
+	return GraphicsResourceManager::Instance().LoadTexture(_filePath, isData);
 }
 
 // モデル読み込み

@@ -689,7 +689,7 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 
 	// とりあえず今はRenderTargetを1枚だけ使用する
 	nativeDesc.NumRenderTargets = 1;
-	nativeDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	nativeDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 
 	// MSAAなし
 	nativeDesc.SampleDesc.Count = 1;

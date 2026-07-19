@@ -517,43 +517,70 @@ ConstantBufferData GraphicsResourceManager::CreateConstantBuffer(const void* _da
 }
 
 // 画像の読み込み
-TexHandle GraphicsResourceManager::LoadTexture(const char* _filePath)
+TexHandle GraphicsResourceManager::LoadTexture(const char* _filePath, bool _isData)
 {
 
 	// DirectXTexを用いたテクスチャロード
 	ID3D12Device* device{ GraphicsDevice::Instance().GetDevice() };
 	HRESULT result{}; // 結果判定用
-
+	// データ画像かデフラグを分ける
+	DirectX::WIC_FLAGS flag{_isData	 ? DirectX::WIC_FLAGS_IGNORE_SRGB	: DirectX::WIC_FLAGS_DEFAULT_SRGB};
 	// WICでCPUに読み込む
 	std::filesystem::path path(_filePath); // std::filesystem::pathの一次オブジェクトから.c_str()をとるとタングリングするのでローカル保持する
 	DirectX::TexMetadata metaData{}; // 画像のメタデータ
 	DirectX::ScratchImage scratch{}; // 画像管理クラス
-	result = DirectX::LoadFromWICFile(path.c_str(), DirectX::WIC_FLAGS_NONE, &metaData, scratch);
+	result = DirectX::LoadFromWICFile(path.c_str(), flag, &metaData, scratch);
 	DEBUG_ASSERT(SUCCEEDED(result));
 	if (FAILED(result))
 	{
 		return TexHandle{}; // 空を返す
 	}
+
+	// Facade側で指定された用とに合わせてScratchImage本体と各Imageのfomatをそろえて変更する
+	const DXGI_FORMAT desiredFormat{_isData	? DirectX::MakeLinear(metaData.format)	: DirectX::MakeSRGB(metaData.format)};
+	if (!scratch.OverrideFormat(desiredFormat))
+	{
+		DEBUG_LOG_ERROR("テクスチャのFormat変更に失敗しました Path={}\n", _filePath);
+		return TexHandle{};
+	}
+
+	// オーバーライド後のメタデータを取得しなおす
+	metaData = scratch.GetMetadata();
+	DEBUG_LOG("メタデータフォーマットの数値は{}です。: TexturePath : {}\n",static_cast<unsigned int>(metaData.format), _filePath);
 
 	return CreateTextureFromScratch(scratch, metaData);
 }
 
 // バイト列から読むタイプの画像読み込み
-TexHandle GraphicsResourceManager::LoadTextureFromMemory(const void* _data, size_t _size)
+TexHandle GraphicsResourceManager::LoadTextureFromMemory(const void* _data, size_t _size, bool _isData)
 {
 	// DirectXTexを用いたテクスチャロード
 	ID3D12Device* device{ GraphicsDevice::Instance().GetDevice() };
 	HRESULT result{}; // 結果判定用
+	// データ画像かデフラグを分ける
+	DirectX::WIC_FLAGS flag{ _isData ? DirectX::WIC_FLAGS_IGNORE_SRGB : DirectX::WIC_FLAGS_DEFAULT_SRGB };
 
 	// WICでCPUに読み込む
 	DirectX::TexMetadata metaData{}; // 画像のメタデータ
 	DirectX::ScratchImage scratch{}; // 画像管理クラス
-	result = DirectX::LoadFromWICMemory(static_cast<const uint8_t*>(_data), _size, DirectX::WIC_FLAGS_NONE, &metaData, scratch);
+	result = DirectX::LoadFromWICMemory(static_cast<const uint8_t*>(_data), _size, flag, &metaData, scratch);
 	DEBUG_ASSERT(SUCCEEDED(result));
 	if (FAILED(result))
 	{
 		return TexHandle{}; // 空を返す
 	}
+
+	// Facade側で指定された用とに合わせてScratchImage本体と各Imageのfomatをそろえて変更する
+	const DXGI_FORMAT desiredFormat{ _isData ? DirectX::MakeLinear(metaData.format) : DirectX::MakeSRGB(metaData.format) };
+	if (!scratch.OverrideFormat(desiredFormat))
+	{
+		DEBUG_LOG_ERROR("テクスチャのFormat変更に失敗しました\n",);
+		return TexHandle{};
+	}
+
+	// オーバーライド後のメタデータを取得しなおす
+	metaData = scratch.GetMetadata();
+	DEBUG_LOG("メタデータフォーマットの数値は{}です\n", static_cast<unsigned int>(metaData.format));
 
 	return CreateTextureFromScratch(scratch, metaData);
 }
@@ -791,10 +818,10 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 			// テクスチャや各パラメータの代入
 			if (prim.material)
 			{
-				baseColor = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.base_color_texture, modelDir); // ベースカラーテクスチャ
-				normalMap = LoadTextureFromGltf(prim.material->normal_texture, modelDir); // ノーマルマップ
-				metallic = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.metallic_roughness_texture, modelDir); // メタリック
-				emissive = LoadTextureFromGltf(prim.material->emissive_texture, modelDir); // 自己発光
+				baseColor = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.base_color_texture, modelDir, false); // ベースカラーテクスチャ
+				normalMap = LoadTextureFromGltf(prim.material->normal_texture, modelDir, true); // ノーマルマップ
+				metallic = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.metallic_roughness_texture, modelDir, true); // メタリック
+				emissive = LoadTextureFromGltf(prim.material->emissive_texture, modelDir, false); // 自己発光
 
 				sub.material.textures[MaterialTex::BaseColor] = baseColor;
 				sub.material.textures[MaterialTex::Normal] = normalMap;
@@ -1037,7 +1064,7 @@ TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::Scrat
 	return TexHandle(PassKey{}, packed);
 }
 
-TexHandle GraphicsResourceManager::LoadTextureFromGltf(const cgltf_texture_view& _texView, const  std::filesystem::path& _modelDir)
+TexHandle GraphicsResourceManager::LoadTextureFromGltf(const cgltf_texture_view& _texView, const  std::filesystem::path& _modelDir, bool _isData)
 {
 	if (!_texView.texture || !_texView.texture->image) return TexHandle{}; // 空を返す
 	cgltf_image* image{ _texView.texture->image };
@@ -1048,12 +1075,12 @@ TexHandle GraphicsResourceManager::LoadTextureFromGltf(const cgltf_texture_view&
 		{
 			std::filesystem::path texPath{ _modelDir / image->uri };  // フォルダ + ファイル名
 			std::string texPathStr{ texPath.string() };
-			return LoadTexture(texPathStr.c_str());
+			return LoadTexture(texPathStr.c_str(), _isData);
 		}
 		else if (image->buffer_view)
 		{
 			const uint8_t* bytes{ static_cast<const uint8_t*>(image->buffer_view->buffer->data) + image->buffer_view->offset };
-			return LoadTextureFromMemory(bytes, image->buffer_view->size);
+			return LoadTextureFromMemory(bytes, image->buffer_view->size, _isData);
 		}
 	}
 

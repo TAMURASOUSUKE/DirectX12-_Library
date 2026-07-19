@@ -19,10 +19,17 @@ namespace Gfx
 		int cols{ 0 }; // 1行あたりのセルの量
 		int firstCode{ 0 }; // 先頭セルが表す文字コード(CP437配列なら0, スペース始まりなら32)
 	};
+
+	// 画像をどの用途として読み込むか
+	enum class TextureUsage
+	{
+		Color, // 表示用カラー画像(sRGBとして読み込む) 
+		Data, // ハイトマップやノーマルマップなどの数値データ,Linerとして読み込む	
+	};
 	// 画面のクリア(引数で色を設定できるデフォルトは黒)
 	void ClearScreen(float _r = 0.0f, float _g = 0.0f, float _b = 0.0f, float _a = 1.0f);
-	//画像読み込み
-	TexHandle LoadTexture(const char* _filePath);
+	//画像読み込み : ファイル名とどの用途として読み込むか(ノーマルマップなどの数値データならColorではなくDataとしてください)
+	TexHandle LoadTexture(const char* _filePath, TextureUsage _usage = TextureUsage::Color);
 	// モデル読み込み
 	ModelHandle LoadModel(const char* _filePath);
 	// 矩形描画

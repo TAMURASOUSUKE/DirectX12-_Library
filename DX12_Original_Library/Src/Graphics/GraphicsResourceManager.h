@@ -55,10 +55,10 @@ public:
 	ConstantBufferData CreateConstantBuffer(const void* _data, UINT _dataSize);
 
 	// ファイル名を引数に画像をロードする関数
-	TexHandle LoadTexture(const char* _filePath);
+	TexHandle LoadTexture(const char* _filePath, bool _isData);
 
 	// バイト列をもとに画像を持ってくる
-	TexHandle LoadTextureFromMemory(const void* _data, size_t _size);
+	TexHandle LoadTextureFromMemory(const void* _data, size_t _size, bool _isData);
 
 	// ファイル名を引数にモデルをロードする関数
 	ModelHandle LoadModel(const char* _filePath);
@@ -92,7 +92,7 @@ private:
 	TexHandle CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta);
 
 	// テクスチャの種類を受け取りuri/bufferviewを探索してロードするヘルパー
-	TexHandle LoadTextureFromGltf(const cgltf_texture_view& _texView, const  std::filesystem::path& _modelDir);
+	TexHandle LoadTextureFromGltf(const cgltf_texture_view& _texView, const  std::filesystem::path& _modelDir, bool _isData);
 	
 	// 内部で使うメタテクスチャを作成するヘルパー(Initializeで作成用)
 	TexHandle CreateMetaTexture(Vector3 _color);
