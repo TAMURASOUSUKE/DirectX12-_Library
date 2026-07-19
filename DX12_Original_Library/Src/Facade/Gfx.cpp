@@ -39,6 +39,7 @@ namespace {
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	int screenWidth = 0; // 画面の横幅
 	int screenHeight = 0; // 画面の縦幅
+	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
 
 	constexpr GraphicsPipelineDesc PIPELINE_TABLE[]{
 		// 図形塗りつぶし
@@ -488,7 +489,18 @@ void GfxInternal::BeginFrame()
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto dsv{ GraphicsDevice::Instance().GetDSV() };
 	RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) }; // 内部ハンドルを分解した時のデータ
-	currentRTV = sceneRT->rtvHandle.cpu;
+	isSceneRenderTargetActive = false; // BeginFrameごとに使用状態を決め直す
+	if (sceneRT)
+	{
+		//通常経路としてシーンRTへ描画する
+		currentRTV = sceneRT->rtvHandle.cpu;
+		isSceneRenderTargetActive = true;
+	}
+	else
+	{
+		DEBUG_LOG_ERROR("シーンRTを取得できないのでバックバッファへ直接描画します\n");
+		currentRTV = GraphicsDevice::Instance().GetCurrentRTV();
+	}
 
 	// 深度バッファとステンシルバッファをクリアする
 	cmdList->ClearDepthStencilView(
@@ -543,36 +555,43 @@ void GfxInternal::EndFrame()
 	}
 
 	auto* cmd{ GraphicsDevice::Instance().GetCommandList() };
-	RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) };
-	if (!sceneRT)
+
+	// このフレームでオフスクリーンが使われていたら
+	if (isSceneRenderTargetActive)
 	{
-		DEBUG_LOG_ERROR("シーンRTを取得できませんでした\n");
-		return;
+		RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) };
+		if (sceneRT)
+		{
+			// バリアを使ってシーンRTを書き込み先からシェーダーで読む画像へ遷移させる
+			D3D12_RESOURCE_BARRIER toShaderResource{ CD3DX12_RESOURCE_BARRIER::Transition(sceneRT->resource.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE) };
+			cmd->ResourceBarrier(1, &toShaderResource);
+
+			// 描画先をシーンRTからバックバッファへ変更する
+			currentRTV = GraphicsDevice::Instance().GetCurrentRTV();
+			// このパスでは深度を使わないのでDSVにはnullを渡す
+			cmd->OMSetRenderTargets(1, &currentRTV, false, nullptr);
+			// シーンRTをフルスクリーン三角形として描画する
+			cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::PostEffect));
+			cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::PostEffect));
+			// SRVヒープをコマンドリストへ設定
+			DescriptorManager::Instance().SetDiscriptor(cmd);
+			// RootSignatureの0番へシーンRTのSRVを渡す
+			cmd->SetGraphicsRootDescriptorTable(0, sceneRT->srvHandle.gpu);
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmd->DrawInstanced(3, 1, 0, 0); // 頂点バッファを使わずにSV_VertexIDの0, 1, 2を発生させる
+
+			// 次フレームで再びシーンRTへ描けるようにする
+			D3D12_RESOURCE_BARRIER toRenderTarget{ CD3DX12_RESOURCE_BARRIER::Transition(sceneRT->resource.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET) };
+			cmd->ResourceBarrier(1, &toRenderTarget);
+		}
+		else
+		{
+			// ポストエフェクトを断念する
+			DEBUG_LOG_ERROR("EndFrameでシーンRTを取得できないためポストエフェクトをスキップします\n");
+		}
 	}
-
-	// バリアを使ってシーンRTを書き込み先からシェーダーで読む画像へ遷移させる
-	D3D12_RESOURCE_BARRIER toShaderResource{ CD3DX12_RESOURCE_BARRIER::Transition(sceneRT->resource.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE) };
-	cmd->ResourceBarrier(1, &toShaderResource);
-
-	// 描画先をシーンRTからバックバッファへ変更する
-	currentRTV = GraphicsDevice::Instance().GetCurrentRTV();
-	// このパスでは深度を使わないのでDSVにはnullを渡す
-	cmd->OMSetRenderTargets(1,&currentRTV, false, nullptr);
-	// シーンRTをフルスクリーン三角形として描画する
-	cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::PostEffect));
-	cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::PostEffect));
-	// SRVヒープをコマンドリストへ設定
-	DescriptorManager::Instance().SetDiscriptor(cmd);
-	// RootSignatureの0番へシーンRTのSRVを渡す
-	cmd->SetGraphicsRootDescriptorTable(0, sceneRT->srvHandle.gpu);
-	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	cmd->DrawInstanced(3, 1, 0, 0); // 頂点バッファを使わずにSV_VertexIDの0, 1, 2を発生させる
-
-	// 次フレームで再びシーンRTへ描けるようにする
-	D3D12_RESOURCE_BARRIER toRenderTarget{ CD3DX12_RESOURCE_BARRIER::Transition(sceneRT->resource.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET) };
-	cmd->ResourceBarrier(1, &toRenderTarget);
-
 	GraphicsDevice::Instance().EndFrame(); // フレームの最後の処理
+	isSceneRenderTargetActive = false;
 }
 
 // 終了処理
