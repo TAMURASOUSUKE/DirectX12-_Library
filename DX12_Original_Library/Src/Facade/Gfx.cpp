@@ -19,6 +19,8 @@
 // 無名名前空間で変数を保持する
 namespace {
 	Window window; // window作成クラス
+	RTHandle sceneRenderTarget{}; // シーン全体を描画する内部用RenderTarget
+	D3D12_CPU_DESCRIPTOR_HANDLE currentRTV{}; // 現在OMSetRenderTargetsで設定しているRTV
 	ShaderSystem shaderSystem; // Shader読み込みなどを管理するファイル
 	ConstantBufferData orthConstantBufferData; // 正射影行列用定数バッファのデータメンバ
 	RingConstantBuffer mvpRingCBV; // MVP行列用定数バッファのデータメンバ
@@ -37,6 +39,7 @@ namespace {
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	int screenWidth = 0; // 画面の横幅
 	int screenHeight = 0; // 画面の縦幅
+	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
 
 	constexpr GraphicsPipelineDesc PIPELINE_TABLE[]{
 		// 図形塗りつぶし
@@ -61,7 +64,12 @@ namespace {
 		.vsPath = L"../Src/Shaders/TerrainVS.hlsl", .psPath = L"../Src/Shaders/TerrainPS.hlsl",
 		.hsPath = L"../Src/Shaders/TerrainHS.hlsl", .dsPath = L"../Src/Shaders/TerrainDS.hlsl",
 		.layout = InputLayout::Texture, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite, // textureを流用できる
-		.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH, .fillMode = D3D12_FILL_MODE_WIREFRAME} // hsとdsを使うのでパッチ系のpipelineという大分類にする , 分割された三角形を確認できるようにワイヤー
+		.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH, .fillMode = D3D12_FILL_MODE_WIREFRAME},// hsとdsを使うのでパッチ系のpipelineという大分類にする , 分割された三角形を確認できるようにワイヤー
+		// PostEffect
+		{.rootSignatureID = RootSigID::PostEffect, .pipelineID = PipelineID::PostEffect,
+		 .vsPath = L"../Src/Shaders/PostEffectVS.hlsl", .psPath = L"../Src/Shaders/PostEffectPS.hlsl",
+		 .layout = InputLayout::None, .blend = BlendMode::Opaque, // レイアウトはSV_VertexIDから直接作るので頂点入力はない、Blendも完全に画面を置き換えるのでブレンド無し
+		 .depth = DepthParam::None, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE} // 2D画像を画面へ貼るだけなので深度は使わない
 	};
 }
 
@@ -353,6 +361,14 @@ namespace {
 		}
 
 		orthConstantBufferData = ConstantBufferData{};
+
+		// GraphicsResourceManagerのShutdownで生存中のRTが回収されるが明示しておく
+		if (sceneRenderTarget.IsValid())
+		{
+			GraphicsResourceManager::Instance().Unload(sceneRenderTarget);
+			sceneRenderTarget = RTHandle{};
+		}
+		currentRTV = {};
 	}
 }
 
@@ -405,6 +421,23 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	}
 
 	GraphicsResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
+	
+	// 画面と同じサイズの内部描画先を作成
+	sceneRenderTarget = GraphicsResourceManager::Instance().CreateRenderTarget(static_cast<UINT>(_width), static_cast<UINT>(_height));
+	if (!sceneRenderTarget.IsValid())
+	{
+		DEBUG_LOG_ERROR("シーン描画用RenderTargetの作成に失敗しました\n");
+		return false;
+	}
+	// Lookup確認
+	RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) };
+	if (!sceneRT)
+	{
+		DEBUG_LOG_ERROR("シーン描画用RenderTargetの取得に失敗しました\n");
+		return false;
+	}
+	currentRTV = sceneRT->rtvHandle.cpu; // 初期状態として内部RTを現在の描画先とする
+
 	// グリッドとCBの作成
 	if (!InitializeTerrainResources()) return false;
 
@@ -454,8 +487,20 @@ void GfxInternal::BeginFrame()
 	terrainRingCBV.Reset();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
-	auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTV
 	auto dsv{ GraphicsDevice::Instance().GetDSV() };
+	RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) }; // 内部ハンドルを分解した時のデータ
+	isSceneRenderTargetActive = false; // BeginFrameごとに使用状態を決め直す
+	if (sceneRT)
+	{
+		//通常経路としてシーンRTへ描画する
+		currentRTV = sceneRT->rtvHandle.cpu;
+		isSceneRenderTargetActive = true;
+	}
+	else
+	{
+		DEBUG_LOG_ERROR("シーンRTを取得できないのでバックバッファへ直接描画します\n");
+		currentRTV = GraphicsDevice::Instance().GetCurrentRTV();
+	}
 
 	// 深度バッファとステンシルバッファをクリアする
 	cmdList->ClearDepthStencilView(
@@ -468,7 +513,7 @@ void GfxInternal::BeginFrame()
 	);
 
 	// レンダーターゲット設定
-	cmdList->OMSetRenderTargets(1, &rtv, false, &dsv);
+	cmdList->OMSetRenderTargets(1, &currentRTV, false, &dsv);
 
 	// ビューポート
 	D3D12_VIEWPORT viewPort{};
@@ -508,7 +553,45 @@ void GfxInternal::EndFrame()
 		GPU_MARKER("ShapeDraw");
 		shapeBatch.Flush();
 	}
+
+	auto* cmd{ GraphicsDevice::Instance().GetCommandList() };
+
+	// このフレームでオフスクリーンが使われていたら
+	if (isSceneRenderTargetActive)
+	{
+		RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) };
+		if (sceneRT)
+		{
+			// バリアを使ってシーンRTを書き込み先からシェーダーで読む画像へ遷移させる
+			D3D12_RESOURCE_BARRIER toShaderResource{ CD3DX12_RESOURCE_BARRIER::Transition(sceneRT->resource.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE) };
+			cmd->ResourceBarrier(1, &toShaderResource);
+
+			// 描画先をシーンRTからバックバッファへ変更する
+			currentRTV = GraphicsDevice::Instance().GetCurrentRTV();
+			// このパスでは深度を使わないのでDSVにはnullを渡す
+			cmd->OMSetRenderTargets(1, &currentRTV, false, nullptr);
+			// シーンRTをフルスクリーン三角形として描画する
+			cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::PostEffect));
+			cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::PostEffect));
+			// SRVヒープをコマンドリストへ設定
+			DescriptorManager::Instance().SetDiscriptor(cmd);
+			// RootSignatureの0番へシーンRTのSRVを渡す
+			cmd->SetGraphicsRootDescriptorTable(0, sceneRT->srvHandle.gpu);
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			cmd->DrawInstanced(3, 1, 0, 0); // 頂点バッファを使わずにSV_VertexIDの0, 1, 2を発生させる
+
+			// 次フレームで再びシーンRTへ描けるようにする
+			D3D12_RESOURCE_BARRIER toRenderTarget{ CD3DX12_RESOURCE_BARRIER::Transition(sceneRT->resource.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET) };
+			cmd->ResourceBarrier(1, &toRenderTarget);
+		}
+		else
+		{
+			// ポストエフェクトを断念する
+			DEBUG_LOG_ERROR("EndFrameでシーンRTを取得できないためポストエフェクトをスキップします\n");
+		}
+	}
 	GraphicsDevice::Instance().EndFrame(); // フレームの最後の処理
+	isSceneRenderTargetActive = false;
 }
 
 // 終了処理
@@ -568,13 +651,27 @@ void GfxInternal::Finish()
 void Gfx::ClearScreen(float _r, float _g, float _b, float _a)
 {
 	float windowColor[]{ _r, _g, _b, _a };
-	GraphicsDevice::Instance().GetCommandList()->ClearRenderTargetView(GraphicsDevice::Instance().GetCurrentRTV(), windowColor, 0, nullptr); // コマンドリストを取得しそこから現在書き込んでいるRTVにの色を任意色でクリアする
+	if (currentRTV.ptr == 0)
+	{
+		DEBUG_LOG_ERROR("現在の描画先が設定されていません\n");
+		return;
+	}
+	GraphicsDevice::Instance().GetCommandList()->ClearRenderTargetView(currentRTV, windowColor, 0, nullptr); // コマンドリストを取得しそこから現在書き込んでいるRTVにの色を任意色でクリアする
 }
 
 // 画像読み込み
-TexHandle Gfx::LoadTexture(const char* _filePath)
+TexHandle Gfx::LoadTexture(const char* _filePath, TextureUsage _usage)
 {
-	return GraphicsResourceManager::Instance().LoadTexture(_filePath);
+	bool isData{ false };
+	if (_usage == TextureUsage::Color)
+	{
+		isData = false;
+	}
+	else
+	{
+		isData = true;
+	}
+	return GraphicsResourceManager::Instance().LoadTexture(_filePath, isData);
 }
 
 // モデル読み込み

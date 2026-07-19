@@ -240,6 +240,9 @@
     <ClInclude Include="Src\Facade\TimeInternal.h">
       <Filter>Src\Facade</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Core\Handle\RTHandle.h">
+      <Filter>Src\Core\Handle</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -380,6 +383,12 @@
       <Filter>Src\Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Src\Shaders\ShapeGS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\PostEffectVS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\PostEffectPS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
   </ItemGroup>

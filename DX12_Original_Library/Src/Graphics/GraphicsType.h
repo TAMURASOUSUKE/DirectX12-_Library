@@ -33,6 +33,7 @@ enum class PipelineID
 	ShapeFill, //  2D基本図形塗りつぶし
 	ShapeWire, // 2D基本図形ワイヤー
 	TerrainWire, // テッセレーションデモ
+	PostEffect, // シーンRTを画面へ描画するPSO
 	Count,
 };
 
@@ -43,6 +44,7 @@ enum class RootSigID
 	Model, // 3Dモデル
 	Shape, // 2D基本形状
 	Terrain, // テッセレーションデモ
+	PostEffect, // シーンRTのSRVのPSから読むためのルートシグネチャ
 	Count,
 };
 
@@ -339,10 +341,28 @@ struct TerrainCB
 	float padding[2]{};
 };
 
+// オフスクリーン描画先1個分
+struct RenderTargetData
+{
+	ComPtr<ID3D12Resource> resource{}; // 画像を保持するgpuリソース
+	DescriptorHandle rtvHandle{}; // RenderTargetとして書き込むview
+	DescriptorHandle srvHandle{}; // Shaderから読み込むview
+	UINT width{ 0 }; // 横幅
+	UINT height{ 0 }; // 縦幅
+};
+
+// RenderTarget管理スロット
+struct RenderTargetSlot
+{
+	RenderTargetData data{}; // 実データ
+	uint32_t generation{ 0 }; // 世代
+};
+
 // 1回のGPU送信に対応する解放待ちのリソース
 struct DeferredReleaseBatch
 {
 	UINT64 fenceValue{ 0 }; // GPUがこの値まで完了したら解放可能
 	std::vector<TextureData> textures{}; // SRVとTextureResourceを保持する
 	std::vector<ModelData> models{}; // VB・IB・Material等を保持する
+	std::vector<RenderTargetData> renderTargets{}; // RenderTargetのリソースとRTV/SRVを保持する
 };

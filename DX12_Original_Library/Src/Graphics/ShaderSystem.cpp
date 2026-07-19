@@ -689,7 +689,7 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 
 	// とりあえず今はRenderTargetを1枚だけ使用する
 	nativeDesc.NumRenderTargets = 1;
-	nativeDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	nativeDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 
 	// MSAAなし
 	nativeDesc.SampleDesc.Count = 1;
@@ -817,5 +817,17 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	terrainSampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	terrain.staticSamplers.push_back(terrainSampler);
 	descs.push_back(std::move(terrain)); // shape変数は使わないのでmoveして空にする(コピーの必要性なし)
+	// PostEffect
+	RootSignatureDesc postEffectDesc{};
+	postEffectDesc.rootSignatureID = RootSigID::PostEffect;
+	postEffectDesc.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_PIXEL)); // シーンRTのSRVをt0としてピクセルシェーダーから読む
+	D3D12_STATIC_SAMPLER_DESC sampler{MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL)};
+	// 画面端で反対側のピクセルを拾わないようにClampする
+	sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	postEffectDesc.staticSamplers.push_back(sampler);
+	postEffectDesc.flags = D3D12_ROOT_SIGNATURE_FLAG_NONE; // 頂点バッファを使用しないためIAの許可は不要
+	descs.push_back(std::move(postEffectDesc));
 	return descs;
 }

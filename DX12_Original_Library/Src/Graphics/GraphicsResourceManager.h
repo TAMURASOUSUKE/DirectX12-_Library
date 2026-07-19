@@ -7,7 +7,8 @@
 #include <stack>
 #include <deque>
 #include "../Core/Handle/TexHandle.h"
-#include"../Core/Handle/ModelHandle.h"
+#include "../Core/Handle/ModelHandle.h"
+#include "../Core/Handle/RTHandle.h"
 #include "GraphicsType.h"
 using Microsoft::WRL::ComPtr;
 #pragma comment(lib, "d3d12.lib")
@@ -55,17 +56,21 @@ public:
 	ConstantBufferData CreateConstantBuffer(const void* _data, UINT _dataSize);
 
 	// ファイル名を引数に画像をロードする関数
-	TexHandle LoadTexture(const char* _filePath);
+	TexHandle LoadTexture(const char* _filePath, bool _isData);
 
 	// バイト列をもとに画像を持ってくる
-	TexHandle LoadTextureFromMemory(const void* _data, size_t _size);
+	TexHandle LoadTextureFromMemory(const void* _data, size_t _size, bool _isData);
 
 	// ファイル名を引数にモデルをロードする関数
 	ModelHandle LoadModel(const char* _filePath);
 
+	// 指定サイズのオフスクリーン描画先を作成する
+	RTHandle CreateRenderTarget(UINT _width, UINT _height);
+
 	// Handleをindex部分と世代部分に分ける
 	TextureData* Lookup(TexHandle _handle);
 	ModelData* Lookup(ModelHandle _handle);
+	RenderTargetData* Lookup(RTHandle _handle);
 
 	// ボーンのグローバルポーズを計算する
 	void UpdateGlobalPose(AnimInstanceData& _instance);
@@ -75,6 +80,7 @@ public:
 	// リソースを解放する
 	void Unload(TexHandle _handle);
 	void Unload(ModelHandle _handle);
+	void Unload(RTHandle _hanlde);
 
 	// デフォルト用の白テクスチャを取得する
 	TexHandle GetDefaultTexture() const { return defaultTexture; }
@@ -92,7 +98,7 @@ private:
 	TexHandle CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta);
 
 	// テクスチャの種類を受け取りuri/bufferviewを探索してロードするヘルパー
-	TexHandle LoadTextureFromGltf(const cgltf_texture_view& _texView, const  std::filesystem::path& _modelDir);
+	TexHandle LoadTextureFromGltf(const cgltf_texture_view& _texView, const  std::filesystem::path& _modelDir, bool _isData);
 	
 	// 内部で使うメタテクスチャを作成するヘルパー(Initializeで作成用)
 	TexHandle CreateMetaTexture(Vector3 _color);
@@ -106,8 +112,10 @@ private:
 	TexHandle errorTexture; // エラー用のピンクテクスチャ
 	std::vector<TextureSlot> texSlots; // テクスチャリソースのスロット
 	std::vector <ModelSlot> modelSlots; // モデルリソースのスロット
+	std::vector<RenderTargetSlot> rtSlots; // RenderTargetのスロット
 	std::stack<int> texFreeList; // テクスチャリソースのフリーリスト
 	std::stack<int> modelFreeList; // モデルリソースのフリーリスト
+	std::stack<int> renderTargetFreeList; // RenderTargetのフリーリスト
 	DeferredReleaseBatch pendingRelease{}; // まだEndFrameしていないのでFence値が決まっていない荷物
 	std::deque<DeferredReleaseBatch> deferredReleases{}; // EndFrame済みでGPU完了を待っている荷物
 };

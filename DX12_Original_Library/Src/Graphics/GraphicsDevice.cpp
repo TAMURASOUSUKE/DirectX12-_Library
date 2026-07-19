@@ -110,6 +110,13 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 	// Heapの先頭ハンドルを取得
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle{ rtvHeap->GetCPUDescriptorHandleForHeapStart()};
 
+	// RenderTargetViewの設定構造体を用いて設定を行う
+	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
+	rtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+	rtvDesc.Texture2D.MipSlice = 0;
+	rtvDesc.Texture2D.PlaneSlice = 0;
+
 	for (int i = 0; i < FRAME_BUFFER_COUNT; i++)
 	{
 		// バックバッファの取得
@@ -118,7 +125,7 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 		if (FAILED(result)) return;
 
 		// RTVの作成
-		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
+		device->CreateRenderTargetView(backBuffers[i].Get(), &rtvDesc, rtvHandle);
 
 		// スロット一つ分ずらす
 		rtvHandle.ptr += rtvDescriptorSize;

@@ -50,6 +50,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// TexHandle heightMap{ Gfx::LoadTexture("Res/Crater.jpg") }; // ハイトマップ取得
 	ModelHandle testModel{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Testモデルのロード
 	ModelHandle testPlayer{ Gfx::LoadModel("Res/TestPlayer.glb") }; // Playerモデルのロード
+	TexHandle minivan{ Gfx::LoadTexture("Res/Minivan.png") }; // sRGBテスト
 	AnimInstanceData debugAnim{}; // アニメーション用のデータ
 	debugAnim.handle = testModel;
 	Vector2 playerPos{ 100.0f, 100.0f };
@@ -136,6 +137,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
 
 		Gfx::DrawSprite(enemy, {500.0f, 500.0f}, { 128.0f, 128.0f });
+		Gfx::DrawSprite(minivan, { 800.0f, 500.0f }, { 176.0f, 88.0f });
 
 		//Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
 		//Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
