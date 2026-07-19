@@ -385,6 +385,12 @@
     <FxCompile Include="Src\Shaders\ShapeGS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="Src\Shaders\PostEffectVS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\PostEffectPS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Src\Shaders\Terrain.hlsli">

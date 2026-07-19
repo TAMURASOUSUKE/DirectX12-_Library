@@ -63,7 +63,12 @@ namespace {
 		.vsPath = L"../Src/Shaders/TerrainVS.hlsl", .psPath = L"../Src/Shaders/TerrainPS.hlsl",
 		.hsPath = L"../Src/Shaders/TerrainHS.hlsl", .dsPath = L"../Src/Shaders/TerrainDS.hlsl",
 		.layout = InputLayout::Texture, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite, // textureを流用できる
-		.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH, .fillMode = D3D12_FILL_MODE_WIREFRAME} // hsとdsを使うのでパッチ系のpipelineという大分類にする , 分割された三角形を確認できるようにワイヤー
+		.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH, .fillMode = D3D12_FILL_MODE_WIREFRAME},// hsとdsを使うのでパッチ系のpipelineという大分類にする , 分割された三角形を確認できるようにワイヤー
+		// PostEffect
+		{.rootSignatureID = RootSigID::PostEffect, .pipelineID = PipelineID::PostEffect,
+		 .vsPath = L"../Src/Shaders/PostEffectVS.hlsl", .psPath = L"../Scr/Shaders/PostEffectPS.hlsl",
+		 .layout = InputLayout::None, .blend = BlendMode::Opaque, // レイアウトはSV_VertexIDから直接作るので頂点入力はない、Blendも完全に画面を置き換えるのでブレンド無し
+		 .depth = DepthParam::None, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE} // 2D画像を画面へ貼るだけなので深度は使わない
 	};
 }
 
@@ -536,6 +541,37 @@ void GfxInternal::EndFrame()
 		GPU_MARKER("ShapeDraw");
 		shapeBatch.Flush();
 	}
+
+	auto* cmd{ GraphicsDevice::Instance().GetCommandList() };
+	RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) };
+	if (!sceneRT)
+	{
+		DEBUG_LOG_ERROR("シーンRTを取得できませんでした\n");
+		return;
+	}
+
+	// バリアを使ってシーンRTを書き込み先からシェーダーで読む画像へ遷移させる
+	D3D12_RESOURCE_BARRIER toShaderResource{ CD3DX12_RESOURCE_BARRIER::Transition(sceneRT->resource.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE) };
+	cmd->ResourceBarrier(1, &toShaderResource);
+
+	// 描画先をシーンRTからバックバッファへ変更する
+	currentRTV = GraphicsDevice::Instance().GetCurrentRTV();
+	// このパスでは深度を使わないのでDSVにはnullを渡す
+	cmd->OMSetRenderTargets(1,&currentRTV, false, nullptr);
+	// シーンRTをフルスクリーン三角形として描画する
+	cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::PostEffect));
+	cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::PostEffect));
+	// SRVヒープをコマンドリストへ設定
+	DescriptorManager::Instance().SetDiscriptor(cmd);
+	// RootSignatureの0番へシーンRTのSRVを渡す
+	cmd->SetGraphicsRootDescriptorTable(0, sceneRT->srvHandle.gpu);
+	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	cmd->DrawInstanced(3, 1, 0, 0); // 頂点バッファを使わずにSV_VertexIDの0, 1, 2を発生させる
+
+	// 次フレームで再びシーンRTへ描けるようにする
+	D3D12_RESOURCE_BARRIER toRenderTarget{ CD3DX12_RESOURCE_BARRIER::Transition(sceneRT->resource.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET) };
+	cmd->ResourceBarrier(1, &toRenderTarget);
+
 	GraphicsDevice::Instance().EndFrame(); // フレームの最後の処理
 }
 
