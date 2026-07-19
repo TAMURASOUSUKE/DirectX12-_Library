@@ -20,6 +20,7 @@
 namespace {
 	Window window; // window作成クラス
 	RTHandle sceneRenderTarget{}; // シーン全体を描画する内部用RenderTarget
+	D3D12_CPU_DESCRIPTOR_HANDLE currentRTV{}; // 現在OMSetRenderTargetsで設定しているRTV
 	ShaderSystem shaderSystem; // Shader読み込みなどを管理するファイル
 	ConstantBufferData orthConstantBufferData; // 正射影行列用定数バッファのデータメンバ
 	RingConstantBuffer mvpRingCBV; // MVP行列用定数バッファのデータメンバ
@@ -354,6 +355,14 @@ namespace {
 		}
 
 		orthConstantBufferData = ConstantBufferData{};
+
+		// GraphicsResourceManagerのShutdownで生存中のRTが回収されるが明示しておく
+		if (sceneRenderTarget.IsValid())
+		{
+			GraphicsResourceManager::Instance().Unload(sceneRenderTarget);
+			sceneRenderTarget = RTHandle{};
+		}
+		currentRTV = {};
 	}
 }
 
@@ -406,6 +415,23 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	}
 
 	GraphicsResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
+	
+	// 画面と同じサイズの内部描画先を作成
+	sceneRenderTarget = GraphicsResourceManager::Instance().CreateRenderTarget(static_cast<UINT>(_width), static_cast<UINT>(_height));
+	if (!sceneRenderTarget.IsValid())
+	{
+		DEBUG_LOG_ERROR("シーン描画用RenderTargetの作成に失敗しました\n");
+		return false;
+	}
+	// Lookup確認
+	RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) };
+	if (!sceneRT)
+	{
+		DEBUG_LOG_ERROR("シーン描画用RenderTargetの取得に失敗しました\n");
+		return false;
+	}
+	currentRTV = sceneRT->rtvHandle.cpu; // 初期状態として内部RTを現在の描画先とする
+
 	// グリッドとCBの作成
 	if (!InitializeTerrainResources()) return false;
 
@@ -455,8 +481,9 @@ void GfxInternal::BeginFrame()
 	terrainRingCBV.Reset();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
-	auto rtv{ GraphicsDevice::Instance().GetCurrentRTV() }; // 現在のRTV
 	auto dsv{ GraphicsDevice::Instance().GetDSV() };
+	RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) }; // 内部ハンドルを分解した時のデータ
+	currentRTV = sceneRT->rtvHandle.cpu;
 
 	// 深度バッファとステンシルバッファをクリアする
 	cmdList->ClearDepthStencilView(
@@ -469,7 +496,7 @@ void GfxInternal::BeginFrame()
 	);
 
 	// レンダーターゲット設定
-	cmdList->OMSetRenderTargets(1, &rtv, false, &dsv);
+	cmdList->OMSetRenderTargets(1, &currentRTV, false, &dsv);
 
 	// ビューポート
 	D3D12_VIEWPORT viewPort{};
@@ -569,7 +596,12 @@ void GfxInternal::Finish()
 void Gfx::ClearScreen(float _r, float _g, float _b, float _a)
 {
 	float windowColor[]{ _r, _g, _b, _a };
-	GraphicsDevice::Instance().GetCommandList()->ClearRenderTargetView(GraphicsDevice::Instance().GetCurrentRTV(), windowColor, 0, nullptr); // コマンドリストを取得しそこから現在書き込んでいるRTVにの色を任意色でクリアする
+	if (currentRTV.ptr == 0)
+	{
+		DEBUG_LOG_ERROR("現在の描画先が設定されていません\n");
+		return;
+	}
+	GraphicsDevice::Instance().GetCommandList()->ClearRenderTargetView(currentRTV, windowColor, 0, nullptr); // コマンドリストを取得しそこから現在書き込んでいるRTVにの色を任意色でクリアする
 }
 
 // 画像読み込み

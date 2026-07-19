@@ -140,6 +140,7 @@
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\HandleConstant.h" />
     <ClInclude Include="Src\Core\Handle\ModelHandle.h" />
+    <ClInclude Include="Src\Core\Handle\RTHandle.h" />
     <ClInclude Include="Src\Core\Handle\SoundHandle.h" />
     <ClInclude Include="Src\Core\Handle\TexHandle.h" />
     <ClInclude Include="Src\Debug\DebugLogs.h" />
