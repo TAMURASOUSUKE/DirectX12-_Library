@@ -1021,8 +1021,17 @@ RTHandle GraphicsResourceManager::CreateRenderTarget(UINT _width, UINT _height)
 	resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
 	ComPtr<ID3D12Resource> resource{};
-	// 作成直後は描画先として使用して最適化ClearValueは今回使用しない(高速クリア用の推奨色を設定しない)
-	HRESULT result{ device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_RENDER_TARGET, nullptr, IID_PPV_ARGS(&resource)) };
+
+	// 最適化クリア値を指定する
+	D3D12_CLEAR_VALUE optimizedClearValue{};
+	optimizedClearValue.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB; // 作成するresourceとRTVのformatに合わせsる
+	// 普段ClearRenderTargetViewへ渡す色(黒をデフォルトとする)
+	optimizedClearValue.Color[0] = 0.0f;
+	optimizedClearValue.Color[1] = 0.0f;
+	optimizedClearValue.Color[2] = 0.0f;
+	optimizedClearValue.Color[3] = 1.0f;
+	// 作成直後は描画先として使用する
+	HRESULT result{ device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_RENDER_TARGET, &optimizedClearValue, IID_PPV_ARGS(&resource)) };
 	DEBUG_ASSERT(SUCCEEDED(result));
 	if (FAILED(result))
 	{

@@ -33,6 +33,7 @@ enum class PipelineID
 	ShapeFill, //  2D基本図形塗りつぶし
 	ShapeWire, // 2D基本図形ワイヤー
 	TerrainWire, // テッセレーションデモ
+	PostEffect, // シーンRTを画面へ描画するPSO
 	Count,
 };
 
@@ -43,6 +44,7 @@ enum class RootSigID
 	Model, // 3Dモデル
 	Shape, // 2D基本形状
 	Terrain, // テッセレーションデモ
+	PostEffect, // シーンRTのSRVのPSから読むためのルートシグネチャ
 	Count,
 };
 
