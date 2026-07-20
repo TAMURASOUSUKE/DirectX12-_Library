@@ -5,6 +5,8 @@
 #include "../Math/TSMath.h"
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
+#include "../Core/Handle/ShaderHandle.h"
+#include "../Core/Handle/MaterialHandle.h"
 #include "GraphicsConstant.h"
 using Microsoft::WRL::ComPtr;
 
@@ -355,6 +357,44 @@ struct RenderTargetData
 struct RenderTargetSlot
 {
 	RenderTargetData data{}; // 実データ
+	uint32_t generation{ 0 }; // 世代
+};
+
+// シェーダーの用途カテゴリ
+enum class ShaderUsage
+{
+	PostEffect,
+	Sprite,
+	Model,
+};
+
+// Shader一つ分の実データ
+struct ShaderData
+{
+	ShaderUsage usage{ ShaderUsage::PostEffect }; // 一旦ポストエフェクト
+
+	// 一旦外部へ出すのはPSだけ
+	ComPtr<ID3DBlob> pixelShader{};
+};
+
+// Shaderを管理するスロット
+struct ShaderSlot
+{
+	ShaderData data{};
+	uint32_t generation{ 0 }; // 世代
+};
+
+// material一つ分の実データ
+struct MaterialData
+{
+	ShaderHandle shader{};
+	ComPtr<ID3D12PipelineState> pipelineState{}; // Shaderと用途ごとのPSO設定から生成したもの
+};
+
+// materialを管理するスロット
+struct MaterialSlot
+{
+	MaterialData data{};
 	uint32_t generation{ 0 }; // 世代
 };
 
