@@ -1,15 +1,9 @@
-
-// ポストエフェクトを行う際の三角形を生成する
-struct VSOutput
-{
-    float4 position : SV_POSITION;
-    float2 uv : TEXCOORD0;
-};
+#include "PostEffectContract.hlsli" // 共通項目
 
 // 頂点バッファを使わずにSV_VertexIDの0,1,2から三角形を生成する
-VSOutput main(uint _vertexID : SV_VertexID)
+PostEffectVertexOutput main(uint _vertexID : SV_VertexID)
 {
-    VSOutput output;
+    PostEffectVertexOutput output;
     
     // VertexIDから次のuvを生成する
     // 0 : (0, 0)

@@ -396,5 +396,8 @@
     <None Include="Src\Shaders\Terrain.hlsli">
       <Filter>Src\Shaders</Filter>
     </None>
+    <None Include="Src\Shaders\PostEffectContract.hlsli">
+      <Filter>Src\Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
