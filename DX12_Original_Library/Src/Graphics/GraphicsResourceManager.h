@@ -67,10 +67,17 @@ public:
 	// 指定サイズのオフスクリーン描画先を作成する
 	RTHandle CreateRenderTarget(UINT _width, UINT _height);
 
+	// コンパイル済みPSをShader台帳へ登録する
+	ShaderHandle RegisterShader(ShaderUsage _usage, ComPtr<ID3DBlob> _pixelShader);
+	// 作成済みPSOをMaterial台帳へ登録する
+	MaterialHandle RegisterMaterial(ShaderHandle _shader, ComPtr<ID3D12PipelineState> _pipelineState);
+
 	// Handleをindex部分と世代部分に分ける
 	TextureData* Lookup(TexHandle _handle);
 	ModelData* Lookup(ModelHandle _handle);
 	RenderTargetData* Lookup(RTHandle _handle);
+	ShaderData* Lookup(ShaderHandle _handle);
+	MaterialData* Lookup(MaterialHandle _handle);
 
 	// ボーンのグローバルポーズを計算する
 	void UpdateGlobalPose(AnimInstanceData& _instance);
@@ -81,6 +88,8 @@ public:
 	void Unload(TexHandle _handle);
 	void Unload(ModelHandle _handle);
 	void Unload(RTHandle _hanlde);
+	void Unload(ShaderHandle _handle);
+	void Unload(MaterialHandle _handle);
 
 	// デフォルト用の白テクスチャを取得する
 	TexHandle GetDefaultTexture() const { return defaultTexture; }
@@ -113,9 +122,13 @@ private:
 	std::vector<TextureSlot> texSlots; // テクスチャリソースのスロット
 	std::vector <ModelSlot> modelSlots; // モデルリソースのスロット
 	std::vector<RenderTargetSlot> rtSlots; // RenderTargetのスロット
+	std::vector<ShaderSlot> shaderSlots; // シェーダーのスロット
+	std::vector<MaterialSlot> materialSlots; // materialのスロット
 	std::stack<int> texFreeList; // テクスチャリソースのフリーリスト
 	std::stack<int> modelFreeList; // モデルリソースのフリーリスト
 	std::stack<int> renderTargetFreeList; // RenderTargetのフリーリスト
+	std::stack<int> shaderFreeList; // Shaderのフリーリスト
+	std::stack<int> materialFreeList; // materialのフリーリスト
 	DeferredReleaseBatch pendingRelease{}; // まだEndFrameしていないのでFence値が決まっていない荷物
 	std::deque<DeferredReleaseBatch> deferredReleases{}; // EndFrame済みでGPU完了を待っている荷物
 };

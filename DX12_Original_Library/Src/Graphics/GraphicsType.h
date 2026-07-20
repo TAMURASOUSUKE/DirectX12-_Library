@@ -387,7 +387,8 @@ struct ShaderSlot
 // material一つ分の実データ
 struct MaterialData
 {
-	ShaderHandle shader{};
+	ShaderHandle shader{}; // 作成元のshader
+	ShaderUsage usage{ ShaderUsage::PostEffect }; // Shaderがどの描画カテゴリだったか
 	ComPtr<ID3D12PipelineState> pipelineState{}; // Shaderと用途ごとのPSO設定から生成したもの
 };
 
@@ -405,4 +406,5 @@ struct DeferredReleaseBatch
 	std::vector<TextureData> textures{}; // SRVとTextureResourceを保持する
 	std::vector<ModelData> models{}; // VB・IB・Material等を保持する
 	std::vector<RenderTargetData> renderTargets{}; // RenderTargetのリソースとRTV/SRVを保持する
+	std::vector<ComPtr<ID3D12PipelineState>> pipelineStates{}; // GPUが使用中かもしれないmaterialのPSO
 };

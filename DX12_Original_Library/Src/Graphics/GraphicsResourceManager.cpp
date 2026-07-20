@@ -239,6 +239,8 @@ void GraphicsResourceManager::Initialize(ID3D12Device* _device)
 	texSlots.reserve(MAX_TEXTURE_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
 	modelSlots.reserve(MAX_MODEL_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
 	rtSlots.reserve(MAX_RENDER_TARGET_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
+	shaderSlots.reserve(MAX_CUSTOM_SHADER_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
+	materialSlots.reserve(MAX_MATERIAL_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
 	// デフォルト用の白テクスチャを作成する(初期化時に1枚だけ)
 	defaultTexture = CreateMetaTexture({1.0f, 1.0f, 1.0f});
 	// エラー用のピンクテクスチャを作成する
@@ -316,6 +318,8 @@ void GraphicsResourceManager::Shutdown()
 	// DeferredReleaseBatch内のmodel
 	deferredReleases.clear();
 	texSlots.clear();
+	materialSlots.clear();
+	shaderSlots.clear();
 	pendingRelease = DeferredReleaseBatch{}; // 空にする
 	// FreeListも初期状態へ戻す
 	while (!texFreeList.empty())
@@ -330,6 +334,14 @@ void GraphicsResourceManager::Shutdown()
 	{
 		renderTargetFreeList.pop();
 	}
+	while (!shaderFreeList.empty())
+	{
+		shaderFreeList.pop();
+	}
+	while (!materialFreeList.empty())
+	{
+		materialFreeList.pop();
+	}
 	defaultTexture = TexHandle{};
 	errorTexture = TexHandle{};
 	device = nullptr;
@@ -338,7 +350,8 @@ void GraphicsResourceManager::Shutdown()
 void GraphicsResourceManager::CommitPendingRelease(UINT64 _submittedFenceValue)
 {
 	// 空チェック
-	if (pendingRelease.textures.empty() && pendingRelease.models.empty() && pendingRelease.renderTargets.empty())
+	if (pendingRelease.textures.empty() && pendingRelease.models.empty() && 
+		pendingRelease.renderTargets.empty() && pendingRelease.pipelineStates.empty())
 	{
 		return;
 	}
@@ -700,6 +713,57 @@ RenderTargetData* GraphicsResourceManager::Lookup(RTHandle _handle)
 		return nullptr; // 範囲チェック
 	}
 	RenderTargetSlot& slot{ rtSlots[index] }; // スロットの指定ハンドル部分を取り出す
+	// 世代チェック
+	if (UnpackGen(packed) != static_cast<int>(slot.generation))
+	{
+		DEBUG_LOG_WARNING("世代が異なります\n");
+		return nullptr; // 世代チェック
+	}
+	return &slot.data; // 実体を返す
+}
+
+ShaderData* GraphicsResourceManager::Lookup(ShaderHandle _handle)
+{
+	if (!_handle.IsValid())
+	{
+		DEBUG_LOG_ERROR("無効なハンドルです\n");
+		return nullptr; // 無効なハンドルならnull
+	}
+
+	int packed{ _handle.GetRaw(PassKey{}) }; // 生の値(内部ハンドルを取得)
+	int index{ UnpackIndex(packed) }; // index部分を取り出す
+	// 範囲外チェック
+	if (index < 0 || index >= static_cast<int>(shaderSlots.size()))
+	{
+		DEBUG_LOG_ERROR("ハンドルに範囲外のサイズが渡されました\n");
+		return nullptr; // 範囲チェック
+	}
+	ShaderSlot& slot{ shaderSlots[index] }; // スロットの指定ハンドル部分を取り出す
+	// 世代チェック
+	if (UnpackGen(packed) != static_cast<int>(slot.generation))
+	{
+		DEBUG_LOG_WARNING("世代が異なります\n");
+		return nullptr; // 世代チェック
+	}
+	return &slot.data; // 実体を返す
+}
+MaterialData* GraphicsResourceManager::Lookup(MaterialHandle _handle)
+{
+	if (!_handle.IsValid())
+	{
+		DEBUG_LOG_ERROR("無効なハンドルです\n");
+		return nullptr; // 無効なハンドルならnull
+	}
+
+	int packed{ _handle.GetRaw(PassKey{}) }; // 生の値(内部ハンドルを取得)
+	int index{ UnpackIndex(packed) }; // index部分を取り出す
+	// 範囲外チェック
+	if (index < 0 || index >= static_cast<int>(materialSlots.size()))
+	{
+		DEBUG_LOG_ERROR("ハンドルに範囲外のサイズが渡されました\n");
+		return nullptr; // 範囲チェック
+	}
+	MaterialSlot& slot{ materialSlots[index] }; // スロットの指定ハンドル部分を取り出す
 	// 世代チェック
 	if (UnpackGen(packed) != static_cast<int>(slot.generation))
 	{
@@ -1098,6 +1162,89 @@ RTHandle GraphicsResourceManager::CreateRenderTarget(UINT _width, UINT _height)
 	return RTHandle(PassKey{}, packed);
 }
 
+ShaderHandle GraphicsResourceManager::RegisterShader(ShaderUsage _usage, ComPtr<ID3DBlob> _pixelShader)
+{
+	if (!_pixelShader)
+	{
+		DEBUG_LOG_ERROR("登録するPixelShaderがnullです\n");
+		return ShaderHandle{};
+	}
+	
+	const bool canRegister{ !shaderFreeList.empty() || shaderSlots.size() < MAX_CUSTOM_SHADER_COUNT };
+	if(!canRegister)
+	{
+		DEBUG_LOG_ERROR("Shaderの登録上限に達しました\n");
+		return ShaderHandle{};
+	}
+
+	ShaderData data{};
+	data.usage = _usage;
+	data.pixelShader = std::move(_pixelShader);
+	int index{};
+	if (!shaderFreeList.empty())
+	{
+		// 解放済みSlotの利用
+		index = shaderFreeList.top();
+		shaderFreeList.pop();
+		shaderSlots[index].data = std::move(data);
+	}
+	else
+	{
+		// 新しいSlotを作る
+		index = static_cast<int>(shaderSlots.size());
+		shaderSlots.push_back({ std::move(data), 0 });
+	}
+
+	int packed{ Pack(index, shaderSlots[index].generation) };
+	return ShaderHandle{ PassKey{}, packed };
+}
+
+MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, ComPtr<ID3D12PipelineState> _pipelineState)
+{
+	ShaderData* shaderData{Lookup(_shader)};
+	if (!shaderData)
+	{
+		DEBUG_LOG_ERROR("Materialの作成元shaderが無効です\n");
+		return MaterialHandle{};
+	}
+
+	if (!_pipelineState)
+	{
+		DEBUG_LOG_ERROR("無効なPSOが渡されています\n");
+		return MaterialHandle{};
+	}
+
+	const bool canRegister{!materialFreeList.empty() || materialSlots.size() < MAX_MATERIAL_COUNT};
+	if (!canRegister)
+	{
+		DEBUG_LOG_ERROR("Materialの登録上限に達しました\n");
+		return MaterialHandle{};
+	}
+
+
+	MaterialData data{};
+	data.usage = shaderData->usage;
+	data.shader = _shader;
+	data.pipelineState = std::move(_pipelineState);
+	int index{};
+	if (!materialFreeList.empty())
+	{
+		// 解放済みSlotの利用
+		index = materialFreeList.top();
+		materialFreeList.pop();
+		materialSlots[index].data = std::move(data);
+	}
+	else
+	{
+		// 新しいSlotを作る
+		index = static_cast<int>(materialSlots.size());
+		materialSlots.push_back({ std::move(data), 0 });
+	}
+
+	int packed{ Pack(index, materialSlots[index].generation) };
+	return MaterialHandle{ PassKey{}, packed };
+}
+
 void GraphicsResourceManager::Unload(TexHandle _handle)
 {
 	TextureData* data{ Lookup(_handle) };
@@ -1163,6 +1310,52 @@ void GraphicsResourceManager::Unload(RTHandle _handle)
 	rtSlots[index].data = RenderTargetData{};
 	rtSlots[index].generation++;
 	renderTargetFreeList.push(index);
+}
+
+void  GraphicsResourceManager::Unload(ShaderHandle _handle)
+{
+	// ハンドルの範囲と世代を確認する
+	ShaderData* data{ Lookup(_handle) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("無効なShaderHandleです\n");
+		return;
+	}
+
+	const int index{ UnpackIndex(_handle.GetRaw(PassKey{})) };
+
+	// ShaderBlobはCPU側のデータなので即時解放できる
+	shaderSlots[index].data = ShaderData{};
+
+	// 古いハンドルを無効にしてスロットを再利用可能にする
+	shaderSlots[index].generation++;
+	shaderFreeList.push(index);
+}
+
+void  GraphicsResourceManager::Unload(MaterialHandle _handle)
+{
+	// ハンドルの範囲と世代を確認する
+	MaterialData* data{ Lookup(_handle) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("無効なMaterialHandleです\n");
+		return;
+	}
+
+	const int index{ UnpackIndex(_handle.GetRaw(PassKey{})) };
+
+	// PSOはGPUが使用中かもしれないため、Fence付き解放待ちへ移す
+	if (materialSlots[index].data.pipelineState)
+	{
+		pendingRelease.pipelineStates.push_back(std::move(materialSlots[index].data.pipelineState));
+	}
+
+	// CPU側のMaterial情報を破棄する
+	materialSlots[index].data = MaterialData{};
+
+	// 古いハンドルを無効にしてスロットを再利用可能にする
+	materialSlots[index].generation++;
+	materialFreeList.push(index);
 }
 
 TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta)
