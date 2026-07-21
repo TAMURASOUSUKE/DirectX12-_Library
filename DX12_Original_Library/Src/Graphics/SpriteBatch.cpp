@@ -54,7 +54,7 @@ void SpriteBatch::Shutdown()
 	gpuVirtualAddres = nullptr;
 }
 
-void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _size, float _radRotation, Vector2 _uvMin, Vector2 _uvMax)
+void SpriteBatch::RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipelineState, Vector2 _position, Vector2 _size, float _radRotation, Vector2 _uvMin, Vector2 _uvMax)
 {
 	if (!_handle.IsValid())
 	{
@@ -62,6 +62,12 @@ void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _
 		// 現状単一スレッドのためAssertにしているがマルチスレッドにしたらそれ専用の待機にする
 		DEBUG_ASSERT(_handle.IsValid() && "無効ハンドルが渡されました\n");
 		return; // 無効ハンドルか
+	}
+
+	if (!_pipelineState)
+	{
+		DEBUG_ASSERT(_pipelineState != nullptr && "Sprite用PSOがnullです\n");
+		return;
 	}
 
 	if (spriteCounter >= MAX_SPRITE_COUNT)
@@ -109,14 +115,14 @@ void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _
 	vertices[spriteCounter * 4 + 3] = { {leftBottom.x, leftBottom.y, 0.0f}, {_uvMin.x, _uvMax.y} }; // 左下
 
 	// run(描画順)を管理する
-	if (runs.empty() || runs.back().tex != _handle)
+	if (runs.empty() || runs.back().tex != _handle || runs.back().pipelineState != _pipelineState)
 	{
-		// 配列が空もしくは一番最後のハンドルが登録しようとしているハンドルと異なるなら
-		runs.push_back({_handle, spriteCounter, 1});
+		// 配列が空もしくは一番最後のハンドルが登録しようとしているハンドルと異なるもしくはパイプラインステートがことなるなら新しい描画区間となる
+		runs.push_back({_handle, _pipelineState,spriteCounter, 1});
 	}
 	else
 	{
-		// 同一テクスチャならカウントを増やす
+		// 同一テクスチャ同一PSOなら同じドローコールへ
 		runs.back().count++;
 	}
 
@@ -134,7 +140,6 @@ void SpriteBatch::Flush()
 	// パイプライン設定
 	cmd->SetGraphicsRootSignature(rootSig);
 	cmd->SetGraphicsRootConstantBufferView(1, gpuVirtualAddres->GetGPUVirtualAddress());
-	cmd->SetPipelineState(pipelineState);
 
 	// SRVが入っているDescriptorHeapをGPUにセットする
 	DescriptorManager::Instance().SetDiscriptor(cmd);
@@ -156,6 +161,8 @@ void SpriteBatch::Flush()
 			data = resourceManager.Lookup(resourceManager.GetErrorTexture());
 		}
 		if (!data) continue; //エラーテクスチャまで取得できない場合は描画不可能
+		if (!run.pipelineState) continue;
+		cmd->SetPipelineState(run.pipelineState); // この区間で使用する外部または内部PSO
 		cmd->SetGraphicsRootDescriptorTable(0, data->srvHandle.gpu); // ルートシグネチャの0番にテクスチャのGPUハンドルをセット
 		cmd->DrawIndexedInstanced(run.count * 6, 1, 0, run.startSprite * 4, 0); // 区間情報から描画位置を特定して描画する(読むインデックスの数,  開始位置)
 	}

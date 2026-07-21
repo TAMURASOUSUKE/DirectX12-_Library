@@ -914,6 +914,45 @@ void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float
 	}
 }
 
+void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, MaterialHandle _material, float _radRotation, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)
+{
+	ID3D12PipelineState* usePipeline{ shaderSystem.GetPipeline(PipelineID::Sprite) }; // 最初は内蔵SpritePSO
+	// 外部materialが指定されている場合
+	if (_material.IsValid())
+	{
+		MaterialData* material{ GraphicsResourceManager::Instance().Lookup(_material) };
+		if (!material)
+		{
+			// このSpriteだけ内蔵PSOへフォールバックされる
+		}
+		else if (material->usage != ShaderUsage::Sprite)
+		{
+			DEBUG_LOG_ERROR("Sprite描画にSprite以外のmaterialが渡されました\n");
+		}
+		else if (!material->pipelineState)
+		{
+			DEBUG_LOG_ERROR("Sprite用MaterialにPSOがありません\n");
+		}
+		else
+		{
+			// 有効なSpriteMaterialなら外部PSOへ差し替える
+			usePipeline = material->pipelineState.Get();
+		}
+	}
+
+	switch (_layer)
+	{
+	case LenderLayer::BackGround:
+		bgBatch.RegisterSprite(_texture, usePipeline,_position, _size, _radRotation, _uvMin, _uvMax);
+		break;
+	case LenderLayer::ForeGround:
+		fgBatch.RegisterSprite(_texture, usePipeline,  _position, _size, _radRotation, _uvMin, _uvMax);
+		break;
+	default:
+		break;
+	}
+}
+
 void Gfx::DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* _animData)
 {
 	{
