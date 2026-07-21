@@ -139,8 +139,10 @@
     <ClInclude Include="Src\Collision\CollisionSystem.h" />
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\HandleConstant.h" />
+    <ClInclude Include="Src\Core\Handle\MaterialHandle.h" />
     <ClInclude Include="Src\Core\Handle\ModelHandle.h" />
     <ClInclude Include="Src\Core\Handle\RTHandle.h" />
+    <ClInclude Include="Src\Core\Handle\ShaderHandle.h" />
     <ClInclude Include="Src\Core\Handle\SoundHandle.h" />
     <ClInclude Include="Src\Core\Handle\TexHandle.h" />
     <ClInclude Include="Src\Debug\DebugLogs.h" />
@@ -316,6 +318,18 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Src\Shaders\PostEffectContract.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Src\Shaders\SpriteContract.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
     <None Include="Src\Shaders\Terrain.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

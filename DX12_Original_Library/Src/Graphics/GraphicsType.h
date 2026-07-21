@@ -5,6 +5,8 @@
 #include "../Math/TSMath.h"
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
+#include "../Core/Handle/ShaderHandle.h"
+#include "../Core/Handle/MaterialHandle.h"
 #include "GraphicsConstant.h"
 using Microsoft::WRL::ComPtr;
 
@@ -60,7 +62,8 @@ enum class BlendMode
 enum class InputLayout
 {
 	None, // なし(ポストエフェクト等に対応させるため)
-	Texture, // 画像
+	Texture, // 画像(position + uv)
+	Sprite, // 画像(position + uv + color)
 	Model, // 3Dモデル
 	Shape, // 2D形状
 	Count,
@@ -193,6 +196,14 @@ struct TexVertex
 {
 	float position[3]; // 座標
 	float uv[2]; // uv座標 
+};
+
+// 頂点定義
+struct SpriteVertex
+{
+	float position[3]; // 画面座標
+	float uv[2];       // テクスチャUV
+	float color[4];    // Tintカラーと透明度
 };
 
 // 頂点定義
@@ -358,6 +369,54 @@ struct RenderTargetSlot
 	uint32_t generation{ 0 }; // 世代
 };
 
+// シェーダーの用途カテゴリ
+enum class ShaderUsage
+{
+	PostEffect,
+	Sprite,
+	Model,
+};
+
+ // シェーダーのカテゴリ
+enum class ShaderStage
+{
+	Vertex,
+	Pixel,
+	Hull,
+	Domain,
+	Geometry,
+	Compute,
+};
+
+// Shader一つ分の実データ
+struct ShaderData
+{
+	ShaderUsage usage{ ShaderUsage::PostEffect }; // 一旦ポストエフェクト
+	ShaderStage stage{ ShaderStage::Pixel };
+	ComPtr<ID3DBlob> blob{};
+};
+
+// Shaderを管理するスロット
+struct ShaderSlot
+{
+	ShaderData data{};
+	uint32_t generation{ 0 }; // 世代
+};
+
+// material一つ分の実データ
+struct MaterialData
+{
+	ShaderUsage usage{ ShaderUsage::PostEffect }; // Shaderがどの描画カテゴリだったか
+	ComPtr<ID3D12PipelineState> pipelineState{}; // Shaderと用途ごとのPSO設定から生成したもの
+};
+
+// materialを管理するスロット
+struct MaterialSlot
+{
+	MaterialData data{};
+	uint32_t generation{ 0 }; // 世代
+};
+
 // 1回のGPU送信に対応する解放待ちのリソース
 struct DeferredReleaseBatch
 {
@@ -365,4 +424,5 @@ struct DeferredReleaseBatch
 	std::vector<TextureData> textures{}; // SRVとTextureResourceを保持する
 	std::vector<ModelData> models{}; // VB・IB・Material等を保持する
 	std::vector<RenderTargetData> renderTargets{}; // RenderTargetのリソースとRTV/SRVを保持する
+	std::vector<ComPtr<ID3D12PipelineState>> pipelineStates{}; // GPUが使用中かもしれないmaterialのPSO
 };

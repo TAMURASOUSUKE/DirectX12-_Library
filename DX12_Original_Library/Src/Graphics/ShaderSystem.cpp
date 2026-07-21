@@ -31,6 +31,44 @@ namespace
 			0
 		}
 	};
+
+	// Spriteの入力レイアウト
+	constexpr D3D12_INPUT_ELEMENT_DESC SPRITE_LAYOUT[]
+	{
+		// positionのセマンティクス
+		{
+			"POSITION", // HLSL側のセマンティクス
+			0, // セマンティクス番号 
+			DXGI_FORMAT_R32G32B32_FLOAT, // float3
+			0, // 入力スロット
+			D3D12_APPEND_ALIGNED_ELEMENT, // 前の要素の直後に配置
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		},
+
+		// uv
+		{
+			"TEXCOORD",
+			0,
+			DXGI_FORMAT_R32G32_FLOAT, // float2
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		},
+
+		// color
+		{
+			"COLOR",
+			0,
+			DXGI_FORMAT_R32G32B32A32_FLOAT, // float4
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		}
+	};
+
 	// 3Dモデルの入力レイアウト
 	constexpr   D3D12_INPUT_ELEMENT_DESC MODEL_LAYOUT[]
 	{
@@ -125,6 +163,8 @@ namespace
 		{nullptr, 0},
 		// Texture
 		{ TEX_LAYOUT, _countof(TEX_LAYOUT) },
+		// Sprite
+		{SPRITE_LAYOUT, _countof(SPRITE_LAYOUT)},
 		// 3DModel
 		{MODEL_LAYOUT, _countof(MODEL_LAYOUT)},
 		// Shape
@@ -293,6 +333,8 @@ namespace
 // 初期化処理
 void ShaderSystem::Setup(ID3D12Device* _device)
 {
+	defaultPostEffectVS.Reset();
+	defaultSpriteVS.Reset();
 	// 作成されたデバイスと結合
 	if (_device != nullptr)
 	{
@@ -304,6 +346,9 @@ void ShaderSystem::Setup(ID3D12Device* _device)
 // 終了処理
 void ShaderSystem::Shutdown()
 {
+	defaultPostEffectVS.Reset();
+	defaultSpriteVS.Reset();
+
 	// PSOはRootSigを使って作成しているため先にPSOを解放する
 	for (ComPtr<ID3D12PipelineState>& pipeline : pipelines)
 	{
@@ -627,80 +672,13 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 		if (!gsBlob) { DEBUG_LOG_ERROR("GSのコンパイルに失敗しました\n"); return false; }
 	}
 
-	// PSOの実際のDescを組み立てる
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC nativeDesc{};
-	// PSO対応するRootSingatureを出す
-	nativeDesc.pRootSignature = rootSigs[rootSignatureID].Get();
-
-	// shader群(現状VSは必須としているのでif無し)
-	nativeDesc.VS.pShaderBytecode = vsBlob->GetBufferPointer();
-	nativeDesc.VS.BytecodeLength = vsBlob->GetBufferSize();
-
-	if (psBlob)
-	{
-		nativeDesc.PS.pShaderBytecode = psBlob->GetBufferPointer();
-		nativeDesc.PS.BytecodeLength = psBlob->GetBufferSize();
-	}
-	if (hsBlob)
-	{
-		nativeDesc.HS.pShaderBytecode = hsBlob->GetBufferPointer();
-		nativeDesc.HS.BytecodeLength = hsBlob->GetBufferSize();
-	}
-	if (dsBlob)
-	{
-		nativeDesc.DS.pShaderBytecode = dsBlob->GetBufferPointer();
-		nativeDesc.DS.BytecodeLength = dsBlob->GetBufferSize();
-	}
-	if (gsBlob)
-	{
-		nativeDesc.GS.pShaderBytecode = gsBlob->GetBufferPointer();
-		nativeDesc.GS.BytecodeLength = gsBlob->GetBufferSize();
-	}
-	// InputLayoutはTableを使う
-	const LayoutEntry& layout{ LAYOUT_TABLE[layoutID] };
-	nativeDesc.InputLayout.pInputElementDescs = layout.elements; // noneだとnull
-	nativeDesc.InputLayout.NumElements = layout.count; // noneだと0
-
-	// Blend設定
-	const D3D12_RENDER_TARGET_BLEND_DESC& blend{ BLEND_TABLE[blendID] };
-	nativeDesc.BlendState.AlphaToCoverageEnable = false; // αテスト無し
-	nativeDesc.BlendState.IndependentBlendEnable = false; // それぞれのパイプラインステートに対して個別のブレンドステートを割り当てない
-	nativeDesc.BlendState.RenderTarget[0] = blend;
-
-	// 深度ステートとDSVフォーマットは組で選択する
-	const DepthEntry& depth{ DEPTH_TABLE[depthID] };
-	nativeDesc.DepthStencilState = depth.state;
-	nativeDesc.DSVFormat = depth.dsvFormat;
-		 
-	// ラスタライザ設定
-	nativeDesc.RasterizerState.FillMode = _desc.fillMode; // 塗るかwireか
-	nativeDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE; // 一旦全てNone(今後モデル等では拡張する可能性あり)
-	nativeDesc.RasterizerState.FrontCounterClockwise = false;
-
-	// 深度範囲外の頂点をクリップする
-	nativeDesc.RasterizerState.DepthClipEnable = true;
-	nativeDesc.RasterizerState.MultisampleEnable = false;
-	nativeDesc.RasterizerState.AntialiasedLineEnable = false;
-	nativeDesc.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
-
-	// 残りの設定
-	nativeDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
-	nativeDesc.PrimitiveTopologyType = _desc.topology;
-
-	// とりあえず今はRenderTargetを1枚だけ使用する
-	nativeDesc.NumRenderTargets = 1;
-	nativeDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-
-	// MSAAなし
-	nativeDesc.SampleDesc.Count = 1;
-	nativeDesc.SampleDesc.Quality = 0;
-
+	
 	// 生成して登録
-	ComPtr<ID3D12PipelineState> pipeline{};
-	HRESULT result{ device->CreateGraphicsPipelineState(&nativeDesc, IID_PPV_ARGS(&pipeline)) };
-	if (FAILED(result))
+	ComPtr<ID3D12PipelineState> pipeline{ BuildGraphicsPipeline(_desc, vsBlob.Get(), psBlob.Get(), hsBlob.Get(), dsBlob.Get(), gsBlob.Get()) };
+
+	if (!pipeline)
 	{
-		DEBUG_LOG_ERROR("パイプラインステートの作成に失敗しました。\n");
+		DEBUG_LOG_ERROR("GraphicsPipelineの構築に失敗しました\n");
 		return false;
 	}
 
@@ -779,6 +757,96 @@ bool ShaderSystem::CreateComputePipeline(const ComputePipelineDesc& _desc)
 	return true;
 }
 
+ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _usage, ID3DBlob* _vertexShader, ID3DBlob* _pixelShader)
+{
+	if (!device)
+	{
+		DEBUG_LOG_ERROR("デバイスが設定されていません\n");
+		return nullptr;
+	}
+
+	if (!_pixelShader)
+	{
+		DEBUG_LOG("Materialに使用するPixelShaderがnullです\n");
+		return nullptr;
+	}
+
+	// 頂点シェーダーが入力されいていない場合は内蔵のものを使う
+	ID3DBlob* useVertexShader{ _vertexShader };
+	GraphicsPipelineDesc desc{};
+
+	switch (_usage)
+	{
+	case ShaderUsage::PostEffect:
+
+		if (!useVertexShader)
+		{
+			// 初回だけ内蔵VSをコンパイル
+			if (!defaultPostEffectVS)
+			{
+				defaultPostEffectVS = Compile(L"../Src/Shaders/PostEffectVS.hlsl", "main", "vs_5_0");
+			}
+
+			if (!defaultPostEffectVS)
+			{
+				DEBUG_LOG_ERROR("PostEffect用の内蔵VSの読み込みに失敗しました\n");
+				return nullptr;
+			}
+
+			useVertexShader = defaultPostEffectVS.Get();
+		}
+		// PostEffect用の標準PSO設定
+		desc.rootSignatureID = RootSigID::PostEffect;
+		// 動的なMaterialなので固定PipelineIDは使用しない
+		desc.pipelineID = PipelineID::Count;
+		// SV_VertexIDからフルスクリーン三角形を作るため頂点バッファのLayoutは必要ない
+		desc.layout = InputLayout::None;
+		// バックバッファ全体を書き換えるためブレンドなし
+		desc.blend = BlendMode::Opaque;
+		// 画面全体への後処理なので深度は使用しない
+		desc.depth = DepthParam::None;
+		desc.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		desc.fillMode = D3D12_FILL_MODE_SOLID;
+		break;
+
+	case ShaderUsage::Sprite:
+
+		if (!useVertexShader)
+		{
+			// 初回だけ内蔵VSをコンパイル
+			if (!defaultSpriteVS)
+			{
+				defaultSpriteVS = Compile(L"../Src/Shaders/TextureVS.hlsl", "main", "vs_5_0");
+			}
+
+			if (!defaultSpriteVS)
+			{
+				DEBUG_LOG_ERROR("Sprite用の内蔵VSの読み込みに失敗しました\n");
+				return nullptr;
+			}
+
+			useVertexShader = defaultSpriteVS.Get();
+		}
+		// Sprite用の標準PSO設定
+		desc.rootSignatureID = RootSigID::Texture;
+		// 動的なMaterialなので固定PipelineIDは使用しない
+		desc.pipelineID = PipelineID::Count;
+		desc.layout = InputLayout::Sprite;
+		desc.blend = BlendMode::Alpha;
+		desc.depth = DepthParam::None;
+		desc.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		desc.fillMode = D3D12_FILL_MODE_SOLID;
+		break;
+	case ShaderUsage::Model:
+		DEBUG_LOG_ERROR("Model用Materialはまだ対応していません\n");
+		return nullptr;
+	default:
+		DEBUG_LOG_ERROR("不明なShaderUsageです\n");
+		return nullptr;
+	}
+	return BuildGraphicsPipeline(desc, useVertexShader, _pixelShader);
+}
+
 std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 {
 	std::vector<RootSignatureDesc> descs{};
@@ -830,4 +898,139 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	postEffectDesc.flags = D3D12_ROOT_SIGNATURE_FLAG_NONE; // 頂点バッファを使用しないためIAの許可は不要
 	descs.push_back(std::move(postEffectDesc));
 	return descs;
+}
+
+ComPtr<ID3D12PipelineState> ShaderSystem::BuildGraphicsPipeline(const GraphicsPipelineDesc& _desc, ID3DBlob* _vsBlob, ID3DBlob* _psBlob, ID3DBlob* _hsBlob, ID3DBlob* _dsBlob, ID3DBlob* _gsBlob)
+{
+	if (!device)
+	{
+		DEBUG_LOG_ERROR("Deviceが設定されていません\n");
+		return nullptr;
+	}
+
+	// GraphicsPipelineではVSを必須とする
+	if (!_vsBlob)
+	{
+		DEBUG_LOG_ERROR("GraphicsPipelineにVSが設定されていません\n");
+		return nullptr;
+	}
+
+	 // IDを取り出す
+	const size_t rootSignatureID{ static_cast<size_t>(_desc.rootSignatureID) };
+	const size_t layoutID{ static_cast<size_t>(_desc.layout) };
+	const size_t blendID{ static_cast<size_t>(_desc.blend) };
+	const size_t depthID{ static_cast<size_t>(_desc.depth) };
+
+	// 各enumがテーブルの範囲内にあるか確認する
+	if (rootSignatureID >= static_cast<size_t>(RootSigID::Count) ||
+		layoutID >= static_cast<size_t>(InputLayout::Count) ||
+		blendID >= static_cast<size_t>(BlendMode::Count) ||
+		depthID >= static_cast<size_t>(DepthParam::Count))
+	{
+		DEBUG_LOG_ERROR("GraphicsPipelineDescに無効なIDが指定されています\n");
+		return nullptr;
+	}
+
+	// RootSignatureが先に作られているか確認
+	if (!rootSigs[rootSignatureID])
+	{
+		DEBUG_LOG_ERROR("指定されたRootSignatureが作成されていません\n");
+		return nullptr;
+	}
+
+	// テッセレーションではHSとDSはセットで扱う
+	if ((_hsBlob == nullptr) != (_dsBlob == nullptr))
+	{
+		DEBUG_LOG_ERROR("HSとDSは両方設定する必要があります\n");
+		return nullptr;
+	}
+	if ((_hsBlob != nullptr) && _desc.topology != D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
+	{
+		DEBUG_LOG_ERROR("HSとDSを使用する場合はTopologyTypeをPATCHにしてください\n");
+		return nullptr;
+	}
+	if ((_hsBlob == nullptr) && _desc.topology == D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
+	{
+		DEBUG_LOG_ERROR("PATCHを使用する場合はHSとDSが必要です\n");
+		return nullptr;
+	}
+
+	// PSOの実際のDescを組み立てる
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC nativeDesc{};
+	// PSO対応するRootSingatureを出す
+	nativeDesc.pRootSignature = rootSigs[rootSignatureID].Get();
+
+	// shader群(現状VSは必須としているのでif無し)
+	nativeDesc.VS.pShaderBytecode = _vsBlob->GetBufferPointer();
+	nativeDesc.VS.BytecodeLength = _vsBlob->GetBufferSize();
+
+	if (_psBlob)
+	{
+		nativeDesc.PS.pShaderBytecode = _psBlob->GetBufferPointer();
+		nativeDesc.PS.BytecodeLength = _psBlob->GetBufferSize();
+	}
+	if (_hsBlob)
+	{
+		nativeDesc.HS.pShaderBytecode = _hsBlob->GetBufferPointer();
+		nativeDesc.HS.BytecodeLength = _hsBlob->GetBufferSize();
+	}
+	if (_dsBlob)
+	{
+		nativeDesc.DS.pShaderBytecode = _dsBlob->GetBufferPointer();
+		nativeDesc.DS.BytecodeLength = _dsBlob->GetBufferSize();
+	}
+	if (_gsBlob)
+	{
+		nativeDesc.GS.pShaderBytecode = _gsBlob->GetBufferPointer();
+		nativeDesc.GS.BytecodeLength = _gsBlob->GetBufferSize();
+	}
+	// InputLayoutはTableを使う
+	const LayoutEntry& layout{ LAYOUT_TABLE[layoutID] };
+	nativeDesc.InputLayout.pInputElementDescs = layout.elements; // noneだとnull
+	nativeDesc.InputLayout.NumElements = layout.count; // noneだと0
+
+	// Blend設定
+	const D3D12_RENDER_TARGET_BLEND_DESC& blend{ BLEND_TABLE[blendID] };
+	nativeDesc.BlendState.AlphaToCoverageEnable = false; // αテスト無し
+	nativeDesc.BlendState.IndependentBlendEnable = false; // それぞれのパイプラインステートに対して個別のブレンドステートを割り当てない
+	nativeDesc.BlendState.RenderTarget[0] = blend;
+
+	// 深度ステートとDSVフォーマットは組で選択する
+	const DepthEntry& depth{ DEPTH_TABLE[depthID] };
+	nativeDesc.DepthStencilState = depth.state;
+	nativeDesc.DSVFormat = depth.dsvFormat;
+
+	// ラスタライザ設定
+	nativeDesc.RasterizerState.FillMode = _desc.fillMode; // 塗るかwireか
+	nativeDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE; // 一旦全てNone(今後モデル等では拡張する可能性あり)
+	nativeDesc.RasterizerState.FrontCounterClockwise = false;
+
+	// 深度範囲外の頂点をクリップする
+	nativeDesc.RasterizerState.DepthClipEnable = true;
+	nativeDesc.RasterizerState.MultisampleEnable = false;
+	nativeDesc.RasterizerState.AntialiasedLineEnable = false;
+	nativeDesc.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+
+	// 残りの設定
+	nativeDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+	nativeDesc.PrimitiveTopologyType = _desc.topology;
+
+	// とりあえず今はRenderTargetを1枚だけ使用する
+	nativeDesc.NumRenderTargets = 1;
+	nativeDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+
+	// MSAAなし
+	nativeDesc.SampleDesc.Count = 1;
+	nativeDesc.SampleDesc.Quality = 0;
+
+	// 生成して登録
+	ComPtr<ID3D12PipelineState> pipeline{};
+	HRESULT result{ device->CreateGraphicsPipelineState(&nativeDesc, IID_PPV_ARGS(&pipeline)) };
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("パイプラインステートの作成に失敗しました。\n");
+		return nullptr;
+	}
+
+	return pipeline;
 }

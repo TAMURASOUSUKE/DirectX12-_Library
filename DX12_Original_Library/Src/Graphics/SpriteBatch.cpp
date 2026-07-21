@@ -35,7 +35,7 @@ void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 	indexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(indexArray.data(), static_cast<UINT>(indexArray.size()) * sizeof(UINT), MAX_SPRITE_COUNT * 6); // インデックスバッファの作成
 	for (UINT i = 0; i < FRAME_BUFFER_COUNT; i++)
 	{
-		vertBuffers[i] = GraphicsResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(TexVertex), sizeof(TexVertex)); // 動的な頂点バッファの作成
+		vertBuffers[i] = GraphicsResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(SpriteVertex), sizeof(SpriteVertex)); // 動的な頂点バッファの作成
 	}
 }
 
@@ -54,7 +54,7 @@ void SpriteBatch::Shutdown()
 	gpuVirtualAddres = nullptr;
 }
 
-void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _size, float _radRotation, Vector2 _uvMin, Vector2 _uvMax)
+void SpriteBatch::RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipelineState, Vector2 _position, Vector2 _size, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax)
 {
 	if (!_handle.IsValid())
 	{
@@ -62,6 +62,12 @@ void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _
 		// 現状単一スレッドのためAssertにしているがマルチスレッドにしたらそれ専用の待機にする
 		DEBUG_ASSERT(_handle.IsValid() && "無効ハンドルが渡されました\n");
 		return; // 無効ハンドルか
+	}
+
+	if (!_pipelineState)
+	{
+		DEBUG_ASSERT(_pipelineState != nullptr && "Sprite用PSOがnullです\n");
+		return;
 	}
 
 	if (spriteCounter >= MAX_SPRITE_COUNT)
@@ -100,23 +106,24 @@ void SpriteBatch::RegisterSprite(TexHandle _handle, Vector2 _position, Vector2 _
 
 	// 今描画しているBackBufferと同じ番号の頂点バッファへ書き込む
 	const UINT frameIndex{ GraphicsDevice::Instance().GetCurrentFrameIndex() };
-	TexVertex* vertices{ static_cast<TexVertex*>(vertBuffers[frameIndex].mappedPtr)}; // マップされたポインタにアクセスするためにキャスト
+	const float color[4]{ _color.x, _color.y, _color.z, _color.w }; // 色をfloatに
+	SpriteVertex* vertices{ static_cast<SpriteVertex*>(vertBuffers[frameIndex].mappedPtr)}; // マップされたポインタにアクセスするためにキャスト
 	
 	// UV空間をハードコーディングするのではなく引数から受け取る形に変更
-	vertices[spriteCounter * 4 + 0] = { {leftTop.x, leftTop.y, 0.0f}, {_uvMin.x, _uvMin.y} }; // 左上
-	vertices[spriteCounter * 4 + 1] = { {rightTop.x, rightTop.y, 0.0f}, {_uvMax.x, _uvMin.y} }; // 右上
-	vertices[spriteCounter * 4 + 2] = { {rightBottom.x, rightBottom.y, 0.0f}, {_uvMax.x, _uvMax.y} }; // 右下
-	vertices[spriteCounter * 4 + 3] = { {leftBottom.x, leftBottom.y, 0.0f}, {_uvMin.x, _uvMax.y} }; // 左下
+	vertices[spriteCounter * 4 + 0] = { {leftTop.x, leftTop.y, 0.0f}, {_uvMin.x, _uvMin.y}, { color[0], color[1], color[2], color[3] } }; // 左上
+	vertices[spriteCounter * 4 + 1] = { {rightTop.x, rightTop.y, 0.0f}, {_uvMax.x, _uvMin.y}, { color[0], color[1], color[2], color[3] } }; // 右上
+	vertices[spriteCounter * 4 + 2] = { {rightBottom.x, rightBottom.y, 0.0f}, {_uvMax.x, _uvMax.y}, { color[0], color[1], color[2], color[3] } }; // 右下
+	vertices[spriteCounter * 4 + 3] = { {leftBottom.x, leftBottom.y, 0.0f}, {_uvMin.x, _uvMax.y}, { color[0], color[1], color[2], color[3] } }; // 左下
 
 	// run(描画順)を管理する
-	if (runs.empty() || runs.back().tex != _handle)
+	if (runs.empty() || runs.back().tex != _handle || runs.back().pipelineState != _pipelineState)
 	{
-		// 配列が空もしくは一番最後のハンドルが登録しようとしているハンドルと異なるなら
-		runs.push_back({_handle, spriteCounter, 1});
+		// 配列が空もしくは一番最後のハンドルが登録しようとしているハンドルと異なるもしくはパイプラインステートがことなるなら新しい描画区間となる
+		runs.push_back({_handle, _pipelineState,spriteCounter, 1});
 	}
 	else
 	{
-		// 同一テクスチャならカウントを増やす
+		// 同一テクスチャ同一PSOなら同じドローコールへ
 		runs.back().count++;
 	}
 
@@ -134,7 +141,6 @@ void SpriteBatch::Flush()
 	// パイプライン設定
 	cmd->SetGraphicsRootSignature(rootSig);
 	cmd->SetGraphicsRootConstantBufferView(1, gpuVirtualAddres->GetGPUVirtualAddress());
-	cmd->SetPipelineState(pipelineState);
 
 	// SRVが入っているDescriptorHeapをGPUにセットする
 	DescriptorManager::Instance().SetDiscriptor(cmd);
@@ -156,6 +162,8 @@ void SpriteBatch::Flush()
 			data = resourceManager.Lookup(resourceManager.GetErrorTexture());
 		}
 		if (!data) continue; //エラーテクスチャまで取得できない場合は描画不可能
+		if (!run.pipelineState) continue;
+		cmd->SetPipelineState(run.pipelineState); // この区間で使用する外部または内部PSO
 		cmd->SetGraphicsRootDescriptorTable(0, data->srvHandle.gpu); // ルートシグネチャの0番にテクスチャのGPUハンドルをセット
 		cmd->DrawIndexedInstanced(run.count * 6, 1, 0, run.startSprite * 4, 0); // 区間情報から描画位置を特定して描画する(読むインデックスの数,  開始位置)
 	}

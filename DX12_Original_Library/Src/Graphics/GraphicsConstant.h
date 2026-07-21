@@ -18,3 +18,5 @@ constexpr size_t MAX_TEXTURE_COUNT{ 1024 }; // 最大画像ロード数
 constexpr size_t MAX_MODEL_COUNT{ 2048 }; // 最大モデルロード数
 constexpr UINT INVALID_INDEX{ UINT_MAX }; // Descriptorハンドルのindex無効値
 constexpr size_t MAX_RENDER_TARGET_COUNT{ 16 }; // 登録できるRenderTargetの最大数
+constexpr size_t MAX_CUSTOM_SHADER_COUNT{ 64 }; // 登録できるShaderの最大数
+constexpr size_t MAX_MATERIAL_COUNT{ 64 }; // 登録できるmaterialの最大数

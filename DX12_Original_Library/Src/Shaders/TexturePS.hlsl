@@ -1,17 +1,11 @@
 // テクスチャを表示するためのピクセルシェーダー
-Texture2D tex : register(t0); // テクスチャスロット0番
-SamplerState smp : register(s0); // サンプラースロット0番
-
-struct PS_INPUT
-{
-    float4 position : SV_POSITION; // 座標
-    float2 uv : TEXCOORD; // UV座標
-};
+#include "SpriteContract.hlsli"
 
 // EntryPoint
-float4 main(PS_INPUT _input) : SV_TARGET
+// テクスチャの色をそのまま出力するシェーダー
+float4 main(SpriteVertexOutput _input) : SV_TARGET
 {
-    // 色をそのまま出す
-    return tex.Sample(smp, _input.uv);
-
+    float4 textureColor = spriteTexture.Sample(spriteSampler, _input.uv);
+      // RGBはTint、Alphaは透明度として適用される
+    return textureColor * _input.color;
 }

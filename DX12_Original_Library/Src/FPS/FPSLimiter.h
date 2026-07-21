@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <windows.h>
 #include <chrono>
 
 // 指定したFPSを超えないようにCPUを待機させる
@@ -6,7 +7,7 @@ class FPSLimiter
 {
 public:
 	FPSLimiter() = default;
-	~FPSLimiter() = default;
+	~FPSLimiter();
 
 	FPSLimiter(const FPSLimiter& _other) = delete;
 	FPSLimiter& operator=(const FPSLimiter& _other) = delete;
@@ -28,7 +29,12 @@ public:
 	int GetTargetFPS() const { return targetFPS; }
 
 private:
+	// 高精度WaitableTimerがなければ作成する
+	bool EnsureWaitableTime();
+
+private:
 	int targetFPS{ 0 }; // 現在設定しているFPS値
 	std::chrono::microseconds targetDuration{}; // 1フレームの目標時間
 	std::chrono::steady_clock::time_point nextFrameTime{}; // 次の目標時刻
+	HANDLE waitableTimer{ nullptr }; // OSへ処理を返して待機するための高精度タイマー
 };

@@ -25,6 +25,8 @@ public:
 	bool CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc);
 	// CS用のPipelineを生成する
 	bool CreateComputePipeline(const ComputePipelineDesc& _desc);
+	// Material用のPSOを作成する作成したPSOは固定Pipeline台帳には登録せず呼び出し元へ返す
+	ComPtr<ID3D12PipelineState> CreateMaterialPipeline(ShaderUsage _usage, ID3DBlob* _vertexShader, ID3DBlob* _pixelShader);
 	// 汎用RootSignatureDescを作成する関数
 	std::vector<RootSignatureDesc> MakeRootSignatureDescs() const;
 
@@ -33,8 +35,14 @@ public:
 	// 指定したIDでRootSinatureを引くことができるGetter
 	ID3D12RootSignature* GetRootSignature(RootSigID _id) const { return rootSigs[static_cast<int>(_id)].Get(); }
 private:
+	// コンパイル済みShaderとPSO設定から、GraphicsPipelineを組み立てる
+	ComPtr<ID3D12PipelineState> BuildGraphicsPipeline(const GraphicsPipelineDesc& _desc, ID3DBlob* _vsBlob, ID3DBlob* _psBlob, ID3DBlob* _hsBlob = nullptr, ID3DBlob* _dsBlob = nullptr, ID3DBlob* _gsBlob = nullptr);
+
+private:
 	ID3D12Device* device{ nullptr }; // 内部保存するデバイス所有しないので生ポでいい
 	ComPtr<ID3D12PipelineState> pipelines[static_cast<int>(PipelineID::Count)]; // パイプラインステート用台帳配列
 	ComPtr<ID3D12RootSignature> rootSigs[static_cast<int>(RootSigID::Count)]; // ルートシグネチャ用台帳配列
+	ComPtr<ID3DBlob> defaultPostEffectVS{}; // 同じHLSLをMaterial作成ごとに再コンパイルしないため保持する
+	ComPtr<ID3DBlob> defaultSpriteVS{}; // 上記と同様の目的のSprite版
 
 };

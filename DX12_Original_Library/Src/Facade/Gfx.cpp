@@ -40,6 +40,7 @@ namespace {
 	int screenWidth = 0; // 画面の横幅
 	int screenHeight = 0; // 画面の縦幅
 	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
+	MaterialHandle currentPostEffectMaterial{}; // 現在画面全体へ適用しているポストエフェクトmaterial(無効ハンドルなら内蔵の素通しPSOを使う)
 
 	constexpr GraphicsPipelineDesc PIPELINE_TABLE[]{
 		// 図形塗りつぶし
@@ -58,7 +59,7 @@ namespace {
 		 // テクスチャ 
 		 {.rootSignatureID = RootSigID::Texture, .pipelineID = PipelineID::Sprite,
 		  .vsPath = L"../Src/Shaders/TextureVS.hlsl", .psPath = L"../Src/Shaders/TexturePS.hlsl",
-		  .layout = InputLayout::Texture, .blend = BlendMode::Alpha, .depth = DepthParam::None},
+		  .layout = InputLayout::Sprite, .blend = BlendMode::Alpha, .depth = DepthParam::None},
 		  // Terrain
 		{.rootSignatureID = RootSigID::Terrain, .pipelineID = PipelineID::TerrainWire,
 		.vsPath = L"../Src/Shaders/TerrainVS.hlsl", .psPath = L"../Src/Shaders/TerrainPS.hlsl",
@@ -369,6 +370,7 @@ namespace {
 			sceneRenderTarget = RTHandle{};
 		}
 		currentRTV = {};
+		currentPostEffectMaterial = {};
 	}
 }
 
@@ -379,6 +381,8 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 
 	screenWidth = _width;
 	screenHeight = _height;
+	// 前回の初期化状態を引き継がない
+	currentPostEffectMaterial = {};
 
 	window.SetWindowName(_title); // 名前設定
 	window.GenerateWindow(); // ウィンドウを作成
@@ -476,6 +480,9 @@ void GfxInternal::BeginFrame()
 {
 	GraphicsDevice::Instance().BeginFrame(); // フレームの最初の処理
 
+	// GPUが使用し終えた遅延開放リソースを回収する
+	GraphicsResourceManager::Instance().CollectDeferredReleases(GraphicsDevice::Instance().GetCompletedFenceValue());
+
 	// batch処理のカウンターリセット
 	bgBatch.Reset();
 	fgBatch.Reset();
@@ -572,7 +579,24 @@ void GfxInternal::EndFrame()
 			cmd->OMSetRenderTargets(1, &currentRTV, false, nullptr);
 			// シーンRTをフルスクリーン三角形として描画する
 			cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::PostEffect));
-			cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::PostEffect));
+			// 最初は内蔵のPSOを選ぶ
+			ID3D12PipelineState* postEffectPipeline{ shaderSystem.GetPipeline(PipelineID::PostEffect) };
+			// 外部materialが設定されている場合は台帳から取得
+			if (currentPostEffectMaterial.IsValid())
+			{
+				MaterialData* material{ GraphicsResourceManager::Instance().Lookup(currentPostEffectMaterial) };
+				// 内部要素をチェックして全て通っていたらPSO差し替え
+				if (material && material->usage == ShaderUsage::PostEffect && material->pipelineState)
+				{
+					postEffectPipeline = material->pipelineState.Get();
+				}
+				else
+				{
+					// Unloadで無効になっていた場合内蔵PSOで描画して次回以降素通しに戻す
+					currentPostEffectMaterial = {};
+				}
+			}
+			cmd->SetPipelineState(postEffectPipeline);
 			// SRVヒープをコマンドリストへ設定
 			DescriptorManager::Instance().SetDiscriptor(cmd);
 			// RootSignatureの0番へシーンRTのSRVを渡す
@@ -591,6 +615,8 @@ void GfxInternal::EndFrame()
 		}
 	}
 	GraphicsDevice::Instance().EndFrame(); // フレームの最後の処理
+	// このフレーム中にUnloadされたリソースに対して今回のSignalしたFence値を割り当てる
+	GraphicsResourceManager::Instance().CommitPendingRelease(GraphicsDevice::Instance().GetLastSubmittedFenceValue());
 	isSceneRenderTargetActive = false;
 }
 
@@ -680,6 +706,127 @@ ModelHandle Gfx::LoadModel(const char* _filePath)
 	return GraphicsResourceManager::Instance().LoadModel(_filePath);
 }
 
+ShaderHandle Gfx::LoadShader(const wchar_t* _filePath, ShaderUsage _usage, ShaderStage _stage)
+{
+	// nullptrや空文字をコンパイラへ渡さない
+	if (!_filePath || _filePath[0] == L'\0')
+	{
+		DEBUG_LOG_ERROR("Shaderのファイルパスが空です\n");
+		return  ShaderHandle{};
+	}
+
+	switch (_usage)
+	{
+	case ShaderUsage::PostEffect:
+	case ShaderUsage::Sprite:
+		// この二つは現状対応しているのでbreak
+		break;
+	case ShaderUsage::Model:
+		DEBUG_LOG_ERROR("Model用の外部Shaderはまだ対応していません\n");
+		return ShaderHandle{};
+	default:
+		DEBUG_LOG_ERROR("不明なShaderUsageが指定されました\n");
+		return ShaderHandle{};
+	}
+
+	const char* target{ nullptr };
+	switch (_stage)
+	{
+	case ShaderStage::Vertex:
+		target = "vs_5_0";
+		break;
+	case ShaderStage::Pixel:
+		target = "ps_5_0";
+		break;
+	case ShaderStage::Hull:
+		target = "hs_5_0";
+		break;
+	case ShaderStage::Domain:
+		target = "ds_5_0";
+		break;
+	case ShaderStage::Geometry:
+		target = "gs_5_0";
+		break;
+	case ShaderStage::Compute:
+		target = "cs_5_0";
+		break;
+	default:
+		DEBUG_LOG_ERROR("不正なShaderカテゴリが渡されました\n");
+		target = nullptr;
+		break;
+	}
+
+	if (!target)
+	{
+		return ShaderHandle{};
+	}
+
+	ComPtr<ID3DBlob> shaderBlob{ shaderSystem.Compile(_filePath, "main", target) }; // Shaderに対応するtargetでコンパイルする
+	if (!shaderBlob)
+	{
+		DEBUG_LOG_ERROR("Shaderの読み込みに失敗しました\n");
+		return ShaderHandle{};
+	}
+
+	// コンパイル済みBlobの所有権をShader台帳へ移す
+	return GraphicsResourceManager::Instance().RegisterShader(_usage, _stage ,std::move(shaderBlob));
+}
+
+MaterialHandle Gfx::CreateMaterial(ShaderHandle _pixelShader)
+{
+	// 内蔵VSを使うのでvertexは空を渡す
+	return CreateMaterial(ShaderHandle{}, _pixelShader);
+}
+
+MaterialHandle Gfx::CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader)
+{
+	GraphicsResourceManager& resourceManager{ GraphicsResourceManager::Instance() };
+	ShaderData* pixelData{ resourceManager.Lookup(_pixelShader) };
+	if (!pixelData)
+	{
+		DEBUG_LOG_ERROR("PixelShaderHandleが無効です\n");
+		return MaterialHandle{};
+	}
+	if (pixelData->stage != ShaderStage::Pixel)
+	{
+		DEBUG_LOG_ERROR("PixelShaderの場所にPixel以外のshaderが渡されました\n");
+		return MaterialHandle{};
+	}
+
+	ID3DBlob* vertexBlob{ nullptr };
+	// VertexShaderが指定されている場合
+	if (_vertexShader.IsValid())
+	{
+		ShaderData* vertexData{ resourceManager.Lookup(_vertexShader)};
+		if (!vertexData)
+		{
+			DEBUG_LOG_ERROR("VertexShaderHandleが無効です\n");
+			return MaterialHandle{};
+		}
+		if (vertexData->stage != ShaderStage::Vertex)
+		{
+			DEBUG_LOG_ERROR("VertexShaderの場所にVertex以外のshaderが渡されました\n");
+			return MaterialHandle{};
+		}
+		// 使用用途を一致させる
+		if (vertexData->usage != pixelData->usage)
+		{
+			DEBUG_LOG_ERROR("PixelとVertexの使用用途が一致していません\n");
+			return MaterialHandle{};
+		}
+		vertexBlob = vertexData->blob.Get();
+	}
+
+	ComPtr<ID3D12PipelineState> pipeline{ shaderSystem.CreateMaterialPipeline(pixelData->usage, vertexBlob, pixelData->blob.Get()) };
+	if (!pipeline)
+	{
+		DEBUG_LOG_ERROR("Material用PSOの作成に失敗しました\n");
+		return MaterialHandle{};
+	}
+
+	return resourceManager.RegisterMaterial(_pixelShader, std::move(pipeline));
+}
+
 void Gfx::DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation, Vector4 _color, bool _isWireframe)
 {
 	shapeBatch.RegisterBox(_leftTop, _rightBottom, _radRotation, _color, _isWireframe);
@@ -701,13 +848,13 @@ void Gfx::DrawLine(Vector2 _startPos, Vector2 _endPos, Vector4 _color)
 }
 
 // 文字列描画(デフォルトフォント)
-void Gfx::DrawString(const char* _string, Vector2 _position, float _scale, LenderLayer _layer)
+void Gfx::DrawString(const char* _string, Vector2 _position, float _scale, Vector4 _color, LenderLayer _layer)
 {
-	DrawString(defaultFont, _string, _position, _scale, _layer);
+	DrawString(defaultFont, _string, _position, _scale, _color, _layer);
 }
 
 // 文字列描画(フォント設定用)
-void Gfx::DrawString(const BitmapFont& _font, const char* _string, Vector2 _position, float _scale, LenderLayer _layer)
+void Gfx::DrawString(const BitmapFont& _font, const char* _string, Vector2 _position, float _scale, Vector4 _color, LenderLayer _layer)
 {
 	// セルの最終的な大きさ
 	Vector2 glyphSize{ _font.cellWidth * _scale, _font.cellHeight * _scale };
@@ -745,22 +892,52 @@ void Gfx::DrawString(const BitmapFont& _font, const char* _string, Vector2 _posi
 		Vector2 uvMax{ ((col + 1) * _font.cellWidth) / static_cast<float>(_font.texWidth), ((row + 1) * _font.cellHeight) / static_cast<float>(_font.texHeight) };
 
 
-		DrawSprite(_font.texture, cursor, glyphSize, 0.0f, uvMin, uvMax, _layer);
+		DrawSprite(_font.texture, cursor, glyphSize, 0.0f, _color, uvMin, uvMax, _layer);
 
 		cursor.x += glyphSize.x; // 書いた分右へ
 	}
 }
 
 // 画像登録
-void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)
+void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)
 {
+	// 通常は空のMaterialHandleを渡す
+	DrawSprite(_texture, _position, _size, MaterialHandle{}, _radRotation, _color, _uvMin, _uvMax, _layer);
+}
+
+void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, MaterialHandle _material, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)
+{
+	ID3D12PipelineState* usePipeline{ shaderSystem.GetPipeline(PipelineID::Sprite) }; // 最初は内蔵SpritePSO
+	// 外部materialが指定されている場合
+	if (_material.IsValid())
+	{
+		MaterialData* material{ GraphicsResourceManager::Instance().Lookup(_material) };
+		if (!material)
+		{
+			// このSpriteだけ内蔵PSOへフォールバックされる
+		}
+		else if (material->usage != ShaderUsage::Sprite)
+		{
+			DEBUG_LOG_ERROR("Sprite描画にSprite以外のmaterialが渡されました\n");
+		}
+		else if (!material->pipelineState)
+		{
+			DEBUG_LOG_ERROR("Sprite用MaterialにPSOがありません\n");
+		}
+		else
+		{
+			// 有効なSpriteMaterialなら外部PSOへ差し替える
+			usePipeline = material->pipelineState.Get();
+		}
+	}
+
 	switch (_layer)
 	{
 	case LenderLayer::BackGround:
-		bgBatch.RegisterSprite(_texture, _position, _size, _radRotation, _uvMin, _uvMax);
+		bgBatch.RegisterSprite(_texture, usePipeline,_position, _size, _radRotation, _color, _uvMin, _uvMax);
 		break;
 	case LenderLayer::ForeGround:
-		fgBatch.RegisterSprite(_texture, _position, _size, _radRotation, _uvMin, _uvMax);
+		fgBatch.RegisterSprite(_texture, usePipeline,  _position, _size, _radRotation, _color, _uvMin, _uvMax);
 		break;
 	default:
 		break;
@@ -812,14 +989,59 @@ void Gfx::SetTexture(ModelHandle _model, int _submeshIndex, TexHandle _texture)
 	if (_submeshIndex < 0 || _submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
 	data->subMeshes[_submeshIndex].material.textures[MaterialTex::BaseColor] = _texture; // 外部テクスチャなのでownerTextureには追加しない
 }
+void Gfx::SetPostEffect(MaterialHandle _material)
+{
+	// 空ハンドルは素通しへ
+	if (!_material.IsValid())
+	{
+		currentPostEffectMaterial = {};
+		return;
+	}
+	MaterialData* material{ GraphicsResourceManager::Instance().Lookup(_material) };
+	if (!material)
+	{
+		DEBUG_LOG_ERROR("SetPostEffectに無効なmaterialHandleが渡されました\n");
+		currentPostEffectMaterial = {};
+		return;
+	}
+	// 用途があっているかチェック
+	if (material->usage != ShaderUsage::PostEffect)
+	{
+		DEBUG_LOG_ERROR("PostEffect以外のMaterialがSetPostEffectに渡されました\n");
+		currentPostEffectMaterial = {};
+		return;
+	}
+	if (!material->pipelineState)
+	{
+		DEBUG_LOG_ERROR("PostEffect用MaterialにPSOがありません\n");
+		currentPostEffectMaterial = {};
+		return;
+	}
+	currentPostEffectMaterial = _material;
+}
 // 解放
 void Gfx::Unload(TexHandle _handle)
 {
 	GraphicsResourceManager::Instance().Unload(_handle);
 }
-
 void Gfx::Unload(ModelHandle _handle)
 {
+	GraphicsResourceManager::Instance().Unload(_handle);
+}
+void Gfx::Unload(RTHandle _handle)
+{
+	GraphicsResourceManager::Instance().Unload(_handle);
+}
+void Gfx::Unload(ShaderHandle _handle)
+{
+	GraphicsResourceManager::Instance().Unload(_handle);
+}
+void Gfx::Unload(MaterialHandle _handle)
+{
+	if (currentPostEffectMaterial == _handle)
+	{
+		currentPostEffectMaterial = {};
+	}
 	GraphicsResourceManager::Instance().Unload(_handle);
 }
 

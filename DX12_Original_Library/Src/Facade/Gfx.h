@@ -1,6 +1,9 @@
 ﻿#pragma once
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
+#include "../Core/Handle/ShaderHandle.h"
+#include "../Core/Handle/MaterialHandle.h"
+#include "../Core/Handle/RTHandle.h"
 #include "../Graphics/GraphicsType.h" // アニメーションのテスト用に持ってきているが本来見せない
 #include "../Component/Transform.h"
 #include "../Math/TSMath.h"
@@ -32,6 +35,12 @@ namespace Gfx
 	TexHandle LoadTexture(const char* _filePath, TextureUsage _usage = TextureUsage::Color);
 	// モデル読み込み
 	ModelHandle LoadModel(const char* _filePath);
+	// Shader読み込み
+	ShaderHandle LoadShader(const wchar_t* _filePath, ShaderUsage _usage, ShaderStage _stage);
+	// material読み込み(内蔵VSを使う簡易版)
+	MaterialHandle CreateMaterial(ShaderHandle _pixel);
+	// material読み込み(VSも指定する版)
+	MaterialHandle CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader);
 	// 矩形描画
 	void DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation = 0.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f }, bool _isWireframe = false);
 	// 円描画
@@ -41,11 +50,13 @@ namespace Gfx
 	// 線分描画
 	void DrawLine(Vector2 _startPos, Vector2 _endPos, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f });
 	// 文字列描画 ; デフォルトフォント使用版(文字列, 位置, スケール(デフォルト1.0f), 描画レイヤー(デフォルト前面))
-	void DrawString(const char* _string, Vector2 _position, float _scale = 1.0f, LenderLayer _layer = LenderLayer::ForeGround);
+	void DrawString(const char* _string, Vector2 _position, float _scale = 1.0f, Vector4 _color = Vector4::One, LenderLayer _layer = LenderLayer::ForeGround);
 	// 文字描画 : 独自フォント使用版(フォント(構造体による別途設定必須), 文字列, 位置, スケール(デフォルト1.0f), 描画レイヤー(デフォルト前面))
-	void DrawString(const BitmapFont& _font, const char* _string, Vector2 _position, float _scale = 1.0f, LenderLayer _layer = LenderLayer::ForeGround);
-	// スプライト描画(位置、サイズ、画像, 回転角度(ラジアンかつデフォルトは0), uv座標(デフォルトは左上0右下1) 描画するレイヤー(デフォルトは通常 = 3Dより手前))
-	void DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation = 0.0f, Vector2 _uvMin = { Vector2::Zero }, Vector2 _uvMax = { Vector2::One }, LenderLayer _layer = LenderLayer::ForeGround);
+	void DrawString(const BitmapFont& _font, const char* _string, Vector2 _position, float _scale = 1.0f,Vector4 _color = Vector4::One, LenderLayer _layer = LenderLayer::ForeGround);
+	// スプライト描画(位置、サイズ、画像, 回転角度(ラジアンかつデフォルトは0),色, uv座標(デフォルトは左上0右下1) 描画するレイヤー(デフォルトは通常 = 3Dより手前))
+	void DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation = 0.0f, Vector4 _color = Vector4::One, Vector2 _uvMin = { Vector2::Zero }, Vector2 _uvMax = { Vector2::One }, LenderLayer _layer = LenderLayer::ForeGround);
+	// Shader適用スプライト描画(位置、サイズ、画像, material, 回転角度(ラジアンかつデフォルトは0), 色,  uv座標(デフォルトは左上0右下1) 描画するレイヤー(デフォルトは通常 = 3Dより手前))
+	void DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, MaterialHandle _material, float _radRotation = 0.0f, Vector4 _color = Vector4::One, Vector2 _uvMin = { Vector2::Zero }, Vector2 _uvMax = { Vector2::One }, LenderLayer _layer = LenderLayer::ForeGround);
 	// モデルを描画する(テスト用にAnimDataを受け取っているが後で修正)
 	void DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* _animData = nullptr);
 	// terrainを描画する : 位置, 大きさ(xz平面にのみかかります), 分割係数 , 高さ ,変形形状を決めるheightMap(無ければplane描画になります)
@@ -54,7 +65,16 @@ namespace Gfx
 	void SetBaseColor(ModelHandle _model, int _submeshIndex, Vector4 _color);
 	// テクスチャの変更(今後は引数を変更) : セットしたモデルがUnloadされた場合セットしたTextureは解放されません(個別で解放が必要)
 	void SetTexture(ModelHandle _model, int _submeshIndex, TexHandle _texture);
+	// 画面全体へ適用するポストエフェクトmaterialを設定する(無効ハンドルを渡した場合は内蔵の素通し描画へ戻します)
+	void SetPostEffect(MaterialHandle _material);
 	// テクスチャリソースの解放
 	void Unload(TexHandle _handle);
+	// モデルリソースの開放
 	void Unload(ModelHandle _hanlde);
+	// RenderTargetの解放
+	void Unload(RTHandle _handle);
+	// Shaderリソースの開放
+	void Unload(ShaderHandle _handle);
+	// Materialリソースの解放
+	void Unload(MaterialHandle _handle);
 }
