@@ -106,11 +106,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (debugAnim.currentTime > 0.667f) debugAnim.currentTime = 0.0f; // 一旦Runのdurationでループさせる
 
 		// Terrain操作
-		if (Input::IsKeyPress(KeyCode::Button::UP)) heightFactor += 0.05f;
-		if (Input::IsKeyPress(KeyCode::Button::DOWN)) heightFactor -= 0.05f;
+		float heightSpeed{ 3.0f };
+		if (Input::IsKeyPress(KeyCode::Button::UP)) heightFactor += heightSpeed * Time::UnscaledDeltaTime();
+		if (Input::IsKeyPress(KeyCode::Button::DOWN)) heightFactor -= heightSpeed * Time::UnscaledDeltaTime();
 		if(Input::IsKeyPushed(KeyCode::Button::D2)) tessFactor *= 2.0f;
 		if (Input::IsKeyPushed(KeyCode::Button::D1)) tessFactor /= 2.0f;
 		tessFactor = std::clamp(tessFactor, 2.0f, 64.0f);
+
+		heightFactor = std::clamp(heightFactor, -20.0f, 20.0f);
 
 		Vector2 dir{ Vector2::Zero };
 		if (Input::IsKeyPress(KeyCode::Button::W)) dir.y -= 1.0f;
@@ -148,16 +151,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
-		//// スプライトバッチテスト
-		//Gfx::DrawSprite(background, { 0.0f, 0.0f }, { 1280.0f, 720.0f }, 0.0f, Vector2::Zero, Vector2::One, LenderLayer::BackGround);
-		//Gfx::DrawSprite(enemy, { 350.0f, 350.0f }, { 128.0f, 128.0f });
+		// スプライトバッチテスト
+		Gfx::DrawSprite(background, { 0.0f, 0.0f }, { 1280.0f, 720.0f }, 0.0f, Vector2::Zero, Vector2::One, LenderLayer::BackGround);
+		Gfx::DrawSprite(enemy, { 350.0f, 350.0f }, { 128.0f, 128.0f });
 
-		//Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
+		Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
 
-		//Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
+		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
 
-		//Gfx::DrawSprite(enemy, {500.0f, 500.0f}, { 128.0f, 128.0f });
-		//Gfx::DrawSprite(minivan, { 800.0f, 500.0f }, { 176.0f, 88.0f });
+		Gfx::DrawSprite(enemy, {500.0f, 500.0f}, { 128.0f, 128.0f });
+		Gfx::DrawSprite(minivan, { 800.0f, 500.0f }, { 176.0f, 88.0f });
 
 		//Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
 		//Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
