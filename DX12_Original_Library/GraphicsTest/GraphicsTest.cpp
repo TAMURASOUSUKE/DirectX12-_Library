@@ -77,10 +77,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	// タイムスケール
 	float timeScale{ 1.0f };
-
+	float time{ 0.0f };
 	while (TSLib::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
+		time += Time::DeltaTime();
 
 		// アニメーションテスト
 		debugAnim.currentTime += Time::DeltaTime(); // 時刻を進める
@@ -150,7 +151,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawSprite(enemy,{ 500.0f, 300.0f }, { 128.0f, 128.0f }, inverseSpriteMaterial);
 
-		Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, { 176.0f, 88.0f }, inverseSpriteMaterial, 0.0f, { 1.0f, 1.0f, 1.0f, 0.5f });
+		Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, { 176.0f, 88.0f }, inverseSpriteMaterial, 0.0f, { 1.0f, 1.0f, 1.0f, sinf(time) });
 
 		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, { 128.0f, 128.0f }, 0.0f, { 1.0f, 1.0f, 1.0f, 0.5f });
 
@@ -161,7 +162,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawBox(testRect01.GetMinPos(), testRect01.GetMaxPos());
 		Gfx::DrawBox(testRect02.GetMinPos(), testRect02.GetMaxPos(), 0.0f, debugColor);
-		Gfx::DrawString(fpsValue.c_str(), {0.0f, 0.0f});
+		Gfx::DrawString(fpsValue.c_str(), {0.0f, 0.0f}, 1.0f, { 1.0f, 0.0f, 0.0f, 1.0f });
 		Gfx::DrawString(targetFPS.c_str(), {0.0f, 30.0f});
 		Gfx::DrawString(unscaledDeltaTime.c_str(), {0.0f, 60.0f});
 		Gfx::DrawString(deltaTime.c_str(), {0.0f, 90.0f});
