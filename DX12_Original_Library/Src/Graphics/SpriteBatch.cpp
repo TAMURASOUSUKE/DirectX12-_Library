@@ -35,7 +35,7 @@ void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 	indexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(indexArray.data(), static_cast<UINT>(indexArray.size()) * sizeof(UINT), MAX_SPRITE_COUNT * 6); // インデックスバッファの作成
 	for (UINT i = 0; i < FRAME_BUFFER_COUNT; i++)
 	{
-		vertBuffers[i] = GraphicsResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(TexVertex), sizeof(TexVertex)); // 動的な頂点バッファの作成
+		vertBuffers[i] = GraphicsResourceManager::Instance().CreateDynamicVertexBuffer(nullptr, MAX_SPRITE_COUNT * 4 * sizeof(SpriteVertex), sizeof(SpriteVertex)); // 動的な頂点バッファの作成
 	}
 }
 
@@ -54,7 +54,7 @@ void SpriteBatch::Shutdown()
 	gpuVirtualAddres = nullptr;
 }
 
-void SpriteBatch::RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipelineState, Vector2 _position, Vector2 _size, float _radRotation, Vector2 _uvMin, Vector2 _uvMax)
+void SpriteBatch::RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipelineState, Vector2 _position, Vector2 _size, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax)
 {
 	if (!_handle.IsValid())
 	{
@@ -106,13 +106,14 @@ void SpriteBatch::RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipeli
 
 	// 今描画しているBackBufferと同じ番号の頂点バッファへ書き込む
 	const UINT frameIndex{ GraphicsDevice::Instance().GetCurrentFrameIndex() };
-	TexVertex* vertices{ static_cast<TexVertex*>(vertBuffers[frameIndex].mappedPtr)}; // マップされたポインタにアクセスするためにキャスト
+	const float color[4]{ _color.x, _color.y, _color.z, _color.w }; // 色をfloatに
+	SpriteVertex* vertices{ static_cast<SpriteVertex*>(vertBuffers[frameIndex].mappedPtr)}; // マップされたポインタにアクセスするためにキャスト
 	
 	// UV空間をハードコーディングするのではなく引数から受け取る形に変更
-	vertices[spriteCounter * 4 + 0] = { {leftTop.x, leftTop.y, 0.0f}, {_uvMin.x, _uvMin.y} }; // 左上
-	vertices[spriteCounter * 4 + 1] = { {rightTop.x, rightTop.y, 0.0f}, {_uvMax.x, _uvMin.y} }; // 右上
-	vertices[spriteCounter * 4 + 2] = { {rightBottom.x, rightBottom.y, 0.0f}, {_uvMax.x, _uvMax.y} }; // 右下
-	vertices[spriteCounter * 4 + 3] = { {leftBottom.x, leftBottom.y, 0.0f}, {_uvMin.x, _uvMax.y} }; // 左下
+	vertices[spriteCounter * 4 + 0] = { {leftTop.x, leftTop.y, 0.0f}, {_uvMin.x, _uvMin.y}, { color[0], color[1], color[2], color[3] } }; // 左上
+	vertices[spriteCounter * 4 + 1] = { {rightTop.x, rightTop.y, 0.0f}, {_uvMax.x, _uvMin.y}, { color[0], color[1], color[2], color[3] } }; // 右上
+	vertices[spriteCounter * 4 + 2] = { {rightBottom.x, rightBottom.y, 0.0f}, {_uvMax.x, _uvMax.y}, { color[0], color[1], color[2], color[3] } }; // 右下
+	vertices[spriteCounter * 4 + 3] = { {leftBottom.x, leftBottom.y, 0.0f}, {_uvMin.x, _uvMax.y}, { color[0], color[1], color[2], color[3] } }; // 左下
 
 	// run(描画順)を管理する
 	if (runs.empty() || runs.back().tex != _handle || runs.back().pipelineState != _pipelineState)

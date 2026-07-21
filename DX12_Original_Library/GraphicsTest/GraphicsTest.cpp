@@ -133,7 +133,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		// スプライトバッチテスト
-		Gfx::DrawSprite(background, { 0.0f, 0.0f }, { 1280.0f, 720.0f }, 0.0f, Vector2::Zero, Vector2::One, LenderLayer::BackGround);
+		Gfx::DrawSprite(background, { 0.0f, 0.0f }, { 1280.0f, 720.0f }, 0.0f, Vector4::One, Vector2::Zero, Vector2::One, LenderLayer::BackGround);
 		Gfx::DrawSprite(enemy, { 350.0f, 350.0f }, { 128.0f, 128.0f });
 
 		Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
@@ -144,15 +144,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawSprite(minivan, { 800.0f, 500.0f }, { 176.0f, 88.0f });
 
 		// Shaderテスト
-		Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, { 128.0f, 128.0f });
+		Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, { 128.0f, 128.0f }, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f});
 
 		Gfx::DrawSprite(minivan, { 300.0f, 300.0f }, { 176.0f, 88.0f });
 
 		Gfx::DrawSprite(enemy,{ 500.0f, 300.0f }, { 128.0f, 128.0f }, inverseSpriteMaterial);
 
-		Gfx::DrawSprite(minivan, { 700.0f, 300.0f }, { 176.0f, 88.0f }, inverseSpriteMaterial);
+		Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, { 176.0f, 88.0f }, inverseSpriteMaterial, 0.0f, { 1.0f, 1.0f, 1.0f, 0.5f });
 
-		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, { 128.0f, 128.0f });
+		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, { 128.0f, 128.0f }, 0.0f, { 1.0f, 1.0f, 1.0f, 0.5f });
 
 		//Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
 		//Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);

@@ -59,7 +59,7 @@ namespace {
 		 // テクスチャ 
 		 {.rootSignatureID = RootSigID::Texture, .pipelineID = PipelineID::Sprite,
 		  .vsPath = L"../Src/Shaders/TextureVS.hlsl", .psPath = L"../Src/Shaders/TexturePS.hlsl",
-		  .layout = InputLayout::Texture, .blend = BlendMode::Alpha, .depth = DepthParam::None},
+		  .layout = InputLayout::Sprite, .blend = BlendMode::Alpha, .depth = DepthParam::None},
 		  // Terrain
 		{.rootSignatureID = RootSigID::Terrain, .pipelineID = PipelineID::TerrainWire,
 		.vsPath = L"../Src/Shaders/TerrainVS.hlsl", .psPath = L"../Src/Shaders/TerrainPS.hlsl",
@@ -848,13 +848,13 @@ void Gfx::DrawLine(Vector2 _startPos, Vector2 _endPos, Vector4 _color)
 }
 
 // 文字列描画(デフォルトフォント)
-void Gfx::DrawString(const char* _string, Vector2 _position, float _scale, LenderLayer _layer)
+void Gfx::DrawString(const char* _string, Vector2 _position, float _scale, Vector4 _color, LenderLayer _layer)
 {
-	DrawString(defaultFont, _string, _position, _scale, _layer);
+	DrawString(defaultFont, _string, _position, _scale, _color, _layer);
 }
 
 // 文字列描画(フォント設定用)
-void Gfx::DrawString(const BitmapFont& _font, const char* _string, Vector2 _position, float _scale, LenderLayer _layer)
+void Gfx::DrawString(const BitmapFont& _font, const char* _string, Vector2 _position, float _scale, Vector4 _color, LenderLayer _layer)
 {
 	// セルの最終的な大きさ
 	Vector2 glyphSize{ _font.cellWidth * _scale, _font.cellHeight * _scale };
@@ -892,20 +892,20 @@ void Gfx::DrawString(const BitmapFont& _font, const char* _string, Vector2 _posi
 		Vector2 uvMax{ ((col + 1) * _font.cellWidth) / static_cast<float>(_font.texWidth), ((row + 1) * _font.cellHeight) / static_cast<float>(_font.texHeight) };
 
 
-		DrawSprite(_font.texture, cursor, glyphSize, 0.0f, uvMin, uvMax, _layer);
+		DrawSprite(_font.texture, cursor, glyphSize, 0.0f, _color, uvMin, uvMax, _layer);
 
 		cursor.x += glyphSize.x; // 書いた分右へ
 	}
 }
 
 // 画像登録
-void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)
+void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)
 {
 	// 通常は空のMaterialHandleを渡す
-	DrawSprite(_texture, _position, _size, MaterialHandle{}, _radRotation, _uvMin, _uvMax, _layer);
+	DrawSprite(_texture, _position, _size, MaterialHandle{}, _radRotation, _color, _uvMin, _uvMax, _layer);
 }
 
-void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, MaterialHandle _material, float _radRotation, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)
+void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, MaterialHandle _material, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)
 {
 	ID3D12PipelineState* usePipeline{ shaderSystem.GetPipeline(PipelineID::Sprite) }; // 最初は内蔵SpritePSO
 	// 外部materialが指定されている場合
@@ -934,10 +934,10 @@ void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, Mater
 	switch (_layer)
 	{
 	case LenderLayer::BackGround:
-		bgBatch.RegisterSprite(_texture, usePipeline,_position, _size, _radRotation, _uvMin, _uvMax);
+		bgBatch.RegisterSprite(_texture, usePipeline,_position, _size, _radRotation, _color, _uvMin, _uvMax);
 		break;
 	case LenderLayer::ForeGround:
-		fgBatch.RegisterSprite(_texture, usePipeline,  _position, _size, _radRotation, _uvMin, _uvMax);
+		fgBatch.RegisterSprite(_texture, usePipeline,  _position, _size, _radRotation, _color, _uvMin, _uvMax);
 		break;
 	default:
 		break;

@@ -5,6 +5,7 @@
 // テクスチャの色をそのまま出力するシェーダー
 float4 main(SpriteVertexOutput _input) : SV_TARGET
 {
-    // 色をそのまま出す
-    return spriteTexture.Sample(spriteSampler, _input.uv);
+    float4 textureColor = spriteTexture.Sample(spriteSampler, _input.uv);
+      // RGBはTint、Alphaは透明度として適用される
+    return textureColor * _input.color;
 }

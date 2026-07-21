@@ -31,6 +31,44 @@ namespace
 			0
 		}
 	};
+
+	// Spriteの入力レイアウト
+	constexpr D3D12_INPUT_ELEMENT_DESC SPRITE_LAYOUT[]
+	{
+		// positionのセマンティクス
+		{
+			"POSITION", // HLSL側のセマンティクス
+			0, // セマンティクス番号 
+			DXGI_FORMAT_R32G32B32_FLOAT, // float3
+			0, // 入力スロット
+			D3D12_APPEND_ALIGNED_ELEMENT, // 前の要素の直後に配置
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		},
+
+		// uv
+		{
+			"TEXCOORD",
+			0,
+			DXGI_FORMAT_R32G32_FLOAT, // float2
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		},
+
+		// color
+		{
+			"COLOR",
+			0,
+			DXGI_FORMAT_R32G32B32A32_FLOAT, // float4
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		}
+	};
+
 	// 3Dモデルの入力レイアウト
 	constexpr   D3D12_INPUT_ELEMENT_DESC MODEL_LAYOUT[]
 	{
@@ -125,6 +163,8 @@ namespace
 		{nullptr, 0},
 		// Texture
 		{ TEX_LAYOUT, _countof(TEX_LAYOUT) },
+		// Sprite
+		{SPRITE_LAYOUT, _countof(SPRITE_LAYOUT)},
 		// 3DModel
 		{MODEL_LAYOUT, _countof(MODEL_LAYOUT)},
 		// Shape
@@ -791,7 +831,7 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _us
 		desc.rootSignatureID = RootSigID::Texture;
 		// 動的なMaterialなので固定PipelineIDは使用しない
 		desc.pipelineID = PipelineID::Count;
-		desc.layout = InputLayout::Texture;
+		desc.layout = InputLayout::Sprite;
 		desc.blend = BlendMode::Alpha;
 		desc.depth = DepthParam::None;
 		desc.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;

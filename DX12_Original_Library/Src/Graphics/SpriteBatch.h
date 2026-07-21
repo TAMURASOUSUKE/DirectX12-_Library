@@ -21,7 +21,7 @@ public:
 	// 終了処理
 	void Shutdown();
 	// スプライトの登録(画像とパイプラインと位置とサイズと回転角度とUV空間)
-	void RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipelineState, Vector2 _position, Vector2 _size, float _radRotation = 0.0f, Vector2 _uvMin = { Vector2::Zero }, Vector2 _uvMax = { Vector2::One });
+	void RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipelineState, Vector2 _position, Vector2 _size, float _radRotation = 0.0f, Vector4 _color = Vector4::One, Vector2 _uvMin = {Vector2::Zero}, Vector2 _uvMax = {Vector2::One});
 	// まとめてDrawCallをする
 	void Flush();
 	// カウンター等をリセットする

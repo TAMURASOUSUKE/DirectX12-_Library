@@ -62,7 +62,8 @@ enum class BlendMode
 enum class InputLayout
 {
 	None, // なし(ポストエフェクト等に対応させるため)
-	Texture, // 画像
+	Texture, // 画像(position + uv)
+	Sprite, // 画像(position + uv + color)
 	Model, // 3Dモデル
 	Shape, // 2D形状
 	Count,
@@ -195,6 +196,14 @@ struct TexVertex
 {
 	float position[3]; // 座標
 	float uv[2]; // uv座標 
+};
+
+// 頂点定義
+struct SpriteVertex
+{
+	float position[3]; // 画面座標
+	float uv[2];       // テクスチャUV
+	float color[4];    // Tintカラーと透明度
 };
 
 // 頂点定義

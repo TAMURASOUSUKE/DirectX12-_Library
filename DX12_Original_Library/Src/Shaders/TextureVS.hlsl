@@ -9,5 +9,6 @@ SpriteVertexOutput main(SpriteVertexInput _input)
     SpriteVertexOutput output; // 返す用の構造体
     output.position = mul(float4(_input.position, 1.0f), orthogonalProjectionMat);
     output.uv = _input.uv; // そのまま渡す
+    output.color = _input.color;
     return output;
 }
