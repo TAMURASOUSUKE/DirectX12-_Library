@@ -12,6 +12,26 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	if (!TSLib::Initialize(L"GraphicsTest", 1280, 720)) return -1;
 	Time::SetTargetFPS(0);
 
+	ShaderHandle grayScalePS{ Gfx::LoadShader(L"Shaders/GrayScalePS.hlsl", ShaderUsage::PostEffect, ShaderStage::Pixel) };
+	if (grayScalePS.IsValid())
+	{
+		DEBUG_LOG("[PASS] 外部PixelShaderの読み込みに成功しました\n");
+	}
+	else
+	{
+		DEBUG_LOG("[FAIL] 外部PixelShaderの読み込みに失敗しました\n");
+	}
+	MaterialHandle grayScaleMaterial{ Gfx::CreateMaterial(grayScalePS) };
+	if (grayScaleMaterial.IsValid())
+	{
+			DEBUG_LOG("[PASS] Material用のPSOの作成に成功しました\n");
+	}
+	else
+	{
+		DEBUG_LOG("[FAIL] Material用のPSOの作成に失敗しました\n");
+	}
+
+
 	DescriptorHandle h1{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // GPU可視
 	DescriptorHandle h2{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // GPU可視
 
@@ -129,15 +149,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		//// スプライトバッチテスト
-		Gfx::DrawSprite(background, { 0.0f, 0.0f }, { 1280.0f, 720.0f }, 0.0f, Vector2::Zero, Vector2::One, LenderLayer::BackGround);
-		Gfx::DrawSprite(enemy, { 350.0f, 350.0f }, { 128.0f, 128.0f });
+		//Gfx::DrawSprite(background, { 0.0f, 0.0f }, { 1280.0f, 720.0f }, 0.0f, Vector2::Zero, Vector2::One, LenderLayer::BackGround);
+		//Gfx::DrawSprite(enemy, { 350.0f, 350.0f }, { 128.0f, 128.0f });
 
-		Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
+		//Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
 
-		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
+		//Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
 
-		Gfx::DrawSprite(enemy, {500.0f, 500.0f}, { 128.0f, 128.0f });
-		Gfx::DrawSprite(minivan, { 800.0f, 500.0f }, { 176.0f, 88.0f });
+		//Gfx::DrawSprite(enemy, {500.0f, 500.0f}, { 128.0f, 128.0f });
+		//Gfx::DrawSprite(minivan, { 800.0f, 500.0f }, { 176.0f, 88.0f });
 
 		//Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
 		//Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
