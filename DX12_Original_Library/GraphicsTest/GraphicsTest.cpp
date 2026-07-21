@@ -12,34 +12,44 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	if (!TSLib::Initialize(L"GraphicsTest", 1280, 720)) return -1;
 	Time::SetTargetFPS(0);
 
-	ShaderHandle grayScalePS{ Gfx::LoadShader(L"Shaders/GrayScalePS.hlsl", ShaderUsage::PostEffect, ShaderStage::Pixel) };
-	if (grayScalePS.IsValid())
-	{
-		DEBUG_LOG("[PASS] 外部PixelShaderの読み込みに成功しました\n");
-	}
-	else
-	{
-		DEBUG_LOG("[FAIL] 外部PixelShaderの読み込みに失敗しました\n");
-	}
-	MaterialHandle grayScaleMaterial{ Gfx::CreateMaterial(grayScalePS) };
-	if (grayScaleMaterial.IsValid())
-	{
-			DEBUG_LOG("[PASS] Material用のPSOの作成に成功しました\n");
-	}
-	else
-	{
-		DEBUG_LOG("[FAIL] Material用のPSOの作成に失敗しました\n");
-	}
+
 
 	// ハンドルの取得
+	// PostEffect
+	ShaderHandle grayScalePS{ Gfx::LoadShader(L"Shaders/GrayScalePS.hlsl", ShaderUsage::PostEffect, ShaderStage::Pixel) };
+	MaterialHandle grayScaleMaterial{ Gfx::CreateMaterial(grayScalePS) };
+
+	// SpriteShader
+	ShaderHandle inverseSpritePS{ Gfx::LoadShader(L"Shaders/InverseSpritePS.hlsl", ShaderUsage::Sprite, ShaderStage::Pixel)};
+	if (inverseSpritePS.IsValid())
+	{
+		DEBUG_LOG("[PASS] Sprite用外部PSの読み込みに成功しました\n");
+	}
+	else
+	{
+		DEBUG_LOG("[FAIL] Sprite用外部PSの読み込みに失敗しました\n");
+	}
+	MaterialHandle inverseSpriteMaterial{ Gfx::CreateMaterial(inverseSpritePS) };
+	if (inverseSpriteMaterial.IsValid())
+	{
+		DEBUG_LOG("[PASS] Sprite用Materialの作成に成功しました\n");
+	}
+	else
+	{
+		DEBUG_LOG("[FAIL] Sprite用Materialの作成に失敗しました\n");
+	}
+
+	// Texture
 	TexHandle background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
 	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png") }; // Enemyのハンドル取得
 	TexHandle player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
 	TexHandle heightMap{ Gfx::LoadTexture("Res/TestVolume.png") }; // ハイトマップ取得
+	TexHandle minivan{ Gfx::LoadTexture("Res/Minivan.png") }; // sRGBテスト
 	// TexHandle heightMap{ Gfx::LoadTexture("Res/Crater.jpg") }; // ハイトマップ取得
+
+	// Model
 	ModelHandle testModel{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Testモデルのロード
 	ModelHandle testPlayer{ Gfx::LoadModel("Res/TestPlayer.glb") }; // Playerモデルのロード
-	TexHandle minivan{ Gfx::LoadTexture("Res/Minivan.png") }; // sRGBテスト
 	AnimInstanceData debugAnim{}; // アニメーション用のデータ
 	debugAnim.handle = testModel;
 	Vector2 playerPos{ 100.0f, 100.0f };
