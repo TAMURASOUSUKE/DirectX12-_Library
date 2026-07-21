@@ -715,11 +715,17 @@ ShaderHandle Gfx::LoadShader(const wchar_t* _filePath, ShaderUsage _usage, Shade
 		return  ShaderHandle{};
 	}
 
-	// 現在外部Shaderに対応しているのはPostEffectだけ
-	// ModelとSpriteはつくったら対応
-	if (_usage != ShaderUsage::PostEffect)
+	switch (_usage)
 	{
-		DEBUG_LOG_ERROR("現在LoadShaderが対応しているのはPostEffectのみです\n");
+	case ShaderUsage::PostEffect:
+	case ShaderUsage::Sprite:
+		// この二つは現状対応しているのでbreak
+		break;
+	case ShaderUsage::Model:
+		DEBUG_LOG_ERROR("Model用の外部Shaderはまだ対応していません\n");
+		return ShaderHandle{};
+	default:
+		DEBUG_LOG_ERROR("不明なShaderUsageが指定されました\n");
 		return ShaderHandle{};
 	}
 
