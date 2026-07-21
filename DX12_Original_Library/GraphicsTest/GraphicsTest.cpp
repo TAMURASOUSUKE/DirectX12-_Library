@@ -142,7 +142,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		std::string fpsValue{ std::format("CurrentMeasuredFPS : {:.1f}", Time::FPS()) };
 		std::string targetFPS{ std::format("CurrentSettingFPS : {}", Time::GetTargetFPS()) };
-		std::string unscaledDeltaTime{ std::format("CurrentUnscaledDeltaTime: {:.3f}", Time::UnscaledDeltaTime()) };
+		std::string unscaledDeltaTime{ std::format("CurrentUnscaledDeltaTime: {:.6f}", Time::UnscaledDeltaTime()) };
 		std::string deltaTime{ std::format("CurrentDeltaTime : {:.3f}", Time::DeltaTime()) };
 		std::string timeScale{ std::format("CurrentTimeScale : {:.2f}", Time::GetTimeScale()) };
 
