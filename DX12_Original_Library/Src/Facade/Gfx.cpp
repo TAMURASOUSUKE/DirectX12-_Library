@@ -901,17 +901,8 @@ void Gfx::DrawString(const BitmapFont& _font, const char* _string, Vector2 _posi
 // 画像登録
 void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)
 {
-	switch (_layer)
-	{
-	case LenderLayer::BackGround:
-		bgBatch.RegisterSprite(_texture, _position, _size, _radRotation, _uvMin, _uvMax);
-		break;
-	case LenderLayer::ForeGround:
-		fgBatch.RegisterSprite(_texture, _position, _size, _radRotation, _uvMin, _uvMax);
-		break;
-	default:
-		break;
-	}
+	// 通常は空のMaterialHandleを渡す
+	DrawSprite(_texture, _position, _size, MaterialHandle{}, _radRotation, _uvMin, _uvMax, _layer);
 }
 
 void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, MaterialHandle _material, float _radRotation, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)

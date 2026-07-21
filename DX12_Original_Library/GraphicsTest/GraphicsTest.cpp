@@ -38,6 +38,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	{
 		DEBUG_LOG("[FAIL] Sprite用Materialの作成に失敗しました\n");
 	}
+	//Gfx::Unload(inverseSpriteMaterial);
+	//inverseSpriteMaterial = {};
 
 	// Texture
 	TexHandle background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
@@ -140,6 +142,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawSprite(enemy, {500.0f, 500.0f}, { 128.0f, 128.0f });
 		Gfx::DrawSprite(minivan, { 800.0f, 500.0f }, { 176.0f, 88.0f });
+
+		// Shaderテスト
+		Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, { 128.0f, 128.0f });
+
+		Gfx::DrawSprite(minivan, { 300.0f, 300.0f }, { 176.0f, 88.0f });
+
+		Gfx::DrawSprite(enemy,{ 500.0f, 300.0f }, { 128.0f, 128.0f }, inverseSpriteMaterial);
+
+		Gfx::DrawSprite(minivan, { 700.0f, 300.0f }, { 176.0f, 88.0f }, inverseSpriteMaterial);
+
+		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, { 128.0f, 128.0f });
 
 		//Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
 		//Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
