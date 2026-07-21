@@ -40,6 +40,7 @@ namespace {
 	int screenWidth = 0; // 画面の横幅
 	int screenHeight = 0; // 画面の縦幅
 	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
+	MaterialHandle currentPostEffectMaterial{}; // 現在画面全体へ適用しているポストエフェクトmaterial(無効ハンドルなら内蔵の素通しPSOを使う)
 
 	constexpr GraphicsPipelineDesc PIPELINE_TABLE[]{
 		// 図形塗りつぶし
@@ -369,6 +370,7 @@ namespace {
 			sceneRenderTarget = RTHandle{};
 		}
 		currentRTV = {};
+		currentPostEffectMaterial = {};
 	}
 }
 
@@ -379,6 +381,8 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 
 	screenWidth = _width;
 	screenHeight = _height;
+	// 前回の初期化状態を引き継がない
+	currentPostEffectMaterial = {};
 
 	window.SetWindowName(_title); // 名前設定
 	window.GenerateWindow(); // ウィンドウを作成
@@ -476,6 +480,9 @@ void GfxInternal::BeginFrame()
 {
 	GraphicsDevice::Instance().BeginFrame(); // フレームの最初の処理
 
+	// GPUが使用し終えた遅延開放リソースを回収する
+	GraphicsResourceManager::Instance().CollectDeferredReleases(GraphicsDevice::Instance().GetCompletedFenceValue());
+
 	// batch処理のカウンターリセット
 	bgBatch.Reset();
 	fgBatch.Reset();
@@ -572,7 +579,24 @@ void GfxInternal::EndFrame()
 			cmd->OMSetRenderTargets(1, &currentRTV, false, nullptr);
 			// シーンRTをフルスクリーン三角形として描画する
 			cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::PostEffect));
-			cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::PostEffect));
+			// 最初は内蔵のPSOを選ぶ
+			ID3D12PipelineState* postEffectPipeline{ shaderSystem.GetPipeline(PipelineID::PostEffect) };
+			// 外部materialが設定されている場合は台帳から取得
+			if (currentPostEffectMaterial.IsValid())
+			{
+				MaterialData* material{ GraphicsResourceManager::Instance().Lookup(currentPostEffectMaterial) };
+				// 内部要素をチェックして全て通っていたらPSO差し替え
+				if (material && material->usage == ShaderUsage::PostEffect && material->pipelineState)
+				{
+					postEffectPipeline = material->pipelineState.Get();
+				}
+				else
+				{
+					// Unloadで無効になっていた場合内蔵PSOで描画して次回以降素通しに戻す
+					currentPostEffectMaterial = {};
+				}
+			}
+			cmd->SetPipelineState(postEffectPipeline);
 			// SRVヒープをコマンドリストへ設定
 			DescriptorManager::Instance().SetDiscriptor(cmd);
 			// RootSignatureの0番へシーンRTのSRVを渡す
@@ -591,6 +615,8 @@ void GfxInternal::EndFrame()
 		}
 	}
 	GraphicsDevice::Instance().EndFrame(); // フレームの最後の処理
+	// このフレーム中にUnloadされたリソースに対して今回のSignalしたFence値を割り当てる
+	GraphicsResourceManager::Instance().CommitPendingRelease(GraphicsDevice::Instance().GetLastSubmittedFenceValue());
 	isSceneRenderTargetActive = false;
 }
 
@@ -927,14 +953,59 @@ void Gfx::SetTexture(ModelHandle _model, int _submeshIndex, TexHandle _texture)
 	if (_submeshIndex < 0 || _submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
 	data->subMeshes[_submeshIndex].material.textures[MaterialTex::BaseColor] = _texture; // 外部テクスチャなのでownerTextureには追加しない
 }
+void Gfx::SetPostEffect(MaterialHandle _material)
+{
+	// 空ハンドルは素通しへ
+	if (!_material.IsValid())
+	{
+		currentPostEffectMaterial = {};
+		return;
+	}
+	MaterialData* material{ GraphicsResourceManager::Instance().Lookup(_material) };
+	if (!material)
+	{
+		DEBUG_LOG_ERROR("SetPostEffectに無効なmaterialHandleが渡されました\n");
+		currentPostEffectMaterial = {};
+		return;
+	}
+	// 用途があっているかチェック
+	if (material->usage != ShaderUsage::PostEffect)
+	{
+		DEBUG_LOG_ERROR("PostEffect以外のMaterialがSetPostEffectに渡されました\n");
+		currentPostEffectMaterial = {};
+		return;
+	}
+	if (!material->pipelineState)
+	{
+		DEBUG_LOG_ERROR("PostEffect用MaterialにPSOがありません\n");
+		currentPostEffectMaterial = {};
+		return;
+	}
+	currentPostEffectMaterial = _material;
+}
 // 解放
 void Gfx::Unload(TexHandle _handle)
 {
 	GraphicsResourceManager::Instance().Unload(_handle);
 }
-
 void Gfx::Unload(ModelHandle _handle)
 {
+	GraphicsResourceManager::Instance().Unload(_handle);
+}
+void Gfx::Unload(RTHandle _handle)
+{
+	GraphicsResourceManager::Instance().Unload(_handle);
+}
+void Gfx::Unload(ShaderHandle _handle)
+{
+	GraphicsResourceManager::Instance().Unload(_handle);
+}
+void Gfx::Unload(MaterialHandle _handle)
+{
+	if (currentPostEffectMaterial == _handle)
+	{
+		currentPostEffectMaterial = {};
+	}
 	GraphicsResourceManager::Instance().Unload(_handle);
 }
 

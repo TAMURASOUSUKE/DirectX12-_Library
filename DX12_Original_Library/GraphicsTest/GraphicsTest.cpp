@@ -31,37 +31,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		DEBUG_LOG("[FAIL] Material用のPSOの作成に失敗しました\n");
 	}
 
-
-	DescriptorHandle h1{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // GPU可視
-	DescriptorHandle h2{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // GPU可視
-
-	// h1とh2が別のインデックスであることを確認する
-	if (h1.index != h2.index)
-	{
-		OutputDebugStringA("[PASS] : インデックスが異なる値を出力できています\n");
-	}
-	else
-	{
-		OutputDebugStringA("[FAIL] : インデックスが同じ値を出力しています\n");
-	}
-
-	// Freeして再度Allocateすると同じインデックスが戻るか
-	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, h2);
-	DescriptorHandle h3{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // 再度取得
-
-	if (h2.index == h3.index)
-	{
-		OutputDebugStringA("[PASS] : 一度戻した後も同じインデックスが返っています\n");
-	}
-	else
-	{
-		OutputDebugStringA("[FAIL] : 一度戻した後違うインデックスが返っています\n");
-	}
-
-	// 掃除
-	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, h1);
-	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, h3);
-
 	// ハンドルの取得
 	TexHandle background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
 	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png") }; // Enemyのハンドル取得
@@ -115,6 +84,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		heightFactor = std::clamp(heightFactor, -20.0f, 20.0f);
 
+		// 矩形のあたり判定確認操作
 		Vector2 dir{ Vector2::Zero };
 		if (Input::IsKeyPress(KeyCode::Button::W)) dir.y -= 1.0f;
 		if (Input::IsKeyPress(KeyCode::Button::A)) dir.x -= 1.0f;
@@ -125,15 +95,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		float moveSpeed{ 80.0f }; // 1秒間に移動するピクセル
 		testRect01.position += dir * moveSpeed * Time::DeltaTime();
 
-		if (Collision::Intersect(testRect01, testRect02))
-		{
-			debugColor = { 1.0f, 0.0f, 0.0f, 1.0f };
-		}
-		else
-		{
-			debugColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-		}
+		if (Collision::Intersect(testRect01, testRect02)) debugColor = { 1.0f, 0.0f, 0.0f, 1.0f };
+		else debugColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 
+		// PostEffect操作
+		if(Input::IsKeyPushed(KeyCode::Button::D4)) Gfx::SetPostEffect(grayScaleMaterial); // グレースケール変更
+		if (Input::IsKeyPushed(KeyCode::Button::D5)) Gfx::SetPostEffect({}); // 内蔵へ戻す
+
+		// FPS操作
 		if (Input::IsKeyPushed(KeyCode::Button::D3)) Time::SetTargetFPS(30); // 30FPS
 		if (Input::IsKeyPushed(KeyCode::Button::D6)) Time::SetTargetFPS(60); // 60FPS
 		if (Input::IsKeyPushed(KeyCode::Button::D0)) Time::SetTargetFPS(120); // 120FPS モニターが120Hz以上である必要あり

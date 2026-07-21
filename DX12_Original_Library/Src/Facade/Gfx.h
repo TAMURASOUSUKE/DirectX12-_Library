@@ -3,6 +3,7 @@
 #include "../Core/Handle/ModelHandle.h"
 #include "../Core/Handle/ShaderHandle.h"
 #include "../Core/Handle/MaterialHandle.h"
+#include "../Core/Handle/RTHandle.h"
 #include "../Graphics/GraphicsType.h" // アニメーションのテスト用に持ってきているが本来見せない
 #include "../Component/Transform.h"
 #include "../Math/TSMath.h"
@@ -62,7 +63,16 @@ namespace Gfx
 	void SetBaseColor(ModelHandle _model, int _submeshIndex, Vector4 _color);
 	// テクスチャの変更(今後は引数を変更) : セットしたモデルがUnloadされた場合セットしたTextureは解放されません(個別で解放が必要)
 	void SetTexture(ModelHandle _model, int _submeshIndex, TexHandle _texture);
+	// 画面全体へ適用するポストエフェクトmaterialを設定する(無効ハンドルを渡した場合は内蔵の素通し描画へ戻します)
+	void SetPostEffect(MaterialHandle _material);
 	// テクスチャリソースの解放
 	void Unload(TexHandle _handle);
+	// モデルリソースの開放
 	void Unload(ModelHandle _hanlde);
+	// RenderTargetの解放
+	void Unload(RTHandle _handle);
+	// Shaderリソースの開放
+	void Unload(ShaderHandle _handle);
+	// Materialリソースの解放
+	void Unload(MaterialHandle _handle);
 }
