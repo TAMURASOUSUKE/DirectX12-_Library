@@ -733,27 +733,28 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _us
 
 	// 頂点シェーダーが入力されいていない場合は内蔵のものを使う
 	ID3DBlob* useVertexShader{ _vertexShader };
-	if (!useVertexShader)
-	{
-		// 初回だけ内蔵VSをコンパイル
-		if (!defaultPostEffectVS)
-		{
-			defaultPostEffectVS = Compile(L"../Src/Shaders/PostEffectVS.hlsl", "main", "vs_5_0");
-		}
-
-		if (!defaultPostEffectVS)
-		{
-			DEBUG_LOG_ERROR("PostEffect用の内蔵VSの読み込みに失敗しました\n");
-			return nullptr;
-		}
-
-		useVertexShader = defaultPostEffectVS.Get();
-	}
-
 	GraphicsPipelineDesc desc{};
+
 	switch (_usage)
 	{
 	case ShaderUsage::PostEffect:
+
+		if (!useVertexShader)
+		{
+			// 初回だけ内蔵VSをコンパイル
+			if (!defaultPostEffectVS)
+			{
+				defaultPostEffectVS = Compile(L"../Src/Shaders/PostEffectVS.hlsl", "main", "vs_5_0");
+			}
+
+			if (!defaultPostEffectVS)
+			{
+				DEBUG_LOG_ERROR("PostEffect用の内蔵VSの読み込みに失敗しました\n");
+				return nullptr;
+			}
+
+			useVertexShader = defaultPostEffectVS.Get();
+		}
 		// PostEffect用の標準PSO設定
 		desc.rootSignatureID = RootSigID::PostEffect;
 		// 動的なMaterialなので固定PipelineIDは使用しない
@@ -766,11 +767,36 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _us
 		desc.depth = DepthParam::None;
 		desc.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 		desc.fillMode = D3D12_FILL_MODE_SOLID;
-		// 内臓VSとユーザーが読み込んだPSからPSOを作る
-		return BuildGraphicsPipeline(desc, useVertexShader, _pixelShader);
+		break;
+
 	case ShaderUsage::Sprite:
-		DEBUG_LOG_ERROR("Sprite用Materialはまだ対応していません\n");
-		return nullptr;
+
+		if (!useVertexShader)
+		{
+			// 初回だけ内蔵VSをコンパイル
+			if (!defaultSpriteVS)
+			{
+				defaultSpriteVS = Compile(L"../Src/Shaders/TextureVS.hlsl", "main", "vs_5_0");
+			}
+
+			if (!defaultSpriteVS)
+			{
+				DEBUG_LOG_ERROR("Sprite用の内蔵VSの読み込みに失敗しました\n");
+				return nullptr;
+			}
+
+			useVertexShader = defaultSpriteVS.Get();
+		}
+		// Sprite用の標準PSO設定
+		desc.rootSignatureID = RootSigID::Texture;
+		// 動的なMaterialなので固定PipelineIDは使用しない
+		desc.pipelineID = PipelineID::Count;
+		desc.layout = InputLayout::Texture;
+		desc.blend = BlendMode::Alpha;
+		desc.depth = DepthParam::None;
+		desc.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		desc.fillMode = D3D12_FILL_MODE_SOLID;
+		break;
 	case ShaderUsage::Model:
 		DEBUG_LOG_ERROR("Model用Materialはまだ対応していません\n");
 		return nullptr;
@@ -778,6 +804,7 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _us
 		DEBUG_LOG_ERROR("不明なShaderUsageです\n");
 		return nullptr;
 	}
+	return BuildGraphicsPipeline(desc, useVertexShader, _pixelShader);
 }
 
 std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
