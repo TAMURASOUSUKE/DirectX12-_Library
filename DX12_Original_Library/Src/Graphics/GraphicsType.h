@@ -397,7 +397,6 @@ struct ShaderSlot
 // material一つ分の実データ
 struct MaterialData
 {
-	ShaderHandle shader{}; // 作成元のshader
 	ShaderUsage usage{ ShaderUsage::PostEffect }; // Shaderがどの描画カテゴリだったか
 	ComPtr<ID3D12PipelineState> pipelineState{}; // Shaderと用途ごとのPSO設定から生成したもの
 };

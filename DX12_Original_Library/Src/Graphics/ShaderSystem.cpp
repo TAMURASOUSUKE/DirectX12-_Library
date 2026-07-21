@@ -293,6 +293,8 @@ namespace
 // 初期化処理
 void ShaderSystem::Setup(ID3D12Device* _device)
 {
+	defaultPostEffectVS.Reset();
+	defaultSpriteVS.Reset();
 	// 作成されたデバイスと結合
 	if (_device != nullptr)
 	{
@@ -304,6 +306,9 @@ void ShaderSystem::Setup(ID3D12Device* _device)
 // 終了処理
 void ShaderSystem::Shutdown()
 {
+	defaultPostEffectVS.Reset();
+	defaultSpriteVS.Reset();
+
 	// PSOはRootSigを使って作成しているため先にPSOを解放する
 	for (ComPtr<ID3D12PipelineState>& pipeline : pipelines)
 	{
@@ -727,18 +732,22 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _us
 	}
 
 	// 頂点シェーダーが入力されいていない場合は内蔵のものを使う
-	ComPtr<ID3DBlob> defaultVertexShader{};
 	ID3DBlob* useVertexShader{ _vertexShader };
 	if (!useVertexShader)
 	{
-		defaultVertexShader = Compile(L"../Src/Shaders/PostEffectVS.hlsl", "main", "vs_5_0");
-
-		if (!defaultVertexShader)
+		// 初回だけ内蔵VSをコンパイル
+		if (!defaultPostEffectVS)
 		{
+			defaultPostEffectVS = Compile(L"../Src/Shaders/PostEffectVS.hlsl", "main", "vs_5_0");
+		}
+
+		if (!defaultPostEffectVS)
+		{
+			DEBUG_LOG_ERROR("PostEffect用の内蔵VSの読み込みに失敗しました\n");
 			return nullptr;
 		}
 
-		useVertexShader = defaultVertexShader.Get();
+		useVertexShader = defaultPostEffectVS.Get();
 	}
 
 	GraphicsPipelineDesc desc{};

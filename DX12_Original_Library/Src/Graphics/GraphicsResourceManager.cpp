@@ -1166,7 +1166,7 @@ ShaderHandle GraphicsResourceManager::RegisterShader(ShaderUsage _usage, ShaderS
 {
 	if (!_shaderBlob)
 	{
-		DEBUG_LOG_ERROR("登録するPixelShaderがnullです\n");
+		DEBUG_LOG_ERROR("登録するShaderがnullです\n");
 		return ShaderHandle{};
 	}
 	
@@ -1225,7 +1225,6 @@ MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, C
 
 	MaterialData data{};
 	data.usage = shaderData->usage;
-	data.shader = _shader;
 	data.pipelineState = std::move(_pipelineState);
 	int index{};
 	if (!materialFreeList.empty())

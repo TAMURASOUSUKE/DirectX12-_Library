@@ -42,5 +42,7 @@ private:
 	ID3D12Device* device{ nullptr }; // 内部保存するデバイス所有しないので生ポでいい
 	ComPtr<ID3D12PipelineState> pipelines[static_cast<int>(PipelineID::Count)]; // パイプラインステート用台帳配列
 	ComPtr<ID3D12RootSignature> rootSigs[static_cast<int>(RootSigID::Count)]; // ルートシグネチャ用台帳配列
+	ComPtr<ID3DBlob> defaultPostEffectVS{}; // 同じHLSLをMaterial作成ごとに再コンパイルしないため保持する
+	ComPtr<ID3DBlob> defaultSpriteVS{}; // 上記と同様の目的のSprite版
 
 };
