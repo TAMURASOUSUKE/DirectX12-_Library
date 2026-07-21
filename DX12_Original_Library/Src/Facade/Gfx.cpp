@@ -680,6 +680,121 @@ ModelHandle Gfx::LoadModel(const char* _filePath)
 	return GraphicsResourceManager::Instance().LoadModel(_filePath);
 }
 
+ShaderHandle Gfx::LoadShader(const wchar_t* _filePath, ShaderUsage _usage, ShaderStage _stage)
+{
+	// nullptrや空文字をコンパイラへ渡さない
+	if (!_filePath || _filePath[0] == L'\0')
+	{
+		DEBUG_LOG_ERROR("Shaderのファイルパスが空です\n");
+		return  ShaderHandle{};
+	}
+
+	// 現在外部Shaderに対応しているのはPostEffectだけ
+	// ModelとSpriteはつくったら対応
+	if (_usage != ShaderUsage::PostEffect)
+	{
+		DEBUG_LOG_ERROR("現在LoadShaderが対応しているのはPostEffectのみです\n");
+		return ShaderHandle{};
+	}
+
+	const char* target{ nullptr };
+	switch (_stage)
+	{
+	case ShaderStage::Vertex:
+		target = "vs_5_0";
+		break;
+	case ShaderStage::Pixel:
+		target = "ps_5_0";
+		break;
+	case ShaderStage::Hull:
+		target = "hs_5_0";
+		break;
+	case ShaderStage::Domain:
+		target = "ds_5_0";
+		break;
+	case ShaderStage::Geometry:
+		target = "gs_5_0";
+		break;
+	case ShaderStage::Compute:
+		target = "cs_5_0";
+		break;
+	default:
+		DEBUG_LOG_ERROR("不正なShaderカテゴリが渡されました\n");
+		target = nullptr;
+		break;
+	}
+
+	if (!target)
+	{
+		return ShaderHandle{};
+	}
+
+	ComPtr<ID3DBlob> shaderBlob{ shaderSystem.Compile(_filePath, "main", target) }; // Shaderに対応するtargetでコンパイルする
+	if (!shaderBlob)
+	{
+		DEBUG_LOG_ERROR("Shaderの読み込みに失敗しました\n");
+		return ShaderHandle{};
+	}
+
+	// コンパイル済みBlobの所有権をShader台帳へ移す
+	return GraphicsResourceManager::Instance().RegisterShader(_usage, _stage ,std::move(shaderBlob));
+}
+
+MaterialHandle Gfx::CreateMaterial(ShaderHandle _pixelShader)
+{
+	// 内蔵VSを使うのでvertexは空を渡す
+	return CreateMaterial(ShaderHandle{}, _pixelShader);
+}
+
+MaterialHandle Gfx::CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader)
+{
+	GraphicsResourceManager& resourceManager{ GraphicsResourceManager::Instance() };
+	ShaderData* pixelData{ resourceManager.Lookup(_pixelShader) };
+	if (!pixelData)
+	{
+		DEBUG_LOG_ERROR("PixelShaderHandleが無効です\n");
+		return MaterialHandle{};
+	}
+	if (pixelData->stage != ShaderStage::Pixel)
+	{
+		DEBUG_LOG_ERROR("PixelShaderの場所にPixel以外のshaderが渡されました\n");
+		return MaterialHandle{};
+	}
+
+	ID3DBlob* vertexBlob{ nullptr };
+	// VertexShaderが指定されている場合
+	if (_vertexShader.IsValid())
+	{
+		ShaderData* vertexData{ resourceManager.Lookup(_vertexShader)};
+		if (!vertexData)
+		{
+			DEBUG_LOG_ERROR("VertexShaderHandleが無効です\n");
+			return MaterialHandle{};
+		}
+		if (vertexData->stage != ShaderStage::Vertex)
+		{
+			DEBUG_LOG_ERROR("VertexShaderの場所にVertex以外のshaderが渡されました\n");
+			return MaterialHandle{};
+		}
+		// 使用用途を一致させる
+		if (vertexData->usage != pixelData->usage)
+		{
+			DEBUG_LOG_ERROR("PixelとVertexの使用用途が一致していません\n");
+			return MaterialHandle{};
+		}
+		vertexBlob = vertexData->blob.Get();
+	}
+
+	ComPtr<ID3D12PipelineState> pipeline{ shaderSystem.CreateMaterialPipeline(pixelData->usage, vertexBlob, pixelData->blob.Get()) };
+	if (!pipeline)
+	{
+		DEBUG_LOG_ERROR("Material用PSOの作成に失敗しました\n");
+		return MaterialHandle{};
+	}
+
+	return resourceManager.RegisterMaterial(_pixelShader, std::move(pipeline));
+}
+
 void Gfx::DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation, Vector4 _color, bool _isWireframe)
 {
 	shapeBatch.RegisterBox(_leftTop, _rightBottom, _radRotation, _color, _isWireframe);

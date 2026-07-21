@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
+#include "../Core/Handle/ShaderHandle.h"
+#include "../Core/Handle/MaterialHandle.h"
 #include "../Graphics/GraphicsType.h" // アニメーションのテスト用に持ってきているが本来見せない
 #include "../Component/Transform.h"
 #include "../Math/TSMath.h"
@@ -32,6 +34,12 @@ namespace Gfx
 	TexHandle LoadTexture(const char* _filePath, TextureUsage _usage = TextureUsage::Color);
 	// モデル読み込み
 	ModelHandle LoadModel(const char* _filePath);
+	// Shader読み込み
+	ShaderHandle LoadShader(const wchar_t* _filePath, ShaderUsage _usage, ShaderStage _stage);
+	// material読み込み(内蔵VSを使う簡易版)
+	MaterialHandle CreateMaterial(ShaderHandle _pixel);
+	// material読み込み(VSも指定する版)
+	MaterialHandle CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader);
 	// 矩形描画
 	void DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation = 0.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f }, bool _isWireframe = false);
 	// 円描画

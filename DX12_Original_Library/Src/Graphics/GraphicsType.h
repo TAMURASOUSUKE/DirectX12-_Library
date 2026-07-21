@@ -368,13 +368,23 @@ enum class ShaderUsage
 	Model,
 };
 
+ // シェーダーのカテゴリ
+enum class ShaderStage
+{
+	Vertex,
+	Pixel,
+	Hull,
+	Domain,
+	Geometry,
+	Compute,
+};
+
 // Shader一つ分の実データ
 struct ShaderData
 {
 	ShaderUsage usage{ ShaderUsage::PostEffect }; // 一旦ポストエフェクト
-
-	// 一旦外部へ出すのはPSだけ
-	ComPtr<ID3DBlob> pixelShader{};
+	ShaderStage stage{ ShaderStage::Pixel };
+	ComPtr<ID3DBlob> blob{};
 };
 
 // Shaderを管理するスロット

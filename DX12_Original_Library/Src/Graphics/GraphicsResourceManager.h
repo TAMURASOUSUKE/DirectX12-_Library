@@ -68,7 +68,7 @@ public:
 	RTHandle CreateRenderTarget(UINT _width, UINT _height);
 
 	// コンパイル済みPSをShader台帳へ登録する
-	ShaderHandle RegisterShader(ShaderUsage _usage, ComPtr<ID3DBlob> _pixelShader);
+	ShaderHandle RegisterShader(ShaderUsage _usage, ShaderStage _stage ,ComPtr<ID3DBlob> _shaderBlob);
 	// 作成済みPSOをMaterial台帳へ登録する
 	MaterialHandle RegisterMaterial(ShaderHandle _shader, ComPtr<ID3D12PipelineState> _pipelineState);
 

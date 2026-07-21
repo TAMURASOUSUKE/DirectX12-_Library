@@ -1162,9 +1162,9 @@ RTHandle GraphicsResourceManager::CreateRenderTarget(UINT _width, UINT _height)
 	return RTHandle(PassKey{}, packed);
 }
 
-ShaderHandle GraphicsResourceManager::RegisterShader(ShaderUsage _usage, ComPtr<ID3DBlob> _pixelShader)
+ShaderHandle GraphicsResourceManager::RegisterShader(ShaderUsage _usage, ShaderStage _stage, ComPtr<ID3DBlob> _shaderBlob)
 {
-	if (!_pixelShader)
+	if (!_shaderBlob)
 	{
 		DEBUG_LOG_ERROR("登録するPixelShaderがnullです\n");
 		return ShaderHandle{};
@@ -1179,7 +1179,8 @@ ShaderHandle GraphicsResourceManager::RegisterShader(ShaderUsage _usage, ComPtr<
 
 	ShaderData data{};
 	data.usage = _usage;
-	data.pixelShader = std::move(_pixelShader);
+	data.stage = _stage;
+	data.blob = std::move(_shaderBlob);
 	int index{};
 	if (!shaderFreeList.empty())
 	{
