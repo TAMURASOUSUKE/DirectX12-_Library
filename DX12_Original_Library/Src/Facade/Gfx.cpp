@@ -23,11 +23,12 @@ namespace {
 	D3D12_CPU_DESCRIPTOR_HANDLE currentRTV{}; // 現在OMSetRenderTargetsで設定しているRTV
 	ShaderSystem shaderSystem; // Shader読み込みなどを管理するファイル
 	ConstantBufferData orthConstantBufferData; // 正射影行列用定数バッファのデータメンバ
+	DynamicBuffer zeroMaterialParameterBuffer{}; // パラメータ未設定スロットへバインドするゼロ埋めCB 全スロットで同じGPUアドレス
 	RingConstantBuffer mvpRingCBV; // MVP行列用定数バッファのデータメンバ
 	RingConstantBuffer materialRingCBV; // material用定数バッファのデータメンバ
 	RingConstantBuffer skinningRingCBV; // スキニング行列定数バッファのデータメンバ
-	// 毎回内容を更新する定数バッファ
-	RingConstantBuffer terrainRingCBV{};
+	RingConstantBuffer userMaterialParameterRingCBV{}; // 外部MaterialのユーザーパラメータをGPUへ送るRing, PostEffectとSpriteで将来共有する
+	RingConstantBuffer terrainRingCBV{}; // Terrain用RingConstantBuffer
 	// 全Terrain描画で共有するグリッド
 	VertexBuffer terrainVertexBuffer{};
 	IndexBuffer terrainIndexBuffer{};
@@ -350,6 +351,8 @@ namespace {
 		materialRingCBV.Shutdown();
 		skinningRingCBV.Shutdown();
 		terrainRingCBV.Shutdown();
+		userMaterialParameterRingCBV.Shutdown();
+		zeroMaterialParameterBuffer = DynamicBuffer{}; // 解放
 		// Batchが所有するVB,IBを解放
 		fgBatch.Shutdown();
 		bgBatch.Shutdown();
@@ -454,6 +457,17 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	mvpRingCBV.Initialize(sizeof(Mat4x4)); // リングバッファ初期化
 	materialRingCBV.Initialize(sizeof(MaterialCB));  // materialのリング定数バッファを初期化
 	skinningRingCBV.Initialize(sizeof(Mat4x4) * MAX_BONE_NUM); // ボーン用の定数バッファを更新
+	userMaterialParameterRingCBV.Initialize(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE)); // 1スライス最大256byte
+
+	// ゼロダミーCBの作成(未設定のMaterialパラメータを安全に0として読ませる)
+	zeroMaterialParameterBuffer = GraphicsResourceManager::Instance().CreateDynamicBuffer(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE));
+	if (!zeroMaterialParameterBuffer.resource || !zeroMaterialParameterBuffer.mappedPtr)
+	{
+		DEBUG_LOG_ERROR("MaterialParamter用ゼロダミーCBの作成に失敗しました\n");
+		return false;
+	}
+	//CreateDynamicBufferした後の未定義の中身に対して明示的に0クリアを入れる
+	std::memset(zeroMaterialParameterBuffer.mappedPtr, 0, MAX_MATERIAL_PARAMETER_SIZE);
 
 	// スプライトバッチ処理初期化
 	fgBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
@@ -492,6 +506,7 @@ void GfxInternal::BeginFrame()
 	materialRingCBV.Reset();
 	skinningRingCBV.Reset();
 	terrainRingCBV.Reset();
+	userMaterialParameterRingCBV.Reset();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto dsv{ GraphicsDevice::Instance().GetDSV() };
@@ -581,6 +596,8 @@ void GfxInternal::EndFrame()
 			cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::PostEffect));
 			// 最初は内蔵のPSOを選ぶ
 			ID3D12PipelineState* postEffectPipeline{ shaderSystem.GetPipeline(PipelineID::PostEffect) };
+			// パラメータを取り出すために使われているmaterialDataも保持する
+			MaterialData* activePostEffectMaterial{ nullptr }; // このendframeないだけで利用
 			// 外部materialが設定されている場合は台帳から取得
 			if (currentPostEffectMaterial.IsValid())
 			{
@@ -589,6 +606,7 @@ void GfxInternal::EndFrame()
 				if (material && material->usage == ShaderUsage::PostEffect && material->pipelineState)
 				{
 					postEffectPipeline = material->pipelineState.Get();
+					activePostEffectMaterial = material;
 				}
 				else
 				{
@@ -601,6 +619,40 @@ void GfxInternal::EndFrame()
 			DescriptorManager::Instance().SetDiscriptor(cmd);
 			// RootSignatureの0番へシーンRTのSRVを渡す
 			cmd->SetGraphicsRootDescriptorTable(0, sceneRT->srvHandle.gpu);
+			constexpr UINT POSTEFFECT_MATERIAL_ROOT_PARAM_BASE{ 1 }; // RootParamの0はシーンRTのため1から始まるようにする
+			D3D12_GPU_VIRTUAL_ADDRESS zeroParameterAddress{ zeroMaterialParameterBuffer.resource->GetGPUVirtualAddress() }; // 全ての未設定スロットで共有するGPUアドレス
+			
+			// GPUへの送信
+			for (size_t i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
+			{
+				// 未設定時は必ずゼロダミーCBにする
+				D3D12_GPU_VIRTUAL_ADDRESS parameterAddress{ zeroParameterAddress };
+				if (activePostEffectMaterial)
+				{
+					const MaterialParameterBlock& parameter{ activePostEffectMaterial->parameters[i] };
+					if (parameter.hasParameter)
+					{
+						// materialが設定されていた場合
+						// setup時に0クリアされているので256byte全体を送る
+						const D3D12_GPU_VIRTUAL_ADDRESS updateAddress{ userMaterialParameterRingCBV.Update(parameter.parameterData.data(), static_cast<UINT>(parameter.parameterData.size())) };
+						
+						if (updateAddress != 0)
+						{
+							parameterAddress = updateAddress;
+						}
+						else
+						{
+							// Ringの上限超過が起きた場合は不正なGPUアドレスを設定せずにゼロダミーへ戻す
+							DEBUG_LOG_ERROR("MaterialParameterのGPU転送に失敗しました Slot = {}\n", i);
+						}
+					}
+				}
+
+				// Slot0ならRootParam[1]へ設定してHLSL側でb4
+				// Slot1ならRootParam[2]へ設定してHLSL側でb5
+				cmd->SetGraphicsRootConstantBufferView(POSTEFFECT_MATERIAL_ROOT_PARAM_BASE + static_cast<UINT>(i), parameterAddress);
+			}
+			
 			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			cmd->DrawInstanced(3, 1, 0, 0); // 頂点バッファを使わずにSV_VertexIDの0, 1, 2を発生させる
 
@@ -673,7 +725,7 @@ void GfxInternal::Finish()
 	GraphicsDevice::Instance().Shutdown(); // Deviceの解放
 }
 
-bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, const void* _data, size_t _dataSize)
+bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, size_t _slot, const void* _data, size_t _dataSize)
 {
 	GraphicsResourceManager& resourceManager{ GraphicsResourceManager::Instance() };
 	MaterialData* material { resourceManager.Lookup(_handle) };
@@ -689,7 +741,7 @@ bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, const void* _d
 		DEBUG_LOG_ERROR("現在対応しているのはPostEffectのみです\n");
 		return false;
 	}
-	return resourceManager.SetMaterialParameter(_handle, _data, _dataSize);
+	return resourceManager.SetMaterialParameter(_handle, _slot, _data, _dataSize);
 }
 
 

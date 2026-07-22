@@ -1246,7 +1246,7 @@ MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, C
 	return MaterialHandle{ PassKey{}, packed };
 }
 
-bool GraphicsResourceManager::SetMaterialParameter(MaterialHandle _handle, const void* _data, size_t _dataSize)
+bool GraphicsResourceManager::SetMaterialParameter(MaterialHandle _handle, size_t _slot, const void* _data, size_t _dataSize)
 {
 	MaterialData* material{ Lookup(_handle) };
 	if (!material)
@@ -1264,13 +1264,18 @@ bool GraphicsResourceManager::SetMaterialParameter(MaterialHandle _handle, const
 		DEBUG_LOG_ERROR("MaterialParameterのデータサイズが不正です\n");
 		return false;
 	}
-
+	if (_slot >= MATERIAL_PARAMETER_SLOT_COUNT)
+	{
+		DEBUG_LOG_ERROR("MaterialParameterのスロット番号が範囲外です : Slot = {}\n", _slot);
+		return false;
+	}
+	MaterialParameterBlock& parameter{ material->parameters[_slot] };
 	// 前回より小さいデータを設定した場合でも古い値が後方に残らないように全領域をクリアする
-	material->parameterData.fill(std::byte{ 0 });
+	parameter.parameterData.fill(std::byte{ 0 });
 	// ユーザーの構造体をMaterialのCPU保管庫へコピーする
-	std::memcpy(material->parameterData.data(), _data, _dataSize);
-	material->parameterSize = _dataSize;
-	material->hasParameter = true; // 構造体を設定したのでtrue
+	std::memcpy(parameter.parameterData.data(), _data, _dataSize);
+	parameter.parameterSize = _dataSize;
+	parameter.hasParameter = true; // 構造体を設定したのでtrue
 	return true;
 }
 

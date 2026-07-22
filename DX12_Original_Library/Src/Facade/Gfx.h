@@ -89,19 +89,6 @@ namespace Gfx
 	// Materialリソースの解放
 	void Unload(MaterialHandle _handle);
 	/// <summary>
-	/// 任意のマテリアルに対してパラメータを設定する
-	/// スロットを指定していないので0として扱い、b4に配置されます
-	/// </summary>
-	/// <typeparam name="T">ユーザーが作成したパラメータとなるテンプレート</typeparam>
-	/// <param name="_handle">設定したいmaterial</param>
-	/// <param name="_parameter">定数バッファとして渡るパラメータ。任意の構造体を作り16byte区切りでパラメータを設定して下さい。HLSL側と作成したパラメータの並び順をそろえてください。ポインタやvector,string等は渡さないでください</param>
-	/// <returns>設定が成功したかどうか</returns>
-	template<typename T>
-	bool SetMaterialParameter(MaterialHandle _handle, const T& _parameter)
-	{
-		return SetMaterialParameter(_handle, 0, _parameter);
-	}
-	/// <summary>
 	/// 任意のマテリアルに対して任意のslotにパラメータを設定する
 	/// パラメータは最大4つまで設定できます
 	/// レジスタの4-7まで置かれるので0を指定したらHLSL側ではb4, 1ならb5...となりb7まで使えます
@@ -124,5 +111,18 @@ namespace Gfx
 		// RingConstantBufferの1スライスに収まるかコンパイル時に確認する
 		static_assert(sizeof(ParameterType) <= MAX_MATERIAL_PARAMETER_SIZE, "MaterialParameterサイズが上限を超えています\n");
 		return Detail::SetMaterialParameterRaw(_handle, _slot,static_cast<const void*>(std::addressof(_parameter)), sizeof(ParameterType));
+	}
+	/// <summary>
+	/// 任意のマテリアルに対してパラメータを設定する
+	/// スロットを指定していないので0として扱い、b4に配置されます
+	/// </summary>
+	/// <typeparam name="T">ユーザーが作成したパラメータとなるテンプレート</typeparam>
+	/// <param name="_handle">設定したいmaterial</param>
+	/// <param name="_parameter">定数バッファとして渡るパラメータ。任意の構造体を作り16byte区切りでパラメータを設定して下さい。HLSL側と作成したパラメータの並び順をそろえてください。ポインタやvector,string等は渡さないでください</param>
+	/// <returns>設定が成功したかどうか</returns>
+	template<typename T>
+	bool SetMaterialParameter(MaterialHandle _handle, const T& _parameter)
+	{
+		return SetMaterialParameter(_handle, 0, _parameter);
 	}
 }

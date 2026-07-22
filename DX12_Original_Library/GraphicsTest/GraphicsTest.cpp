@@ -10,6 +10,15 @@ struct GrayScaleParameter
 	float padding[3]{}; // 16byteに合うように対策
 };
 
+// 色の補正を掛けるCB
+struct ColorOffsetParameter
+{
+	float red{ 0.0f };
+	float green{ 0.0f };
+	float blue{ 0.0f };
+	float padding{ 0.0f };
+};
+
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
@@ -23,26 +32,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	ShaderHandle grayScalePS{ Gfx::LoadShader(L"Shaders/GrayScalePS.hlsl", ShaderUsage::PostEffect, ShaderStage::Pixel) };
 	MaterialHandle grayScaleMaterial{ Gfx::CreateMaterial(grayScalePS) };
 	GrayScaleParameter grayScaleParam{};
+	ColorOffsetParameter colorOffsetParam{};
 
 	// SpriteShader
 	ShaderHandle inverseSpritePS{ Gfx::LoadShader(L"Shaders/InverseSpritePS.hlsl", ShaderUsage::Sprite, ShaderStage::Pixel)};
-	if (inverseSpritePS.IsValid())
-	{
-		DEBUG_LOG("[PASS] Sprite用外部PSの読み込みに成功しました\n");
-	}
-	else
-	{
-		DEBUG_LOG("[FAIL] Sprite用外部PSの読み込みに失敗しました\n");
-	}
 	MaterialHandle inverseSpriteMaterial{ Gfx::CreateMaterial(inverseSpritePS) };
-	if (inverseSpriteMaterial.IsValid())
-	{
-		DEBUG_LOG("[PASS] Sprite用Materialの作成に成功しました\n");
-	}
-	else
-	{
-		DEBUG_LOG("[FAIL] Sprite用Materialの作成に失敗しました\n");
-	}
 	//Gfx::Unload(inverseSpriteMaterial);
 	//inverseSpriteMaterial = {};
 
@@ -83,6 +77,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// タイムスケール
 	float timeScale{ 1.0f };
 	float time{ 0.0f };
+
+	// ゲームループ
 	while (TSLib::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
@@ -120,10 +116,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		float rate{ 0.5f }; // パラメータを動かす速度
 		if(Input::IsKeyPushed(KeyCode::Button::D5)) Gfx::SetPostEffect(grayScaleMaterial); // グレースケール変更
 		if (Input::IsKeyPushed(KeyCode::Button::D4)) Gfx::SetPostEffect({}); // 内蔵へ戻す
-		if (Input::IsKeyPress(KeyCode::Button::D6)) grayScaleParam.strength -= rate * Time::UnscaledDeltaTime();
-		if (Input::IsKeyPress(KeyCode::Button::D7)) grayScaleParam.strength += rate * Time::UnscaledDeltaTime();
-		std::clamp(grayScaleParam.strength, 0.0f, 1.0f);
+		if (Input::IsKeyPress(KeyCode::Button::D7)) grayScaleParam.strength -= rate * Time::UnscaledDeltaTime();
+		if (Input::IsKeyPress(KeyCode::Button::D8)) grayScaleParam.strength += rate * Time::UnscaledDeltaTime();
+		if (Input::IsKeyPress(KeyCode::Button::R)) colorOffsetParam.red = 0.5f + 0.5f * std::sinf(time);
+		if (Input::IsKeyPress(KeyCode::Button::G)) colorOffsetParam.green = 0.5f + 0.5f * std::sinf(time);
+		if (Input::IsKeyPress(KeyCode::Button::B)) colorOffsetParam.blue = 0.5f + 0.5f * std::sinf(time);
+		grayScaleParam.strength = std::clamp(grayScaleParam.strength, 0.0f, 1.0f);
 		Gfx::SetMaterialParameter(grayScaleMaterial, grayScaleParam);
+		Gfx::SetMaterialParameter(grayScaleMaterial, 1, colorOffsetParam);
 
 		// FPS操作
 		if (Input::IsKeyPushed(KeyCode::Button::D3)) Time::SetTargetFPS(30); // 30FPS
@@ -161,7 +161,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawSprite(enemy,{ 500.0f, 300.0f }, { 128.0f, 128.0f }, inverseSpriteMaterial);
 
-		Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, { 176.0f, 88.0f }, inverseSpriteMaterial, 0.0f, { 1.0f, 1.0f, 1.0f, sinf(time) });
+		Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, { 176.0f, 88.0f }, inverseSpriteMaterial, 0.0f, { 1.0f, 1.0f, 1.0f, 0.5f + 0.5f * sinf(time) });
 
 		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, { 128.0f, 128.0f }, 0.0f, { 1.0f, 1.0f, 1.0f, 0.5f });
 

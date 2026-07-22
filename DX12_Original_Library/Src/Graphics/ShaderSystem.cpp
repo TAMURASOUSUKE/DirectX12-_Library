@@ -889,7 +889,11 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	RootSignatureDesc postEffectDesc{};
 	postEffectDesc.rootSignatureID = RootSigID::PostEffect;
 	postEffectDesc.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_PIXEL)); // シーンRTのSRVをt0としてピクセルシェーダーから読む
-	postEffectDesc.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_ALL)); // ユーザーが定義した定数バッファを受け取る。(将来VSからも見えるようにする可能性があるのでAllにする)
+	for (UINT i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
+	{
+		// RootParam[1]-[4]へmaterial slot0-3を追加する
+		postEffectDesc.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL));  // ユーザーが定義した定数バッファを受け取る。(将来VSからも見えるようにする可能性があるのでAllにする)
+	}
 	D3D12_STATIC_SAMPLER_DESC sampler{MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL)};
 	// 画面端で反対側のピクセルを拾わないようにClampする
 	sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
