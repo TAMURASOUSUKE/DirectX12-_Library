@@ -1,4 +1,6 @@
 ﻿#include <cstdint>
+#include <limits>
+#include <cstring>
 #include "../Debug/DebugLogs.h"
 #include "GraphicsConstant.h"
 #include "GraphicsDevice.h"
@@ -17,10 +19,10 @@ void RingConstantBuffer::Initialize(UINT _dataSize, UINT _maxUpadatePerFrame)
 	maxUpdatesPerFrame = _maxUpadatePerFrame;
 
 	// バックバッファごとに独立した領域を用意する
-	const UINT totalSize{ static_cast<UINT>(FRAME_BUFFER_COUNT) * maxUpdatesPerFrame * alignedSize };
+	const UINT64 totalSize{ static_cast<UINT64>(FRAME_BUFFER_COUNT) * static_cast<UINT64>(maxUpdatesPerFrame) * static_cast<UINT64>(alignedSize) };
 
 	// CreateDynamicBufferがUINTを受け取るための範囲設定
-	if (totalSize > UINT_MAX)
+	if (totalSize > static_cast<UINT64>((std::numeric_limits<UINT>::max)()))
 	{
 		DEBUG_LOG_ERROR("RingConstantBufferの確保サイズがUINT上限を超えています\n");
 		alignedSize = 0;
@@ -28,10 +30,10 @@ void RingConstantBuffer::Initialize(UINT _dataSize, UINT _maxUpadatePerFrame)
 		return;
 	}
 
-	DynamicBuffer db{ GraphicsResourceManager::Instance().CreateDynamicBuffer(FRAME_BUFFER_COUNT * MAX_CB_PER_FRAME * alignedSize) }; // 動的なバッファ確保
-	if (!db.mappedPtr)
+	DynamicBuffer db{ GraphicsResourceManager::Instance().CreateDynamicBuffer(static_cast<UINT>(totalSize)) }; // 動的なバッファ確保
+	if (!db.mappedPtr || !db.resource)
 	{
-		DEBUG_LOG_ERROR("MapされたCPUPtrがnullで失敗しました\n");
+		DEBUG_LOG_ERROR("RingConstantBufferの作成に失敗しました\n");
 		return; // mapされたCPUptrを確認してnullであれば失敗判定
 	}
 
