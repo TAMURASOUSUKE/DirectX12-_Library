@@ -405,14 +405,20 @@ struct ShaderSlot
 	uint32_t generation{ 0 }; // 世代
 };
 
+// Materialユーザーパラメータの1Slot分
+struct MaterialParameterBlock
+{
+	std::array<std::byte, MAX_MATERIAL_PARAMETER_SIZE> parameterData{}; // SetMaterialParameterで設定されたCPU側のパラメータ保管庫GPUへ送るまではここで保持
+	size_t parameterSize{ 0 }; // ユーザーが渡した実際のデータサイズ
+	bool hasParameter{ false }; // 一度でもパラメータが設定されたか
+	std::array<MaterialParameterBlock, MATERIAL_PARAMETER_SLOT_COUNT> parameters{}; // slot0-3のユーザーパラメータ
+};
+
 // material一つ分の実データ
 struct MaterialData
 {
 	ShaderUsage usage{ ShaderUsage::PostEffect }; // Shaderがどの描画カテゴリだったか
 	ComPtr<ID3D12PipelineState> pipelineState{}; // Shaderと用途ごとのPSO設定から生成したもの
-	std::array<std::byte, MAX_MATERIAL_PARAMETER_SIZE> parameterData{}; // SetMaterialParameterで設定されたCPU側のパラメータ保管庫GPUへ送るまではここで保持
-	size_t parameterSize{ 0 }; // ユーザーが渡した実際のデータサイズ
-	bool hasParameter{ false }; // 一度でもパラメータが設定されたか
 };
 
 // materialを管理するスロット

@@ -689,7 +689,7 @@ bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, const void* _d
 		DEBUG_LOG_ERROR("現在対応しているのはPostEffectのみです\n");
 		return false;
 	}
-	resourceManager.SetMaterialParameter(_handle, _data, _dataSize);
+	return resourceManager.SetMaterialParameter(_handle, _data, _dataSize);
 }
 
 

@@ -21,3 +21,5 @@ constexpr size_t MAX_RENDER_TARGET_COUNT{ 16 }; // 登録できるRenderTarget�
 constexpr size_t MAX_CUSTOM_SHADER_COUNT{ 64 }; // 登録できるShaderの最大数
 constexpr size_t MAX_MATERIAL_COUNT{ 64 }; // 登録できるmaterialの最大数
 constexpr size_t MAX_MATERIAL_PARAMETER_SIZE{ 256 }; // materialへ設定できるパラメータの最大サイズ(GPUへ送る際は1スライス256byteとして扱う)
+constexpr size_t MATERIAL_PARAMETER_SLOT_COUNT{ 4 }; // materialが保持できるユーザーパラメータスロット数
+constexpr UINT MATERIAL_PARAMETER_REGISTER_BASE{ 4 }; // ユーザーパラメータが使用するHLSL側の先頭レジスタslot0 = b4, slot1 = b5...となる

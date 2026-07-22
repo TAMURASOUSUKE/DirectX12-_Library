@@ -1259,7 +1259,7 @@ bool GraphicsResourceManager::SetMaterialParameter(MaterialHandle _handle, const
 		DEBUG_LOG_ERROR("MaterialParameterのdataがnullです\n");
 		return false;
 	}
-	if (_dataSize <= 0 || _dataSize > MAX_MATERIAL_PARAMETER_SIZE)
+	if (_dataSize == 0 || _dataSize > MAX_MATERIAL_PARAMETER_SIZE)
 	{
 		DEBUG_LOG_ERROR("MaterialParameterのデータサイズが不正です\n");
 		return false;

@@ -2,7 +2,13 @@
 #include <string> // テスト用
 #include <algorithm>
 #include "../Src/Graphics/GraphicsType.h" // デバッグ用に一時的に
-#include "DescriptorManager.h" // Allocator関数を呼び出しメモリ確保できるかのテスト
+
+// テスト用として渡す定数バッファ
+struct GrayScaleParameter
+{
+	float strength{ 1.0f };
+	float padding[3]{}; // 16byteに合うように対策
+};
 
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
@@ -12,12 +18,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	if (!TSLib::Initialize(L"GraphicsTest", 1280, 720)) return -1;
 	Time::SetTargetFPS(0);
 
-
-
 	// ハンドルの取得
 	// PostEffect
 	ShaderHandle grayScalePS{ Gfx::LoadShader(L"Shaders/GrayScalePS.hlsl", ShaderUsage::PostEffect, ShaderStage::Pixel) };
 	MaterialHandle grayScaleMaterial{ Gfx::CreateMaterial(grayScalePS) };
+	GrayScaleParameter grayScaleParam{};
 
 	// SpriteShader
 	ShaderHandle inverseSpritePS{ Gfx::LoadShader(L"Shaders/InverseSpritePS.hlsl", ShaderUsage::Sprite, ShaderStage::Pixel)};
@@ -112,8 +117,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		else debugColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 		// PostEffect操作
-		if(Input::IsKeyPushed(KeyCode::Button::D4)) Gfx::SetPostEffect(grayScaleMaterial); // グレースケール変更
-		if (Input::IsKeyPushed(KeyCode::Button::D5)) Gfx::SetPostEffect({}); // 内蔵へ戻す
+		float rate{ 0.5f }; // パラメータを動かす速度
+		if(Input::IsKeyPushed(KeyCode::Button::D5)) Gfx::SetPostEffect(grayScaleMaterial); // グレースケール変更
+		if (Input::IsKeyPushed(KeyCode::Button::D4)) Gfx::SetPostEffect({}); // 内蔵へ戻す
+		if (Input::IsKeyPress(KeyCode::Button::D6)) grayScaleParam.strength -= rate * Time::UnscaledDeltaTime();
+		if (Input::IsKeyPress(KeyCode::Button::D7)) grayScaleParam.strength += rate * Time::UnscaledDeltaTime();
+		std::clamp(grayScaleParam.strength, 0.0f, 1.0f);
+		Gfx::SetMaterialParameter(grayScaleMaterial, grayScaleParam);
 
 		// FPS操作
 		if (Input::IsKeyPushed(KeyCode::Button::D3)) Time::SetTargetFPS(30); // 30FPS
@@ -162,7 +172,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawBox(testRect01.GetMinPos(), testRect01.GetMaxPos());
 		Gfx::DrawBox(testRect02.GetMinPos(), testRect02.GetMaxPos(), 0.0f, debugColor);
-		Gfx::DrawString(fpsValue.c_str(), {0.0f, 0.0f}, 1.0f, { 1.0f, 0.0f, 0.0f, 1.0f });
+		Gfx::DrawString(fpsValue.c_str(), {0.0f, 0.0f});
 		Gfx::DrawString(targetFPS.c_str(), {0.0f, 30.0f});
 		Gfx::DrawString(unscaledDeltaTime.c_str(), {0.0f, 60.0f});
 		Gfx::DrawString(deltaTime.c_str(), {0.0f, 90.0f});
