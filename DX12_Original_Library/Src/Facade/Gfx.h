@@ -1,4 +1,7 @@
 ﻿#pragma once
+#include <cstddef>
+#include <memory>
+#include <type_traits>
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
 #include "../Core/Handle/ShaderHandle.h"
@@ -11,6 +14,14 @@
 // グラフィックスに関する機能をユーザーに簡易的に提供するためのファイル
 namespace Gfx 
 {
+
+	// ユーザーが触ってはならない空間を名前で知らせる
+	namespace Detail
+	{
+		// テンプレートから呼び出される内部実装
+		bool SetMaterialParameterRaw(MaterialHandle _handle, const void* _data, size_t _dataSize);
+	}
+
 	// フォントアトラスの設定構造体(デフォルトでフォントを用意しているが変更したい時にここを設定してもらう)
 	struct BitmapFont
 	{
@@ -77,4 +88,25 @@ namespace Gfx
 	void Unload(ShaderHandle _handle);
 	// Materialリソースの解放
 	void Unload(MaterialHandle _handle);
+	/// <summary>
+	/// 任意のマテリアルに対してパラメータを設定する
+	/// </summary>
+	/// <typeparam name="T">ユーザーが作成したパラメータとなるテンプレート</typeparam>
+	/// <param name="_handle">設定したいmaterial</param>
+	/// <param name="_parameter">定数バッファとして渡るパラメータ。任意の構造体を作り16byte区切りでパラメータを設定して下さい。HLSL側と作成したパラメータの並び順をそろえてください。ポインタやvector,string等は渡さないでください。</param>
+	/// <returns>設定が成功したかどうか</returns>
+	template<typename T>
+	bool SetMaterialParameter(MaterialHandle _handle, const T& _parameter)
+	{
+		using ParameterType = std::remove_cv_t<std::remove_reference_t<T>>;
+		// vector,stringなどmemcpyだけでは複製できない型を禁止する
+		static_assert(std::is_trivially_copyable_v<ParameterType>, "MaterialParameterには単純コピー可能な型を使用してください");
+		// 不規則なオブジェクトレイアウトを避ける
+		static_assert(std::is_standard_layout_v<ParameterType>, "MaterialParamterには標準レイアウト型を渡してください\n");
+		// float*などのポインタそのものを渡す誤用を防ぐ
+		static_assert(std::is_pointer_v<ParameterType>, "MaterialParameterにポインタは使用できません\n");
+		// RingConstantBufferの1スライスに収まるかコンパイル時に確認する
+		static_assert(sizeof(ParameterType) <= MAX_MATERIAL_PARAMETER_SIZE, "MaterialParameterサイズが上限を超えています\n");
+		return Detail::SetMaterialParameterRaw(_handle, static_cast<const void*>(_parameter), sizeof(_parameter));
+	}
 }

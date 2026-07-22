@@ -673,6 +673,26 @@ void GfxInternal::Finish()
 	GraphicsDevice::Instance().Shutdown(); // Deviceの解放
 }
 
+bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, const void* _data, size_t _dataSize)
+{
+	GraphicsResourceManager& resourceManager{ GraphicsResourceManager::Instance() };
+	MaterialData* material { resourceManager.Lookup(_handle) };
+	if (!material)
+	{
+		DEBUG_LOG_ERROR("SetMaterialParameterに無効なMaterialHandleが渡されました\n");
+		return false;
+	}
+	// 現段階では対応しているのはPostEffectだけ
+	// Sprite対応時にはこの制限を解除する
+	if (material->usage != ShaderUsage::PostEffect)
+	{
+		DEBUG_LOG_ERROR("現在対応しているのはPostEffectのみです\n");
+		return false;
+	}
+	resourceManager.SetMaterialParameter(_handle, _data, _dataSize);
+}
+
+
 // 描画先をクリアする(色指定可能)
 void Gfx::ClearScreen(float _r, float _g, float _b, float _a)
 {

@@ -20,3 +20,4 @@ constexpr UINT INVALID_INDEX{ UINT_MAX }; // Descriptorハンドルのindex無�
 constexpr size_t MAX_RENDER_TARGET_COUNT{ 16 }; // 登録できるRenderTargetの最大数
 constexpr size_t MAX_CUSTOM_SHADER_COUNT{ 64 }; // 登録できるShaderの最大数
 constexpr size_t MAX_MATERIAL_COUNT{ 64 }; // 登録できるmaterialの最大数
+constexpr size_t MAX_MATERIAL_PARAMETER_SIZE{ 256 }; // materialへ設定できるパラメータの最大サイズ(GPUへ送る際は1スライス256byteとして扱う)

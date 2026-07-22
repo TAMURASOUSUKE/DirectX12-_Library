@@ -2,6 +2,8 @@
 #include <d3d12.h>
 #include <wrl/client.h>
 #include <vector>
+#include <array>
+#include <cstddef>
 #include "../Math/TSMath.h"
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
@@ -408,6 +410,9 @@ struct MaterialData
 {
 	ShaderUsage usage{ ShaderUsage::PostEffect }; // Shaderがどの描画カテゴリだったか
 	ComPtr<ID3D12PipelineState> pipelineState{}; // Shaderと用途ごとのPSO設定から生成したもの
+	std::array<std::byte, MAX_MATERIAL_PARAMETER_SIZE> parameterData{}; // SetMaterialParameterで設定されたCPU側のパラメータ保管庫GPUへ送るまではここで保持
+	size_t parameterSize{ 0 }; // ユーザーが渡した実際のデータサイズ
+	bool hasParameter{ false }; // 一度でもパラメータが設定されたか
 };
 
 // materialを管理するスロット

@@ -1,6 +1,7 @@
 ﻿#define INITGUID
 #include <algorithm>
 #include <filesystem>
+#include <cstring>
 #include "../External/Common/d3dx12.h"
 #include "../External/DirectXTex/DirectXTex.h"
 #include "../External/cgltf.h"
@@ -1243,6 +1244,34 @@ MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, C
 
 	int packed{ Pack(index, materialSlots[index].generation) };
 	return MaterialHandle{ PassKey{}, packed };
+}
+
+bool GraphicsResourceManager::SetMaterialParameter(MaterialHandle _handle, const void* _data, size_t _dataSize)
+{
+	MaterialData* material{ Lookup(_handle) };
+	if (!material)
+	{
+		DEBUG_LOG_ERROR("SetMaterialParameterに無効なハンドルが渡されました\n");
+		return false;
+	}
+	if (!_data)
+	{
+		DEBUG_LOG_ERROR("MaterialParameterのdataがnullです\n");
+		return false;
+	}
+	if (_dataSize <= 0 || _dataSize > MAX_MATERIAL_PARAMETER_SIZE)
+	{
+		DEBUG_LOG_ERROR("MaterialParameterのデータサイズが不正です\n");
+		return false;
+	}
+
+	// 前回より小さいデータを設定した場合でも古い値が後方に残らないように全領域をクリアする
+	material->parameterData.fill(std::byte{ 0 });
+	// ユーザーの構造体をMaterialのCPU保管庫へコピーする
+	std::memcpy(material->parameterData.data(), _data, _dataSize);
+	material->parameterSize = _dataSize;
+	material->hasParameter = true; // 構造体を設定したのでtrue
+	return true;
 }
 
 void GraphicsResourceManager::Unload(TexHandle _handle)
