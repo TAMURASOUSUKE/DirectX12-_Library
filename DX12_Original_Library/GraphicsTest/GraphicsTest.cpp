@@ -10,7 +10,7 @@ struct GrayScaleParameter
 	float padding[3]{}; // 16byteに合うように対策
 };
 
-// 色の補正を掛けるCB
+// 色の補正を掛けるCB(複数のパラメータを渡せるかのテスト)
 struct ColorOffsetParameter
 {
 	float red{ 0.0f };
@@ -118,9 +118,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPushed(KeyCode::Button::D4)) Gfx::SetPostEffect({}); // 内蔵へ戻す
 		if (Input::IsKeyPress(KeyCode::Button::D7)) grayScaleParam.strength -= rate * Time::UnscaledDeltaTime();
 		if (Input::IsKeyPress(KeyCode::Button::D8)) grayScaleParam.strength += rate * Time::UnscaledDeltaTime();
-		if (Input::IsKeyPress(KeyCode::Button::R)) colorOffsetParam.red = 0.5f + 0.5f * std::sinf(time);
-		if (Input::IsKeyPress(KeyCode::Button::G)) colorOffsetParam.green = 0.5f + 0.5f * std::sinf(time);
-		if (Input::IsKeyPress(KeyCode::Button::B)) colorOffsetParam.blue = 0.5f + 0.5f * std::sinf(time);
+		if (Input::IsKeyPress(KeyCode::Button::R)) colorOffsetParam.red = 0.5f - 0.5f * std::sinf(time);
+		if (Input::IsKeyPress(KeyCode::Button::G)) colorOffsetParam.green = 0.5f - 0.5f * std::sinf(time);
+		if (Input::IsKeyPress(KeyCode::Button::B)) colorOffsetParam.blue = 0.5f - 0.5f * std::sinf(time);
 		grayScaleParam.strength = std::clamp(grayScaleParam.strength, 0.0f, 1.0f);
 		Gfx::SetMaterialParameter(grayScaleMaterial, grayScaleParam);
 		Gfx::SetMaterialParameter(grayScaleMaterial, 1, colorOffsetParam);

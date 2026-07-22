@@ -413,12 +413,13 @@ struct MaterialParameterBlock
 	bool hasParameter{ false }; // 一度でもパラメータが設定されたか
 };
 
+using MaterialParameterSet = std::array<MaterialParameterBlock, MATERIAL_PARAMETER_SLOT_COUNT>;
 // material一つ分の実データ
 struct MaterialData
 {
 	ShaderUsage usage{ ShaderUsage::PostEffect }; // Shaderがどの描画カテゴリだったか
 	ComPtr<ID3D12PipelineState> pipelineState{}; // Shaderと用途ごとのPSO設定から生成したもの
-	std::array<MaterialParameterBlock, MATERIAL_PARAMETER_SLOT_COUNT> parameters{}; // slot0-3のユーザーパラメータ
+	MaterialParameterSet parameters{}; // slot0-3のユーザーパラメータ
 };
 
 // materialを管理するスロット

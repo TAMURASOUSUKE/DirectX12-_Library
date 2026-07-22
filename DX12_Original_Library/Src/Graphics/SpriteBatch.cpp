@@ -7,6 +7,26 @@
 #include "GraphicsResourceManager.h"
 #include "SpriteBatch.h"
 
+namespace
+{
+	// 2つのMaterialパラメータ集合が同じGPUデータか調べるヘルパー
+	bool IsSameMaterialParameters(const MaterialParameterSet& _lhs, const MaterialParameterSet& _rhs)
+	{
+		for (size_t i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
+		{
+			const MaterialParameterBlock& lhs{ _lhs[i] };
+			const MaterialParameterBlock& rhs{ _rhs[i] };
+
+			if (lhs.hasParameter != rhs.hasParameter) return false; // フラグはあっているか(設定状態化未設定か)
+			if (lhs.parameterSize != rhs.parameterSize) return false; // サイズは一致しているか
+			if (!lhs.hasParameter) continue; // 両方未設定ならこのスロットの中身を見る必要はないのでスキップ
+			if (lhs.parameterData != rhs.parameterData) return false;
+		}
+		return true;
+	}
+}
+
+
 void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _pipelineState, ID3D12Resource* _gpuVirtualAddres)
 {
 	DEBUG_ASSERT(_rootSig != nullptr && _pipelineState != nullptr && _gpuVirtualAddres != nullptr);
@@ -54,7 +74,7 @@ void SpriteBatch::Shutdown()
 	gpuVirtualAddres = nullptr;
 }
 
-void SpriteBatch::RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipelineState, Vector2 _position, Vector2 _size, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax)
+void SpriteBatch::RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipelineState, const MaterialParameterSet* _parameters, Vector2 _position, Vector2 _size, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax)
 {
 	if (!_handle.IsValid())
 	{
@@ -106,34 +126,49 @@ void SpriteBatch::RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipeli
 
 	// 今描画しているBackBufferと同じ番号の頂点バッファへ書き込む
 	const UINT frameIndex{ GraphicsDevice::Instance().GetCurrentFrameIndex() };
-	const float color[4]{ _color.x, _color.y, _color.z, _color.w }; // 色をfloatに
+	const float COLOR[4]{ _color.x, _color.y, _color.z, _color.w }; // 色をfloatに
 	SpriteVertex* vertices{ static_cast<SpriteVertex*>(vertBuffers[frameIndex].mappedPtr)}; // マップされたポインタにアクセスするためにキャスト
 	
 	// UV空間をハードコーディングするのではなく引数から受け取る形に変更
-	vertices[spriteCounter * 4 + 0] = { {leftTop.x, leftTop.y, 0.0f}, {_uvMin.x, _uvMin.y}, { color[0], color[1], color[2], color[3] } }; // 左上
-	vertices[spriteCounter * 4 + 1] = { {rightTop.x, rightTop.y, 0.0f}, {_uvMax.x, _uvMin.y}, { color[0], color[1], color[2], color[3] } }; // 右上
-	vertices[spriteCounter * 4 + 2] = { {rightBottom.x, rightBottom.y, 0.0f}, {_uvMax.x, _uvMax.y}, { color[0], color[1], color[2], color[3] } }; // 右下
-	vertices[spriteCounter * 4 + 3] = { {leftBottom.x, leftBottom.y, 0.0f}, {_uvMin.x, _uvMax.y}, { color[0], color[1], color[2], color[3] } }; // 左下
+	vertices[spriteCounter * 4 + 0] = { {leftTop.x, leftTop.y, 0.0f}, {_uvMin.x, _uvMin.y}, { COLOR[0], COLOR[1], COLOR[2], COLOR[3] } }; // 左上
+	vertices[spriteCounter * 4 + 1] = { {rightTop.x, rightTop.y, 0.0f}, {_uvMax.x, _uvMin.y}, { COLOR[0], COLOR[1], COLOR[2], COLOR[3] } }; // 右上
+	vertices[spriteCounter * 4 + 2] = { {rightBottom.x, rightBottom.y, 0.0f}, {_uvMax.x, _uvMax.y}, { COLOR[0], COLOR[1], COLOR[2], COLOR[3] } }; // 右下
+	vertices[spriteCounter * 4 + 3] = { {leftBottom.x, leftBottom.y, 0.0f}, {_uvMin.x, _uvMax.y}, { COLOR[0], COLOR[1], COLOR[2], COLOR[3] } }; // 左下
+
+	// 内蔵のSpriteなどのMaterialを使わない空の場合のデータ
+	static const MaterialParameterSet EMPTY_PARAMETERS{};
+	const MaterialParameterSet& useParameters{ _parameters ? *_parameters : EMPTY_PARAMETERS };
 
 	// run(描画順)を管理する
-	if (runs.empty() || runs.back().tex != _handle || runs.back().pipelineState != _pipelineState)
+	// 空、一つ前とハンドルが違う、一つ前とPSOが違う、一つ前とパラメータが違う条件で新しく描画区間を作る
+	if (runs.empty() || runs.back().tex != _handle || runs.back().pipelineState != _pipelineState || !IsSameMaterialParameters(runs.back().parameters, useParameters))
 	{
-		// 配列が空もしくは一番最後のハンドルが登録しようとしているハンドルと異なるもしくはパイプラインステートがことなるなら新しい描画区間となる
-		runs.push_back({_handle, _pipelineState,spriteCounter, 1});
+		SpriteDrawRun run{};
+		run.tex = _handle;
+		run.pipelineState = _pipelineState;
+		run.parameters = useParameters; // この時点の値をコピー
+		run.startSprite = spriteCounter;
+		run.count = 1;
+		runs.push_back(std::move(run));
 	}
 	else
 	{
-		// 同一テクスチャ同一PSOなら同じドローコールへ
+		// 同一テクスチャ同一PSO同一パラメータなら同じドローコールへ
 		runs.back().count++;
 	}
 
 	spriteCounter++; // カウンターを増加する
 }
 
-void SpriteBatch::Flush()
+void SpriteBatch::Flush(RingConstantBuffer& _parameterRing, ID3D12Resource* _zeroParameterBuffer)
 {
 	if (runs.empty()) return; // 何もなければパイプライン設定などもせずに即return
-
+	if (!_zeroParameterBuffer)
+	{
+		DEBUG_LOG_ERROR("SpriteBatchへ渡されたゼロダミーCBがnullです\n");
+		runs.clear();
+		return;
+	}
 	auto* cmd{GraphicsDevice::Instance().GetCommandList()}; // コマンドリストをキャッシュ
 	// 今描画しているBackBufferと同じ番号の頂点バッファへ書き込む
 	const UINT frameIndex{ GraphicsDevice::Instance().GetCurrentFrameIndex() };
@@ -165,6 +200,31 @@ void SpriteBatch::Flush()
 		if (!run.pipelineState) continue;
 		cmd->SetPipelineState(run.pipelineState); // この区間で使用する外部または内部PSO
 		cmd->SetGraphicsRootDescriptorTable(0, data->srvHandle.gpu); // ルートシグネチャの0番にテクスチャのGPUハンドルをセット
+		
+		constexpr UINT SPRITE_MATERIAL_ROOT_PARAM_BASE{ 2 }; // MaterialslotはRootParam[2]から始まる
+		const D3D12_GPU_VIRTUAL_ADDRESS zeroParamterAddress{_zeroParameterBuffer->GetGPUVirtualAddress()};
+		
+		for (size_t i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
+		{
+			// 未設定の場合はゼロダミーCBを使用する
+			D3D12_GPU_VIRTUAL_ADDRESS parameterAddress{ zeroParamterAddress };
+			const MaterialParameterBlock& parameter{ run.parameters[i] };
+			if (parameter.hasParameter)
+			{
+				// DrawSprite登録時に保存したスナップショットを送信する
+				const D3D12_GPU_VIRTUAL_ADDRESS updatedAddress{ _parameterRing.Update(parameter.parameterData.data(), static_cast<UINT>(parameter.parameterSize)) };
+				if (updatedAddress != 0)
+				{
+					parameterAddress = updatedAddress;
+				}
+				else
+				{
+					// Ring上限超過時も不正アドレスを設定しない
+					DEBUG_LOG_ERROR("Sprite MaterialParameterのGPU転送に失敗しました slot = {}\n", i);
+				}
+			}
+			cmd->SetGraphicsRootConstantBufferView(SPRITE_MATERIAL_ROOT_PARAM_BASE + static_cast<UINT>(i), parameterAddress);
+		}
 		cmd->DrawIndexedInstanced(run.count * 6, 1, 0, run.startSprite * 4, 0); // 区間情報から描画位置を特定して描画する(読むインデックスの数,  開始位置)
 	}
 

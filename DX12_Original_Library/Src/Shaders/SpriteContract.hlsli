@@ -6,6 +6,10 @@
 // ライブラリ側の行列規約に合わせる
 #pragma pack_matrix(row_major)
 
+// register(b4)～register(b7)は、
+// SetMaterialParameterのSlot0～3として予約されています。
+// 外部Spriteシェーダー側で必要なcbufferを宣言してください。
+
 // Spriteの頂点座標をNDCへ変換する正射影行列
 // RootSignatureではVSだけから参照可能
 cbuffer SpriteTransformCB : register(b0)

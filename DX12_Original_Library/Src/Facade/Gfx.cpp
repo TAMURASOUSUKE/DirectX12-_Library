@@ -563,12 +563,12 @@ void GfxInternal::EndFrame()
 	// Spritebatch描画
 	{
 		GPU_MARKER("backGround");
-		bgBatch.Flush();
+		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
 	}
 
 	{
 		GPU_MARKER("foreGround");
-		fgBatch.Flush();
+		fgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
 	}
 	// ShapeBatch描画
 	{
@@ -734,13 +734,20 @@ bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, size_t _slot, 
 		DEBUG_LOG_ERROR("SetMaterialParameterに無効なMaterialHandleが渡されました\n");
 		return false;
 	}
-	// 現段階では対応しているのはPostEffectだけ
-	// Sprite対応時にはこの制限を解除する
-	if (material->usage != ShaderUsage::PostEffect)
+
+	switch (material->usage)
 	{
-		DEBUG_LOG_ERROR("現在対応しているのはPostEffectのみです\n");
+	case ShaderUsage::PostEffect:
+	case ShaderUsage::Sprite:
+		break; // GPUへの配達に対応している
+	case ShaderUsage::Model:
+		DEBUG_LOG_ERROR("Model用MaterialParameterはまだ対応していません\n");
+		return false;
+	default:
+		DEBUG_LOG_ERROR("不明なShaderUsageです\n");
 		return false;
 	}
+
 	return resourceManager.SetMaterialParameter(_handle, _slot, _data, _dataSize);
 }
 
@@ -980,6 +987,7 @@ void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float
 void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, MaterialHandle _material, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)
 {
 	ID3D12PipelineState* usePipeline{ shaderSystem.GetPipeline(PipelineID::Sprite) }; // 最初は内蔵SpritePSO
+	const MaterialParameterSet* useParameters{ nullptr }; // 内蔵Spriteならnull
 	// 外部materialが指定されている場合
 	if (_material.IsValid())
 	{
@@ -1000,16 +1008,18 @@ void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, Mater
 		{
 			// 有効なSpriteMaterialなら外部PSOへ差し替える
 			usePipeline = material->pipelineState.Get();
+			// RegisterSprite内で値をコピーするためフレーム中は保持しない
+			useParameters = &material->parameters;
 		}
 	}
 
 	switch (_layer)
 	{
 	case LenderLayer::BackGround:
-		bgBatch.RegisterSprite(_texture, usePipeline,_position, _size, _radRotation, _color, _uvMin, _uvMax);
+		bgBatch.RegisterSprite(_texture, usePipeline, useParameters, _position, _size, _radRotation, _color, _uvMin, _uvMax);
 		break;
 	case LenderLayer::ForeGround:
-		fgBatch.RegisterSprite(_texture, usePipeline,  _position, _size, _radRotation, _color, _uvMin, _uvMax);
+		fgBatch.RegisterSprite(_texture, usePipeline, useParameters, _position, _size, _radRotation, _color, _uvMin, _uvMax);
 		break;
 	default:
 		break;
@@ -1021,7 +1031,7 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* 
 	{
 		// マクロがスコープを抜けるとEndEventするので囲う
 		GPU_MARKER("backGround");
-		bgBatch.Flush(); // 背景の上に来るように3D描画前には背景batchをFlushする
+		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get()); // 背景の上に来るように3D描画前には背景batchをFlushする
 	}
 
 	// モデルの状況によって分ける
@@ -1041,7 +1051,7 @@ void Gfx::DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float 
 	{
 		// マクロがスコープを抜けるとEndEventするので囲う
 		GPU_MARKER("backGround");
-		bgBatch.Flush(); // 背景の上に来るように3D描画前には背景batchをFlushする
+		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get()); // 背景の上に来るように3D描画前には背景batchをFlushする
 	}
 
 	DrawTerrainInternal(_position, _scale, _tessFactor, _heightScale, _color, _heightMap);
