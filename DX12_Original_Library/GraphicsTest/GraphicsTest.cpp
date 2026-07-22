@@ -2,7 +2,46 @@
 #include <string> // テスト用
 #include <algorithm>
 #include "../Src/Graphics/GraphicsType.h" // デバッグ用に一時的に
-#include "DescriptorManager.h" // Allocator関数を呼び出しメモリ確保できるかのテスト
+
+// テスト用として渡す定数バッファ
+struct GrayScaleParameter
+{
+	float strength{ 1.0f };
+	float padding[3]{}; // 16byteに合うように対策
+};
+
+// 色の補正を掛けるCB(複数のパラメータを渡せるかのテスト)
+struct ColorOffsetParameter
+{
+	float red{ 0.0f };
+	float green{ 0.0f };
+	float blue{ 0.0f };
+	float padding{ 0.0f };
+};
+
+// Sprite外部テスト
+struct InverseParameter
+{
+	float strength{ 0.0f };
+	float padding[3]{};
+};
+
+// Spriteが複数のパラメータの影響を受けることができるかのテスト
+struct GlitchParameter
+{
+	float time{ 0.0f };
+	float strength{ 1.0f };
+	float chromaticOffset{ 0.008f };
+	float scanlineCount{ 80.0f };
+};
+
+struct GlitchColorParameter
+{
+	float red{ 0.0f };
+	float green{ 1.0f };
+	float blue{ 1.0f };
+	float amount{ 0.35f };
+};
 
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
@@ -12,32 +51,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	if (!TSLib::Initialize(L"GraphicsTest", 1280, 720)) return -1;
 	Time::SetTargetFPS(0);
 
-
-
 	// ハンドルの取得
 	// PostEffect
 	ShaderHandle grayScalePS{ Gfx::LoadShader(L"Shaders/GrayScalePS.hlsl", ShaderUsage::PostEffect, ShaderStage::Pixel) };
 	MaterialHandle grayScaleMaterial{ Gfx::CreateMaterial(grayScalePS) };
+	GrayScaleParameter grayScaleParam{};
+	ColorOffsetParameter colorOffsetParam{};
 
 	// SpriteShader
 	ShaderHandle inverseSpritePS{ Gfx::LoadShader(L"Shaders/InverseSpritePS.hlsl", ShaderUsage::Sprite, ShaderStage::Pixel)};
-	if (inverseSpritePS.IsValid())
-	{
-		DEBUG_LOG("[PASS] Sprite用外部PSの読み込みに成功しました\n");
-	}
-	else
-	{
-		DEBUG_LOG("[FAIL] Sprite用外部PSの読み込みに失敗しました\n");
-	}
 	MaterialHandle inverseSpriteMaterial{ Gfx::CreateMaterial(inverseSpritePS) };
-	if (inverseSpriteMaterial.IsValid())
-	{
-		DEBUG_LOG("[PASS] Sprite用Materialの作成に成功しました\n");
-	}
-	else
-	{
-		DEBUG_LOG("[FAIL] Sprite用Materialの作成に失敗しました\n");
-	}
+	InverseParameter inverseParam{};
+	ShaderHandle glitchPS{ Gfx::LoadShader(L"Shaders/GlitchSpritePS.hlsl", ShaderUsage::Sprite, ShaderStage::Pixel) };
+	MaterialHandle glitchMaterial{ Gfx::CreateMaterial(glitchPS) };
+	GlitchParameter glitch{};
+	GlitchColorParameter glitchColor{};
+	Gfx::SetMaterialParameter(glitchMaterial, 1, glitchColor);
 	//Gfx::Unload(inverseSpriteMaterial);
 	//inverseSpriteMaterial = {};
 
@@ -54,7 +83,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	ModelHandle testPlayer{ Gfx::LoadModel("Res/TestPlayer.glb") }; // Playerモデルのロード
 	AnimInstanceData debugAnim{}; // アニメーション用のデータ
 	debugAnim.handle = testModel;
-	Vector2 playerPos{ 100.0f, 100.0f };
+	Vector2 enemyPos{ 100.0f, 100.0f };
 
 	Transform cubeTransform{};
 	Transform cubeTransform02{};
@@ -78,10 +107,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// タイムスケール
 	float timeScale{ 1.0f };
 	float time{ 0.0f };
+
+	// ゲームループ
 	while (TSLib::ProcessMessage())
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 		time += Time::DeltaTime();
+		glitch.time += Time::DeltaTime();
 
 		// アニメーションテスト
 		debugAnim.currentTime += Time::DeltaTime(); // 時刻を進める
@@ -105,15 +137,34 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPress(KeyCode::Button::D)) dir.x += 1.0f;
 		dir.Normalize();
 
-		float moveSpeed{ 80.0f }; // 1秒間に移動するピクセル
+		float moveSpeed{ 300.0f }; // 1秒間に移動するピクセル
 		testRect01.position += dir * moveSpeed * Time::DeltaTime();
+		// シェーダーを掛けたSpriteの挙動も見たのでそっちも動かす
+		enemyPos += dir * moveSpeed * Time::DeltaTime();
 
 		if (Collision::Intersect(testRect01, testRect02)) debugColor = { 1.0f, 0.0f, 0.0f, 1.0f };
 		else debugColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 		// PostEffect操作
-		if(Input::IsKeyPushed(KeyCode::Button::D4)) Gfx::SetPostEffect(grayScaleMaterial); // グレースケール変更
-		if (Input::IsKeyPushed(KeyCode::Button::D5)) Gfx::SetPostEffect({}); // 内蔵へ戻す
+		float rate{ 0.5f }; // パラメータを動かす速度
+		if(Input::IsKeyPushed(KeyCode::Button::D5)) Gfx::SetPostEffect(grayScaleMaterial); // グレースケール変更
+		if (Input::IsKeyPushed(KeyCode::Button::D4)) Gfx::SetPostEffect({}); // 内蔵へ戻す
+		if (Input::IsKeyPress(KeyCode::Button::D7)) grayScaleParam.strength -= rate * Time::UnscaledDeltaTime();
+		if (Input::IsKeyPress(KeyCode::Button::D8)) grayScaleParam.strength += rate * Time::UnscaledDeltaTime();
+		if (Input::IsKeyPress(KeyCode::Button::R)) colorOffsetParam.red = 0.5f - 0.5f * std::sinf(time);
+		if (Input::IsKeyPress(KeyCode::Button::G)) colorOffsetParam.green = 0.5f - 0.5f * std::sinf(time);
+		if (Input::IsKeyPress(KeyCode::Button::B)) colorOffsetParam.blue = 0.5f - 0.5f * std::sinf(time);
+		grayScaleParam.strength = std::clamp(grayScaleParam.strength, 0.0f, 1.0f);
+		Gfx::SetMaterialParameter(grayScaleMaterial, grayScaleParam);
+		Gfx::SetMaterialParameter(grayScaleMaterial, 1, colorOffsetParam);
+
+		// Sprite操作
+		float glitchSpeed{ 3.0f };
+		if (Input::IsKeyPress(KeyCode::Button::D9)) inverseParam.strength = 0.5f + 0.5f * std::sinf(time);
+		if (Input::IsKeyPress(KeyCode::Button::L)) glitch.strength = 1.0f;
+		if (Input::IsKeyPress(KeyCode::Button::J)) glitch.strength = 0.0f;
+		Gfx::SetMaterialParameter(inverseSpriteMaterial, inverseParam);
+		Gfx::SetMaterialParameter(glitchMaterial, 0, glitch);
 
 		// FPS操作
 		if (Input::IsKeyPushed(KeyCode::Button::D3)) Time::SetTargetFPS(30); // 30FPS
@@ -151,9 +202,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawSprite(enemy,{ 500.0f, 300.0f }, { 128.0f, 128.0f }, inverseSpriteMaterial);
 
-		Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, { 176.0f, 88.0f }, inverseSpriteMaterial, 0.0f, { 1.0f, 1.0f, 1.0f, sinf(time) });
+		Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, { 176.0f, 88.0f }, inverseSpriteMaterial, 0.0f, { 1.0f, 1.0f, 1.0f, 0.5f + 0.5f * sinf(time) });
 
 		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, { 128.0f, 128.0f }, 0.0f, { 1.0f, 1.0f, 1.0f, 0.5f });
+
+		Gfx::DrawSprite(enemy, enemyPos, { 128.0f, 128.0f }, glitchMaterial);
 
 		//Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
 		//Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
@@ -162,7 +215,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawBox(testRect01.GetMinPos(), testRect01.GetMaxPos());
 		Gfx::DrawBox(testRect02.GetMinPos(), testRect02.GetMaxPos(), 0.0f, debugColor);
-		Gfx::DrawString(fpsValue.c_str(), {0.0f, 0.0f}, 1.0f, { 1.0f, 0.0f, 0.0f, 1.0f });
+		Gfx::DrawString(fpsValue.c_str(), {0.0f, 0.0f});
 		Gfx::DrawString(targetFPS.c_str(), {0.0f, 30.0f});
 		Gfx::DrawString(unscaledDeltaTime.c_str(), {0.0f, 60.0f});
 		Gfx::DrawString(deltaTime.c_str(), {0.0f, 90.0f});

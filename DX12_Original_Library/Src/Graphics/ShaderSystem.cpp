@@ -855,6 +855,12 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	texture.rootSignatureID = RootSigID::Texture;
 	texture.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_PIXEL)); // rootParamの0番目にはテクスチャ(t0)
 	texture.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // rootParamの1番目には座標変換用(b0)
+	// RootParam[2] - [5] : materailSlot0-3 HLSL側ではb4-b7
+	for (UINT i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
+	{
+		texture.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL));
+	}
+
 	texture.staticSamplers.push_back(MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL)); // staticSampler0番目(s0)
 	descs.push_back(std::move(texture)); // texture変数は使わないのでmoveして空にする(コピーの必要性なし)
 	// ModelRootSignature
@@ -889,6 +895,11 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	RootSignatureDesc postEffectDesc{};
 	postEffectDesc.rootSignatureID = RootSigID::PostEffect;
 	postEffectDesc.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_PIXEL)); // シーンRTのSRVをt0としてピクセルシェーダーから読む
+	for (UINT i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
+	{
+		// RootParam[1]-[4]へmaterial slot0-3を追加する
+		postEffectDesc.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL));  // ユーザーが定義した定数バッファを受け取る。(将来VSからも見えるようにする可能性があるのでAllにする)
+	}
 	D3D12_STATIC_SAMPLER_DESC sampler{MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL)};
 	// 画面端で反対側のピクセルを拾わないようにClampする
 	sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;

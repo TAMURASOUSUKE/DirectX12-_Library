@@ -1,6 +1,7 @@
 ﻿#define INITGUID
 #include <algorithm>
 #include <filesystem>
+#include <cstring>
 #include "../External/Common/d3dx12.h"
 #include "../External/DirectXTex/DirectXTex.h"
 #include "../External/cgltf.h"
@@ -1243,6 +1244,39 @@ MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, C
 
 	int packed{ Pack(index, materialSlots[index].generation) };
 	return MaterialHandle{ PassKey{}, packed };
+}
+
+bool GraphicsResourceManager::SetMaterialParameter(MaterialHandle _handle, size_t _slot, const void* _data, size_t _dataSize)
+{
+	MaterialData* material{ Lookup(_handle) };
+	if (!material)
+	{
+		DEBUG_LOG_ERROR("SetMaterialParameterに無効なハンドルが渡されました\n");
+		return false;
+	}
+	if (!_data)
+	{
+		DEBUG_LOG_ERROR("MaterialParameterのdataがnullです\n");
+		return false;
+	}
+	if (_dataSize == 0 || _dataSize > MAX_MATERIAL_PARAMETER_SIZE)
+	{
+		DEBUG_LOG_ERROR("MaterialParameterのデータサイズが不正です\n");
+		return false;
+	}
+	if (_slot >= MATERIAL_PARAMETER_SLOT_COUNT)
+	{
+		DEBUG_LOG_ERROR("MaterialParameterのスロット番号が範囲外です : Slot = {}\n", _slot);
+		return false;
+	}
+	MaterialParameterBlock& parameter{ material->parameters[_slot] };
+	// 前回より小さいデータを設定した場合でも古い値が後方に残らないように全領域をクリアする
+	parameter.parameterData.fill(std::byte{ 0 });
+	// ユーザーの構造体をMaterialのCPU保管庫へコピーする
+	std::memcpy(parameter.parameterData.data(), _data, _dataSize);
+	parameter.parameterSize = _dataSize;
+	parameter.hasParameter = true; // 構造体を設定したのでtrue
+	return true;
 }
 
 void GraphicsResourceManager::Unload(TexHandle _handle)

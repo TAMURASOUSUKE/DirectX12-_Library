@@ -1,6 +1,10 @@
 #ifndef TS_POST_EFFECT_CONTRACT_HLSLI
 #define TS_POST_EFFECT_CONTRACT_HLSLI
 
+// register(b4)～register(b7)は、
+// SetMaterialParameterのSlot0～3として予約されています。
+// 外部PostEffectシェーダー側で必要なcbufferを宣言してください。
+
 // ポストエフェクト対象となるシーン全体の画像
 Texture2D sceneTexture : register(t0);
 

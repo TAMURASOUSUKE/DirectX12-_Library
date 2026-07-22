@@ -21,5 +21,8 @@
     <FxCompile Include="Shaders\InverseSpritePS.hlsl">
       <Filter>ソース ファイル\Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\GlitchSpritePS.hlsl">
+      <Filter>ソース ファイル\Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
