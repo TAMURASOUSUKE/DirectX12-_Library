@@ -457,7 +457,7 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	mvpRingCBV.Initialize(sizeof(Mat4x4)); // リングバッファ初期化
 	materialRingCBV.Initialize(sizeof(MaterialCB));  // materialのリング定数バッファを初期化
 	skinningRingCBV.Initialize(sizeof(Mat4x4) * MAX_BONE_NUM); // ボーン用の定数バッファを更新
-	userMaterialParameterRingCBV.Initialize(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE)); // 1スライス最大256byte
+	userMaterialParameterRingCBV.Initialize(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE), static_cast<UINT>(MAX_MATERIAL_PARAMETER_UPDATE_PER_FRAME));
 
 	// ゼロダミーCBの作成(未設定のMaterialパラメータを安全に0として読ませる)
 	zeroMaterialParameterBuffer = GraphicsResourceManager::Instance().CreateDynamicBuffer(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE));

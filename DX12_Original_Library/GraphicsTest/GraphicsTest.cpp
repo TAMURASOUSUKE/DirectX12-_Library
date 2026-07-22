@@ -19,6 +19,30 @@ struct ColorOffsetParameter
 	float padding{ 0.0f };
 };
 
+// Sprite外部テスト
+struct InverseParameter
+{
+	float strength{ 0.0f };
+	float padding[3]{};
+};
+
+// Spriteが複数のパラメータの影響を受けることができるかのテスト
+struct GlitchParameter
+{
+	float time{ 0.0f };
+	float strength{ 1.0f };
+	float chromaticOffset{ 0.008f };
+	float scanlineCount{ 80.0f };
+};
+
+struct GlitchColorParameter
+{
+	float red{ 0.0f };
+	float green{ 1.0f };
+	float blue{ 1.0f };
+	float amount{ 0.35f };
+};
+
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
@@ -37,6 +61,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// SpriteShader
 	ShaderHandle inverseSpritePS{ Gfx::LoadShader(L"Shaders/InverseSpritePS.hlsl", ShaderUsage::Sprite, ShaderStage::Pixel)};
 	MaterialHandle inverseSpriteMaterial{ Gfx::CreateMaterial(inverseSpritePS) };
+	InverseParameter inverseParam{};
+	ShaderHandle glitchPS{ Gfx::LoadShader(L"Shaders/GlitchSpritePS.hlsl", ShaderUsage::Sprite, ShaderStage::Pixel) };
+	MaterialHandle glitchMaterial{ Gfx::CreateMaterial(glitchPS) };
+	GlitchParameter glitch{};
+	GlitchColorParameter glitchColor{};
+	Gfx::SetMaterialParameter(glitchMaterial, 1, glitchColor);
 	//Gfx::Unload(inverseSpriteMaterial);
 	//inverseSpriteMaterial = {};
 
@@ -53,7 +83,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	ModelHandle testPlayer{ Gfx::LoadModel("Res/TestPlayer.glb") }; // Playerモデルのロード
 	AnimInstanceData debugAnim{}; // アニメーション用のデータ
 	debugAnim.handle = testModel;
-	Vector2 playerPos{ 100.0f, 100.0f };
+	Vector2 enemyPos{ 100.0f, 100.0f };
 
 	Transform cubeTransform{};
 	Transform cubeTransform02{};
@@ -83,6 +113,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 		time += Time::DeltaTime();
+		glitch.time += Time::DeltaTime();
 
 		// アニメーションテスト
 		debugAnim.currentTime += Time::DeltaTime(); // 時刻を進める
@@ -106,8 +137,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPress(KeyCode::Button::D)) dir.x += 1.0f;
 		dir.Normalize();
 
-		float moveSpeed{ 80.0f }; // 1秒間に移動するピクセル
+		float moveSpeed{ 300.0f }; // 1秒間に移動するピクセル
 		testRect01.position += dir * moveSpeed * Time::DeltaTime();
+		// シェーダーを掛けたSpriteの挙動も見たのでそっちも動かす
+		enemyPos += dir * moveSpeed * Time::DeltaTime();
 
 		if (Collision::Intersect(testRect01, testRect02)) debugColor = { 1.0f, 0.0f, 0.0f, 1.0f };
 		else debugColor = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -124,6 +157,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		grayScaleParam.strength = std::clamp(grayScaleParam.strength, 0.0f, 1.0f);
 		Gfx::SetMaterialParameter(grayScaleMaterial, grayScaleParam);
 		Gfx::SetMaterialParameter(grayScaleMaterial, 1, colorOffsetParam);
+
+		// Sprite操作
+		float glitchSpeed{ 3.0f };
+		if (Input::IsKeyPress(KeyCode::Button::D9)) inverseParam.strength = 0.5f + 0.5f * std::sinf(time);
+		if (Input::IsKeyPress(KeyCode::Button::L)) glitch.strength = 1.0f;
+		if (Input::IsKeyPress(KeyCode::Button::J)) glitch.strength = 0.0f;
+		Gfx::SetMaterialParameter(inverseSpriteMaterial, inverseParam);
+		Gfx::SetMaterialParameter(glitchMaterial, 0, glitch);
 
 		// FPS操作
 		if (Input::IsKeyPushed(KeyCode::Button::D3)) Time::SetTargetFPS(30); // 30FPS
@@ -164,6 +205,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, { 176.0f, 88.0f }, inverseSpriteMaterial, 0.0f, { 1.0f, 1.0f, 1.0f, 0.5f + 0.5f * sinf(time) });
 
 		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, { 128.0f, 128.0f }, 0.0f, { 1.0f, 1.0f, 1.0f, 0.5f });
+
+		Gfx::DrawSprite(enemy, enemyPos, { 128.0f, 128.0f }, glitchMaterial);
 
 		//Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
 		//Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);

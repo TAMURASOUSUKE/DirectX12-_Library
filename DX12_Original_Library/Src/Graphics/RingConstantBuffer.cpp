@@ -5,9 +5,29 @@
 #include "GraphicsResourceManager.h"
 #include "RingConstantBuffer.h"
 
-void RingConstantBuffer::Initialize(UINT _dataSize)
+void RingConstantBuffer::Initialize(UINT _dataSize, UINT _maxUpadatePerFrame)
 {
+	if (_dataSize == 0 || _maxUpadatePerFrame == 0)
+	{
+		DEBUG_LOG_ERROR("RingConstantBufferの初期化引数が不正です\n");
+		return;
+	}
+
 	alignedSize = (_dataSize + 0xff) & ~0xff; // 256バイトへの切り上げ
+	maxUpdatesPerFrame = _maxUpadatePerFrame;
+
+	// バックバッファごとに独立した領域を用意する
+	const UINT totalSize{ static_cast<UINT>(FRAME_BUFFER_COUNT) * maxUpdatesPerFrame * alignedSize };
+
+	// CreateDynamicBufferがUINTを受け取るための範囲設定
+	if (totalSize > UINT_MAX)
+	{
+		DEBUG_LOG_ERROR("RingConstantBufferの確保サイズがUINT上限を超えています\n");
+		alignedSize = 0;
+		maxUpdatesPerFrame = 0;
+		return;
+	}
+
 	DynamicBuffer db{ GraphicsResourceManager::Instance().CreateDynamicBuffer(FRAME_BUFFER_COUNT * MAX_CB_PER_FRAME * alignedSize) }; // 動的なバッファ確保
 	if (!db.mappedPtr)
 	{
@@ -27,6 +47,7 @@ void RingConstantBuffer::Shutdown()
 	baseCPUPtr = nullptr;
 	baseGPUVA = 0;
 	alignedSize = 0;
+	maxUpdatesPerFrame = 0;
 	frameCounter = 0;
 }
 
@@ -34,19 +55,16 @@ D3D12_GPU_VIRTUAL_ADDRESS RingConstantBuffer::Update(const void* _src, UINT _siz
 {
 	// データサイズが境界調整済みサイズより大きいと隣のCBデータにはみ出してバグの原因になるのでチェックする
 	DEBUG_ASSERT(_size <= alignedSize && "データが境界調整済みサイズより大きいです");
-	DEBUG_ASSERT(frameCounter < MAX_CB_PER_FRAME && "1フレームのCB数が上限超過");
-	if (_size > alignedSize)
+	DEBUG_ASSERT(frameCounter < maxUpdatesPerFrame && "1フレームのCB数が上限超過");
+
+	if (!_src || !resource || !baseCPUPtr || _size > alignedSize || frameCounter >= maxUpdatesPerFrame)
 	{
 		return 0;
 	}
 
-	if (frameCounter >= MAX_CB_PER_FRAME)
-	{
-		return 0;
-	}
-	UINT offset{ CalculateOffset() }; // 今のフレームのオフセット
-	memcpy(static_cast<uint8_t*>(baseCPUPtr) + offset, _src, _size); // CPUデータをGPUメモリにコピー
-	D3D12_GPU_VIRTUAL_ADDRESS addr{ baseGPUVA + offset }; // 同じオフセットのアドレス
+	const UINT offset{ CalculateOffset() }; // 今のフレームのオフセット
+	std::memcpy(static_cast<uint8_t*>(baseCPUPtr) + offset, _src, _size); // CPUデータをGPUメモリにコピー
+	const D3D12_GPU_VIRTUAL_ADDRESS addr{ baseGPUVA + offset }; // 同じオフセットのアドレス
 	frameCounter++; // 次の描画へ進める
 	return addr;
 
@@ -60,7 +78,7 @@ D3D12_GPU_VIRTUAL_ADDRESS RingConstantBuffer::GetCurrentVirtualAddress() const
 
 UINT RingConstantBuffer::CalculateOffset() const
 {
-	UINT slice{ GraphicsDevice::Instance().GetCurrentFrameIndex() * MAX_CB_PER_FRAME + frameCounter };
+	UINT slice{ GraphicsDevice::Instance().GetCurrentFrameIndex() * maxUpdatesPerFrame + frameCounter };
 	return slice * alignedSize; // スライスの位置を計算して256境界に切り上げたオフセットと計算する
 }
 

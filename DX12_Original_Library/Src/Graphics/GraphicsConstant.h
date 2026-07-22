@@ -23,3 +23,7 @@ constexpr size_t MAX_MATERIAL_COUNT{ 64 }; // 登録できるmaterialの最大�
 constexpr size_t MAX_MATERIAL_PARAMETER_SIZE{ 256 }; // materialへ設定できるパラメータの最大サイズ(GPUへ送る際は1スライス256byteとして扱う)
 constexpr size_t MATERIAL_PARAMETER_SLOT_COUNT{ 4 }; // materialが保持できるユーザーパラメータスロット数
 constexpr UINT MATERIAL_PARAMETER_REGISTER_BASE{ 4 }; // ユーザーパラメータが使用するHLSL側の先頭レジスタslot0 = b4, slot1 = b5...となる
+constexpr size_t SPRITE_BATCH_COUNT{ 2 }; // 現在存在するspritebatchの数(backとforground)
+// 1フレームで発生しうるMaterialParamerter更新の最大数
+// 全Spriteが別Runかつ4スロット全使用する最悪条件にPostEffectの4スロットを追加する
+constexpr size_t MAX_MATERIAL_PARAMETER_UPDATE_PER_FRAME{ MAX_SPRITE_COUNT * SPRITE_BATCH_COUNT * MATERIAL_PARAMETER_SLOT_COUNT + MATERIAL_PARAMETER_SLOT_COUNT };
