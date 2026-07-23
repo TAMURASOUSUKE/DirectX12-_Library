@@ -33,6 +33,15 @@ namespace Gfx
 		int firstCode{ 0 }; // 先頭セルが表す文字コード(CP437配列なら0, スペース始まりなら32)
 	};
 
+	// 画像の状態
+	enum class SpriteFlip
+	{
+		None,
+		Horizontal,
+		Vertical,
+		Both
+	};
+
 	// 等間隔のグリッド状に分割されたテクスチャアトラス
 	struct TextureAtlas
 	{
@@ -46,9 +55,56 @@ namespace Gfx
 			const long long capacity{ static_cast<long long>(columns) * rows };
 			return texture.IsValid() && columns > 0 && rows > 0 && frameCount > 0 && frameCount <= capacity;
 		}
-
 	};
 
+	// スプライトアニメーションの設定と再生状態
+	struct SpriteAnimationState
+	{
+		int firstFrame{ 0 };   // 使用する最初のセル
+		int lastFrame{ 0 };    // 使用する最後のセル（この番号を含む）
+		int currentFrame{ 0 }; // 現在表示しているセル
+
+		float secondsPerFrame{ 0.1f }; // 1コマの表示秒数
+		float elapsedTime{ 0.0f };     // コマ送り用の蓄積時間
+
+		bool isLoop{ true }; // ループするか
+		bool isFinished{ false }; // アニメーションが終了したか
+
+		SpriteAnimationState() = default;
+
+		// 必要な設定を引数だけで指定する
+		SpriteAnimationState(
+			int _firstFrame,
+			int _lastFrame,
+			float _secondsPerFrame,
+			bool _isLoop = true)
+			: firstFrame{ _firstFrame }
+			, lastFrame{ _lastFrame }
+			, currentFrame{ _firstFrame }
+			, secondsPerFrame{ _secondsPerFrame }
+			, isLoop{ _isLoop }
+		{}
+
+		bool IsValid(const TextureAtlas& _atlas) const
+		{
+			return _atlas.IsValid()
+				&& firstFrame >= 0
+				&& lastFrame >= firstFrame
+				&& lastFrame < _atlas.frameCount
+				&& currentFrame >= firstFrame
+				&& currentFrame <= lastFrame
+				&& secondsPerFrame > 0.0f;
+		}
+
+		int GetFrameIndex() const { return currentFrame; }
+
+		void Reset()
+		{
+			currentFrame = firstFrame;
+			elapsedTime = 0.0f;
+			isFinished = false;
+		}
+	};
 
 	// 画像をどの用途として読み込むか
 	enum class TextureUsage
@@ -92,24 +148,26 @@ namespace Gfx
 	void DrawString(const BitmapFont& _font, const char* _string, Vector2 _position, float _scale = 1.0f,Vector4 _color = Vector4::One, RenderLayer _layer = RenderLayer::ForeGround);
 	
 	
-	//  スプライト描画(位置、倍率、画像, 回転角度(ラジアンかつデフォルトは0),色, uv座標(デフォルトは左上0右下1) 描画するレイヤー(デフォルトは通常 = 3Dより手前))
-	void DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _scale = Vector2::One, float _radRotation = 0.0f, Vector4 _color = Vector4::One, Vector2 _uvMin = Vector2::Zero, Vector2 _uvMax = Vector2::One, RenderLayer _layer = RenderLayer::ForeGround);
-	// アトラスを用いてスプライト描画をする(指定アトラス, セルのIndex, 位置, 倍率, 回転, 色, uv最小値, uv最大値, レイヤー)
-	void DrawSprite(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, Vector2 _scale = Vector2::One, float _radRotation = 0.0f, Vector4 _color = Vector4::One, RenderLayer _layer = RenderLayer::ForeGround);
-	// スプライト描画(位置、ピクセル幅、画像, 回転角度(ラジアンかつデフォルトは0),色, uv座標(デフォルトは左上0右下1) 描画するレイヤー(デフォルトは通常 = 3Dより手前))
-	void DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelSize, float _radRotation = 0.0f, Vector4 _color = Vector4::One, Vector2 _uvMin = { Vector2::Zero }, Vector2 _uvMax = { Vector2::One }, RenderLayer _layer = RenderLayer::ForeGround);
-	// アトラスを用いてスプライト描画をする(指定アトラス, セルのIndex, 位置, ピクセル幅, 回転, 色, uv最小値, uv最大値, レイヤー)
-	void DrawSpriteSized(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, Vector2 _pixelSize, float _radRotation = 0.0f, Vector4 _color = Vector4::One, RenderLayer _layer = RenderLayer::ForeGround);
-	// Shader適用スプライト描画(位置、倍率、画像, material, 回転角度(ラジアンかつデフォルトは0), 色,  uv座標(デフォルトは左上0右下1) 描画するレイヤー(デフォルトは通常 = 3Dより手前))
-	void DrawSprite(TexHandle _texture, Vector2 _position, MaterialHandle _material , Vector2 _scale = Vector2::One, float _radRotation = 0.0f, Vector4 _color = Vector4::One, Vector2 _uvMin = Vector2::Zero, Vector2 _uvMax = Vector2::One, RenderLayer _layer = RenderLayer::ForeGround);
-	// Shader適用アトラスを用いてスプライト描画をする(指定アトラス, セルのIndex, 位置, material,倍率, 回転, 色, uv最小値, uv最大値, レイヤー)
-	void DrawSprite(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, MaterialHandle _material,Vector2 _scale = Vector2::One, float _radRotation = 0.0f, Vector4 _color = Vector4::One, RenderLayer _layer = RenderLayer::ForeGround);
-	// Shader適用スプライト描画(位置、ピクセル幅、画像, material, 回転角度(ラジアンかつデフォルトは0), 色,  uv座標(デフォルトは左上0右下1) 描画するレイヤー(デフォルトは通常 = 3Dより手前))
-	void DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelSize, MaterialHandle _material, float _radRotation = 0.0f, Vector4 _color = Vector4::One, Vector2 _uvMin = { Vector2::Zero }, Vector2 _uvMax = { Vector2::One }, RenderLayer _layer = RenderLayer::ForeGround);
-	// Shader適用アトラスを用いてスプライト描画をする(指定アトラス, セルのIndex, 位置, ピクセル幅, material,回転, 色, uv最小値, uv最大値, レイヤー)
-	void DrawSpriteSized(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, Vector2 _pixelSize, MaterialHandle _material,float _radRotation = 0.0f, Vector4 _color = Vector4::One, RenderLayer _layer = RenderLayer::ForeGround);
-	
-	
+	//  スプライト描画(位置、倍率、画像, 回転角度(ラジアンかつデフォルトは0), 画像の状態,色, uv座標(デフォルトは左上0右下1) 描画するレイヤー(デフォルトは通常 = 3Dより手前))
+	void DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _scale = Vector2::One, float _radRotation = 0.0f, SpriteFlip _flip = SpriteFlip::None, Vector4 _color = Vector4::One, Vector2 _uvMin = Vector2::Zero, Vector2 _uvMax = Vector2::One, RenderLayer _layer = RenderLayer::ForeGround);
+	// アトラスを用いてスプライト描画をする(指定アトラス, セルのIndex, 位置, 倍率, 回転, , 画像の状態,色, uv最小値, uv最大値, レイヤー)
+	void DrawSprite(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, Vector2 _scale = Vector2::One, float _radRotation = 0.0f, SpriteFlip _flip = SpriteFlip::None, Vector4 _color = Vector4::One, RenderLayer _layer = RenderLayer::ForeGround);
+	// スプライト描画(位置、ピクセル幅、画像, 回転角度(ラジアンかつデフォルトは0), 画像の状態, 色, uv座標(デフォルトは左上0右下1) 描画するレイヤー(デフォルトは通常 = 3Dより手前))
+	void DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelSize, float _radRotation = 0.0f, SpriteFlip _flip = SpriteFlip::None, Vector4 _color = Vector4::One, Vector2 _uvMin = { Vector2::Zero }, Vector2 _uvMax = { Vector2::One }, RenderLayer _layer = RenderLayer::ForeGround);
+	// アトラスを用いてスプライト描画をする(指定アトラス, セルのIndex, 位置, ピクセル幅, 回転, 画像の状態,色, uv最小値, uv最大値, レイヤー)
+	void DrawSpriteSized(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, Vector2 _pixelSize, float _radRotation = 0.0f, SpriteFlip _flip = SpriteFlip::None, Vector4 _color = Vector4::One, RenderLayer _layer = RenderLayer::ForeGround);
+	// Shader適用スプライト描画(位置、倍率、画像, material, 回転角度(ラジアンかつデフォルトは0), 画像の状態,色,  uv座標(デフォルトは左上0右下1) 描画するレイヤー(デフォルトは通常 = 3Dより手前))
+	void DrawSprite(TexHandle _texture, Vector2 _position, MaterialHandle _material , Vector2 _scale = Vector2::One, float _radRotation = 0.0f, SpriteFlip _flip = SpriteFlip::None, Vector4 _color = Vector4::One, Vector2 _uvMin = Vector2::Zero, Vector2 _uvMax = Vector2::One, RenderLayer _layer = RenderLayer::ForeGround);
+	// Shader適用アトラスを用いてスプライト描画をする(指定アトラス, セルのIndex, 位置, material,倍率, 回転, 画像の状態, 色, uv最小値, uv最大値, レイヤー)
+	void DrawSprite(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, MaterialHandle _material,Vector2 _scale = Vector2::One, float _radRotation = 0.0f, SpriteFlip _flip = SpriteFlip::None, Vector4 _color = Vector4::One, RenderLayer _layer = RenderLayer::ForeGround);
+	// Shader適用スプライト描画(位置、ピクセル幅、画像, material, 回転角度(ラジアンかつデフォルトは0), 画像の状態, 色,  uv座標(デフォルトは左上0右下1) 描画するレイヤー(デフォルトは通常 = 3Dより手前))
+	void DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelSize, MaterialHandle _material, float _radRotation = 0.0f, SpriteFlip _flip = SpriteFlip::None, Vector4 _color = Vector4::One, Vector2 _uvMin = { Vector2::Zero }, Vector2 _uvMax = { Vector2::One }, RenderLayer _layer = RenderLayer::ForeGround);
+	// Shader適用アトラスを用いてスプライト描画をする(指定アトラス, セルのIndex, 位置, ピクセル幅, material,回転, 画像の状態, 色, uv最小値, uv最大値, レイヤー)
+	void DrawSpriteSized(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, Vector2 _pixelSize, MaterialHandle _material,float _radRotation = 0.0f, SpriteFlip _flip = SpriteFlip::None, Vector4 _color = Vector4::One, RenderLayer _layer = RenderLayer::ForeGround);
+	// 設定に従って現在フレームを進める(対象アトラス, 設定, 時間)
+	bool UpdateSpriteAnimation(const TextureAtlas& _atlas, SpriteAnimationState& _state, float _deltaTime);
+
+
 	// モデルを描画する(テスト用にAnimDataを受け取っているが後で修正)
 	void DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* _animData = nullptr);
 

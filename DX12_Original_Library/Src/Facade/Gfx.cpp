@@ -1,5 +1,6 @@
 #include <cmath>
 #include <limits>
+#include <utility>
 #include "../External/Common/d3dx12.h"
 #include "../External/cgltf.h"
 #include "../Window/Window.h"
@@ -367,7 +368,7 @@ namespace {
 
 		// 1次元のセル番号を列と行に変換
 		const int column{ _frameIndex % _atlas.columns };
-		const int row{ _frameIndex / _atlas.rows };
+		const int row{ _frameIndex / _atlas.columns };
 
 		// セル一つがテクスチャの何割を占めるか
 		const float cellUVWidth{ 1.0f / static_cast<float>(_atlas.columns) };
@@ -381,6 +382,33 @@ namespace {
 		return true;
 	}
 
+	// UV計算をおこない指定フラグから画像を反転させるなどする
+	void ApplySpriteFlip(Gfx::SpriteFlip _flip, Vector2& _uvMin, Vector2& _uvMax)
+	{
+		switch (_flip)
+		{
+		case Gfx::SpriteFlip::None:
+			// そのまま反転なし
+			break;
+		case Gfx::SpriteFlip::Horizontal:
+			// 水平反転
+			std::swap(_uvMin.x, _uvMax.x);
+			break;
+		case Gfx::SpriteFlip::Vertical:
+			// 垂直反転
+			std::swap(_uvMin.y, _uvMax.y);
+			break;
+		case Gfx::SpriteFlip::Both:
+			// 両方
+			std::swap(_uvMin.x, _uvMax.x);
+			std::swap(_uvMin.y, _uvMax.y);
+			break;
+		default:
+			break;
+		}
+	}
+
+	// Gfx内のメンバの掃除
 	void ShutdownGfxOwnedResources()
 	{
 		// 仮で作っているTerrainのVB.IBを解放する(これは一時的な物なので3Dの基本図形描画時になくなる予定)
@@ -1066,35 +1094,45 @@ void Gfx::DrawString(const BitmapFont& _font, const char* _string, Vector2 _posi
 		Vector2 uvMax{ ((col + 1) * _font.cellWidth) / static_cast<float>(_font.texWidth), ((row + 1) * _font.cellHeight) / static_cast<float>(_font.texHeight) };
 
 
-		DrawSpriteSized(_font.texture, cursor, glyphSize, 0.0f, _color, uvMin, uvMax, _layer);
+		DrawSpriteSized(_font.texture, cursor, glyphSize, 0.0f, SpriteFlip::None, _color, uvMin, uvMax, _layer);
 
 		cursor.x += glyphSize.x; // 書いた分右へ
 	}
 }
 
-void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _scale, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, RenderLayer _layer)
+void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _scale, float _radRotation, SpriteFlip _flip, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, RenderLayer _layer)
 {
 	// materialなしは空のマテリアルを渡して共通処理へ
-	DrawSprite(_texture, _position, MaterialHandle{}, _scale, _radRotation, _color, _uvMin, _uvMax, _layer);
+	DrawSprite(_texture, _position, MaterialHandle{}, _scale, _radRotation, _flip, _color, _uvMin, _uvMax, _layer);
 }
 
-void Gfx::DrawSprite(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, Vector2 _scale, float _radRotation, Vector4 _color, RenderLayer _layer)
+void Gfx::DrawSprite(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, Vector2 _scale, float _radRotation, SpriteFlip _flip, Vector4 _color, RenderLayer _layer)
 {
 	Vector2 uvMin{};
 	Vector2 uvMax{};
 	// UVが作れない場合はこのスプライトの描画をあきらめる
 	if (!TryCalculateAtlasUV(_atlas, _frameIndex, uvMin, uvMax)) return;
 	// 既存のDrawに任せる
-	DrawSprite(_atlas.texture, _position, _scale, _radRotation, _color, uvMin, uvMax, _layer);
+	DrawSprite(_atlas.texture, _position, _scale, _radRotation, _flip, _color, uvMin, uvMax, _layer);
 }
 
-void Gfx::DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelSize, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, RenderLayer _layer)
+void Gfx::DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelSize, float _radRotation, SpriteFlip _flip, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, RenderLayer _layer)
 {
 	// 通常は空のMaterialHandleを渡す
-	DrawSpriteSized(_texture, _position, _pixelSize, MaterialHandle{}, _radRotation, _color, _uvMin, _uvMax, _layer);
+	DrawSpriteSized(_texture, _position, _pixelSize, MaterialHandle{}, _radRotation, _flip, _color, _uvMin, _uvMax, _layer);
 }
 
-void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, MaterialHandle _material, Vector2 _scale, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, RenderLayer _layer)
+void Gfx::DrawSpriteSized(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, Vector2 _pixelSize, float _radRotation, SpriteFlip _flip, Vector4 _color, RenderLayer _layer)
+{
+	Vector2 uvMin{};
+	Vector2 uvMax{};
+	// 指定されたセル番号からUV範囲を求める
+	if (!TryCalculateAtlasUV(_atlas, _frameIndex, uvMin, uvMax)) return;
+	// TexHandle版へ
+	DrawSpriteSized(_atlas.texture, _position, _pixelSize, _radRotation, _flip, _color, uvMin, uvMax, _layer);
+}
+
+void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, MaterialHandle _material, Vector2 _scale, float _radRotation, SpriteFlip _flip, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, RenderLayer _layer)
 {
 	// 反転はUVの入れ替えで行えるので倍数には負数を許可しない
 	if (_scale.x < 0.0f || _scale.y < 0.0f)
@@ -1113,10 +1151,21 @@ void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, MaterialHandle _mate
 	// 画像原寸 * UV使用範囲 * XY倍率
 	const Vector2 pixelSize{ static_cast<float>(data->width) * uvWidth * _scale.x, static_cast<float>(data->height) * uvHeight * _scale.y};
 	// 計算後は渡す
-	DrawSpriteSized(_texture, _position, pixelSize, _material, _radRotation, _color, _uvMin, _uvMax, _layer);
+	DrawSpriteSized(_texture, _position, pixelSize, _material, _radRotation,  _flip, _color, _uvMin, _uvMax, _layer);
 }
 
-void Gfx::DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelSize, MaterialHandle _material, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, RenderLayer _layer)
+void Gfx::DrawSprite(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, MaterialHandle _material, Vector2 _scale, float _radRotation, SpriteFlip _flip, Vector4 _color, RenderLayer _layer)
+{
+	Vector2 uvMin{};
+	Vector2 uvMax{};
+
+	// 指定されたセル番号からUV範囲を求める
+	if (!TryCalculateAtlasUV(_atlas, _frameIndex, uvMin, uvMax)) return;
+	// 既存に任せる
+	DrawSprite(_atlas.texture, _position, _material, _scale, _radRotation, _flip, _color, uvMin, uvMax, _layer);
+}
+
+void Gfx::DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelSize, MaterialHandle _material, float _radRotation, SpriteFlip _flip, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, RenderLayer _layer)
 {
 	ID3D12PipelineState* usePipeline{ shaderSystem.GetPipeline(PipelineID::Sprite) }; // 最初は内蔵SpritePSO
 	const MaterialParameterSet* useParameters{ nullptr }; // 内蔵Spriteならnull
@@ -1145,6 +1194,9 @@ void Gfx::DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelS
 		}
 	}
 
+	// この関数の引数が値渡しなのでここでFlip関数内で入れ替えても呼び出し元の値には影響がない
+	ApplySpriteFlip(_flip, _uvMin, _uvMax);
+
 	switch (_layer)
 	{
 	case RenderLayer::BackGround:
@@ -1156,6 +1208,61 @@ void Gfx::DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelS
 	default:
 		break;
 	}
+}
+
+void Gfx::DrawSpriteSized(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, Vector2 _pixelSize, MaterialHandle _material, float _radRotation, SpriteFlip _flip, Vector4 _color, RenderLayer _layer)
+{
+	Vector2 uvMin{};
+	Vector2 uvMax{};
+
+	// 指定されたセル番号からUV範囲を求める
+	if (!TryCalculateAtlasUV(_atlas, _frameIndex, uvMin, uvMax)) return;
+	// 既存に任せる
+	DrawSpriteSized(_atlas.texture, _position, _pixelSize, _material, _radRotation, _flip, _color, uvMin, uvMax, _layer);
+}
+
+bool Gfx::UpdateSpriteAnimation(const TextureAtlas& _atlas, SpriteAnimationState& _state, float _deltaTime)
+{
+	if (!_state.IsValid(_atlas))
+	{
+		DEBUG_LOG_ERROR("SpriteAnimationStateの設定が不正です\n");
+		return false;
+	}
+
+	if (_deltaTime <= 0.0f || _state.isFinished)
+	{
+		return true;
+	}
+
+	_state.elapsedTime += _deltaTime;
+
+	// 処理落ちで複数コマ分の時間が経過しても追いつける
+	while (_state.elapsedTime >= _state.secondsPerFrame)
+	{
+		_state.elapsedTime -= _state.secondsPerFrame;
+		_state.currentFrame++;
+
+		// まだ範囲内なら次のコマへ
+		if (_state.currentFrame <= _state.lastFrame)
+		{
+			continue; // コマを切り替えたら飛ばす
+		}
+
+		if (_state.isLoop)
+		{
+			// ループ指定なら最初に戻る
+			_state.currentFrame = _state.firstFrame;
+		}
+		else
+		{
+			// 非ループなら指定範囲の最後で停止する
+			_state.currentFrame = _state.lastFrame;
+			_state.elapsedTime = 0.0f; // 経過時間リセット
+			_state.isFinished = true; // 終了したフラグを立てる
+			break; // 終了したので抜ける
+		}
+	}
+	return true;
 }
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* _animData)

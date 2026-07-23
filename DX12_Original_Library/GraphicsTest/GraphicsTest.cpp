@@ -43,10 +43,18 @@ struct GlitchColorParameter
 	float amount{ 0.35f };
 };
 
+// 現在のグリッチをアトラス対応させるもの
+struct AtlasParameter
+{
+	Vector4 atlasUVRect;
+	float bandCount{ 24.0f }; // 作る帯の数
+	float padding[3]; 
+};
+
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
-	const Vector2 windowSize{ 1280.0f, 720.0f};
+	const Vector2 windowSize{ 1280.0f, 720.0f };
 
 	// 初期化 失敗したら-1を返す
 	if (!TSLib::Initialize(L"GraphicsTest", static_cast<int>(windowSize.x), static_cast<int>(windowSize.y)))return -1;
@@ -60,13 +68,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	ColorOffsetParameter colorOffsetParam{};
 
 	// SpriteShader
-	ShaderHandle inverseSpritePS{ Gfx::LoadShader(L"Shaders/InverseSpritePS.hlsl", ShaderUsage::Sprite, ShaderStage::Pixel)};
+	ShaderHandle inverseSpritePS{ Gfx::LoadShader(L"Shaders/InverseSpritePS.hlsl", ShaderUsage::Sprite, ShaderStage::Pixel) };
 	MaterialHandle inverseSpriteMaterial{ Gfx::CreateMaterial(inverseSpritePS) };
 	InverseParameter inverseParam{};
 	ShaderHandle glitchPS{ Gfx::LoadShader(L"Shaders/GlitchSpritePS.hlsl", ShaderUsage::Sprite, ShaderStage::Pixel) };
 	MaterialHandle glitchMaterial{ Gfx::CreateMaterial(glitchPS) };
 	GlitchParameter glitch{};
 	GlitchColorParameter glitchColor{};
+	AtlasParameter atlasParameter{};
+	AtlasParameter fullParameter{ {0.0f, 0.0f, 1.0f, 1.0f }, 24.0f }; // アトラスではないもの用
 	Gfx::SetMaterialParameter(glitchMaterial, 1, glitchColor);
 	//Gfx::Unload(inverseSpriteMaterial);
 	//inverseSpriteMaterial = {};
@@ -78,6 +88,23 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	TexHandle heightMap{ Gfx::LoadTexture("Res/TestVolume.png") }; // ハイトマップ取得
 	TexHandle minivan{ Gfx::LoadTexture("Res/Minivan.png") }; // sRGBテスト
 	// TexHandle heightMap{ Gfx::LoadTexture("Res/Crater.jpg") }; // ハイトマップ取得
+
+	// Atlas
+	Gfx::TextureAtlas idleAnim{ Gfx::LoadTextureAtlas("Res/Idle.png", 8, 1, 8) }; // IdleMotion
+	Gfx::TextureAtlas runAnim{ Gfx::LoadTextureAtlas("Res/Run.png", 8, 1, 8) }; // RunMotion
+	Gfx::TextureAtlas attack01Anim{ Gfx::LoadTextureAtlas("Res/Attack1.png", 8, 1, 8) }; // Attack01Motion
+	Gfx::TextureAtlas attack02Anim{ Gfx::LoadTextureAtlas("Res/Attack2.png", 8, 1, 8) }; // Attack01Motion
+	Gfx::TextureAtlas JumpAnim{ Gfx::LoadTextureAtlas("Res/Jump.png", 2, 1, 2) }; // JumpMotion
+	Gfx::TextureAtlas FallAnim{ Gfx::LoadTextureAtlas("Res/Fall.png", 2, 1, 2) }; // FallMotion
+	// アトラスをまとめた配列
+	Gfx::TextureAtlas atlasAnims[]{ idleAnim, runAnim, attack01Anim, attack02Anim, JumpAnim, FallAnim };
+	// アトラス配列と順をそろえる
+	Gfx::SpriteAnimationState atlasAnimDescs[]{ {0, idleAnim.frameCount - 1,0.1f, true}, {0, runAnim.frameCount - 1, 0.1f, true}, {0, attack01Anim.frameCount - 1, 0.1f, false}, {0, JumpAnim.frameCount - 1, 0.1f, true} }; 
+	Gfx::SpriteFlip flip{ Gfx::SpriteFlip::None };
+	int atlasAnimIndex{ 0 };
+	int atlasDescIndex{ 0 };
+	bool isAttacking{ false };
+	int attackAtlasIndex{ 2 };
 
 	// Model
 	ModelHandle testModel{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Testモデルのロード
@@ -106,8 +133,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	Vector4 debugColor{ 1.0f, 1.0f, 1.0f, 1.0f };
 
 	// タイムスケール
+	constexpr float ANIM_FRAME_DURATION{ 1.0f / 10.0f };
 	float timeScale{ 1.0f };
 	float time{ 0.0f };
+	int spriteAnimTime{ 0 };
+
 
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
@@ -115,6 +145,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		TSLib::BeginFrame(); // フレーム開始処理
 		time += Time::DeltaTime();
 		glitch.time += Time::DeltaTime();
+
 
 		// アニメーションテスト
 		debugAnim.currentTime += Time::DeltaTime(); // 時刻を進める
@@ -124,19 +155,72 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		float heightSpeed{ 3.0f };
 		if (Input::IsKeyPress(KeyCode::Button::UP)) heightFactor += heightSpeed * Time::UnscaledDeltaTime();
 		if (Input::IsKeyPress(KeyCode::Button::DOWN)) heightFactor -= heightSpeed * Time::UnscaledDeltaTime();
-		if(Input::IsKeyPushed(KeyCode::Button::D2)) tessFactor *= 2.0f;
+		if (Input::IsKeyPushed(KeyCode::Button::D2)) tessFactor *= 2.0f;
 		if (Input::IsKeyPushed(KeyCode::Button::D1)) tessFactor /= 2.0f;
 		tessFactor = std::clamp(tessFactor, 2.0f, 64.0f);
 
 		heightFactor = std::clamp(heightFactor, -20.0f, 20.0f);
 
-		// 矩形のあたり判定確認操作
+		// 操作(矩形判定確認やキャラクター動作確認に使っています)
 		Vector2 dir{ Vector2::Zero };
-		if (Input::IsKeyPress(KeyCode::Button::W)) dir.y -= 1.0f;
-		if (Input::IsKeyPress(KeyCode::Button::A)) dir.x -= 1.0f;
-		if (Input::IsKeyPress(KeyCode::Button::S)) dir.y += 1.0f;
-		if (Input::IsKeyPress(KeyCode::Button::D)) dir.x += 1.0f;
+		if (Input::IsKeyPress(KeyCode::Button::W))
+		{
+			dir.y -= 1.0f;
+		}
+		if (Input::IsKeyPress(KeyCode::Button::A)) 
+		{ 
+			// 移動と反転
+			dir.x -= 1.0f;  
+			if(!isAttacking && Time::GetTimeScale() != 0.0f) flip = Gfx::SpriteFlip::Horizontal; 
+		}
+		if (Input::IsKeyPress(KeyCode::Button::S))
+		{
+			dir.y += 1.0f;
+		}
+		if (Input::IsKeyPress(KeyCode::Button::D)) 
+		{
+			// 移動と反転
+			dir.x += 1.0f;
+			if (!isAttacking && Time::GetTimeScale() != 0.0f) flip = Gfx::SpriteFlip::None;
+		}
 		dir.Normalize();
+
+		// 攻撃アニメーション
+		constexpr int ATTACK_INDEX{ 2 };
+		if (!isAttacking && Input::IsMousePushed(MouseCode::Click::LEFT) && Time::GetTimeScale() != 0.0f)
+		{
+			isAttacking = true;
+			attackAtlasIndex = 2;
+			atlasAnimDescs[ATTACK_INDEX].Reset();
+		}
+		if (!isAttacking && Input::IsMousePushed(MouseCode::Click::RIGHT) && Time::GetTimeScale() != 0.0f)
+		{
+			isAttacking = true;
+			attackAtlasIndex = 3;
+			atlasAnimDescs[ATTACK_INDEX].Reset();
+		}
+
+		// 攻撃->移動->Idleアニメーション
+		if (isAttacking)
+		{
+			atlasAnimIndex = attackAtlasIndex;
+			atlasDescIndex = 2;
+			dir = Vector2::Zero;
+		}
+		else if (dir != Vector2::Zero)
+		{
+			atlasAnimIndex = 1;
+			atlasDescIndex = 1;
+		}
+		else
+		{
+			if (Time::GetTimeScale() != 0.0f)
+			{
+				atlasAnimIndex = 0;
+				atlasDescIndex = 0;
+			}
+		}
+
 
 		float moveSpeed{ 300.0f }; // 1秒間に移動するピクセル
 		testRect01.position += dir * moveSpeed * Time::DeltaTime();
@@ -148,7 +232,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// PostEffect操作
 		float rate{ 0.5f }; // パラメータを動かす速度
-		if(Input::IsKeyPushed(KeyCode::Button::D5)) Gfx::SetPostEffect(grayScaleMaterial); // グレースケール変更
+		if (Input::IsKeyPushed(KeyCode::Button::D5)) Gfx::SetPostEffect(grayScaleMaterial); // グレースケール変更
 		if (Input::IsKeyPushed(KeyCode::Button::D4)) Gfx::SetPostEffect({}); // 内蔵へ戻す
 		if (Input::IsKeyPress(KeyCode::Button::D7)) grayScaleParam.strength -= rate * Time::UnscaledDeltaTime();
 		if (Input::IsKeyPress(KeyCode::Button::D8)) grayScaleParam.strength += rate * Time::UnscaledDeltaTime();
@@ -167,13 +251,32 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::SetMaterialParameter(inverseSpriteMaterial, inverseParam);
 		Gfx::SetMaterialParameter(glitchMaterial, 0, glitch);
 
+		// 2Dアニメーション更新
+		Gfx::UpdateSpriteAnimation(atlasAnims[atlasAnimIndex], atlasAnimDescs[atlasDescIndex], Time::DeltaTime());
+		if (isAttacking && atlasAnimDescs[ATTACK_INDEX].isFinished) isAttacking = false;
+
+		// 現在描画するアトラスとフレーム(シェーダー側で使うため計算)
+		const Gfx::TextureAtlas& currentAtlas{ atlasAnims[atlasAnimIndex] };
+		const int frameIndex{ atlasAnimDescs[atlasDescIndex].GetFrameIndex() };
+		// 一次元のフレーム番号を列・行へ変換
+		const int column{ frameIndex % currentAtlas.columns };
+		const int row{ frameIndex / currentAtlas.columns };
+		// 1セル分のUV幅
+		const float cellWidth{ 1.0f / static_cast<float>(currentAtlas.columns) };
+		const float cellHeight{ 1.0f / static_cast<float>(currentAtlas.rows) };
+		AtlasParameter atlasParameter{};
+		// xyが左上、zwが右下
+		atlasParameter.atlasUVRect = { column * cellWidth, row * cellHeight, (column + 1) * cellWidth, (row + 1) * cellHeight };
+		atlasParameter.bandCount = 128.0f;
+		
+
 		// FPS操作
 		if (Input::IsKeyPushed(KeyCode::Button::D3)) Time::SetTargetFPS(30); // 30FPS
 		if (Input::IsKeyPushed(KeyCode::Button::D6)) Time::SetTargetFPS(60); // 60FPS
 		if (Input::IsKeyPushed(KeyCode::Button::D0)) Time::SetTargetFPS(120); // 120FPS モニターが120Hz以上である必要あり
 		if (Input::IsKeyPushed(KeyCode::Button::RIGHT)) timeScale += 1.0f;
 		if (Input::IsKeyPushed(KeyCode::Button::LEFT)) timeScale -= 1.0f;
-		timeScale =  std::clamp(timeScale, 0.0f, 10.0f); // 最大でもタイムスケールは10にとどめておく
+		timeScale = std::clamp(timeScale, 0.0f, 10.0f); // 最大でもタイムスケールは10にとどめておく
 		Time::SetTimeScale(timeScale);
 
 
@@ -186,37 +289,42 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		// スプライトバッチテスト
-		Gfx::DrawSpriteSized(background, { 0.0f, 0.0f }, windowSize, 0.0f, Vector4::One, Vector2::Zero, Vector2::One, RenderLayer::BackGround);
+		Gfx::DrawSpriteSized(background, { 0.0f, 0.0f }, windowSize, 0.0f, Gfx::SpriteFlip::None, Vector4::One, Vector2::Zero, Vector2::One, RenderLayer::BackGround);
 
 		Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
 
 		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
 
 		// Shaderテスト
-		Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, Vector2::One, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f});
+		//Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, Vector2::One, 0.0f, Gfx::SpriteFlip::None, { 1.0f, 0.0f, 0.0f, 1.0f });
 
-		Gfx::DrawSprite(minivan, { 300.0f, 300.0f });
+		//Gfx::DrawSprite(minivan, { 300.0f, 300.0f });
 
-		Gfx::DrawSprite(enemy,{ 500.0f, 300.0f },inverseSpriteMaterial);
+		//Gfx::DrawSprite(enemy, { 500.0f, 300.0f }, inverseSpriteMaterial);
 
-		Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, inverseSpriteMaterial, Vector2::One ,0.0f, { 1.0f, 1.0f, 1.0f, 0.5f + 0.5f * sinf(time) });
+		//Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, inverseSpriteMaterial, Vector2::One, 0.0f, Gfx::SpriteFlip::None, { 1.0f, 1.0f, 1.0f, 0.5f + 0.5f * sinf(time) });
 
-		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, Vector2::One, 0.0f, { 1.0f, 1.0f, 1.0f, 0.5f });
+		//Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, Vector2::One, 0.0f, Gfx::SpriteFlip::Vertical, { 1.0f, 1.0f, 1.0f, 0.5f });
 
-		Gfx::DrawSprite(enemy, enemyPos, glitchMaterial);
+		Gfx::SetMaterialParameter(glitchMaterial, 2, fullParameter);
+		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, glitchMaterial, { 1.0f, 1.0f }, 0.0f, Gfx::SpriteFlip::Horizontal);
+
+		// アニメーションテスト
+		Gfx::SetMaterialParameter(glitchMaterial, 2, atlasParameter);
+		Gfx::DrawSprite(atlasAnims[atlasAnimIndex], atlasAnimDescs[atlasDescIndex].GetFrameIndex(), enemyPos, glitchMaterial, { 3.0f, 3.0f }, 0.0f, flip);
 
 		//Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
 		//Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
 		//Gfx::DrawCircle({ 120.0f, 300.0f }, 30.0f, { 1.0f, 0.0f, 1.0f, 1.0f });
 		//Gfx::DrawCircle({ std::sinf(t) * 50.0f + 600.0f, 300.0f}, 30.0f, {std::clamp(std::sinf(t), 0.0f, 1.0f), 0.0f, 0.0f, 1.0f});
 
-		Gfx::DrawBox(testRect01.GetMinPos(), testRect01.GetMaxPos());
-		Gfx::DrawBox(testRect02.GetMinPos(), testRect02.GetMaxPos(), 0.0f, debugColor);
-		Gfx::DrawString(fpsValue.c_str(), {0.0f, 0.0f});
-		Gfx::DrawString(targetFPS.c_str(), {0.0f, 30.0f});
-		Gfx::DrawString(unscaledDeltaTime.c_str(), {0.0f, 60.0f});
-		Gfx::DrawString(deltaTime.c_str(), {0.0f, 90.0f});
-		Gfx::DrawString(timeScale.c_str(), {0.0f, 120.0f});
+		//Gfx::DrawBox(testRect01.GetMinPos(), testRect01.GetMaxPos());
+		//Gfx::DrawBox(testRect02.GetMinPos(), testRect02.GetMaxPos(), 0.0f, debugColor);
+		Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });
+		Gfx::DrawString(targetFPS.c_str(), { 0.0f, 30.0f });
+		Gfx::DrawString(unscaledDeltaTime.c_str(), { 0.0f, 60.0f });
+		Gfx::DrawString(deltaTime.c_str(), { 0.0f, 90.0f });
+		Gfx::DrawString(timeScale.c_str(), { 0.0f, 120.0f });
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}
