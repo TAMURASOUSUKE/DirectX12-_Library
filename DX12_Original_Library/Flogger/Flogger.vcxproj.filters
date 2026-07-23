@@ -56,5 +56,8 @@
     <ClInclude Include="Objects\Player.h">
       <Filter>ソース ファイル\Objects</Filter>
     </ClInclude>
+    <ClInclude Include="Objects\Score.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
