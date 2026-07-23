@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // 外部に公開しない時間を制御する関数群
 
 namespace TimeInternal

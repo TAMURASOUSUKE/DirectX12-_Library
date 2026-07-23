@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "Collider.h"
 
 // 衝突や接触判定を行う

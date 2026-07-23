@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "../Core/Handle/TexHandle.h"
 #include "../Math/TSMath.h"
 #include "RingConstantBuffer.h"

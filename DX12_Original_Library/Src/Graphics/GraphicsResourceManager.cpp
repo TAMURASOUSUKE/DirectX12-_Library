@@ -1,4 +1,4 @@
-﻿#define INITGUID
+#define INITGUID
 #include <algorithm>
 #include <filesystem>
 #include <cstring>

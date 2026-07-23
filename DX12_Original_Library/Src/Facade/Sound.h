@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "../Core/Handle/SoundHandle.h"
 
 // 音に関する機能をユーザーに提供する

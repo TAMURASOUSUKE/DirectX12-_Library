@@ -1,4 +1,4 @@
-﻿#include <algorithm>
+#include <algorithm>
 #include "../Debug/DebugLogs.h"
 #include "FPSConstant.h"
 #include "FPSSystem.h"

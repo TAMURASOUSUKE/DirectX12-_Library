@@ -1,4 +1,4 @@
-﻿#include "../Sound/SoundSystem.h"
+#include "../Sound/SoundSystem.h"
 #include "SoundInternal.h"
 #include "../Sound/SoundResourceManager.h"
 #include "Sound.h"

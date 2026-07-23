@@ -1,4 +1,4 @@
-﻿#include <cstring>
+#include <cstring>
 #include "GraphicsDevice.h"
 #include "GPUMarker.h"
 

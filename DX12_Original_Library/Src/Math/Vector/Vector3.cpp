@@ -1,4 +1,4 @@
-﻿#include <cmath>
+#include <cmath>
 #include <algorithm>
 #include "../../Debug/DebugLogs.h"
 #include "../MathConstant.h"

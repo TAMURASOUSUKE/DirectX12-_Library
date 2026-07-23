@@ -1,4 +1,4 @@
-﻿#include <string>
+#include <string>
 #include "../Src/Facade/TSLib.h"
 #include "Objects/ObjectManager.h"
 #include "Objects/ObjectFactory.h" // 本当はもっとしっかり分けたいが規模的にいったんこの形

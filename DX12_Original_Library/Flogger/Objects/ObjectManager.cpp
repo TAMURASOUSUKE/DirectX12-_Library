@@ -1,4 +1,4 @@
-﻿#include "ObjectManager.h"
+#include "ObjectManager.h"
 
 void ObjectManager::Register(std::unique_ptr<ObjectBase> _obj)
 {

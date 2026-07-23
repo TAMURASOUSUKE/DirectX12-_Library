@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "HandleConstant.h"
 // materialを外部から扱えるようにするためのハンドル型
 

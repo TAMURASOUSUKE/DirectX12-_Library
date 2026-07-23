@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <chrono>
 #include "FPSCounter.h"
 #include "FPSLimiter.h"

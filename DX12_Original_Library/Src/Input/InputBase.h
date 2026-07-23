@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // 入力を抽象化する際の規定となるクラス
 class InputBase
 {

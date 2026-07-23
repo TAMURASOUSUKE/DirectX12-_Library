@@ -1,4 +1,4 @@
-﻿#include "FPSConstant.h"
+#include "FPSConstant.h"
 #include "FPSCounter.h"
 
 void FPSCounter::Reset()

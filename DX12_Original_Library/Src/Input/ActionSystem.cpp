@@ -1,4 +1,4 @@
-﻿#include <variant>
+#include <variant>
 #include "../Debug/DebugLogs.h"
 #include "GamePadInput.h"
 #include "KeyboardInput.h"

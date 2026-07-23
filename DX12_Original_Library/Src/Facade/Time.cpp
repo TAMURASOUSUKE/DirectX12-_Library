@@ -1,4 +1,4 @@
-﻿#include "../Graphics/GraphicsDevice.h" // VSync制御で使う
+#include "../Graphics/GraphicsDevice.h" // VSync制御で使う
 #include "../FPS/FPSConstant.h"
 #include "../FPS/FPSSystem.h"
 #include "TimeInternal.h"

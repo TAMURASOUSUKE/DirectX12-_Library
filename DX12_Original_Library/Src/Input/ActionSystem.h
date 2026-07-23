@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <vector>
 #include "InputName.h"
 // 参照引数に完全な型は必要ないので前方宣言で済ませる

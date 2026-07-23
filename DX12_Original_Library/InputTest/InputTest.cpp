@@ -1,4 +1,4 @@
-﻿#include <string> 
+#include <string> 
 #include "../Src/Facade/TSLib.h"
 
 

@@ -1,4 +1,4 @@
-﻿#include "GamePadInput.h"
+#include "GamePadInput.h"
 #include <windows.h>
 #include <algorithm>
 #include "InputConstant.h"

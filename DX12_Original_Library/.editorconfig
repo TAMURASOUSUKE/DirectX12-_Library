@@ -1,0 +1,22 @@
+# このファイルより上の階層にある.editorconfigを参照しない
+root = true
+
+# 基本的にすべてのテキストファイルへ適用
+[*]
+
+# UTF-8のBOMなしで保存する
+charset = utf-8
+
+# Windowsプロジェクトなので改行コードはCRLFに統一する
+end_of_line = crlf
+
+# ファイル末尾に改行を入れる
+insert_final_newline = true
+
+# C++とHLSLのインデント設定
+[*.{h,hpp,c,cpp,hlsl,hlsli}]
+
+# 現在のプロジェクトの書き方に合わせてタブを使用する
+indent_style = tab
+indent_size = 4
+tab_width = 4

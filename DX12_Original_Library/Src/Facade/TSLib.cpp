@@ -1,4 +1,4 @@
-﻿#include <windows.h>
+#include <windows.h>
 #include "../Debug/DebugLogs.h"
 #include "GfxInternal.h"
 #include "InputInternal.h"

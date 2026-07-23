@@ -1,4 +1,4 @@
-﻿#include "Background.h"
+#include "Background.h"
 
 void Background::Update()
 {
