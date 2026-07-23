@@ -1,4 +1,4 @@
-﻿#include <cmath>
+#include <cmath>
 #include <vector>
 #include "../Debug/DebugLogs.h"
 #include "GraphicsConstant.h"

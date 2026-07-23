@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <wrl/client.h>
 #include <xaudio2.h>
 #include <vector>

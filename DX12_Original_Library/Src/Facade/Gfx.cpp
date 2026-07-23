@@ -1,4 +1,4 @@
-﻿#include "../External/Common/d3dx12.h"
+#include "../External/Common/d3dx12.h"
 #include "../External/cgltf.h"
 #include "../Window/Window.h"
 #include "../Debug/DebugLogs.h"

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <windows.h>
 // ユーザーが触れない音関連の関数を宣言する
 namespace SoundInternal

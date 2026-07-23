@@ -1,4 +1,4 @@
-﻿#include "../GraphicsResourceManager.h"
+#include "../GraphicsResourceManager.h"
 #include "DebugTriangle.h"
 
 // 初期化

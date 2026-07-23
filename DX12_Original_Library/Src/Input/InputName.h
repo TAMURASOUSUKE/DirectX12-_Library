@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <windows.h> // VK_*（仮想キーコード）と BYTE/WORD のため
 #include <variant>
 

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <format>
 #include "Vector2.h"
 

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <vector>
 #include <xaudio2.h>
 #include "../Core/Handle/SoundHandle.h"

@@ -1,4 +1,4 @@
-﻿#include "../Src/Facade/TSLib.h"
+#include "../Src/Facade/TSLib.h"
 
 
 /*

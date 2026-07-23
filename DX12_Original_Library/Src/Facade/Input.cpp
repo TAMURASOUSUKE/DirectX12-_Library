@@ -1,4 +1,4 @@
-﻿#include"../Debug/DebugLogs.h"
+#include"../Debug/DebugLogs.h"
 #include "../Input/KeyboardInput.h"
 #include "../Input/MouseInput.h"
 #include "../Input/GamePadInput.h"

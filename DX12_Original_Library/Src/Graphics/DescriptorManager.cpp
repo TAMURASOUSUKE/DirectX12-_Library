@@ -1,4 +1,4 @@
-﻿#include "../Debug/DebugLogs.h"
+#include "../Debug/DebugLogs.h"
 #include "GraphicsConstant.h"
 #include "DescriptorManager.h"
 

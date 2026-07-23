@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "HandleConstant.h"
 
 // テクスチャを管理するHandle

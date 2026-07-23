@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 struct ID3D12GraphicsCommandList; // ポインタでの保持のみなので前方宣言で事足りる
 
 // ここではRenderDocのデバッグの際に何がドローコールしたのか等を明確にわかるようにするために扱う関数を定義する

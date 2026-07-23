@@ -1,4 +1,4 @@
-﻿#include <cstdint>
+#include <cstdint>
 #include <limits>
 #include <cstring>
 #include "../Debug/DebugLogs.h"

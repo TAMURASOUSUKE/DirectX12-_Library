@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <functional> // 規模が小さめなのでとりあえずfunctionalで対応する
 #include <utility>
 #include "../../Src/Facade/TSLib.h"

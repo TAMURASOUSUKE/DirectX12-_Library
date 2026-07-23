@@ -1,4 +1,4 @@
-﻿#include <iostream>
+#include <iostream>
 #include <variant>
 #include <string>
 #include "TSMath.h"

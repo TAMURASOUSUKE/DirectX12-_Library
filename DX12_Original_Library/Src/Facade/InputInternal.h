@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <windows.h>
 // ユーザーが触れない入力関数を宣言する
 namespace InputInternal

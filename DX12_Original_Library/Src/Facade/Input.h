@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include  <type_traits>
 #include "../Math/TSMath.h"
 #include "../Input/InputName.h"

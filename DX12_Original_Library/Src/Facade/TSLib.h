@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "../Math/TSMath.h"
 #include "../Collision/Collider.h"
 #include "../Debug/DebugLogs.h"  

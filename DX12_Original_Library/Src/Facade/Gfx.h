@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <memory>
 #include <type_traits>
 #include "../Core/Handle/TexHandle.h"

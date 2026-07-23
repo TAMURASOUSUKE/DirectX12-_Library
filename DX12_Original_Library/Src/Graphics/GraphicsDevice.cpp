@@ -1,4 +1,4 @@
-﻿#include "../Debug/DebugLogs.h"
+#include "../Debug/DebugLogs.h"
 #include "GraphicsDevice.h"
 
 #pragma comment(lib, "d3d12.lib")

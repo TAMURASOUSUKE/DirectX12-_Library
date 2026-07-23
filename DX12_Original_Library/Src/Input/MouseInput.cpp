@@ -1,4 +1,4 @@
-﻿#include "../Debug/DebugLogs.h"
+#include "../Debug/DebugLogs.h"
 #include "InputConstant.h"
 #include "MouseInput.h"
 

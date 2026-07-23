@@ -1,4 +1,4 @@
-﻿#include "../GraphicsResourceManager.h"
+#include "../GraphicsResourceManager.h"
 #include "../GPUMarker.h"
 #include "../GraphicsConstant.h"
 #include "DebugCube.h"

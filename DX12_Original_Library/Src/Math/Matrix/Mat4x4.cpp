@@ -1,4 +1,4 @@
-﻿#include <cmath>
+#include <cmath>
 #include "Mat4x4.h"
 
 // 単位行列

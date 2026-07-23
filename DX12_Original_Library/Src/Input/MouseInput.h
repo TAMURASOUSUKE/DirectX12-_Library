@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <windows.h>
 #include "../Math/TSMath.h"
 #include "InputBase.h"

@@ -1,4 +1,4 @@
-﻿#include <utility>
+#include <utility>
 #include <memory>
 #include "ObjectFactory.h"
 #include "ObjectManager.h"

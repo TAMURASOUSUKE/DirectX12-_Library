@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // 時間に関係する機能を提供する
 
 namespace Time

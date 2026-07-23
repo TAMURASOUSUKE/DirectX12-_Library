@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 // FPS制御に関連する定数
 // 目標FPS デフォルトは0でVSync有効

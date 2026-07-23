@@ -1,4 +1,4 @@
-﻿#include <windows.h>
+#include <windows.h>
 #include <xaudio2.h>
 #include <cstring>
 #include <fstream>

@@ -1,4 +1,4 @@
-﻿#include "Car.h"
+#include "Car.h"
 
 void Car::Update()
 {

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "../../Src/Facade/TSLib.h"
 #include "ObjectBase.h"
 // 背景

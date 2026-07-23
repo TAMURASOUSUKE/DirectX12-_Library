@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 // 各数学構造体へのアクセスルートをまとめたヘッダ
 #include "MathConstant.h"

@@ -1,4 +1,4 @@
-﻿#include "../Src/Facade/TSLib.h"
+#include "../Src/Facade/TSLib.h"
 #include <string> // テスト用
 #include <algorithm>
 #include "../Src/Graphics/GraphicsType.h" // デバッグ用に一時的に
