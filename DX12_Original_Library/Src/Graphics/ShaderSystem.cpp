@@ -399,7 +399,12 @@ ComPtr<ID3DBlob> ShaderSystem::Compile(const wchar_t* _filePath, const char* _en
 		// ファイル名が見当たらない時の処理
 		if (result == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
 		{
-			DEBUG_LOG_ERROR("ファイルが見つかりません : filePath = {}\n", _filePath);
+			if (!_filePath)
+			{
+				DEBUG_LOG_ERROR("Shaderのファイルパスがnullです\n");
+				return nullptr;
+			}
+			DEBUG_LOG_ERROR("ファイルが見つかりません : filePath = {}\n", TextEncoding::ToUtf8(_filePath));
 			return nullptr;
 		}
 
@@ -410,7 +415,7 @@ ComPtr<ID3DBlob> ShaderSystem::Compile(const wchar_t* _filePath, const char* _en
 			std::string errorStr{}; // エラー文字列格納用
 			errorStr.assign(errorMessage, errorBlob->GetBufferSize()); // 先頭から文字列のサイズ分だけ再代入する
 			errorStr += "\n"; // 改行
-			DEBUG_LOG_ERROR(errorStr.c_str()); // char型を取り出し出力
+			DEBUG_LOG_ERROR("{}", errorStr.c_str()); // char型を取り出し出力
 		}
 		else
 		{

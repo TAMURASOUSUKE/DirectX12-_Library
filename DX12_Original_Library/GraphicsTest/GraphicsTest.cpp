@@ -46,9 +46,10 @@ struct GlitchColorParameter
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
+	const Vector2 windowSize{ 1980.0f, 1080.0f };
 
 	// 初期化 失敗したら-1を返す
-	if (!TSLib::Initialize(L"GraphicsTest", 1280, 720)) return -1;
+	if (!TSLib::Initialize(L"GraphicsTest", static_cast<int>(windowSize.x), static_cast<int>(windowSize.y))) return -1;
 	Time::SetTargetFPS(0);
 
 	// ハンドルの取得
@@ -109,7 +110,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	float time{ 0.0f };
 
 	// ゲームループ
-	while (TSLib::ProcessMessage())
+	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 		time += Time::DeltaTime();
@@ -185,7 +186,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		// スプライトバッチテスト
-		Gfx::DrawSprite(background, { 0.0f, 0.0f }, { 1280.0f, 720.0f }, 0.0f, Vector4::One, Vector2::Zero, Vector2::One, LenderLayer::BackGround);
+		Gfx::DrawSprite(background, { 0.0f, 0.0f }, windowSize, 0.0f, Vector4::One, Vector2::Zero, Vector2::One, LenderLayer::BackGround);
 		Gfx::DrawSprite(enemy, { 350.0f, 350.0f }, { 128.0f, 128.0f });
 
 		Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);

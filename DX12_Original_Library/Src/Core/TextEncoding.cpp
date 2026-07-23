@@ -3,7 +3,7 @@
 
 std::string TextEncoding::ToUtf8(std::wstring_view _text)
 {
-	if (_text.empty()) return;
+	if (_text.empty()) return {};
 
 	// UTF-8へ変換した際に必要になるバイト数を取得する
 	const int requiredSize{ WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, _text.data(), static_cast<int>(_text.size()), nullptr, 0, nullptr, nullptr) };

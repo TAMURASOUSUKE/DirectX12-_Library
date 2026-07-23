@@ -391,11 +391,6 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 		DEBUG_LOG_ERROR("ウィンドウ作成に失敗しました\n");
 		return false;
 	}
-	if (!window.GetHWND())
-	{
-		DEBUG_LOG_ERROR("ウィンドウ作成に失敗しました\n");
-		return false; // ウィンドウ作成失敗ならfalse
-	}
 
 	RECT clientRect{};
 	GetClientRect(window.GetHWND(), &clientRect);

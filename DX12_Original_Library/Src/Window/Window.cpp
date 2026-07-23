@@ -1,9 +1,11 @@
+#include "../Debug/DebugLogs.h"
 #include "Window.h"
 
 bool Window::GenerateWindow(int _clientWidth, int _clientHeight)
 {
 	if (_clientWidth <= 0 || _clientHeight <= 0)
 	{
+		DEBUG_LOG_ERROR("ウィンドウのサイズには0より大きい値を渡してください\n");
 		return false;
 	}
 
@@ -21,6 +23,7 @@ bool Window::GenerateWindow(int _clientWidth, int _clientHeight)
 	// すでに同じクラスが登録されている場合以外の失敗を検出する
 	if (classAtom == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
 	{
+		DEBUG_LOG_ERROR("ウィンドウクラスの登録に失敗しました\n");
 		return false;
 	}
 
@@ -28,12 +31,14 @@ bool Window::GenerateWindow(int _clientWidth, int _clientHeight)
 	RECT windowRect{ 0, 0, _clientWidth, _clientHeight };
 	if (!AdjustWindowRectEx(&windowRect, WINDOW_STYLE, false, 0))
 	{
+		DEBUG_LOG_ERROR("ウィンドウサイズの調整に失敗しました\n");
 		return false;
 	}
 	const int windowWidth{ windowRect.right - windowRect.left };
 	const int windowHeight{ windowRect.bottom - windowRect.top };
 
-	hwnd = CreateWindow(
+	hwnd = CreateWindowExW(
+		0,
 	   wc.lpszClassName, // クラス名
 	   windowName, // タイトルバー
 	   WS_OVERLAPPEDWINDOW, // スタイル(標準ウィンドウ)
@@ -44,9 +49,15 @@ bool Window::GenerateWindow(int _clientWidth, int _clientHeight)
 	   this // マウス回転を積むためにプロシージャに自身のポインタを渡す
    );
 
-	if (!hwnd) return false;
+	if (!hwnd)
+	{
+		DEBUG_LOG_ERROR("WindowHandleが空です\n");
+		return false;
+	}
+
 
 	ShowWindow(hwnd, SW_SHOW);
+	return true;
 }
 
 // メンバ関数は暗黙的にthisポインタを持つので引数の整合性を取るためにstatic関数にする必要がある

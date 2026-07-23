@@ -149,6 +149,7 @@
     <ClInclude Include="Src\Core\Handle\ShaderHandle.h" />
     <ClInclude Include="Src\Core\Handle\SoundHandle.h" />
     <ClInclude Include="Src\Core\Handle\TexHandle.h" />
+    <ClInclude Include="Src\Core\TextEncoding.h" />
     <ClInclude Include="Src\Debug\DebugLogs.h" />
     <ClInclude Include="Src\External\cgltf.h" />
     <ClInclude Include="Src\Facade\Collision.h" />
@@ -207,6 +208,7 @@
   <ItemGroup>
     <ClCompile Include="Src\Collision\CollisionSystem.cpp" />
     <ClCompile Include="Src\Component\Transform.cpp" />
+    <ClCompile Include="Src\Core\TextEncoding.cpp" />
     <ClCompile Include="Src\Debug\DebugLogs.cpp" />
     <ClCompile Include="Src\External\CgltfEnable.cpp" />
     <ClCompile Include="Src\Facade\Collision.cpp" />
