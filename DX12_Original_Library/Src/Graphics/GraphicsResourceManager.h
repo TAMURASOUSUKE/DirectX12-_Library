@@ -119,13 +119,23 @@ private:
 
 private:
 	ID3D12Device* device{ nullptr }; // Initializeでデバイスを受け取って保持する
+
 	TexHandle defaultTexture; // デフォルトの白テクスチャ
 	TexHandle errorTexture; // エラー用のピンクテクスチャ
+
 	std::vector<TextureSlot> texSlots; // テクスチャリソースのスロット
 	std::vector <ModelSlot> modelSlots; // モデルリソースのスロット
 	std::vector<RenderTargetSlot> rtSlots; // RenderTargetのスロット
 	std::vector<ShaderSlot> shaderSlots; // シェーダーのスロット
 	std::vector<MaterialSlot> materialSlots; // materialのスロット
+
+	// アニメーション計算用の一時領域
+	// UpdateGlobalPoseは現在シングルスレッドで順番に呼ばれるため、全個体で共有して再利用する
+	std::vector<Mat4x4> animationLocalPoseCache{};
+	std::vector<Vector3> animationTranslationCache{};
+	std::vector<Quaternion> animationRotationCache{};
+	std::vector<Vector3> animationScaleCache{};
+
 	std::stack<int> texFreeList; // テクスチャリソースのフリーリスト
 	std::stack<int> modelFreeList; // モデルリソースのフリーリスト
 	std::stack<int> renderTargetFreeList; // RenderTargetのフリーリスト
@@ -133,4 +143,5 @@ private:
 	std::stack<int> materialFreeList; // materialのフリーリスト
 	DeferredReleaseBatch pendingRelease{}; // まだEndFrameしていないのでFence値が決まっていない荷物
 	std::deque<DeferredReleaseBatch> deferredReleases{}; // EndFrame済みでGPU完了を待っている荷物
+
 };

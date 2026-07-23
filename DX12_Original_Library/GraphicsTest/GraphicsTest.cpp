@@ -82,6 +82,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	//inverseSpriteMaterial = {};
 
 	// Texture
+	Vector2 enemyPos{ 100.0f, 100.0f };
 	TexHandle background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
 	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png") }; // Enemyのハンドル取得
 	TexHandle player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
@@ -109,15 +110,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// Model
 	ModelHandle testModel{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Testモデルのロード
 	ModelHandle testPlayer{ Gfx::LoadModel("Res/TestPlayer.glb") }; // Playerモデルのロード
-	AnimInstanceData debugAnim{}; // アニメーション用のデータ
-	debugAnim.handle = testModel;
-	Vector2 enemyPos{ 100.0f, 100.0f };
-
-	Transform cubeTransform{};
-	Transform cubeTransform02{};
-	cubeTransform.SetPosition(Vector3{ 0.0f, 0.0f, 0.0f });
-	cubeTransform02.SetPosition(Vector3{ 0.0f, 0.0f, 0.0f });
-	cubeTransform.SetScale(Vector3::One);
+	Transform modelTransform01{};
+	Transform modelTransform02{};
+	modelTransform01.SetPosition({ -1.0f, 0.0f, 0.0f });
+	modelTransform02.SetPosition({ 1.0f, 0.0f, 0.0f });
+	AnimInstanceData anim01{};
+	AnimInstanceData anim02{};
+	anim01.handle = testModel;
+	anim02.handle = testModel;
 
 	bool testFlag{ false };
 	int testWheel{ 0 };
@@ -148,8 +148,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 
 		// アニメーションテスト
-		debugAnim.currentTime += Time::DeltaTime(); // 時刻を進める
-		if (debugAnim.currentTime > 0.667f) debugAnim.currentTime = 0.0f; // 一旦Runのdurationでループさせる
+		anim01.currentTime += Time::DeltaTime();
+		anim02.currentTime += Time::DeltaTime() * 0.5f;
+		if (anim01.currentTime > 0.667f) anim01.currentTime = 0.0f; // 一旦Runのdurationでループさせる
+		if (anim02.currentTime > 0.667f) anim02.currentTime = 0.0f; // 一旦Runのdurationでループさせる
 
 		// Terrain操作
 		float heightSpeed{ 3.0f };
@@ -293,7 +295,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
 
-		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
+		// モデル + アニメーション
+		Gfx::DrawModel(testModel, modelTransform01, &anim01);
+		Gfx::DrawModel(testModel, modelTransform02, &anim02);
 
 		// Shaderテスト
 		//Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, Vector2::One, 0.0f, Gfx::SpriteFlip::None, { 1.0f, 0.0f, 0.0f, 1.0f });

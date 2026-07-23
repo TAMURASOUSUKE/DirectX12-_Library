@@ -345,6 +345,10 @@ void GraphicsResourceManager::Shutdown()
 	}
 	defaultTexture = TexHandle{};
 	errorTexture = TexHandle{};
+	animationLocalPoseCache = {};
+	animationTranslationCache = {};
+	animationRotationCache = {};
+	animationScaleCache = {};
 	device = nullptr;
 }
 
@@ -1551,12 +1555,12 @@ void GraphicsResourceManager::UpdateGlobalPose(AnimInstanceData& _instance)
 	// アニメーションが存在するモデルのなのに範囲外を指定した場合は警告を出す
 	if (!hasValidAnimation && !model->animations.empty()) DEBUG_LOG_WARNING("指定されたアニメーションが範囲外です。バインドポーズで描画します");
 
-	// 補間したlocalposeを得る
-	std::vector<Mat4x4> localPose;
+	// 補間したlocalposeを入れる一次領域を使いまわす(resizeをしているため必要な容量があればメモリの再確保が起きない)
+	animationLocalPoseCache.resize(model->bones.size());
 	if (hasValidAnimation)
 	{
 		const Animation& anim{ model->animations[_instance.currentAnim] }; // 指定のアニメーションを取り出す
-		SampleAnimation(anim, model->bones, _instance.currentTime, localPose);
+		SampleAnimation(anim, model->bones, _instance.currentTime, animationLocalPoseCache);
 	}
 
 	// ボーン数分回してglobal行列を求める
@@ -1564,7 +1568,7 @@ void GraphicsResourceManager::UpdateGlobalPose(AnimInstanceData& _instance)
 	{
 		const Bone& bone{ model->bones[i] };  // ボーンを取り出す 
 		// アニメーションがあれば更新されたボーンのローカルポーズ、そうでなければバインドポーズ
-		Mat4x4 local{ hasValidAnimation ? localPose[i] : model->bones[i].localPose };
+		Mat4x4 local{ hasValidAnimation ? animationLocalPoseCache[i] : model->bones[i].localPose };
 
 		if (bone.parentIndex < 0)
 		{
@@ -1593,17 +1597,16 @@ void GraphicsResourceManager::SampleAnimation(const Animation& _anim, const std:
 	size_t boneCount{ _bones.size() }; // ボーン数
 	_outLocalPoses.resize(boneCount);
 	// ボーンごとのTRSを持つキャッシュ(バインドポーズから分解した値で初期化するのでアニメーションがないボーンはバインドポーズのまま)
-	// ここはホットパスなので毎フレーム再確保するのではなくメンバにして使いまわすなどの最適化を今後行う
-	std::vector<Vector3> translations(boneCount); // 位置
-	std::vector<Quaternion> rotations(boneCount); // 回転
-	std::vector<Vector3> scales(boneCount); // スケール
+	animationTranslationCache.resize(boneCount); // 位置
+	animationRotationCache.resize(boneCount); // 回転
+	animationScaleCache.resize(boneCount); // スケール
 
 	// バインドポーズのローカルポーズからTRSを取り出して初期化
 	for (size_t i = 0; i < boneCount; i++)
 	{
-		translations[i] = _bones[i].bindTranslation;
-		rotations[i] = _bones[i].bindRotation;
-		scales[i] = _bones[i].bindScale;
+		animationTranslationCache[i] = _bones[i].bindTranslation;
+		animationRotationCache[i] = _bones[i].bindRotation;
+		animationScaleCache[i] = _bones[i].bindScale;
 	}
 
 	// 全チャンネルを回してアニメーションされるボーンを上書きする
@@ -1615,18 +1618,18 @@ void GraphicsResourceManager::SampleAnimation(const Animation& _anim, const std:
 		if (bone < 0) continue;
 		switch (ch.path)
 		{
-		case AnimPath::Translation: translations[bone] = Vector3{ v.x, v.y, v.z }; break;
-		case AnimPath::Rotation: rotations[bone] = Quaternion{ v }; break;
-		case AnimPath::Scale: scales[bone] = Vector3{ v.x, v.y, v.z }; break;
+		case AnimPath::Translation: animationTranslationCache[bone] = Vector3{ v.x, v.y, v.z }; break;
+		case AnimPath::Rotation: animationRotationCache[bone] = Quaternion{ v }; break;
+		case AnimPath::Scale: animationScaleCache[bone] = Vector3{ v.x, v.y, v.z }; break;
 		}
 	}
 
 	// TRSからlocalPosを組み立てる
 	for (size_t i = 0; i < boneCount; i++)
 	{
-		Mat4x4 s{ Mat4x4::MakeScaling(scales[i]) };
-		Mat4x4 r{ rotations[i].ToMat4x4() };
-		Mat4x4 t{ Mat4x4::MakeTranslation(translations[i]) };
+		Mat4x4 s{ Mat4x4::MakeScaling(animationScaleCache[i]) };
+		Mat4x4 r{ animationRotationCache[i].ToMat4x4() };
+		Mat4x4 t{ Mat4x4::MakeTranslation(animationTranslationCache[i]) };
 		_outLocalPoses[i] = s * r * t;
 	}
 
