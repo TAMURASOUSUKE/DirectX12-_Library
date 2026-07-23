@@ -380,8 +380,6 @@ namespace {
 // 初期化処理(これを呼ぶだけで初期化処理が済むようにする)
 bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 {
-	HRESULT result{};
-
 	screenWidth = _width;
 	screenHeight = _height;
 	// 前回の初期化状態を引き継がない
