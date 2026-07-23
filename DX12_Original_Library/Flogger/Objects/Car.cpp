@@ -20,5 +20,5 @@ void Car::Update()
 void Car::Draw()
 {
 	if (!isActive) return;
-	Gfx::DrawSprite(handle, position, size, rotate);
+	Gfx::DrawSpriteSized(handle, position, size, rotate);
 }

@@ -46,10 +46,10 @@ struct GlitchColorParameter
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
-	const Vector2 windowSize{ 1980.0f, 1080.0f };
+	const Vector2 windowSize{ 1280.0f, 720.0f};
 
 	// 初期化 失敗したら-1を返す
-	if (!TSLib::Initialize(L"GraphicsTest", static_cast<int>(windowSize.x), static_cast<int>(windowSize.y))) return -1;
+	if (!TSLib::Initialize(L"GraphicsTest", static_cast<int>(windowSize.x), static_cast<int>(windowSize.y)))return -1;
 	Time::SetTargetFPS(0);
 
 	// ハンドルの取得
@@ -186,28 +186,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		// スプライトバッチテスト
-		Gfx::DrawSprite(background, { 0.0f, 0.0f }, windowSize, 0.0f, Vector4::One, Vector2::Zero, Vector2::One, LenderLayer::BackGround);
-		Gfx::DrawSprite(enemy, { 350.0f, 350.0f }, { 128.0f, 128.0f });
+		Gfx::DrawSpriteSized(background, { 0.0f, 0.0f }, windowSize, 0.0f, Vector4::One, Vector2::Zero, Vector2::One, RenderLayer::BackGround);
 
 		Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
 
 		Gfx::DrawModel(testModel, cubeTransform, &debugAnim);
 
-		Gfx::DrawSprite(enemy, {500.0f, 500.0f}, { 128.0f, 128.0f });
-		Gfx::DrawSprite(minivan, { 800.0f, 500.0f }, { 176.0f, 88.0f });
-
 		// Shaderテスト
-		Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, { 128.0f, 128.0f }, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f});
+		Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, Vector2::One, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f});
 
-		Gfx::DrawSprite(minivan, { 300.0f, 300.0f }, { 176.0f, 88.0f });
+		Gfx::DrawSprite(minivan, { 300.0f, 300.0f });
 
-		Gfx::DrawSprite(enemy,{ 500.0f, 300.0f }, { 128.0f, 128.0f }, inverseSpriteMaterial);
+		Gfx::DrawSprite(enemy,{ 500.0f, 300.0f },inverseSpriteMaterial);
 
-		Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, { 176.0f, 88.0f }, inverseSpriteMaterial, 0.0f, { 1.0f, 1.0f, 1.0f, 0.5f + 0.5f * sinf(time) });
+		Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, inverseSpriteMaterial, Vector2::One ,0.0f, { 1.0f, 1.0f, 1.0f, 0.5f + 0.5f * sinf(time) });
 
-		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, { 128.0f, 128.0f }, 0.0f, { 1.0f, 1.0f, 1.0f, 0.5f });
+		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, Vector2::One, 0.0f, { 1.0f, 1.0f, 1.0f, 0.5f });
 
-		Gfx::DrawSprite(enemy, enemyPos, { 128.0f, 128.0f }, glitchMaterial);
+		Gfx::DrawSprite(enemy, enemyPos, glitchMaterial);
 
 		//Gfx::DrawCapsule({30.0f, 30.0f}, {30.0f, 200.0f}, 40.0f, {1.0f, 1.0f, 1.0f, 1.0f}, true);
 		//Gfx::DrawCapsule({120.0f, 80.0f}, {120.0f, 200.0f}, 40.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, true);

@@ -23,7 +23,7 @@ enum class HeapType
 };
 
 // 描画順を決定する際に選べる種類
-enum class LenderLayer
+enum class RenderLayer
 {
 	BackGround, // 背景
 	ForeGround, // 3Dオブジェクトより手前に来る画像

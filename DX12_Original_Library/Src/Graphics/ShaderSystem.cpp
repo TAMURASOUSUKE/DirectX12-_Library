@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <string>
+#include <utility>
 #include <d3dcompiler.h>
 #include "../Debug/DebugLogs.h"
 #include "../Core/TextEncoding.h"

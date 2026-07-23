@@ -1,3 +1,5 @@
+#include <cmath>
+#include <limits>
 #include "../External/Common/d3dx12.h"
 #include "../External/cgltf.h"
 #include "../Window/Window.h"
@@ -38,8 +40,10 @@ namespace {
 	SpriteBatch bgBatch; // 背景のスプライトバッチ処理
 	ShapeBatch shapeBatch; // 基本図形のバッチ処理
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
-	int screenWidth = 0; // 画面の横幅
-	int screenHeight = 0; // 画面の縦幅
+	int screenWidth{ 0 }; // 画面の横幅
+	int screenHeight{ 0 }; // 画面の縦幅
+	int virtualWidth{ 0 };  // ゲーム内で使用する基準幅
+	int virtualHeight{ 0 }; // ゲーム内で使用する基準高さ
 	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
 	MaterialHandle currentPostEffectMaterial{}; // 現在画面全体へ適用しているポストエフェクトmaterial(無効ハンドルなら内蔵の素通しPSOを使う)
 
@@ -341,6 +345,42 @@ namespace {
 		cmd->DrawIndexedInstanced(terrainIndexBuffer.indexCount, 1, 0, 0, 0);
 	}
 
+	// 指定したアトラスのセル番号からUV範囲を計算する
+	bool TryCalculateAtlasUV(const Gfx::TextureAtlas& _atlas, int _frameIndex, Vector2& _outUVMin, Vector2& _outUVMax)
+	{
+		// 失敗時に以前の結果が残らないように初期化
+		_outUVMax = Vector2::Zero;
+		_outUVMin = Vector2::Zero;
+		// 無効データなら計算しない
+		if (!_atlas.IsValid())
+		{
+			DEBUG_LOG_ERROR("無効なTextureAtlasが指定されました\n");
+			return false;
+		}
+
+		// IsValidを通っているのでframeCountは実際に使用できる数
+		if (_frameIndex < 0 || _frameIndex >= _atlas.frameCount)
+		{
+			DEBUG_LOG_ERROR("アトラスのframeIndexは0以上frameCount未満にしてください\n");
+			return false;
+		}
+
+		// 1次元のセル番号を列と行に変換
+		const int column{ _frameIndex % _atlas.columns };
+		const int row{ _frameIndex / _atlas.rows };
+
+		// セル一つがテクスチャの何割を占めるか
+		const float cellUVWidth{ 1.0f / static_cast<float>(_atlas.columns) };
+		const float cellUVHeight{ 1.0f / static_cast<float>(_atlas.rows) };
+
+		// セル左上
+		_outUVMin = {column * cellUVWidth, row * cellUVHeight};
+
+		// セル右下
+		_outUVMax = {(column + 1) * cellUVWidth, (row + 1) * cellUVHeight};
+		return true;
+	}
+
 	void ShutdownGfxOwnedResources()
 	{
 		// 仮で作っているTerrainのVB.IBを解放する(これは一時的な物なので3Dの基本図形描画時になくなる予定)
@@ -378,15 +418,23 @@ namespace {
 }
 
 // 初期化処理(これを呼ぶだけで初期化処理が済むようにする)
-bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
+bool GfxInternal::Initialize(const wchar_t* _title, int _windowWidth, int _windowHeight, int _virtualWidth, int _virtualHeight)
 {
-	screenWidth = _width;
-	screenHeight = _height;
+	if (_windowWidth <= 0 || _windowHeight <= 0 || _virtualWidth <= 0 || _virtualHeight <= 0)
+	{
+		DEBUG_LOG_ERROR("ウィンドウサイズと仮想解像度には0より大きい値を指定してください\n");
+		return false;
+	}
+
+	screenWidth = _windowWidth;
+	screenHeight = _windowHeight;
+	virtualWidth = _virtualWidth;
+	virtualHeight = _virtualHeight;
 	// 前回の初期化状態を引き継がない
 	currentPostEffectMaterial = {};
 
 	window.SetWindowName(_title); // 名前設定
-	if (!window.GenerateWindow(_width, _height)) // ウィンドウを作成
+	if (!window.GenerateWindow(_windowWidth, _windowHeight)) // ウィンドウを作成
 	{
 		DEBUG_LOG_ERROR("ウィンドウ作成に失敗しました\n");
 		return false;
@@ -401,7 +449,7 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 
 	DEBUG_LOG("ClientSize = {} x {}\n", actualWidth, actualHeight);
 
-	GraphicsDevice::Instance().Initialize(window.GetHWND(), _width, _height); // デバイスの初期化
+	GraphicsDevice::Instance().Initialize(window.GetHWND(), _windowWidth, _windowHeight); // デバイスの初期化
 	if (!GraphicsDevice::Instance().GetDevice())
 	{
 		DEBUG_LOG_ERROR("デバイスの読み込みに失敗しました\n");
@@ -436,7 +484,7 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	GraphicsResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
 	
 	// 画面と同じサイズの内部描画先を作成
-	sceneRenderTarget = GraphicsResourceManager::Instance().CreateRenderTarget(static_cast<UINT>(_width), static_cast<UINT>(_height));
+	sceneRenderTarget = GraphicsResourceManager::Instance().CreateRenderTarget(static_cast<UINT>(_windowWidth), static_cast<UINT>(_windowHeight));
 	if (!sceneRenderTarget.IsValid())
 	{
 		DEBUG_LOG_ERROR("シーン描画用RenderTargetの作成に失敗しました\n");
@@ -455,11 +503,12 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	if (!InitializeTerrainResources()) return false;
 
 	// ピクセル座標からNDC座標へ変換
-	Mat4x4 orthMat{ Mat4x4::MakeOrthGraphic(static_cast<float>(_width), static_cast<float>(_height)) }; // 変換行列の作成
+	const Mat4x4 orthMat{ Mat4x4::MakeOrthGraphic(static_cast<float>(_virtualWidth), static_cast<float>(_virtualHeight)) }; // 変換行列の作成
 	orthConstantBufferData = GraphicsResourceManager::Instance().CreateConstantBuffer(&orthMat, sizeof(Mat4x4));
 
-	// 透視投影行列の作成(一旦キューブが描画できるのを確認するためにハードコーディング)
-	vpMat = Mat4x4::MakeLookAt({ 0.0f, 3.0f, -3.0f }, { 0.0f, 1.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, static_cast<float>(screenWidth) / static_cast<float>(screenHeight), 0.1f, 100.0f);
+	// 透視投影行列の作成(一旦ハードコーディング)
+	const float virtualAspect{ static_cast<float>(_virtualWidth) / static_cast<float>(_virtualHeight) };
+	vpMat = Mat4x4::MakeLookAt({ 0.0f, 3.0f, -3.0f }, { 0.0f, 1.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, virtualAspect, 0.1f, 100.0f);
 	mvpRingCBV.Initialize(sizeof(Mat4x4)); // リングバッファ初期化
 	materialRingCBV.Initialize(sizeof(MaterialCB));  // materialのリング定数バッファを初期化
 	skinningRingCBV.Initialize(sizeof(Mat4x4) * MAX_BONE_NUM); // ボーン用の定数バッファを更新
@@ -785,6 +834,46 @@ TexHandle Gfx::LoadTexture(const char* _filePath, TextureUsage _usage)
 	return GraphicsResourceManager::Instance().LoadTexture(_filePath, isData);
 }
 
+Gfx::TextureAtlas Gfx::LoadTextureAtlas(const char* _filePath, int _columns, int _rows, int _frameCount)
+{
+	if (!_filePath || _filePath[0] == '\0')
+	{
+		DEBUG_LOG_ERROR("アトラス画像のファイルパスが空です\n");
+		return {};
+	}
+
+	// 0除算を防ぐため、分割数を先に検査する
+	if (_columns <= 0 || _rows <= 0)
+	{
+		DEBUG_LOG_ERROR("アトラス画像のcolumnsとrowsには1以上を指定してください\n");
+		return {};
+	}
+
+	// オーバーフロー対策のlonglong
+	const long long capacity{ static_cast<long long>(_columns) * _rows };
+
+	// intで表現できないセル数はここで拒否する
+	if (capacity > (std::numeric_limits<int>::max)())
+	{
+		DEBUG_LOG_ERROR("アトラス画像のセル総数がintの上限を超えています\n");
+		return {};
+	}
+
+	// 0なら全セルを利用する
+	const long long useFrameCount{ _frameCount == 0 ? capacity : static_cast<long long>(_frameCount) };
+
+	if (useFrameCount <= 0 || useFrameCount > capacity)
+	{
+		DEBUG_LOG_ERROR("frameCountには1以上かつセル総数以下を指定してください\n");
+		return {};
+	}
+
+	// 実際のGPUリソース作成は既存関数へ任せる
+	const TexHandle texture{ LoadTexture(_filePath, TextureUsage::Color) };
+	if (!texture.IsValid()) return {};
+	return TextureAtlas{ texture, _columns, _rows, static_cast<int>(useFrameCount) };
+}
+
 // モデル読み込み
 ModelHandle Gfx::LoadModel(const char* _filePath)
 {
@@ -933,13 +1022,13 @@ void Gfx::DrawLine(Vector2 _startPos, Vector2 _endPos, Vector4 _color)
 }
 
 // 文字列描画(デフォルトフォント)
-void Gfx::DrawString(const char* _string, Vector2 _position, float _scale, Vector4 _color, LenderLayer _layer)
+void Gfx::DrawString(const char* _string, Vector2 _position, float _scale, Vector4 _color, RenderLayer _layer)
 {
 	DrawString(defaultFont, _string, _position, _scale, _color, _layer);
 }
 
 // 文字列描画(フォント設定用)
-void Gfx::DrawString(const BitmapFont& _font, const char* _string, Vector2 _position, float _scale, Vector4 _color, LenderLayer _layer)
+void Gfx::DrawString(const BitmapFont& _font, const char* _string, Vector2 _position, float _scale, Vector4 _color, RenderLayer _layer)
 {
 	// セルの最終的な大きさ
 	Vector2 glyphSize{ _font.cellWidth * _scale, _font.cellHeight * _scale };
@@ -977,20 +1066,57 @@ void Gfx::DrawString(const BitmapFont& _font, const char* _string, Vector2 _posi
 		Vector2 uvMax{ ((col + 1) * _font.cellWidth) / static_cast<float>(_font.texWidth), ((row + 1) * _font.cellHeight) / static_cast<float>(_font.texHeight) };
 
 
-		DrawSprite(_font.texture, cursor, glyphSize, 0.0f, _color, uvMin, uvMax, _layer);
+		DrawSpriteSized(_font.texture, cursor, glyphSize, 0.0f, _color, uvMin, uvMax, _layer);
 
 		cursor.x += glyphSize.x; // 書いた分右へ
 	}
 }
 
-// 画像登録
-void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)
+void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _scale, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, RenderLayer _layer)
 {
-	// 通常は空のMaterialHandleを渡す
-	DrawSprite(_texture, _position, _size, MaterialHandle{}, _radRotation, _color, _uvMin, _uvMax, _layer);
+	// materialなしは空のマテリアルを渡して共通処理へ
+	DrawSprite(_texture, _position, MaterialHandle{}, _scale, _radRotation, _color, _uvMin, _uvMax, _layer);
 }
 
-void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, MaterialHandle _material, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, LenderLayer _layer)
+void Gfx::DrawSprite(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, Vector2 _scale, float _radRotation, Vector4 _color, RenderLayer _layer)
+{
+	Vector2 uvMin{};
+	Vector2 uvMax{};
+	// UVが作れない場合はこのスプライトの描画をあきらめる
+	if (!TryCalculateAtlasUV(_atlas, _frameIndex, uvMin, uvMax)) return;
+	// 既存のDrawに任せる
+	DrawSprite(_atlas.texture, _position, _scale, _radRotation, _color, uvMin, uvMax, _layer);
+}
+
+void Gfx::DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelSize, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, RenderLayer _layer)
+{
+	// 通常は空のMaterialHandleを渡す
+	DrawSpriteSized(_texture, _position, _pixelSize, MaterialHandle{}, _radRotation, _color, _uvMin, _uvMax, _layer);
+}
+
+void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, MaterialHandle _material, Vector2 _scale, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, RenderLayer _layer)
+{
+	// 反転はUVの入れ替えで行えるので倍数には負数を許可しない
+	if (_scale.x < 0.0f || _scale.y < 0.0f)
+	{
+		DEBUG_LOG_ERROR("Spriteの倍率には0以上の値を指定してください\n");
+		return;
+	}
+
+	TextureData* data{ GraphicsResourceManager::Instance().Lookup(_texture) };
+	if (!data) return;
+
+	// UVが画像全体の何割を使用しているか求める
+	const float uvWidth{ std::abs(_uvMax.x - _uvMin.x) };
+	const float uvHeight{ std::abs(_uvMax.y - _uvMin.y) };
+
+	// 画像原寸 * UV使用範囲 * XY倍率
+	const Vector2 pixelSize{ static_cast<float>(data->width) * uvWidth * _scale.x, static_cast<float>(data->height) * uvHeight * _scale.y};
+	// 計算後は渡す
+	DrawSpriteSized(_texture, _position, pixelSize, _material, _radRotation, _color, _uvMin, _uvMax, _layer);
+}
+
+void Gfx::DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelSize, MaterialHandle _material, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax, RenderLayer _layer)
 {
 	ID3D12PipelineState* usePipeline{ shaderSystem.GetPipeline(PipelineID::Sprite) }; // 最初は内蔵SpritePSO
 	const MaterialParameterSet* useParameters{ nullptr }; // 内蔵Spriteならnull
@@ -1021,11 +1147,11 @@ void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, Vector2 _size, Mater
 
 	switch (_layer)
 	{
-	case LenderLayer::BackGround:
-		bgBatch.RegisterSprite(_texture, usePipeline, useParameters, _position, _size, _radRotation, _color, _uvMin, _uvMax);
+	case RenderLayer::BackGround:
+		bgBatch.RegisterSprite(_texture, usePipeline, useParameters, _position, _pixelSize, _radRotation, _color, _uvMin, _uvMax);
 		break;
-	case LenderLayer::ForeGround:
-		fgBatch.RegisterSprite(_texture, usePipeline, useParameters, _position, _size, _radRotation, _color, _uvMin, _uvMax);
+	case RenderLayer::ForeGround:
+		fgBatch.RegisterSprite(_texture, usePipeline, useParameters, _position, _pixelSize, _radRotation, _color, _uvMin, _uvMax);
 		break;
 	default:
 		break;

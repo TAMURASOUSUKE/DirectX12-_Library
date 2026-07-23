@@ -7,7 +7,7 @@
 namespace GfxInternal
 {
 	// 初期化(ウィンドウのタイトルと幅と高さを設定)
-	bool Initialize(const wchar_t* _title, int _width, int _height);
+	bool Initialize(const wchar_t* _title, int _windowWidth, int _windowHeight, int _virtualWidth, int _virtualHeight);
 	// フレームの開始処理
 	void BeginFrame();
 	// フレームの終了処理

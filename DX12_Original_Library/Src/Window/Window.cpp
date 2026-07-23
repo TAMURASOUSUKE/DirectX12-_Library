@@ -10,7 +10,7 @@ bool Window::GenerateWindow(int _clientWidth, int _clientHeight)
 	}
 
 	// 現在はスワップチェーンなどのリサイズ処理を持っていないため最大化とドラッグによるサイズ変更を禁止する
-	constexpr DWORD WINDOW_STYLE{ WS_EX_TOPMOST & ~(WS_THICKFRAME | WS_MAXIMIZEBOX) };
+	constexpr DWORD WINDOW_STYLE{ WS_OVERLAPPEDWINDOW & ~(WS_THICKFRAME | WS_MAXIMIZEBOX) };
 
 	// ウィンドウクラスの設定
 	WNDCLASSEX wc{}; // ウィンドウクラス
@@ -41,7 +41,7 @@ bool Window::GenerateWindow(int _clientWidth, int _clientHeight)
 		0,
 	   wc.lpszClassName, // クラス名
 	   windowName, // タイトルバー
-	   WS_OVERLAPPEDWINDOW, // スタイル(標準ウィンドウ)
+	   WINDOW_STYLE, // スタイル(標準ウィンドウ)
 	   CW_USEDEFAULT, CW_USEDEFAULT, // 位置
 	   windowWidth, windowHeight, // サイズ
 	   nullptr, nullptr,
