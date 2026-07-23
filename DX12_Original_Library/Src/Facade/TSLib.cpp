@@ -54,7 +54,7 @@ void TSLib::BeginFrame()
 	TimeInternal::BeginFrame(); // 時間関連のフレーム最初の処理
 	InputInternal::BeginFrame(); // 入力の最初の処理
 	GfxInternal::BeginFrame(); // グラフィックのフレーム最初の処理
-	SoundInternal::BeginFrame(1.0f / 60.0f); // 音関連のフレーム最初の処理(Systemファサードがないので60fps想定でdeltaTimeを渡しています)
+	SoundInternal::BeginFrame(Time::UnscaledDeltaTime()); // 音関連のフレーム最初の処理
 }
 
 void TSLib::EndFrame()

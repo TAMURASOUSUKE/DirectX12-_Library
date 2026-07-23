@@ -386,12 +386,25 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _width, int _height)
 	currentPostEffectMaterial = {};
 
 	window.SetWindowName(_title); // 名前設定
-	window.GenerateWindow(); // ウィンドウを作成
+	if (!window.GenerateWindow(_width, _height)) // ウィンドウを作成
+	{
+		DEBUG_LOG_ERROR("ウィンドウ作成に失敗しました\n");
+		return false;
+	}
 	if (!window.GetHWND())
 	{
 		DEBUG_LOG_ERROR("ウィンドウ作成に失敗しました\n");
 		return false; // ウィンドウ作成失敗ならfalse
 	}
+
+	RECT clientRect{};
+	GetClientRect(window.GetHWND(), &clientRect);
+
+	const int actualWidth{ clientRect.right - clientRect.left };
+
+	const int actualHeight{ clientRect.bottom - clientRect.top };
+
+	DEBUG_LOG("ClientSize = {} x {}\n", actualWidth, actualHeight);
 
 	GraphicsDevice::Instance().Initialize(window.GetHWND(), _width, _height); // デバイスの初期化
 	if (!GraphicsDevice::Instance().GetDevice())

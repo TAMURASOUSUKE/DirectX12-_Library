@@ -2,6 +2,7 @@
 #include <string>
 #include <d3dcompiler.h>
 #include "../Debug/DebugLogs.h"
+#include "../Core/TextEncoding.h"
 #include "ShaderSystem.h"
 
 // GraphicsTypeに設定されているenumを実の値へと変換する

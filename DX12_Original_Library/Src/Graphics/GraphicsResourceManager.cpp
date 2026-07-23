@@ -1539,27 +1539,32 @@ void GraphicsResourceManager::UpdateGlobalPose(AnimInstanceData& _instance)
 	ModelData* model{ GraphicsResourceManager::Instance().Lookup(_instance.handle) }; // データ部分を分解する
 	if (!model) return;
 
-	// 初回若しくはサイズが違ったときに確保しなおす
+	// 初回もしくはサイズが違ったときに確保しなおす
 	if (_instance.globalPoses.size() != model->bones.size())
 	{
 		_instance.globalPoses.resize(model->bones.size()); // globalPoseのサイズ確保
 		_instance.skinningMatrices.resize(model->bones.size()); // スキニング行列のサイズ確保
 	}
 
+	// アニメーションが存在し、指定番号が配列の範囲内か確認する
+	const bool hasValidAnimation{ !model->animations.empty() && _instance.currentAnim >= 0 && static_cast<size_t>(_instance.currentAnim) < model->animations.size() };
+	// アニメーションが存在するモデルのなのに範囲外を指定した場合は警告を出す
+	if (!hasValidAnimation && !model->animations.empty()) DEBUG_LOG_WARNING("指定されたアニメーションが範囲外です。バインドポーズで描画します");
+
 	// 補間したlocalposeを得る
 	std::vector<Mat4x4> localPose;
-	if (!model->animations.empty())
+	if (hasValidAnimation)
 	{
-		const Animation& anim{ model->animations[_instance.currentAnim] }; // してのアニメーションを取り出す
+		const Animation& anim{ model->animations[_instance.currentAnim] }; // 指定のアニメーションを取り出す
 		SampleAnimation(anim, model->bones, _instance.currentTime, localPose);
 	}
 
-	// ボーン数文回してglobal行列を求める
+	// ボーン数分回してglobal行列を求める
 	for (size_t i = 0; i < model->bones.size(); i++)
 	{
 		const Bone& bone{ model->bones[i] };  // ボーンを取り出す 
 		// アニメーションがあれば更新されたボーンのローカルポーズ、そうでなければバインドポーズ
-		Mat4x4 local{ !model->animations.empty() ? localPose[i] : model->bones[i].localPose };
+		Mat4x4 local{ hasValidAnimation ? localPose[i] : model->bones[i].localPose };
 
 		if (bone.parentIndex < 0)
 		{

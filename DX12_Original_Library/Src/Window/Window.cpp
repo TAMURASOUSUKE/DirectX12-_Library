@@ -1,7 +1,15 @@
 #include "Window.h"
 
-void Window::GenerateWindow()
+bool Window::GenerateWindow(int _clientWidth, int _clientHeight)
 {
+	if (_clientWidth <= 0 || _clientHeight <= 0)
+	{
+		return false;
+	}
+
+	// 現在はスワップチェーンなどのリサイズ処理を持っていないため最大化とドラッグによるサイズ変更を禁止する
+	constexpr DWORD WINDOW_STYLE{ WS_EX_TOPMOST & ~(WS_THICKFRAME | WS_MAXIMIZEBOX) };
+
 	// ウィンドウクラスの設定
 	WNDCLASSEX wc{}; // ウィンドウクラス
 	wc.cbSize = sizeof(WNDCLASSEX);
@@ -9,18 +17,34 @@ void Window::GenerateWindow()
 	wc.hInstance = GetModuleHandle(nullptr);
 	wc.lpszClassName = windowName; // クラス名
 
-	RegisterClassEx(&wc);
+	const ATOM classAtom{ RegisterClassEx(&wc) };
+	// すでに同じクラスが登録されている場合以外の失敗を検出する
+	if (classAtom == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
+	{
+		return false;
+	}
+
+	// タイトルバーとウィンドウの枠分外側サイズを大きくする
+	RECT windowRect{ 0, 0, _clientWidth, _clientHeight };
+	if (!AdjustWindowRectEx(&windowRect, WINDOW_STYLE, false, 0))
+	{
+		return false;
+	}
+	const int windowWidth{ windowRect.right - windowRect.left };
+	const int windowHeight{ windowRect.bottom - windowRect.top };
 
 	hwnd = CreateWindow(
 	   wc.lpszClassName, // クラス名
 	   windowName, // タイトルバー
 	   WS_OVERLAPPEDWINDOW, // スタイル(標準ウィンドウ)
 	   CW_USEDEFAULT, CW_USEDEFAULT, // 位置
-	   1280, 720, // サイズ
+	   windowWidth, windowHeight, // サイズ
 	   nullptr, nullptr,
 	   wc.hInstance,
 	   this // マウス回転を積むためにプロシージャに自身のポインタを渡す
    );
+
+	if (!hwnd) return false;
 
 	ShowWindow(hwnd, SW_SHOW);
 }
