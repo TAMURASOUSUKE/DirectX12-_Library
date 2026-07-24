@@ -16,9 +16,82 @@
 #pragma comment(lib, "ole32.lib")        // COM（CoInitializeEx / CoCreateInstance）
 
 
-namespace {
+namespace{
 
+	Vector4 ToVec4(float* _f) { return Vector4{ _f[0], _f[1], _f[2], _f[3] }; }
+	Vector3 ToVec3(float* _f) { return Vector3{ _f[0], _f[1], _f[2] }; }
 
+	// CPUデータを一時Uploadヒープ経由でDefaultヒープへ転送する
+	ComPtr<ID3D12Resource> CreateStaticBufferResource(ID3D12Device* _device, const void* _data, UINT _dataSize, D3D12_RESOURCE_STATES _finalState)
+	{
+		if (!_device || !_data || _dataSize == 0)
+		{
+			DEBUG_LOG_ERROR("静的バッファ作成に不正な引数が渡されました\n");
+			return nullptr;
+		}
+
+		const CD3DX12_RESOURCE_DESC bufferDesc{ CD3DX12_RESOURCE_DESC::Buffer(_dataSize) };
+		// 最終的に頂点やIndexを置くGPU用領域
+		ComPtr<ID3D12Resource> defaultBuffer{};
+		const CD3DX12_HEAP_PROPERTIES defaultHeap{ D3D12_HEAP_TYPE_DEFAULT };
+
+		HRESULT result{ _device->CreateCommittedResource(&defaultHeap, D3D12_HEAP_FLAG_NONE, &bufferDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&defaultBuffer)) };
+		DEBUG_ASSERT(SUCCEEDED(result));
+		if (FAILED(result))
+		{
+			DEBUG_LOG_ERROR("Defaultヒープの作成に失敗しました\n");
+			return nullptr;
+		}
+		// CPUからデータを書き込むための一時的な中継地点
+		ComPtr<ID3D12Resource> uploadBuffer{};
+		const CD3DX12_HEAP_PROPERTIES uploadHeap{ D3D12_HEAP_TYPE_UPLOAD };
+
+		result = _device->CreateCommittedResource(&uploadHeap, D3D12_HEAP_FLAG_NONE, &bufferDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer));
+		DEBUG_ASSERT(SUCCEEDED(result));
+		if (FAILED(result))
+		{
+			DEBUG_LOG_ERROR("一時Uploadヒープの作成に失敗しました\n");
+			return nullptr;
+		}
+
+		// CPUデータをUPLOADヒープへコピー
+		void* mappedData{ nullptr };
+		const D3D12_RANGE readRange{ 0, 0 };
+
+		result = uploadBuffer->Map(0, &readRange, &mappedData);
+		DEBUG_ASSERT(SUCCEEDED(result));
+
+		if (FAILED(result))
+		{
+			DEBUG_LOG_ERROR("一時UPLOADヒープのMapに失敗しました\n");
+			return nullptr;
+		}
+
+		std::memcpy(mappedData, _data, _dataSize);
+
+		const D3D12_RANGE writtenRange{ 0, _dataSize };
+		uploadBuffer->Unmap(0, &writtenRange);
+
+		// UPLOADからDEFAULTへコピーして使用可能な状態へ切り替える
+		result = GraphicsDevice::Instance().ExecuteUpdate(
+			[&](ID3D12GraphicsCommandList* _cmd)
+			{
+				_cmd->CopyBufferRegion(defaultBuffer.Get(), 0, uploadBuffer.Get(), 0, _dataSize);
+
+				const D3D12_RESOURCE_BARRIER barrier{ CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, _finalState) };
+
+				_cmd->ResourceBarrier(1, &barrier);
+			});
+
+		DEBUG_ASSERT(SUCCEEDED(result));
+		if (FAILED(result))
+		{
+			DEBUG_LOG_ERROR("静的バッファのGPU転送に失敗しました\n");
+			return nullptr;
+		}
+		// ExecuteUpadateがGPU完了を待つのでuploadbufferが破棄されても大丈夫
+		return defaultBuffer;
+	}
 
 	// ボーンをロードするヘルパー関数(コピーコストを完全に0にする + 意図を明確にするため参照で受ける)
 	void LoadBone(const cgltf_skin& _skin, const cgltf_data* _data, std::vector<Bone>& _outBones, Mat4x4& _outSkeletonRoot)
@@ -85,7 +158,7 @@ namespace {
 				// TRS対応
 				Vector3 t = ToVec3(boneNode->translation);
 				Quaternion r{ boneNode->rotation[0], boneNode->rotation[1], boneNode->rotation[2], boneNode->rotation[3] };
-				Vector3 s = ToVec3(boneNode->scale);
+				Vector3 s =	ToVec3(boneNode->scale);
 
 				Mat4x4 sMat{ Mat4x4::MakeScaling(s) }; // スケール行列
 				Mat4x4 rMat{ r.ToMat4x4() }; // 回転行列 
@@ -971,7 +1044,7 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 				sub.material.textures[MaterialTex::Normal] = normalMap;
 				sub.material.textures[MaterialTex::MetallicRoughness] = metallic;
 				sub.material.textures[MaterialTex::Emissive] = emissive;
-				sub.material.baseColorFactor = ToVec4(prim.material->pbr_metallic_roughness.base_color_factor);
+				sub.material.baseColorFactor =	 ToVec4(prim.material->pbr_metallic_roughness.base_color_factor);
 				sub.material.metallic = prim.material->pbr_metallic_roughness.metallic_factor;
 				sub.material.roughness = prim.material->pbr_metallic_roughness.roughness_factor;
 				sub.material.emissiveFactor = ToVec3(prim.material->emissive_factor);

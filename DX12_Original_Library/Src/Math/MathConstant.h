@@ -1,7 +1,6 @@
 #pragma once
 #include <cmath>
 #include "Vector/Vector3.h"
-#include "Vector/Vector4.h"
 
 // Math関連で共通して使うような定数をまとめる
 namespace Math 
@@ -13,9 +12,6 @@ namespace Math
 	constexpr float PI{ 3.141592653589794626f }; // 円周率
 	constexpr float DEG_TO_RAD{ PI / 180.0f }; // ラジアン変換用
 	constexpr float RAD_TO_DEG{ 180.0f / PI }; // デグリー変換
-
-	Vector4 ToVec4(float* _f) { return Vector4{ _f[0], _f[1], _f[2], _f[3] }; }
-	Vector3 ToVec3(float* _f) { return Vector3{ _f[0], _f[1], _f[2] }; }
 
 	// 角度の正規化
 	inline float NormalizeAngle(float _angle)
