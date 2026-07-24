@@ -70,6 +70,8 @@ private:
 	ComPtr<ID3D12CommandAllocator> cmdAllocators[FRAME_BUFFER_COUNT]; // ダブルバッファ用のアロケーター
 	ComPtr<ID3D12GraphicsCommandList> cmdList; // 命令記録
 	ComPtr<ID3D12Fence> fence; // CPUとGPUの同期
+	ComPtr<ID3D12CommandAllocator> uploadCmdAllocator{}; // 描画中でもリソースをUploadできるよう描画用と分離
+	ComPtr<ID3D12GraphicsCommandList> uploadCmdList{}; // 描画中でもリソースをUploadできるよう描画用と分離
 	UINT64 fenceValues[FRAME_BUFFER_COUNT]{ 0, 0 }; // 各フレームの同期値
 	UINT64 fenceValueCounter{ 0 }; // フェンス値をカウントする計測器
 

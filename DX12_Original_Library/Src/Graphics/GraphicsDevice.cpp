@@ -181,12 +181,28 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 		if (FAILED(result)) return;
 	}
 
+	// リソース転送専用のコマンドアロケーター
+	result = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&uploadCmdAllocator));
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result)) return;
+
 	// コマンドリストの作成(最初のアロケーターと紐づけて1つだけ)
 	result = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmdAllocators[0].Get(), nullptr, IID_PPV_ARGS(&cmdList)); // 初期PSOは後で設定するのでnullptr
 	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return;
 	// コマンドリストは記録状態で生まれるがBeginFrameの最初にResetから始めたいためCloseしておく
-	cmdList->Close(); // 閉じる
+	result = cmdList->Close(); // 閉じる
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
+	if (FAILED(result)) return;
+
+	// リソース転送専用のコマンドリストを作る
+	result = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, uploadCmdAllocator.Get(), nullptr, IID_PPV_ARGS(&uploadCmdList));
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result)) return;
+	// 作成直後は記録状態なので最初のResetようにCloseする
+	result = uploadCmdList->Close();
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
+	if (FAILED(result)) return;
 
 	// fenceValueは0初期化
 	for (int i = 0; i < FRAME_BUFFER_COUNT; i++)
@@ -202,6 +218,8 @@ void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
 // 終了処理
 void GraphicsDevice::Shutdown()
 {
+	uploadCmdList.Reset();
+	uploadCmdAllocator.Reset();
 	cmdList.Reset();
 	for (ComPtr<ID3D12CommandAllocator>& allocator : cmdAllocators)
 	{
@@ -362,39 +380,35 @@ HRESULT GraphicsDevice::ExecuteUpdate(std::function<void(ID3D12GraphicsCommandLi
 		return E_INVALIDARG;
 	}
 
+	if (!uploadCmdAllocator || !uploadCmdList || !cmdQueue || !fence)
+	{
+		DEBUG_LOG_ERROR("アップロード用のDirectX12オブジェクトが初期化されていません\n");
+		return E_FAIL;
+	}
+
 	// 結果用変数
 	HRESULT result{};
 
 	// AllocatorReser
-	result = cmdAllocators[currentFrameIndex]->Reset();
+	result = uploadCmdAllocator->Reset();
 	DEBUG_ASSERT(SUCCEEDED(result));
-	if (FAILED(result))
-	{
-		// 失敗はそのまま返す
-		return result;
-	} 
+	if (FAILED(result)) return result;
 
 	// CommandListを開く
-	result = cmdList->Reset(cmdAllocators[currentFrameIndex].Get(), nullptr);
+	result = uploadCmdList->Reset(uploadCmdAllocator.Get(), nullptr);
 	DEBUG_ASSERT(SUCCEEDED(result));
-	if (FAILED(result))
-	{
-		return result;
-	}
+	if (FAILED(result)) return result;
 
 	// 呼び出し側にコピー命令とバリアを積ませる
-	_recode(cmdList.Get());
+	_recode(uploadCmdList.Get());
 
 	// commandListを閉じる
-	result = cmdList->Close();
+	result = uploadCmdList->Close();
 	DEBUG_ASSERT(SUCCEEDED(result));
-	if (FAILED(result))
-	{
-		return result;
-	}
+	if (FAILED(result)) return result;
 
 	// GPUに投げる
-	ID3D12CommandList* commandLists[]{ cmdList.Get() };
+	ID3D12CommandList* commandLists[]{ uploadCmdList.Get() };
 	cmdQueue->ExecuteCommandLists(1, commandLists);
 
 	// この単発アップロード命令の完了フェンス値

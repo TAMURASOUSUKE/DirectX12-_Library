@@ -17,9 +17,9 @@
 
 
 namespace {
-	// cgltfから返ってくるfloat[4]やfloat[3]をvector4,3に変換するためのもの
-	Vector4 ToVec4(float* _f) { return Vector4{ _f[0], _f[1], _f[2], _f[3] }; }
-	Vector3 ToVec3(float* _f) { return Vector3{ _f[0], _f[1], _f[2] }; }
+
+
+
 	// ボーンをロードするヘルパー関数(コピーコストを完全に0にする + 意図を明確にするため参照で受ける)
 	void LoadBone(const cgltf_skin& _skin, const cgltf_data* _data, std::vector<Bone>& _outBones, Mat4x4& _outSkeletonRoot)
 	{

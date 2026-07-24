@@ -88,6 +88,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	TexHandle player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
 	TexHandle heightMap{ Gfx::LoadTexture("Res/TestVolume.png") }; // ハイトマップ取得
 	TexHandle minivan{ Gfx::LoadTexture("Res/Minivan.png") }; // sRGBテスト
+	TexHandle runtimeTexture{}; // 実行中にロードができるか確認
+	bool hasLoadedRuntimeTexture{ false };
 	// TexHandle heightMap{ Gfx::LoadTexture("Res/Crater.jpg") }; // ハイトマップ取得
 
 	// Atlas
@@ -146,6 +148,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		time += Time::DeltaTime();
 		glitch.time += Time::DeltaTime();
 
+		if (Input::IsKeyPushed(KeyCode::Button::TAB) && !hasLoadedRuntimeTexture)
+		{
+			runtimeTexture = Gfx::LoadTexture("Res/T_003_sword_01_01.png");
+			hasLoadedRuntimeTexture = runtimeTexture.IsValid();
+		}
 
 		// アニメーションテスト
 		anim01.currentTime += Time::DeltaTime();
@@ -312,6 +319,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::SetMaterialParameter(glitchMaterial, 2, fullParameter);
 		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, glitchMaterial, { 1.0f, 1.0f }, 0.0f, Gfx::SpriteFlip::Horizontal);
+
+		if (runtimeTexture.IsValid()) Gfx::DrawSprite(runtimeTexture, { 500.0f, 300.0f });
 
 		// アニメーションテスト
 		Gfx::SetMaterialParameter(glitchMaterial, 2, atlasParameter);
