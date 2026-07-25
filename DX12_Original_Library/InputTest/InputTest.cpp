@@ -2,9 +2,6 @@
 #include "../Src/Facade/TSLib.h"
 
 
-/*
-	パッケージ化前なので、DirectXTexの参照も入れていますが使っていません。
-*/
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
