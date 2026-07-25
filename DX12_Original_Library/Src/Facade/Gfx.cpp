@@ -749,9 +749,11 @@ void GfxInternal::EndFrame()
 			DEBUG_LOG_ERROR("EndFrameでシーンRTを取得できないためポストエフェクトをスキップします\n");
 		}
 	}
-	GraphicsDevice::Instance().EndFrame(); // フレームの最後の処理
-	// このフレーム中にUnloadされたリソースに対して今回のSignalしたFence値を割り当てる
-	GraphicsResourceManager::Instance().CommitPendingRelease(GraphicsDevice::Instance().GetLastSubmittedFenceValue());
+	GraphicsDevice& graphicsDevice{ GraphicsDevice::Instance() };
+	const bool endFrameSucceeded{ graphicsDevice.EndFrame() };
+	// Signalが成功したフレームだけpendingReleaseへ確定済みのFence値を割り当てる
+	if (endFrameSucceeded) GraphicsResourceManager::Instance().CommitPendingRelease(GraphicsDevice::Instance().GetLastSubmittedFenceValue()); 	// このフレーム中にUnloadされたリソースに対して今回のSignalしたFence値を割り当てる
+	else DEBUG_LOG_ERROR("GraphicsDevice::EndFrameに失敗したため遅延解放のFence確定を見送ります\n"); // fenceが成立していないので次の正常フレーム若しくは終了処理まで保持する
 	isSceneRenderTargetActive = false;
 }
 

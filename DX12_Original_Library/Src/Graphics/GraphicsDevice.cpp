@@ -348,7 +348,7 @@ bool GraphicsDevice::EndFrame()
 	const UINT64 signalValue{ fenceValueCounter + 1 };
 	const UINT submittedFrameIndex{ currentFrameIndex };
 	// フェンスシグナルを出す(このフレームの命令が全て終わったらカウンタをこの値にしろという命令)
-	const HRESULT signalResult{ cmdQueue->Signal(fence.Get(), fenceValues[currentFrameIndex]) };
+	const HRESULT signalResult{ cmdQueue->Signal(fence.Get(), signalValue) };
 	if (FAILED(signalResult))
 	{
 		DEBUG_LOG_ERROR("フレーム終了時のFence Signalに失敗しました HRESULT=0x{:08X}\n", static_cast<unsigned int>(signalResult));
