@@ -1,5 +1,5 @@
 #pragma once
-#include <windows.h> // VK_*（仮想キーコード）と BYTE/WORD のため
+#include <cstdint>
 #include <variant>
 
 namespace KeyCode
@@ -8,7 +8,7 @@ namespace KeyCode
 	// KeyCodeとPadCodeの取り違えはコンパイルエラーになる（型安全）
 	// 基底型BYTE = 0〜255のキーボード添字の世界
 	// キーボード
-	enum class Button : BYTE
+	enum class Button : std::uint8_t
 	{
 		// アルファベットキー (A-Z)
 		A = 'A',
@@ -51,25 +51,25 @@ namespace KeyCode
 		D9 = '9',
 
 		// 特殊キー
-		SPACE = VK_SPACE, // スペース
-		LCTRL = VK_LCONTROL, // 左CTRL
-		RCTRL = VK_RCONTROL, // 右CTRL
-		CTRL = VK_CONTROL, // 両対応CTRL
-		LSHIFT = VK_LSHIFT, // 左シフト
-		RSHIFT = VK_RSHIFT, // 右シフト
-		SHIFT = VK_SHIFT, // 両対応シフト
-		LALT = VK_LMENU, // 左ALT
-		RALT = VK_RMENU, // 右ALT
-		ALT = VK_MENU, // 両対応ALT
-		TAB = VK_TAB, // タブ
-		RETURN = VK_RETURN, // エンター
-		ESC = VK_ESCAPE, // ESC
+		SPACE = 0x20, // スペース
+		LCTRL = 0xA2, // 左CTRL
+		RCTRL = 0xA3, // 右CTRL
+		CTRL = 0x11, // 両対応CTRL
+		LSHIFT = 0xA0, // 左シフト
+		RSHIFT = 0xA1, // 右シフト
+		SHIFT = 0x10, // 両対応シフト
+		LALT = 0xA4, // 左ALT
+		RALT = 0xA5, // 右ALT
+		ALT = 0x12, // 両対応ALT
+		TAB = 0x09, // タブ
+		RETURN = 0x0D, // エンター
+		ESC = 0x1B, // ESC
 
 		// 矢印
-		RIGHT = VK_RIGHT, // 右
-		LEFT = VK_LEFT, // 左
-		UP = VK_UP, // 上
-		DOWN = VK_DOWN, // 下
+		RIGHT = 0x27, // 右
+		LEFT = 0x25, // 左
+		UP = 0x26, // 上
+		DOWN = 0x28, // 下
 
 	};
 }
@@ -82,7 +82,7 @@ namespace KeyCode
 namespace PadCode
 {
 	// ボタン類
-	enum class Button : WORD
+	enum class Button : std::uint16_t
 	{
 		UP = 0x0001, // 十字キー上
 		DOWN = 0x0002, // 十字キー下
@@ -120,13 +120,13 @@ namespace PadCode
 namespace MouseCode
 {
 	// クリック類
-	enum class Click : BYTE
+	enum class Click : std::uint8_t
 	{
-		LEFT = VK_LBUTTON,  // 左クリック
-		RIGHT = VK_RBUTTON, // 右クリック
-		MIDDLE = VK_MBUTTON, // 真ん中
-		SIDE01 = VK_XBUTTON1, // サイドボタン01
-		SIDE02 = VK_XBUTTON2, // サイドボタン02
+		LEFT = 0x01,  // 左クリック
+		RIGHT = 0x02, // 右クリック
+		MIDDLE = 0x04, // 真ん中
+		SIDE01 = 0x05, // サイドボタン01
+		SIDE02 = 0x06, // サイドボタン02
 	};
 }
 

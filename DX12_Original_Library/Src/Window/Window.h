@@ -7,7 +7,7 @@
 class Window
 {
 public:
-	void GenerateWindow(); // ウィンドウ作成
+	bool GenerateWindow(int _clientWidth, int _clientHeight); // ウィンドウ作成
 
 	// ウィンドウ名前を設定する関数
 	void SetWindowName(const wchar_t* _windowName)

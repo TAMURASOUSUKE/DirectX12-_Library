@@ -2,11 +2,12 @@
 #include <algorithm>
 #include <filesystem>
 #include <cstring>
+#include <unordered_map>
 #include "../External/Common/d3dx12.h"
 #include "../External/DirectXTex/DirectXTex.h"
 #include "../External/cgltf.h"
 #include"../Debug/DebugLogs.h"
-#include "../Core/Handle/HandleConstant.h"
+#include "../Core/Handle/HandlePacking.h"
 #include "../Math/TSMath.h"
 #include "GraphicsDevice.h"
 #include "DescriptorManager.h"
@@ -17,9 +18,84 @@
 
 
 namespace {
-	// cgltfから返ってくるfloat[4]やfloat[3]をvector4,3に変換するためのもの
+
 	Vector4 ToVec4(float* _f) { return Vector4{ _f[0], _f[1], _f[2], _f[3] }; }
 	Vector3 ToVec3(float* _f) { return Vector3{ _f[0], _f[1], _f[2] }; }
+
+	// CPUデータを一時Uploadヒープ経由でDefaultヒープへ転送する
+	ComPtr<ID3D12Resource> CreateStaticBufferResource(ID3D12Device* _device, const void* _data, UINT _dataSize, D3D12_RESOURCE_STATES _finalState)
+	{
+		if (!_device || !_data || _dataSize == 0)
+		{
+			DEBUG_LOG_ERROR("静的バッファ作成に不正な引数が渡されました\n");
+			return nullptr;
+		}
+
+		const CD3DX12_RESOURCE_DESC bufferDesc{ CD3DX12_RESOURCE_DESC::Buffer(_dataSize) };
+		// 最終的に頂点やIndexを置くGPU用領域
+		ComPtr<ID3D12Resource> defaultBuffer{};
+		const CD3DX12_HEAP_PROPERTIES defaultHeap{ D3D12_HEAP_TYPE_DEFAULT };
+
+		// バッファの初期状態はCOMMON(Textureリソース等ではないためレイアウトがないから)
+		// CopyBufferRegion時にCOPY_DESTへ暗黙昇格させる
+		HRESULT result{ _device->CreateCommittedResource(&defaultHeap, D3D12_HEAP_FLAG_NONE, &bufferDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&defaultBuffer)) };
+		DEBUG_ASSERT(SUCCEEDED(result));
+		if (FAILED(result))
+		{
+			DEBUG_LOG_ERROR("Defaultヒープの作成に失敗しました\n");
+			return nullptr;
+		}
+		// CPUからデータを書き込むための一時的な中継地点
+		ComPtr<ID3D12Resource> uploadBuffer{};
+		const CD3DX12_HEAP_PROPERTIES uploadHeap{ D3D12_HEAP_TYPE_UPLOAD };
+
+		result = _device->CreateCommittedResource(&uploadHeap, D3D12_HEAP_FLAG_NONE, &bufferDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer));
+		DEBUG_ASSERT(SUCCEEDED(result));
+		if (FAILED(result))
+		{
+			DEBUG_LOG_ERROR("一時Uploadヒープの作成に失敗しました\n");
+			return nullptr;
+		}
+
+		// CPUデータをUPLOADヒープへコピー
+		void* mappedData{ nullptr };
+		const D3D12_RANGE readRange{ 0, 0 };
+
+		result = uploadBuffer->Map(0, &readRange, &mappedData);
+		DEBUG_ASSERT(SUCCEEDED(result));
+
+		if (FAILED(result))
+		{
+			DEBUG_LOG_ERROR("一時UPLOADヒープのMapに失敗しました\n");
+			return nullptr;
+		}
+
+		std::memcpy(mappedData, _data, _dataSize);
+
+		const D3D12_RANGE writtenRange{ 0, _dataSize };
+		uploadBuffer->Unmap(0, &writtenRange);
+
+		// UPLOADからDEFAULTへコピーして使用可能な状態へ切り替える
+		result = GraphicsDevice::Instance().ExecuteUpdate(
+			[&](ID3D12GraphicsCommandList* _cmd)
+			{
+				_cmd->CopyBufferRegion(defaultBuffer.Get(), 0, uploadBuffer.Get(), 0, _dataSize);
+
+				const D3D12_RESOURCE_BARRIER barrier{ CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, _finalState) };
+
+				_cmd->ResourceBarrier(1, &barrier);
+			});
+
+		DEBUG_ASSERT(SUCCEEDED(result));
+		if (FAILED(result))
+		{
+			DEBUG_LOG_ERROR("静的バッファのGPU転送に失敗しました\n");
+			return nullptr;
+		}
+		// ExecuteUpadateがGPU完了を待つのでuploadbufferが破棄されても大丈夫
+		return defaultBuffer;
+	}
+
 	// ボーンをロードするヘルパー関数(コピーコストを完全に0にする + 意図を明確にするため参照で受ける)
 	void LoadBone(const cgltf_skin& _skin, const cgltf_data* _data, std::vector<Bone>& _outBones, Mat4x4& _outSkeletonRoot)
 	{
@@ -243,7 +319,7 @@ void GraphicsResourceManager::Initialize(ID3D12Device* _device)
 	shaderSlots.reserve(MAX_CUSTOM_SHADER_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
 	materialSlots.reserve(MAX_MATERIAL_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
 	// デフォルト用の白テクスチャを作成する(初期化時に1枚だけ)
-	defaultTexture = CreateMetaTexture({1.0f, 1.0f, 1.0f});
+	defaultTexture = CreateMetaTexture({ 1.0f, 1.0f, 1.0f });
 	// エラー用のピンクテクスチャを作成する
 	errorTexture = CreateMetaTexture({ 1.0f, 0.0f, 1.0f });
 }
@@ -287,7 +363,7 @@ void GraphicsResourceManager::Shutdown()
 		{
 			// RTVとSRVを解放する
 			if (_rt.rtvHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::RTV, _rt.rtvHandle);
-			if(_rt.srvHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, _rt.srvHandle);
+			if (_rt.srvHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, _rt.srvHandle);
 			_rt = RenderTargetData{}; // 初期状態へ戻す
 		}
 	};
@@ -345,13 +421,17 @@ void GraphicsResourceManager::Shutdown()
 	}
 	defaultTexture = TexHandle{};
 	errorTexture = TexHandle{};
+	animationLocalPoseCache = {};
+	animationTranslationCache = {};
+	animationRotationCache = {};
+	animationScaleCache = {};
 	device = nullptr;
 }
 
 void GraphicsResourceManager::CommitPendingRelease(UINT64 _submittedFenceValue)
 {
 	// 空チェック
-	if (pendingRelease.textures.empty() && pendingRelease.models.empty() && 
+	if (pendingRelease.textures.empty() && pendingRelease.models.empty() &&
 		pendingRelease.renderTargets.empty() && pendingRelease.pipelineStates.empty())
 	{
 		return;
@@ -398,44 +478,31 @@ void GraphicsResourceManager::CollectDeferredReleases(UINT64 _completedFenceValu
 
 VertexBuffer GraphicsResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize)
 {
-	D3D12_HEAP_PROPERTIES heapProperties{}; // 頂点ヒープの設定
-	heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD; // アップロードヒープに設定
-	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // ページング
-
-	D3D12_RESOURCE_DESC resDesc{}; // リソース設定構造体
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; // バッファとして使う
-	resDesc.Width = _dataSize; // 頂点バッファのサイズ
-	resDesc.Height = 1; // バッファは1D
-	resDesc.DepthOrArraySize = 1; // 配列ではない
-	resDesc.MipLevels = 1; // ミップマップなし
-	resDesc.Format = DXGI_FORMAT_UNKNOWN; // バッファはフォーマットなし
-	resDesc.SampleDesc = { 1, 0 }; // MSAAなし
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // メモリが最初から最後まで連続していることを示す
-
 	VertexBuffer buffer{};
-	HRESULT result{}; // 結果が成功しているかどうか調べるための変数
-	// UploadHeap上にバッファリソースを作成する
-	result = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
-	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
-	if (FAILED(result)) return buffer; // 失敗していたら終了
+	if (_strideSize == 0)
+	{
+		DEBUG_LOG_ERROR("頂点バッファのstrideが0です\n");
+		return buffer;
+	}
+	// バッファ全体のサイズが頂点一つ分のサイズで割り切れるか確認
+	if (_dataSize % _strideSize != 0)
+	{
+		DEBUG_LOG_ERROR("頂点バッファサイズがstrideで割り切れません : size = {} stride = {}\n", _dataSize, _strideSize);
+		return buffer;
+	}
 
-	// 頂点バッファに頂点情報をコピーする
-	void* mappedData{ nullptr }; // dataを詰めるための変数
-	result = buffer.resource->Map(0, nullptr, &mappedData); // バッファの仮想アドレスを取得する
-	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
-	if (FAILED(result)) return buffer; // 失敗していたら終了
-
-	memcpy(mappedData, _data, _dataSize); // CPUデータをGPUメモリにコピー
-	buffer.resource->Unmap(0, nullptr); // 閉じる
-
-	// 頂点バッファビューを作る
-	D3D12_VERTEX_BUFFER_VIEW vertView{}; // 頂点バッファビュー
-	vertView.BufferLocation = buffer.resource->GetGPUVirtualAddress(); // バッファの仮想アドレスを入れる
-	vertView.SizeInBytes = _dataSize; // 全バイト数
-	vertView.StrideInBytes = _strideSize; // 一つ分のバイト数
-
-	buffer.vertexView = vertView; // GPUBufferの中に格納する
+	// 一時UPLOADヒープを経由してDEFAULTヒープへ送る
+	buffer.resource = CreateStaticBufferResource(device, _data, _dataSize, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	if (!buffer.resource)
+	{
+		return buffer;
+	}
+	// DEFAULTヒープ上のリソースを頂点バッファとして読む
+	buffer.vertexView.BufferLocation = buffer.resource->GetGPUVirtualAddress(); // GPUBufferの中に格納する
+	buffer.vertexView.StrideInBytes = _strideSize;
+	buffer.vertexView.SizeInBytes = _dataSize;
 	buffer.sizeInBytes = _dataSize; // バッファ全体のサイズを入れる
+	// 静的デフォルトHeapなのでmappedPtrは持たない
 	return buffer;
 }
 
@@ -501,44 +568,29 @@ DynamicBuffer GraphicsResourceManager::CreateDynamicBuffer(UINT _dataSize)
 
 IndexBuffer GraphicsResourceManager::CreateIndexBuffer(const void* _data, UINT _dataSize, UINT _indexCount)
 {
-	D3D12_HEAP_PROPERTIES heapProps{}; // ヒープのプロパティ設定
-	heapProps.Type = D3D12_HEAP_TYPE_UPLOAD; // アップロードヒープに設定
-	heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // ページング
-
-	D3D12_RESOURCE_DESC resDesc{}; // リソース設定構造体
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; // バッファとして使う
-	resDesc.Width = _dataSize; // インデックスバッファのサイズ
-	resDesc.Height = 1; // バッファは1D
-	resDesc.DepthOrArraySize = 1; // 配列ではない
-	resDesc.MipLevels = 1; // ミップマップなし
-	resDesc.Format = DXGI_FORMAT_UNKNOWN;
-	resDesc.SampleDesc = { 1, 0 }; // MSAAなし
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // メモリが最初から最後まで連続していることを示す
-
-	// インデックスバッファの作成
 	IndexBuffer buffer{};
-	HRESULT result{};
-	// 実際に作成を行うが一旦UploadHeap上に作る。今後3Dモデルを扱う際には大量のインデックスが必要なのでDefaultHeapに移し替え最適化する
-	result = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
-	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
-	if (FAILED(result)) return buffer; // 失敗していたら終了
+	if (_indexCount == 0)
+	{
+		DEBUG_LOG_ERROR("Index数が0です\n");
+		return buffer;
+	}
 
-	// MapとUnMapを用いてインデックス情報をコピーする
-	void* mappedData{ nullptr }; // Dataを詰めるための配列
-	result = buffer.resource->Map(0, nullptr, &mappedData); // バッファの仮想アドレスを取得する
-	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
-	if (FAILED(result)) return buffer; // 失敗していたら終了
+	// 現在のIBはR32_UINT固定なので1index4byte
+	const UINT64 expectedSize{ static_cast<UINT64>(_indexCount) * sizeof(uint32_t) };
+	if (expectedSize != _dataSize)
+	{
+		DEBUG_LOG_ERROR("Index数とバッファサイズが一致しません : count = {} size = {}\n", _indexCount, _dataSize);
+		return buffer;
+	}
 
-	memcpy(mappedData, _data, _dataSize); // CPUデータをGPUメモリにコピー
-	buffer.resource->Unmap(0, nullptr); // 閉じる
+	// 一時UPLOADヒープを経由してDefaultヒープへ送る
+	buffer.resource = CreateStaticBufferResource(device, _data, _dataSize, D3D12_RESOURCE_STATE_INDEX_BUFFER);
+	if (!buffer.resource) return buffer;
 
-	// インデックスバッファビューを作成する
-	D3D12_INDEX_BUFFER_VIEW indexView{};
-	indexView.BufferLocation = buffer.resource->GetGPUVirtualAddress(); // バッファの仮想アドレスを入れる
-	indexView.SizeInBytes = _dataSize;
-	indexView.Format = DXGI_FORMAT_R32_UINT; // インデックスなので32bitの符号なし整数
-
-	buffer.indexView = indexView; // 設定したインデックスバッファ
+	// DEFAULTヒープ上のリソースをインデックスバッファとして読む
+	buffer.indexView.BufferLocation = buffer.resource->GetGPUVirtualAddress(); // バッファの仮想アドレスを入れる
+	buffer.indexView.SizeInBytes = _dataSize;
+	buffer.indexView.Format = DXGI_FORMAT_R32_UINT; // インデックスなので32bitの符号なし整数
 	buffer.indexCount = _indexCount; // インデックスの数
 	return buffer;
 }
@@ -587,7 +639,7 @@ TexHandle GraphicsResourceManager::LoadTexture(const char* _filePath, bool _isDa
 	ID3D12Device* device{ GraphicsDevice::Instance().GetDevice() };
 	HRESULT result{}; // 結果判定用
 	// データ画像かデフラグを分ける
-	DirectX::WIC_FLAGS flag{_isData	 ? DirectX::WIC_FLAGS_IGNORE_SRGB	: DirectX::WIC_FLAGS_DEFAULT_SRGB};
+	DirectX::WIC_FLAGS flag{ _isData ? DirectX::WIC_FLAGS_IGNORE_SRGB : DirectX::WIC_FLAGS_DEFAULT_SRGB };
 	// WICでCPUに読み込む
 	std::filesystem::path path(_filePath); // std::filesystem::pathの一次オブジェクトから.c_str()をとるとタングリングするのでローカル保持する
 	DirectX::TexMetadata metaData{}; // 画像のメタデータ
@@ -600,7 +652,7 @@ TexHandle GraphicsResourceManager::LoadTexture(const char* _filePath, bool _isDa
 	}
 
 	// Facade側で指定された用とに合わせてScratchImage本体と各Imageのfomatをそろえて変更する
-	const DXGI_FORMAT desiredFormat{_isData	? DirectX::MakeLinear(metaData.format)	: DirectX::MakeSRGB(metaData.format)};
+	const DXGI_FORMAT desiredFormat{ _isData ? DirectX::MakeLinear(metaData.format) : DirectX::MakeSRGB(metaData.format) };
 	if (!scratch.OverrideFormat(desiredFormat))
 	{
 		DEBUG_LOG_ERROR("テクスチャのFormat変更に失敗しました Path={}\n", _filePath);
@@ -609,7 +661,7 @@ TexHandle GraphicsResourceManager::LoadTexture(const char* _filePath, bool _isDa
 
 	// オーバーライド後のメタデータを取得しなおす
 	metaData = scratch.GetMetadata();
-	DEBUG_LOG("メタデータフォーマットの数値は{}です。: TexturePath : {}\n",static_cast<unsigned int>(metaData.format), _filePath);
+	DEBUG_LOG("メタデータフォーマットの数値は{}です。: TexturePath : {}\n", static_cast<unsigned int>(metaData.format), _filePath);
 
 	return CreateTextureFromScratch(scratch, metaData);
 }
@@ -637,7 +689,7 @@ TexHandle GraphicsResourceManager::LoadTextureFromMemory(const void* _data, size
 	const DXGI_FORMAT desiredFormat{ _isData ? DirectX::MakeLinear(metaData.format) : DirectX::MakeSRGB(metaData.format) };
 	if (!scratch.OverrideFormat(desiredFormat))
 	{
-		DEBUG_LOG_ERROR("テクスチャのFormat変更に失敗しました\n",);
+		DEBUG_LOG_ERROR("テクスチャのFormat変更に失敗しました\n", );
 		return TexHandle{};
 	}
 
@@ -777,7 +829,7 @@ MaterialData* GraphicsResourceManager::Lookup(MaterialHandle _handle)
 ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 {
 	// 新規スロットを追加できる、または解放済みスロットを再利用できるか
-	const bool canRegister{ !modelFreeList.empty() || modelSlots.size() < MAX_MODEL_COUNT};
+	const bool canRegister{ !modelFreeList.empty() || modelSlots.size() < MAX_MODEL_COUNT };
 
 	DEBUG_ASSERT(canRegister && "モデルの登録上限に達しました\n");
 
@@ -813,7 +865,7 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 
 	if (data->meshes_count <= 0)
 	{
-		DEBUG_LOG_WARNING(	"モデル内にメッシュがありません\n");
+		DEBUG_LOG_WARNING("モデル内にメッシュがありません\n");
 		cgltf_free(data);
 		return ModelHandle{}; // メッシュがなければ空を返す
 	}
@@ -821,6 +873,35 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 
 	ModelData modelData{}; // SubMeshを溜めるデータ
 	std::filesystem::path modelDir{ std::filesystem::path(_filePath).parent_path() }; // ファイル名を除いたフォルダをとりだす。(uriの基準を出すため)
+
+	// glTF内で同じ画像が複数のマテリアルやprimitiveから参照されたら同じGPUテクスチャを再利用する
+	// ColorとDataではsRGBの解釈が異なるので二つ
+	std::unordered_map<const cgltf_image*, TexHandle> colorTextureCache{};
+	std::unordered_map<const cgltf_image*, TexHandle> dataTextureCache{};
+
+	// 同自画像を探索してからロードするラムダ
+	auto loadGltfTextureCached =
+		[&](const cgltf_texture_view& _textureView, bool _isData)->TexHandle
+		{
+			// テクスチャまたは画像が設定されていなければ空ハンドル
+			if (!_textureView.texture || !_textureView.texture->image) return TexHandle{};
+
+			const cgltf_image* image{ _textureView.texture->image };
+
+			// フラグによって分ける
+			auto& cache{ _isData ? dataTextureCache : colorTextureCache };
+
+			// すでにロード済みなら作成済みのHandleを再利用
+			const auto found{ cache.find(image) };
+			if (found != cache.end()) return found->second;
+
+			// この画像が初めて出たときだけGPUリソースの作成を行う
+			const TexHandle loadedTexture{ LoadTextureFromGltf(_textureView, modelDir, _isData) };
+			// 無効ハンドルも記録し、壊れた同一画像に対して何度もロードを行わないようにする
+			cache.emplace(image, loadedTexture);
+			return loadedTexture;
+		};
+
 	// node配列を見て基準にループする
 	for (cgltf_size i = 0; i < data->nodes_count; i++)
 	{
@@ -949,7 +1030,7 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 			SubMesh sub{}; // サブメッシュ
 			sub.vertexBuffer = vertBuffer;
 			sub.indexBuffer = indexBuffer;
-			
+
 			TexHandle baseColor{}; // ベースカラーテクスチャ
 			TexHandle normalMap{}; // ノーマルマップ
 			TexHandle metallic{}; // メタリック
@@ -958,10 +1039,10 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 			// テクスチャや各パラメータの代入
 			if (prim.material)
 			{
-				baseColor = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.base_color_texture, modelDir, false); // ベースカラーテクスチャ
-				normalMap = LoadTextureFromGltf(prim.material->normal_texture, modelDir, true); // ノーマルマップ
-				metallic = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.metallic_roughness_texture, modelDir, true); // メタリック
-				emissive = LoadTextureFromGltf(prim.material->emissive_texture, modelDir, false); // 自己発光
+				baseColor = loadGltfTextureCached(prim.material->pbr_metallic_roughness.base_color_texture, false); // ベースカラーテクスチャ
+				normalMap = loadGltfTextureCached(prim.material->normal_texture, true); // ノーマルマップ
+				metallic = loadGltfTextureCached(prim.material->pbr_metallic_roughness.metallic_roughness_texture, true); // メタリック
+				emissive = loadGltfTextureCached(prim.material->emissive_texture, false); // 自己発光
 
 				sub.material.textures[MaterialTex::BaseColor] = baseColor;
 				sub.material.textures[MaterialTex::Normal] = normalMap;
@@ -1104,7 +1185,7 @@ RTHandle GraphicsResourceManager::CreateRenderTarget(UINT _width, UINT _height)
 	}
 
 	// RTVとSRVを作る
-	DescriptorHandle rtv{DescriptorManager::Instance().Allocate(HeapType::RTV)}; // RTVで確保
+	DescriptorHandle rtv{ DescriptorManager::Instance().Allocate(HeapType::RTV) }; // RTVで確保
 	if (!rtv.IsValid())
 	{
 		DEBUG_LOG_ERROR("RTVでのDescriptorHandleの確保に失敗しました\n");
@@ -1170,9 +1251,9 @@ ShaderHandle GraphicsResourceManager::RegisterShader(ShaderUsage _usage, ShaderS
 		DEBUG_LOG_ERROR("登録するShaderがnullです\n");
 		return ShaderHandle{};
 	}
-	
+
 	const bool canRegister{ !shaderFreeList.empty() || shaderSlots.size() < MAX_CUSTOM_SHADER_COUNT };
-	if(!canRegister)
+	if (!canRegister)
 	{
 		DEBUG_LOG_ERROR("Shaderの登録上限に達しました\n");
 		return ShaderHandle{};
@@ -1203,7 +1284,7 @@ ShaderHandle GraphicsResourceManager::RegisterShader(ShaderUsage _usage, ShaderS
 
 MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, ComPtr<ID3D12PipelineState> _pipelineState)
 {
-	ShaderData* shaderData{Lookup(_shader)};
+	ShaderData* shaderData{ Lookup(_shader) };
 	if (!shaderData)
 	{
 		DEBUG_LOG_ERROR("Materialの作成元shaderが無効です\n");
@@ -1216,7 +1297,7 @@ MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, C
 		return MaterialHandle{};
 	}
 
-	const bool canRegister{!materialFreeList.empty() || materialSlots.size() < MAX_MATERIAL_COUNT};
+	const bool canRegister{ !materialFreeList.empty() || materialSlots.size() < MAX_MATERIAL_COUNT };
 	if (!canRegister)
 	{
 		DEBUG_LOG_ERROR("Materialの登録上限に達しました\n");
@@ -1329,7 +1410,7 @@ void GraphicsResourceManager::Unload(ModelHandle _handle)
 
 void GraphicsResourceManager::Unload(RTHandle _handle)
 {
-	RenderTargetData* data{ Lookup(_handle)};
+	RenderTargetData* data{ Lookup(_handle) };
 	if (!data)
 	{
 		// 無効なハンドル
@@ -1539,27 +1620,32 @@ void GraphicsResourceManager::UpdateGlobalPose(AnimInstanceData& _instance)
 	ModelData* model{ GraphicsResourceManager::Instance().Lookup(_instance.handle) }; // データ部分を分解する
 	if (!model) return;
 
-	// 初回若しくはサイズが違ったときに確保しなおす
+	// 初回もしくはサイズが違ったときに確保しなおす
 	if (_instance.globalPoses.size() != model->bones.size())
 	{
 		_instance.globalPoses.resize(model->bones.size()); // globalPoseのサイズ確保
 		_instance.skinningMatrices.resize(model->bones.size()); // スキニング行列のサイズ確保
 	}
 
-	// 補間したlocalposeを得る
-	std::vector<Mat4x4> localPose;
-	if (!model->animations.empty())
+	// アニメーションが存在し、指定番号が配列の範囲内か確認する
+	const bool hasValidAnimation{ !model->animations.empty() && _instance.currentAnim >= 0 && static_cast<size_t>(_instance.currentAnim) < model->animations.size() };
+	// アニメーションが存在するモデルのなのに範囲外を指定した場合は警告を出す
+	if (!hasValidAnimation && !model->animations.empty()) DEBUG_LOG_WARNING("指定されたアニメーションが範囲外です。バインドポーズで描画します");
+
+	// 補間したlocalposeを入れる一次領域を使いまわす(resizeをしているため必要な容量があればメモリの再確保が起きない)
+	animationLocalPoseCache.resize(model->bones.size());
+	if (hasValidAnimation)
 	{
-		const Animation& anim{ model->animations[_instance.currentAnim] }; // してのアニメーションを取り出す
-		SampleAnimation(anim, model->bones, _instance.currentTime, localPose);
+		const Animation& anim{ model->animations[_instance.currentAnim] }; // 指定のアニメーションを取り出す
+		SampleAnimation(anim, model->bones, _instance.currentTime, animationLocalPoseCache);
 	}
 
-	// ボーン数文回してglobal行列を求める
+	// ボーン数分回してglobal行列を求める
 	for (size_t i = 0; i < model->bones.size(); i++)
 	{
 		const Bone& bone{ model->bones[i] };  // ボーンを取り出す 
 		// アニメーションがあれば更新されたボーンのローカルポーズ、そうでなければバインドポーズ
-		Mat4x4 local{ !model->animations.empty() ? localPose[i] : model->bones[i].localPose };
+		Mat4x4 local{ hasValidAnimation ? animationLocalPoseCache[i] : model->bones[i].localPose };
 
 		if (bone.parentIndex < 0)
 		{
@@ -1588,17 +1674,16 @@ void GraphicsResourceManager::SampleAnimation(const Animation& _anim, const std:
 	size_t boneCount{ _bones.size() }; // ボーン数
 	_outLocalPoses.resize(boneCount);
 	// ボーンごとのTRSを持つキャッシュ(バインドポーズから分解した値で初期化するのでアニメーションがないボーンはバインドポーズのまま)
-	// ここはホットパスなので毎フレーム再確保するのではなくメンバにして使いまわすなどの最適化を今後行う
-	std::vector<Vector3> translations(boneCount); // 位置
-	std::vector<Quaternion> rotations(boneCount); // 回転
-	std::vector<Vector3> scales(boneCount); // スケール
+	animationTranslationCache.resize(boneCount); // 位置
+	animationRotationCache.resize(boneCount); // 回転
+	animationScaleCache.resize(boneCount); // スケール
 
 	// バインドポーズのローカルポーズからTRSを取り出して初期化
 	for (size_t i = 0; i < boneCount; i++)
 	{
-		translations[i] = _bones[i].bindTranslation;
-		rotations[i] = _bones[i].bindRotation;
-		scales[i] = _bones[i].bindScale;
+		animationTranslationCache[i] = _bones[i].bindTranslation;
+		animationRotationCache[i] = _bones[i].bindRotation;
+		animationScaleCache[i] = _bones[i].bindScale;
 	}
 
 	// 全チャンネルを回してアニメーションされるボーンを上書きする
@@ -1610,18 +1695,18 @@ void GraphicsResourceManager::SampleAnimation(const Animation& _anim, const std:
 		if (bone < 0) continue;
 		switch (ch.path)
 		{
-		case AnimPath::Translation: translations[bone] = Vector3{ v.x, v.y, v.z }; break;
-		case AnimPath::Rotation: rotations[bone] = Quaternion{ v }; break;
-		case AnimPath::Scale: scales[bone] = Vector3{ v.x, v.y, v.z }; break;
+		case AnimPath::Translation: animationTranslationCache[bone] = Vector3{ v.x, v.y, v.z }; break;
+		case AnimPath::Rotation: animationRotationCache[bone] = Quaternion{ v }; break;
+		case AnimPath::Scale: animationScaleCache[bone] = Vector3{ v.x, v.y, v.z }; break;
 		}
 	}
 
 	// TRSからlocalPosを組み立てる
 	for (size_t i = 0; i < boneCount; i++)
 	{
-		Mat4x4 s{ Mat4x4::MakeScaling(scales[i]) };
-		Mat4x4 r{ rotations[i].ToMat4x4() };
-		Mat4x4 t{ Mat4x4::MakeTranslation(translations[i]) };
+		Mat4x4 s{ Mat4x4::MakeScaling(animationScaleCache[i]) };
+		Mat4x4 r{ animationRotationCache[i].ToMat4x4() };
+		Mat4x4 t{ Mat4x4::MakeTranslation(animationTranslationCache[i]) };
 		_outLocalPoses[i] = s * r * t;
 	}
 

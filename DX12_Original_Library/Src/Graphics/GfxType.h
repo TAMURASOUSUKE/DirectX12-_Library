@@ -1,0 +1,34 @@
+#pragma once
+#include <cstddef>
+// ユーザーに公開可能な構造体や型を作る
+
+
+// 描画するスプライトのレイヤー
+enum class RenderLayer
+{
+	BackGround, // 3D描画より後ろ
+	ForeGround, // 3D描画より手前
+};
+
+// シェーダーを適用する描画用途
+enum class ShaderUsage
+{
+	PostEffect, // 対応済み
+	Sprite, //　対応済み
+	Model, // 3D機能整備時に対応
+};
+
+// シェーダーステージの種類
+enum class ShaderStage
+{
+	Vertex, // 公開materialで対応済み
+	Pixel, // 公開materialで対応済み
+	// 以下はShaderとしてコンパイル可能ではあるが現在のCreateMaterialではまだ使用不可
+	Hull,
+	Domain,
+	Geometry,
+	Compute,
+};
+
+// MaterialParameterの1スロットへ保存できる最大サイズ
+inline constexpr std::size_t MAX_MATERIAL_PARAMETER_SIZE{ 256 };

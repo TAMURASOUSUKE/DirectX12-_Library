@@ -4,6 +4,7 @@
 #include <fstream>
 #include "../Debug/DebugLogs.h"
 #include "../Core/Handle/SoundHandle.h"
+#include "../Core/Handle/HandlePacking.h"
 #include "SoundConstant.h"
 #include "SoundType.h"
 #include "SoundResourceManager.h"

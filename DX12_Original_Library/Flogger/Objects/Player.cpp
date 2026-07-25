@@ -27,7 +27,7 @@ void Player::Update()
 void Player::Draw()
 {
 	if (!isActive) return;
-	Gfx::DrawSprite(handle, position, size, rotate);
+	Gfx::DrawSpriteSized(handle, position, size, rotate);
 }
 
 void Player::OnCollision(ObjectBase& _other)

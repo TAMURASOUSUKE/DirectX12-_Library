@@ -1,5 +1,6 @@
 #include <cmath>
 #include <vector>
+#include <cstring>
 #include "../Debug/DebugLogs.h"
 #include "GraphicsConstant.h"
 #include "GraphicsDevice.h"
@@ -20,7 +21,7 @@ namespace
 			if (lhs.hasParameter != rhs.hasParameter) return false; // フラグはあっているか(設定状態化未設定か)
 			if (lhs.parameterSize != rhs.parameterSize) return false; // サイズは一致しているか
 			if (!lhs.hasParameter) continue; // 両方未設定ならこのスロットの中身を見る必要はないのでスキップ
-			if (lhs.parameterData != rhs.parameterData) return false;
+			if (std::memcmp(lhs.parameterData.data(), rhs.parameterData.data(), lhs.parameterSize) != 0) return false; // ユーザーが定義した実データを比較する(256byte全体を比較しなくていい)
 		}
 		return true;
 	}

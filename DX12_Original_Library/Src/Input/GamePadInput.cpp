@@ -5,40 +5,24 @@
 #include "InputName.h"
 #pragma comment(lib, "Xinput.lib")
 
-static_assert(static_cast<WORD>(PadCode::Button::A) == XINPUT_GAMEPAD_A,
-	"PadCode::A がSDKと不一致");
-static_assert(static_cast<WORD>(PadCode::Button::B) == XINPUT_GAMEPAD_B,
-	"PadCode::B がSDKと不一致");
-static_assert(static_cast<WORD>(PadCode::Button::X) == XINPUT_GAMEPAD_X,
-	"PadCode::X がSDKと不一致");
-static_assert(static_cast<WORD>(PadCode::Button::Y) == XINPUT_GAMEPAD_Y,
-	"PadCode::Y がSDKと不一致");
-static_assert(static_cast<WORD>(PadCode::Button::BACK) == XINPUT_GAMEPAD_BACK,
-	"PadCode::BACK がSDKと不一致");
-static_assert(static_cast<WORD>(PadCode::Button::START) == XINPUT_GAMEPAD_START,
-	"PadCode::START がSDKと不一致");
-static_assert(static_cast<WORD>(PadCode::Button::DOWN) == XINPUT_GAMEPAD_DPAD_DOWN,
-	"PadCode::DOWN がSDKと不一致");
-static_assert(static_cast<WORD>(PadCode::Button::UP) == XINPUT_GAMEPAD_DPAD_UP,
-	"PadCode::UP がSDKと不一致");
-static_assert(static_cast<WORD>(PadCode::Button::LEFT) == XINPUT_GAMEPAD_DPAD_LEFT,
-	"PadCode::LEFT がSDKと不一致");
-static_assert(static_cast<WORD>(PadCode::Button::RIGHT) == XINPUT_GAMEPAD_DPAD_RIGHT,
-	"PadCode::RIGHT がSDKと不一致");
-static_assert(static_cast<WORD>(PadCode::Button::LEFT_THUMB) == XINPUT_GAMEPAD_LEFT_THUMB,
-	"PadCode::LEFT_THUMB がSDKと不一致");
-static_assert(static_cast<WORD>(PadCode::Button::RIGHT_THUMB) == XINPUT_GAMEPAD_RIGHT_THUMB,
-	"PadCode::RIGHT_THUMB がSDKと不一致");
-static_assert(static_cast<WORD>(PadCode::Button:: LEFT_SHOULDER) == XINPUT_GAMEPAD_LEFT_SHOULDER,
-	"PadCode::LEFT_SHOULDER がSDKと不一致");
-static_assert(static_cast<WORD>(PadCode::Button::RIGHT_SHOULDER) == XINPUT_GAMEPAD_RIGHT_SHOULDER,
-	"PadCode::RIGHT_SHOULDER がSDKと不一致");
-static_assert(LEFT_STICK_DEADZONE == XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE,
-	"左スティックデッドゾーン がSDKと不一致");
-static_assert(RIGHT_STICK_DEADZONE == XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE,
-	"右スティックデッドゾーン がSDKと不一致");
-static_assert(TRIGGER_THRESHOLD == XINPUT_GAMEPAD_TRIGGER_THRESHOLD,
-	"トリガーの閾値がSDKと不一致");
+// 公開ヘッダーに直接書いたパッドーコードがXInputと一致しているかをコンパイル時に確認する
+static_assert(static_cast<WORD>(PadCode::Button::A) == XINPUT_GAMEPAD_A, "PadCode::A がSDKと不一致\n");
+static_assert(static_cast<WORD>(PadCode::Button::B) == XINPUT_GAMEPAD_B, "PadCode::B がSDKと不一致\n");
+static_assert(static_cast<WORD>(PadCode::Button::X) == XINPUT_GAMEPAD_X, "PadCode::X がSDKと不一致\n");
+static_assert(static_cast<WORD>(PadCode::Button::Y) == XINPUT_GAMEPAD_Y, "PadCode::Y がSDKと不一致\n");
+static_assert(static_cast<WORD>(PadCode::Button::BACK) == XINPUT_GAMEPAD_BACK, "PadCode::BACK がSDKと不一致\n");
+static_assert(static_cast<WORD>(PadCode::Button::START) == XINPUT_GAMEPAD_START, "PadCode::START がSDKと不一致\n");
+static_assert(static_cast<WORD>(PadCode::Button::DOWN) == XINPUT_GAMEPAD_DPAD_DOWN, "PadCode::DOWN がSDKと不一致\n");
+static_assert(static_cast<WORD>(PadCode::Button::UP) == XINPUT_GAMEPAD_DPAD_UP, "PadCode::UP がSDKと不一致\n");
+static_assert(static_cast<WORD>(PadCode::Button::LEFT) == XINPUT_GAMEPAD_DPAD_LEFT, "PadCode::LEFT がSDKと不一致\n");
+static_assert(static_cast<WORD>(PadCode::Button::RIGHT) == XINPUT_GAMEPAD_DPAD_RIGHT, "PadCode::RIGHT がSDKと不一致\n");
+static_assert(static_cast<WORD>(PadCode::Button::LEFT_THUMB) == XINPUT_GAMEPAD_LEFT_THUMB, "PadCode::LEFT_THUMB がSDKと不一致\n");
+static_assert(static_cast<WORD>(PadCode::Button::RIGHT_THUMB) == XINPUT_GAMEPAD_RIGHT_THUMB, "PadCode::RIGHT_THUMB がSDKと不一致\n");
+static_assert(static_cast<WORD>(PadCode::Button:: LEFT_SHOULDER) == XINPUT_GAMEPAD_LEFT_SHOULDER, "PadCode::LEFT_SHOULDER がSDKと不一致\n");
+static_assert(static_cast<WORD>(PadCode::Button::RIGHT_SHOULDER) == XINPUT_GAMEPAD_RIGHT_SHOULDER, "PadCode::RIGHT_SHOULDER がSDKと不一致\n");
+static_assert(LEFT_STICK_DEADZONE == XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, "左スティックデッドゾーン がSDKと不一致\n");
+static_assert(RIGHT_STICK_DEADZONE == XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE, "右スティックデッドゾーン がSDKと不一致\n");
+static_assert(TRIGGER_THRESHOLD == XINPUT_GAMEPAD_TRIGGER_THRESHOLD, "トリガーの閾値がSDKと不一致\n");
 void GamePadInput::Update()
 {
 	prevPad = currentPad; // 状態保存

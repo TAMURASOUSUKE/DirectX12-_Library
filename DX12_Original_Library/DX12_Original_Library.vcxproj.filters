@@ -55,6 +55,9 @@
     <Filter Include="Src\FPS">
       <UniqueIdentifier>{718ef046-6ae7-4b59-aa27-4ce2264c5575}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Graphics\InternalResource">
+      <UniqueIdentifier>{2db4ea0c-db4f-48e0-8351-e335a35e7fb6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Math\MathConstant.h">
@@ -140,9 +143,6 @@
     </ClInclude>
     <ClInclude Include="Src\Graphics\RingConstantBuffer.h">
       <Filter>Src\Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Core\Handle\HandleConstant.h">
-      <Filter>Src\Core\Handle</Filter>
     </ClInclude>
     <ClInclude Include="Src\Core\Handle\TexHandle.h">
       <Filter>Src\Core\Handle</Filter>
@@ -248,6 +248,21 @@
     </ClInclude>
     <ClInclude Include="Src\Core\Handle\MaterialHandle.h">
       <Filter>Src\Core\Handle</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\TextEncoding.h">
+      <Filter>Src\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Graphics\GfxType.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Handle\HandlePassKey.h">
+      <Filter>Src\Core\Handle</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Handle\HandlePacking.h">
+      <Filter>Src\Core\Handle</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Graphics\InternalResource\DefaultFontData.h">
+      <Filter>Src\Graphics\InternalResource</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -355,6 +370,12 @@
     </ClCompile>
     <ClCompile Include="Src\Facade\Time.cpp">
       <Filter>Src\Facade</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Core\TextEncoding.cpp">
+      <Filter>Src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\InternalResource\DefaultFontData.cpp">
+      <Filter>Src\Graphics\InternalResource</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -1,5 +1,5 @@
 #pragma once
-#include "HandleConstant.h"
+#include "HandlePassKey.h"
 
 // RenderTargetを管理するハンドル
 class RTHandle

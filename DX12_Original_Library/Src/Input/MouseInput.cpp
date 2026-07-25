@@ -1,6 +1,14 @@
+#include "InputName.h"
 #include "../Debug/DebugLogs.h"
 #include "InputConstant.h"
 #include "MouseInput.h"
+
+// 公開ヘッダーに直接書いたキーコードがWin32のVirtual-Key Codeと一致しているかをコンパイル時に確認する
+static_assert(static_cast<int>(MouseCode::Click::LEFT) == VK_LBUTTON, "MouseCode::Click::LEFTがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(MouseCode::Click::RIGHT) == VK_RBUTTON, "MouseCode::Click::RIGHTがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(MouseCode::Click::MIDDLE) == VK_MBUTTON, "MouseCode::Click::MIDDLEがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(MouseCode::Click::SIDE01) == VK_XBUTTON1, "MouseCode::Click::SIDE01がVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(MouseCode::Click::SIDE02) == VK_XBUTTON2, "MouseCode::Click::SIDE02がVirtualKeyCodeと不一致\n");
 
 void MouseInput::Initialize(HWND _hwnd)
 {

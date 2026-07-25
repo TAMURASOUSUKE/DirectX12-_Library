@@ -1,5 +1,25 @@
+#include "InputName.h"
 #include "InputConstant.h"
 #include "KeyboardInput.h"
+
+// 公開ヘッダーに直接書いたキーコードがWin32のVirtual-Key Codeと一致しているかをコンパイル時に確認する
+static_assert(static_cast<int>(KeyCode::Button::SPACE) == VK_SPACE, "KeyCode::Button::SPACEがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::LCTRL) == VK_LCONTROL, "KeyCode::Button::LCTRLがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::RCTRL) == VK_RCONTROL, "KeyCode::Button::RCTRLがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::CTRL) == VK_CONTROL, "KeyCode::Button::CTRLがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::LSHIFT) == VK_LSHIFT, "KeyCode::Button::LSHIFTがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::RSHIFT) == VK_RSHIFT, "KeyCode::Button::RSHIFTがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::SHIFT) == VK_SHIFT, "KeyCode::Button::SHIFTがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::LALT) == VK_LMENU, "KeyCode::Button::LALTがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::RALT) == VK_RMENU, "KeyCode::Button::RALTがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::ALT) == VK_MENU, "KeyCode::Button::ALTがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::TAB) == VK_TAB, "KeyCode::Button::TABがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::RETURN) == VK_RETURN, "KeyCode::Button::RETURNがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::ESC) == VK_ESCAPE, "KeyCode::Button::ESCがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::LEFT) == VK_LEFT, "KeyCode::Button::LEFTがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::UP) == VK_UP, "KeyCode::Button::UPがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::RIGHT) == VK_RIGHT, "KeyCode::Button::RIGHTがVirtualKeyCodeと不一致\n");
+static_assert(static_cast<int>(KeyCode::Button::DOWN) == VK_DOWN, "KeyCode::Button::DOWNがVirtualKeyCodeと不一致\n");
 
 // 更新
 void KeyboardInput::Update()

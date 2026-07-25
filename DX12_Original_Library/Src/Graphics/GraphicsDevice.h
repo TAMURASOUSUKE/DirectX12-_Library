@@ -27,7 +27,8 @@ public:
 	// フレームの最初に呼び出す関数
 	void BeginFrame();
 	// フレームの最後に呼び出す関数
-	void EndFrame();
+	// フレームの命令送信、表示、Fence通知を行う全て成功した場合はtrue
+	bool EndFrame();
 
 	// 垂直同期の有効状態を設定する
 	void SetVSync(bool _isEnabled) { isVSyncEnabled = _isEnabled; }
@@ -70,6 +71,8 @@ private:
 	ComPtr<ID3D12CommandAllocator> cmdAllocators[FRAME_BUFFER_COUNT]; // ダブルバッファ用のアロケーター
 	ComPtr<ID3D12GraphicsCommandList> cmdList; // 命令記録
 	ComPtr<ID3D12Fence> fence; // CPUとGPUの同期
+	ComPtr<ID3D12CommandAllocator> uploadCmdAllocator{}; // 描画中でもリソースをUploadできるよう描画用と分離
+	ComPtr<ID3D12GraphicsCommandList> uploadCmdList{}; // 描画中でもリソースをUploadできるよう描画用と分離
 	UINT64 fenceValues[FRAME_BUFFER_COUNT]{ 0, 0 }; // 各フレームの同期値
 	UINT64 fenceValueCounter{ 0 }; // フェンス値をカウントする計測器
 
