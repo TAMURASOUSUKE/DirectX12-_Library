@@ -330,6 +330,27 @@ namespace
 		desc.ShaderVisibility = _visibility;
 		return desc;
 	}
+
+	// ID3DBlobが持つコンパイル済みデータをD3D12がPSO作成時に受け取る形式に変換
+	D3D12_SHADER_BYTECODE MakeShaderBytecode(ID3DBlob* _blob)
+	{
+		// 使用しないShaderStageは空のバイトコードを返す
+		if (!_blob) return {};
+		D3D12_SHADER_BYTECODE bytecode{};
+		bytecode.pShaderBytecode = _blob->GetBufferPointer();
+		bytecode.BytecodeLength = _blob->GetBufferSize();
+		return bytecode;
+	}
+
+	// Releaseで埋め込んだバイト配列をD3D12形式へ変換する
+	D3D12_SHADER_BYTECODE MakeShaderBytecode(const void* _data, SIZE_T _size)
+	{
+		if (!_data || _size == 0) return {};
+		D3D12_SHADER_BYTECODE bytecode{};
+		bytecode.pShaderBytecode = _data;
+		bytecode.BytecodeLength = _size;
+		return bytecode;
+	}
 }
 
 // 初期化処理
@@ -679,7 +700,7 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 
 	
 	// 生成して登録
-	ComPtr<ID3D12PipelineState> pipeline{ BuildGraphicsPipeline(_desc, vsBlob.Get(), psBlob.Get(), hsBlob.Get(), dsBlob.Get(), gsBlob.Get()) };
+	ComPtr<ID3D12PipelineState> pipeline{ BuildGraphicsPipeline(_desc, MakeShaderBytecode(vsBlob.Get()),MakeShaderBytecode(psBlob.Get()),MakeShaderBytecode(hsBlob.Get()), MakeShaderBytecode(dsBlob.Get()), MakeShaderBytecode(gsBlob.Get())) };
 
 	if (!pipeline)
 	{
@@ -849,7 +870,7 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _us
 		DEBUG_LOG_ERROR("不明なShaderUsageです\n");
 		return nullptr;
 	}
-	return BuildGraphicsPipeline(desc, useVertexShader, _pixelShader);
+	return BuildGraphicsPipeline(desc, MakeShaderBytecode(useVertexShader), MakeShaderBytecode(_pixelShader));
 }
 
 std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
@@ -916,7 +937,7 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	return descs;
 }
 
-ComPtr<ID3D12PipelineState> ShaderSystem::BuildGraphicsPipeline(const GraphicsPipelineDesc& _desc, ID3DBlob* _vsBlob, ID3DBlob* _psBlob, ID3DBlob* _hsBlob, ID3DBlob* _dsBlob, ID3DBlob* _gsBlob)
+ComPtr<ID3D12PipelineState> ShaderSystem::BuildGraphicsPipeline(const GraphicsPipelineDesc& _desc, const D3D12_SHADER_BYTECODE& _vs, const D3D12_SHADER_BYTECODE& _ps, const D3D12_SHADER_BYTECODE& _hs, const D3D12_SHADER_BYTECODE& _ds, const D3D12_SHADER_BYTECODE& _gs)
 {
 	if (!device)
 	{
@@ -925,7 +946,7 @@ ComPtr<ID3D12PipelineState> ShaderSystem::BuildGraphicsPipeline(const GraphicsPi
 	}
 
 	// GraphicsPipelineではVSを必須とする
-	if (!_vsBlob)
+	if (!_vs.pShaderBytecode || _vs.BytecodeLength == 0)
 	{
 		DEBUG_LOG_ERROR("GraphicsPipelineにVSが設定されていません\n");
 		return nullptr;
@@ -954,18 +975,20 @@ ComPtr<ID3D12PipelineState> ShaderSystem::BuildGraphicsPipeline(const GraphicsPi
 		return nullptr;
 	}
 
+	const bool hasHS{ _hs.BytecodeLength > 0 && _hs.pShaderBytecode != nullptr };
+	const bool hasDS{ _ds.BytecodeLength > 0 && _ds.pShaderBytecode != nullptr };
 	// テッセレーションではHSとDSはセットで扱う
-	if ((_hsBlob == nullptr) != (_dsBlob == nullptr))
+	if (hasHS != hasDS)
 	{
 		DEBUG_LOG_ERROR("HSとDSは両方設定する必要があります\n");
 		return nullptr;
 	}
-	if ((_hsBlob != nullptr) && _desc.topology != D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
+	if (hasDS&& _desc.topology != D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
 	{
 		DEBUG_LOG_ERROR("HSとDSを使用する場合はTopologyTypeをPATCHにしてください\n");
 		return nullptr;
 	}
-	if ((_hsBlob == nullptr) && _desc.topology == D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
+	if (!hasDS && _desc.topology == D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
 	{
 		DEBUG_LOG_ERROR("PATCHを使用する場合はHSとDSが必要です\n");
 		return nullptr;
@@ -975,31 +998,13 @@ ComPtr<ID3D12PipelineState> ShaderSystem::BuildGraphicsPipeline(const GraphicsPi
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC nativeDesc{};
 	// PSO対応するRootSingatureを出す
 	nativeDesc.pRootSignature = rootSigs[rootSignatureID].Get();
+	nativeDesc.VS = _vs;
+	nativeDesc.PS = _ps;
+	nativeDesc.HS = _hs;
+	nativeDesc.DS = _ds;
+	nativeDesc.GS = _gs;
 
-	// shader群(現状VSは必須としているのでif無し)
-	nativeDesc.VS.pShaderBytecode = _vsBlob->GetBufferPointer();
-	nativeDesc.VS.BytecodeLength = _vsBlob->GetBufferSize();
 
-	if (_psBlob)
-	{
-		nativeDesc.PS.pShaderBytecode = _psBlob->GetBufferPointer();
-		nativeDesc.PS.BytecodeLength = _psBlob->GetBufferSize();
-	}
-	if (_hsBlob)
-	{
-		nativeDesc.HS.pShaderBytecode = _hsBlob->GetBufferPointer();
-		nativeDesc.HS.BytecodeLength = _hsBlob->GetBufferSize();
-	}
-	if (_dsBlob)
-	{
-		nativeDesc.DS.pShaderBytecode = _dsBlob->GetBufferPointer();
-		nativeDesc.DS.BytecodeLength = _dsBlob->GetBufferSize();
-	}
-	if (_gsBlob)
-	{
-		nativeDesc.GS.pShaderBytecode = _gsBlob->GetBufferPointer();
-		nativeDesc.GS.BytecodeLength = _gsBlob->GetBufferSize();
-	}
 	// InputLayoutはTableを使う
 	const LayoutEntry& layout{ LAYOUT_TABLE[layoutID] };
 	nativeDesc.InputLayout.pInputElementDescs = layout.elements; // noneだとnull

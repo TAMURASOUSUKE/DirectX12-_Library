@@ -36,7 +36,7 @@ public:
 	ID3D12RootSignature* GetRootSignature(RootSigID _id) const { return rootSigs[static_cast<int>(_id)].Get(); }
 private:
 	// コンパイル済みShaderとPSO設定から、GraphicsPipelineを組み立てる
-	ComPtr<ID3D12PipelineState> BuildGraphicsPipeline(const GraphicsPipelineDesc& _desc, ID3DBlob* _vsBlob, ID3DBlob* _psBlob, ID3DBlob* _hsBlob = nullptr, ID3DBlob* _dsBlob = nullptr, ID3DBlob* _gsBlob = nullptr);
+	ComPtr<ID3D12PipelineState> BuildGraphicsPipeline(const GraphicsPipelineDesc& _desc, const D3D12_SHADER_BYTECODE& _vs, const D3D12_SHADER_BYTECODE& _ps, const D3D12_SHADER_BYTECODE& _hs = {}, const D3D12_SHADER_BYTECODE& _ds = {}, const D3D12_SHADER_BYTECODE& _gs = {});
 
 private:
 	ID3D12Device* device{ nullptr }; // 内部保存するデバイス所有しないので生ポでいい
