@@ -16,6 +16,7 @@
 #include "../Math/TSMath.h"
 #include "../Graphics/GraphicsConstant.h"
 #include "../Graphics/GraphicsType.h"
+#include "../Graphics/InternalResource/DefaultFontData.h"
 #include "GfxInternal.h" // 外部公開しないもの
 #include "Gfx.h" // 外部公開するもの
 
@@ -558,10 +559,10 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _windowWidth, int _windo
 	shapeBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Shape),shaderSystem.GetPipeline(PipelineID::ShapeFill), shaderSystem.GetPipeline(PipelineID::ShapeWire), orthConstantBufferData.resource.Get());
 
 	// 文字列構造体初期化
-	defaultFont.texture = Gfx::LoadTexture("../Src/External/Res/DejaVu Sans Mono.png"); // デフォルトフォント
+	defaultFont.texture = GraphicsResourceManager::Instance().LoadTextureFromMemory(InternalResource::defaultFontPng, InternalResource::defaultFontPngSize, false); // デフォルトフォント
 	if (!defaultFont.texture.IsValid())
 	{
-		DEBUG_LOG_ERROR("無効なハンドルが渡されました\n");
+		DEBUG_LOG_ERROR("内蔵デフォルトフォントの読み込みに失敗しました\n");
 	}
 	defaultFont.texWidth = 256; // 全体横幅
 	defaultFont.texHeight = 256; // 全体縦幅

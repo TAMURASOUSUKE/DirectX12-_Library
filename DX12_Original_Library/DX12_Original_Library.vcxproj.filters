@@ -55,6 +55,9 @@
     <Filter Include="Src\FPS">
       <UniqueIdentifier>{718ef046-6ae7-4b59-aa27-4ce2264c5575}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Graphics\InternalResource">
+      <UniqueIdentifier>{2db4ea0c-db4f-48e0-8351-e335a35e7fb6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Math\MathConstant.h">
@@ -258,6 +261,9 @@
     <ClInclude Include="Src\Core\Handle\HandlePacking.h">
       <Filter>Src\Core\Handle</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Graphics\InternalResource\DefaultFontData.h">
+      <Filter>Src\Graphics\InternalResource</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -367,6 +373,9 @@
     </ClCompile>
     <ClCompile Include="Src\Core\TextEncoding.cpp">
       <Filter>Src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\InternalResource\DefaultFontData.cpp">
+      <Filter>Src\Graphics\InternalResource</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
