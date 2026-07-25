@@ -89,7 +89,7 @@ public:
 	// リソースを解放する
 	void Unload(TexHandle _handle);
 	void Unload(ModelHandle _handle);
-	void Unload(RTHandle _hanlde);
+	void Unload(RTHandle _handle);
 	void Unload(ShaderHandle _handle);
 	void Unload(MaterialHandle _handle);
 

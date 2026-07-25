@@ -1,5 +1,6 @@
 #pragma once
 #include <windows.h>
+#include "GfxType.h"
 
 // DX12の初期化や描画に関する定数を作成する
 constexpr size_t HEAP_COUNT{ 3 }; // 用意するヒープの数
@@ -20,7 +21,6 @@ constexpr UINT INVALID_INDEX{ UINT_MAX }; // Descriptorハンドルのindex無�
 constexpr size_t MAX_RENDER_TARGET_COUNT{ 16 }; // 登録できるRenderTargetの最大数
 constexpr size_t MAX_CUSTOM_SHADER_COUNT{ 64 }; // 登録できるShaderの最大数
 constexpr size_t MAX_MATERIAL_COUNT{ 64 }; // 登録できるmaterialの最大数
-constexpr size_t MAX_MATERIAL_PARAMETER_SIZE{ 256 }; // materialへ設定できるパラメータの最大サイズ(GPUへ送る際は1スライス256byteとして扱う)
 constexpr size_t MATERIAL_PARAMETER_SLOT_COUNT{ 4 }; // materialが保持できるユーザーパラメータスロット数
 constexpr UINT MATERIAL_PARAMETER_REGISTER_BASE{ 4 }; // ユーザーパラメータが使用するHLSL側の先頭レジスタslot0 = b4, slot1 = b5...となる
 constexpr size_t SPRITE_BATCH_COUNT{ 2 }; // 現在存在するspritebatchの数(backとforground)

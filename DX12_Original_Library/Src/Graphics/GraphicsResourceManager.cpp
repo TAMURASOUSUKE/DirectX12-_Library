@@ -35,7 +35,9 @@ namespace{
 		ComPtr<ID3D12Resource> defaultBuffer{};
 		const CD3DX12_HEAP_PROPERTIES defaultHeap{ D3D12_HEAP_TYPE_DEFAULT };
 
-		HRESULT result{ _device->CreateCommittedResource(&defaultHeap, D3D12_HEAP_FLAG_NONE, &bufferDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&defaultBuffer)) };
+		// バッファの初期状態はCOMMON(Textureリソース等ではないためレイアウトがないから)
+		// CopyBufferRegion時にCOPY_DESTへ暗黙昇格させる
+		HRESULT result{ _device->CreateCommittedResource(&defaultHeap, D3D12_HEAP_FLAG_NONE, &bufferDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&defaultBuffer)) };
 		DEBUG_ASSERT(SUCCEEDED(result));
 		if (FAILED(result))
 		{
@@ -475,44 +477,31 @@ void GraphicsResourceManager::CollectDeferredReleases(UINT64 _completedFenceValu
 
 VertexBuffer GraphicsResourceManager::CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize)
 {
-	D3D12_HEAP_PROPERTIES heapProperties{}; // 頂点ヒープの設定
-	heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD; // アップロードヒープに設定
-	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // ページング
-
-	D3D12_RESOURCE_DESC resDesc{}; // リソース設定構造体
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; // バッファとして使う
-	resDesc.Width = _dataSize; // 頂点バッファのサイズ
-	resDesc.Height = 1; // バッファは1D
-	resDesc.DepthOrArraySize = 1; // 配列ではない
-	resDesc.MipLevels = 1; // ミップマップなし
-	resDesc.Format = DXGI_FORMAT_UNKNOWN; // バッファはフォーマットなし
-	resDesc.SampleDesc = { 1, 0 }; // MSAAなし
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // メモリが最初から最後まで連続していることを示す
-
 	VertexBuffer buffer{};
-	HRESULT result{}; // 結果が成功しているかどうか調べるための変数
-	// UploadHeap上にバッファリソースを作成する
-	result = device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
-	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
-	if (FAILED(result)) return buffer; // 失敗していたら終了
+	if (_strideSize == 0)
+	{
+		DEBUG_LOG_ERROR("頂点バッファのstrideが0です\n");
+		return buffer;
+	}
+	// バッファ全体のサイズが頂点一つ分のサイズで割り切れるか確認
+	if (_dataSize % _strideSize != 0)
+	{
+		DEBUG_LOG_ERROR("頂点バッファサイズがstrideで割り切れません : size = {} stride = {}\n", _dataSize, _strideSize);
+		return buffer;
+	}
 
-	// 頂点バッファに頂点情報をコピーする
-	void* mappedData{ nullptr }; // dataを詰めるための変数
-	result = buffer.resource->Map(0, nullptr, &mappedData); // バッファの仮想アドレスを取得する
-	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
-	if (FAILED(result)) return buffer; // 失敗していたら終了
-
-	memcpy(mappedData, _data, _dataSize); // CPUデータをGPUメモリにコピー
-	buffer.resource->Unmap(0, nullptr); // 閉じる
-
-	// 頂点バッファビューを作る
-	D3D12_VERTEX_BUFFER_VIEW vertView{}; // 頂点バッファビュー
-	vertView.BufferLocation = buffer.resource->GetGPUVirtualAddress(); // バッファの仮想アドレスを入れる
-	vertView.SizeInBytes = _dataSize; // 全バイト数
-	vertView.StrideInBytes = _strideSize; // 一つ分のバイト数
-
-	buffer.vertexView = vertView; // GPUBufferの中に格納する
+	// 一時UPLOADヒープを経由してDEFAULTヒープへ送る
+	buffer.resource = CreateStaticBufferResource(device, _data, _dataSize, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	if (!buffer.resource)
+	{
+		return buffer;
+	}
+	// DEFAULTヒープ上のリソースを頂点バッファとして読む
+	buffer.vertexView.BufferLocation = buffer.resource->GetGPUVirtualAddress(); // GPUBufferの中に格納する
+	buffer.vertexView.StrideInBytes = _strideSize;
+	buffer.vertexView.SizeInBytes = _dataSize;
 	buffer.sizeInBytes = _dataSize; // バッファ全体のサイズを入れる
+	// 静的デフォルトHeapなのでmappedPtrは持たない
 	return buffer;
 }
 
@@ -578,44 +567,29 @@ DynamicBuffer GraphicsResourceManager::CreateDynamicBuffer(UINT _dataSize)
 
 IndexBuffer GraphicsResourceManager::CreateIndexBuffer(const void* _data, UINT _dataSize, UINT _indexCount)
 {
-	D3D12_HEAP_PROPERTIES heapProps{}; // ヒープのプロパティ設定
-	heapProps.Type = D3D12_HEAP_TYPE_UPLOAD; // アップロードヒープに設定
-	heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // ページング
-
-	D3D12_RESOURCE_DESC resDesc{}; // リソース設定構造体
-	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; // バッファとして使う
-	resDesc.Width = _dataSize; // インデックスバッファのサイズ
-	resDesc.Height = 1; // バッファは1D
-	resDesc.DepthOrArraySize = 1; // 配列ではない
-	resDesc.MipLevels = 1; // ミップマップなし
-	resDesc.Format = DXGI_FORMAT_UNKNOWN;
-	resDesc.SampleDesc = { 1, 0 }; // MSAAなし
-	resDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // メモリが最初から最後まで連続していることを示す
-
-	// インデックスバッファの作成
 	IndexBuffer buffer{};
-	HRESULT result{};
-	// 実際に作成を行うが一旦UploadHeap上に作る。今後3Dモデルを扱う際には大量のインデックスが必要なのでDefaultHeapに移し替え最適化する
-	result = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buffer.resource));
-	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
-	if (FAILED(result)) return buffer; // 失敗していたら終了
+	if (_indexCount == 0)
+	{
+		DEBUG_LOG_ERROR("Index数が0です\n");
+		return buffer;
+	}
 
-	// MapとUnMapを用いてインデックス情報をコピーする
-	void* mappedData{ nullptr }; // Dataを詰めるための配列
-	result = buffer.resource->Map(0, nullptr, &mappedData); // バッファの仮想アドレスを取得する
-	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
-	if (FAILED(result)) return buffer; // 失敗していたら終了
+	// 現在のIBはR32_UINT固定なので1index4byte
+	const UINT64 expectedSize{ static_cast<UINT64>(_indexCount) * sizeof(uint32_t) };
+	if (expectedSize != _dataSize)
+	{
+		DEBUG_LOG_ERROR("Index数とバッファサイズが一致しません : count = {} size = {}\n", _indexCount, _dataSize);
+		return buffer;
+	}
 
-	memcpy(mappedData, _data, _dataSize); // CPUデータをGPUメモリにコピー
-	buffer.resource->Unmap(0, nullptr); // 閉じる
+	// 一時UPLOADヒープを経由してDefaultヒープへ送る
+	buffer.resource = CreateStaticBufferResource(device, _data, _dataSize, D3D12_RESOURCE_STATE_INDEX_BUFFER);
+	if (!buffer.resource) return buffer;
 
-	// インデックスバッファビューを作成する
-	D3D12_INDEX_BUFFER_VIEW indexView{};
-	indexView.BufferLocation = buffer.resource->GetGPUVirtualAddress(); // バッファの仮想アドレスを入れる
-	indexView.SizeInBytes = _dataSize;
-	indexView.Format = DXGI_FORMAT_R32_UINT; // インデックスなので32bitの符号なし整数
-
-	buffer.indexView = indexView; // 設定したインデックスバッファ
+	// DEFAULTヒープ上のリソースをインデックスバッファとして読む
+	buffer.indexView.BufferLocation = buffer.resource->GetGPUVirtualAddress(); // バッファの仮想アドレスを入れる
+	buffer.indexView.SizeInBytes = _dataSize;
+	buffer.indexView.Format = DXGI_FORMAT_R32_UINT; // インデックスなので32bitの符号なし整数
 	buffer.indexCount = _indexCount; // インデックスの数
 	return buffer;
 }

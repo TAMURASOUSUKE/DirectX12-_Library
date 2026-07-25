@@ -2,6 +2,7 @@
 #include <string> // テスト用
 #include <algorithm>
 #include "../Src/Graphics/GraphicsType.h" // デバッグ用に一時的に
+#include "../Src/Facade/GfxInternal.h" // デバッグ用に一時的に
 
 // テスト用として渡す定数バッファ
 struct GrayScaleParameter
@@ -302,20 +303,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
 
-		// モデル + アニメーション
-		Gfx::DrawModel(testModel, modelTransform01, &anim01);
-		Gfx::DrawModel(testModel, modelTransform02, &anim02);
+		// モデル + アニメーション(デバッグ用なのでまだ公開関数ではないです)
+		GfxInternal::DrawAnimationModel(modelTransform01, anim01);
+		GfxInternal::DrawAnimationModel(modelTransform02, anim02);
 
 		// Shaderテスト
-		//Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, Vector2::One, 0.0f, Gfx::SpriteFlip::None, { 1.0f, 0.0f, 0.0f, 1.0f });
+		Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, Vector2::One, 0.0f, Gfx::SpriteFlip::None, { 1.0f, 0.0f, 0.0f, 1.0f });
 
-		//Gfx::DrawSprite(minivan, { 300.0f, 300.0f });
+		Gfx::DrawSprite(minivan, { 300.0f, 300.0f });
 
-		//Gfx::DrawSprite(enemy, { 500.0f, 300.0f }, inverseSpriteMaterial);
+		Gfx::DrawSprite(enemy, { 500.0f, 300.0f }, inverseSpriteMaterial);
 
-		//Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, inverseSpriteMaterial, Vector2::One, 0.0f, Gfx::SpriteFlip::None, { 1.0f, 1.0f, 1.0f, 0.5f + 0.5f * sinf(time) });
+		Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, inverseSpriteMaterial, Vector2::One, 0.0f, Gfx::SpriteFlip::None, { 1.0f, 1.0f, 1.0f, 0.5f + 0.5f * sinf(time) });
 
-		//Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, Vector2::One, 0.0f, Gfx::SpriteFlip::Vertical, { 1.0f, 1.0f, 1.0f, 0.5f });
+		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, Vector2::One, 0.0f, Gfx::SpriteFlip::Vertical, { 1.0f, 1.0f, 1.0f, 0.5f });
 
 		Gfx::SetMaterialParameter(glitchMaterial, 2, fullParameter);
 		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, glitchMaterial, { 1.0f, 1.0f }, 0.0f, Gfx::SpriteFlip::Horizontal);

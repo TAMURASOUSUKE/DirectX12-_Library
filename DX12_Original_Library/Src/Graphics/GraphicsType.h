@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <cstddef>
+#include "GfxType.h"
 #include "../Math/TSMath.h"
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
@@ -12,7 +13,7 @@
 #include "GraphicsConstant.h"
 using Microsoft::WRL::ComPtr;
 
-// 描画関連で汎用的に使う型を定義する(ハンドルなど)
+// 描画関連で汎用的に使う型を定義する
 
 // heapの種類
 enum class HeapType
@@ -20,13 +21,6 @@ enum class HeapType
 	CBV_SRV_UAV, // GPU可視
 	RTV, // 描画先
 	DSV, // 深度
-};
-
-// 描画順を決定する際に選べる種類
-enum class RenderLayer
-{
-	BackGround, // 背景
-	ForeGround, // 3Dオブジェクトより手前に来る画像
 };
 
 // 規定のパイプラインステートを選ぶためのID
@@ -369,25 +363,6 @@ struct RenderTargetSlot
 {
 	RenderTargetData data{}; // 実データ
 	uint32_t generation{ 0 }; // 世代
-};
-
-// シェーダーの用途カテゴリ
-enum class ShaderUsage
-{
-	PostEffect,
-	Sprite,
-	Model,
-};
-
- // シェーダーのカテゴリ
-enum class ShaderStage
-{
-	Vertex,
-	Pixel,
-	Hull,
-	Domain,
-	Geometry,
-	Compute,
 };
 
 // Shader一つ分の実データ

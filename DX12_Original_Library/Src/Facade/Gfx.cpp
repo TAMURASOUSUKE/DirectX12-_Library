@@ -808,7 +808,7 @@ void GfxInternal::Finish()
 	GraphicsDevice::Instance().Shutdown(); // Deviceの解放
 }
 
-bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, size_t _slot, const void* _data, size_t _dataSize)
+bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _slot, const void* _data, size_t _dataSize)
 {
 	GraphicsResourceManager& resourceManager{ GraphicsResourceManager::Instance() };
 	MaterialData* material { resourceManager.Lookup(_handle) };
@@ -1265,7 +1265,7 @@ bool Gfx::UpdateSpriteAnimation(const TextureAtlas& _atlas, SpriteAnimationState
 	return true;
 }
 
-void Gfx::DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* _animData)
+void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 {
 	{
 		// マクロがスコープを抜けるとEndEventするので囲う
@@ -1273,16 +1273,8 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* 
 		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get()); // 背景の上に来るように3D描画前には背景batchをFlushする
 	}
 
-	// モデルの状況によって分ける
-	if (_animData)
-	{
-		DrawSkinnedModel(*_animData, _transform);
-	}
-	else
-	{
-		DrawStaticModel(_model, _transform);
-	}
-
+	// 今の状態では静的モデルだけ
+	DrawStaticModel(_model, _transform);
 }
 
 void Gfx::DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap)
@@ -1349,10 +1341,6 @@ void Gfx::Unload(ModelHandle _handle)
 {
 	GraphicsResourceManager::Instance().Unload(_handle);
 }
-void Gfx::Unload(RTHandle _handle)
-{
-	GraphicsResourceManager::Instance().Unload(_handle);
-}
 void Gfx::Unload(ShaderHandle _handle)
 {
 	GraphicsResourceManager::Instance().Unload(_handle);
@@ -1374,4 +1362,15 @@ HWND GfxInternal::GetHWND()
 void GfxInternal::SetOnWheel(std::function<void(short)> _func)
 {
 	window.SetOnWheel(_func);
+}
+
+void GfxInternal::DrawAnimationModel(Transform _transform, AnimInstanceData& _anim)
+{
+	{
+		// 3D描画より後ろに登録されたスプライトを先に描画する
+		GPU_MARKER("backGround");
+		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
+	}
+
+	DrawSkinnedModel(_anim, _transform);
 }

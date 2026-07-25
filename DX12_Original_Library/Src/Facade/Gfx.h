@@ -5,8 +5,7 @@
 #include "../Core/Handle/ModelHandle.h"
 #include "../Core/Handle/ShaderHandle.h"
 #include "../Core/Handle/MaterialHandle.h"
-#include "../Core/Handle/RTHandle.h"
-#include "../Graphics/GraphicsType.h" // アニメーションのテスト用に持ってきているが本来見せない
+#include "../Graphics/GfxType.h"
 #include "../Component/Transform.h"
 #include "../Math/TSMath.h"
 
@@ -18,7 +17,7 @@ namespace Gfx
 	namespace Detail
 	{
 		// テンプレートから呼び出される内部実装
-		bool SetMaterialParameterRaw(MaterialHandle _handle, size_t _slot , const void* _data, size_t _dataSize);
+		bool SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _slot , const void* _data, size_t _dataSize);
 	}
 
 	// フォントアトラスの設定構造体(デフォルトでフォントを用意しているが変更したい時にここを設定してもらう)
@@ -168,8 +167,8 @@ namespace Gfx
 	bool UpdateSpriteAnimation(const TextureAtlas& _atlas, SpriteAnimationState& _state, float _deltaTime);
 
 
-	// モデルを描画する(テスト用にAnimDataを受け取っているが後で修正)
-	void DrawModel(ModelHandle _model, Transform _transform, AnimInstanceData* _animData = nullptr);
+	// 静的モデルを描画する
+	void DrawModel(ModelHandle _model, Transform _transform);
 
 
 	// terrainを描画する : 位置, 大きさ(xz平面にのみかかります), 分割係数 , 高さ ,変形形状を決めるheightMap(無ければplane描画になります)
@@ -187,9 +186,7 @@ namespace Gfx
 	// テクスチャリソースの解放
 	void Unload(TexHandle _handle);
 	// モデルリソースの開放
-	void Unload(ModelHandle _hanlde);
-	// RenderTargetの解放
-	void Unload(RTHandle _handle);
+	void Unload(ModelHandle _handle);
 	// Shaderリソースの開放
 	void Unload(ShaderHandle _handle);
 	// Materialリソースの解放
@@ -207,7 +204,7 @@ namespace Gfx
 	/// <param name="_parameter">定数バッファとして渡るパラメータ。任意の構造体を作り16byte区切りでパラメータを設定して下さい。HLSL側と作成したパラメータの並び順をそろえてください。ポインタやvector,string等は渡さないでください</param>
 	/// <returns>設定が成功したかどうか</returns>
 	template<typename T>
-	bool SetMaterialParameter(MaterialHandle _handle, size_t _slot, const T& _parameter)
+	bool SetMaterialParameter(MaterialHandle _handle, std::size_t _slot, const T& _parameter)
 	{
 		using ParameterType = std::remove_cv_t<std::remove_reference_t<T>>; // constや参照をはがして純粋な型を取り出す
 		// vector,stringなどmemcpyだけでは複製できない型を禁止する

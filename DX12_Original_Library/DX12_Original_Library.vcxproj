@@ -155,6 +155,7 @@
     <ClInclude Include="Src\Facade\Collision.h" />
     <ClInclude Include="Src\Facade\Gfx.h" />
     <ClInclude Include="Src\Facade\GfxInternal.h" />
+    <ClInclude Include="Src\Facade\GfxType.h" />
     <ClInclude Include="Src\Facade\Input.h" />
     <ClInclude Include="Src\Facade\InputInternal.h" />
     <ClInclude Include="Src\Facade\Sound.h" />
