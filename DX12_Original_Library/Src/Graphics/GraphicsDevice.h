@@ -27,7 +27,8 @@ public:
 	// フレームの最初に呼び出す関数
 	void BeginFrame();
 	// フレームの最後に呼び出す関数
-	void EndFrame();
+	// フレームの命令送信、表示、Fence通知を行う全て成功した場合はtrue
+	bool EndFrame();
 
 	// 垂直同期の有効状態を設定する
 	void SetVSync(bool _isEnabled) { isVSyncEnabled = _isEnabled; }

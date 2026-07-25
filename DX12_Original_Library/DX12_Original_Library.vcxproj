@@ -142,7 +142,8 @@
     <ClInclude Include="Src\Collision\Collider.h" />
     <ClInclude Include="Src\Collision\CollisionSystem.h" />
     <ClInclude Include="Src\Component\Transform.h" />
-    <ClInclude Include="Src\Core\Handle\HandleConstant.h" />
+    <ClInclude Include="Src\Core\Handle\HandlePacking.h" />
+    <ClInclude Include="Src\Core\Handle\HandlePassKey.h" />
     <ClInclude Include="Src\Core\Handle\MaterialHandle.h" />
     <ClInclude Include="Src\Core\Handle\ModelHandle.h" />
     <ClInclude Include="Src\Core\Handle\RTHandle.h" />
@@ -155,7 +156,6 @@
     <ClInclude Include="Src\Facade\Collision.h" />
     <ClInclude Include="Src\Facade\Gfx.h" />
     <ClInclude Include="Src\Facade\GfxInternal.h" />
-    <ClInclude Include="Src\Facade\GfxType.h" />
     <ClInclude Include="Src\Facade\Input.h" />
     <ClInclude Include="Src\Facade\InputInternal.h" />
     <ClInclude Include="Src\Facade\Sound.h" />
@@ -168,6 +168,7 @@
     <ClInclude Include="Src\FPS\FPSSystem.h" />
     <ClInclude Include="Src\FPS\FPSCounter.h" />
     <ClInclude Include="Src\Graphics\DescriptorManager.h" />
+    <ClInclude Include="Src\Graphics\GfxType.h" />
     <ClInclude Include="Src\Graphics\GPUMarker.h" />
     <ClInclude Include="Src\Graphics\GraphicsConstant.h" />
     <ClInclude Include="Src\Graphics\GraphicsDevice.h" />

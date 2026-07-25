@@ -1,5 +1,5 @@
 #pragma once
-#include "HandleConstant.h"
+#include "HandlePassKey.h"
 // materialを外部から扱えるようにするためのハンドル型
 
 class MaterialHandle

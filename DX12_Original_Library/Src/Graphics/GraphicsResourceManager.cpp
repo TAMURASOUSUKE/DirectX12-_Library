@@ -2,11 +2,12 @@
 #include <algorithm>
 #include <filesystem>
 #include <cstring>
+#include <unordered_map>
 #include "../External/Common/d3dx12.h"
 #include "../External/DirectXTex/DirectXTex.h"
 #include "../External/cgltf.h"
 #include"../Debug/DebugLogs.h"
-#include "../Core/Handle/HandleConstant.h"
+#include "../Core/Handle/HandlePacking.h"
 #include "../Math/TSMath.h"
 #include "GraphicsDevice.h"
 #include "DescriptorManager.h"
@@ -16,7 +17,7 @@
 #pragma comment(lib, "ole32.lib")        // COM（CoInitializeEx / CoCreateInstance）
 
 
-namespace{
+namespace {
 
 	Vector4 ToVec4(float* _f) { return Vector4{ _f[0], _f[1], _f[2], _f[3] }; }
 	Vector3 ToVec3(float* _f) { return Vector3{ _f[0], _f[1], _f[2] }; }
@@ -160,7 +161,7 @@ namespace{
 				// TRS対応
 				Vector3 t = ToVec3(boneNode->translation);
 				Quaternion r{ boneNode->rotation[0], boneNode->rotation[1], boneNode->rotation[2], boneNode->rotation[3] };
-				Vector3 s =	ToVec3(boneNode->scale);
+				Vector3 s = ToVec3(boneNode->scale);
 
 				Mat4x4 sMat{ Mat4x4::MakeScaling(s) }; // スケール行列
 				Mat4x4 rMat{ r.ToMat4x4() }; // 回転行列 
@@ -318,7 +319,7 @@ void GraphicsResourceManager::Initialize(ID3D12Device* _device)
 	shaderSlots.reserve(MAX_CUSTOM_SHADER_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
 	materialSlots.reserve(MAX_MATERIAL_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
 	// デフォルト用の白テクスチャを作成する(初期化時に1枚だけ)
-	defaultTexture = CreateMetaTexture({1.0f, 1.0f, 1.0f});
+	defaultTexture = CreateMetaTexture({ 1.0f, 1.0f, 1.0f });
 	// エラー用のピンクテクスチャを作成する
 	errorTexture = CreateMetaTexture({ 1.0f, 0.0f, 1.0f });
 }
@@ -362,7 +363,7 @@ void GraphicsResourceManager::Shutdown()
 		{
 			// RTVとSRVを解放する
 			if (_rt.rtvHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::RTV, _rt.rtvHandle);
-			if(_rt.srvHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, _rt.srvHandle);
+			if (_rt.srvHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, _rt.srvHandle);
 			_rt = RenderTargetData{}; // 初期状態へ戻す
 		}
 	};
@@ -430,7 +431,7 @@ void GraphicsResourceManager::Shutdown()
 void GraphicsResourceManager::CommitPendingRelease(UINT64 _submittedFenceValue)
 {
 	// 空チェック
-	if (pendingRelease.textures.empty() && pendingRelease.models.empty() && 
+	if (pendingRelease.textures.empty() && pendingRelease.models.empty() &&
 		pendingRelease.renderTargets.empty() && pendingRelease.pipelineStates.empty())
 	{
 		return;
@@ -638,7 +639,7 @@ TexHandle GraphicsResourceManager::LoadTexture(const char* _filePath, bool _isDa
 	ID3D12Device* device{ GraphicsDevice::Instance().GetDevice() };
 	HRESULT result{}; // 結果判定用
 	// データ画像かデフラグを分ける
-	DirectX::WIC_FLAGS flag{_isData	 ? DirectX::WIC_FLAGS_IGNORE_SRGB	: DirectX::WIC_FLAGS_DEFAULT_SRGB};
+	DirectX::WIC_FLAGS flag{ _isData ? DirectX::WIC_FLAGS_IGNORE_SRGB : DirectX::WIC_FLAGS_DEFAULT_SRGB };
 	// WICでCPUに読み込む
 	std::filesystem::path path(_filePath); // std::filesystem::pathの一次オブジェクトから.c_str()をとるとタングリングするのでローカル保持する
 	DirectX::TexMetadata metaData{}; // 画像のメタデータ
@@ -651,7 +652,7 @@ TexHandle GraphicsResourceManager::LoadTexture(const char* _filePath, bool _isDa
 	}
 
 	// Facade側で指定された用とに合わせてScratchImage本体と各Imageのfomatをそろえて変更する
-	const DXGI_FORMAT desiredFormat{_isData	? DirectX::MakeLinear(metaData.format)	: DirectX::MakeSRGB(metaData.format)};
+	const DXGI_FORMAT desiredFormat{ _isData ? DirectX::MakeLinear(metaData.format) : DirectX::MakeSRGB(metaData.format) };
 	if (!scratch.OverrideFormat(desiredFormat))
 	{
 		DEBUG_LOG_ERROR("テクスチャのFormat変更に失敗しました Path={}\n", _filePath);
@@ -660,7 +661,7 @@ TexHandle GraphicsResourceManager::LoadTexture(const char* _filePath, bool _isDa
 
 	// オーバーライド後のメタデータを取得しなおす
 	metaData = scratch.GetMetadata();
-	DEBUG_LOG("メタデータフォーマットの数値は{}です。: TexturePath : {}\n",static_cast<unsigned int>(metaData.format), _filePath);
+	DEBUG_LOG("メタデータフォーマットの数値は{}です。: TexturePath : {}\n", static_cast<unsigned int>(metaData.format), _filePath);
 
 	return CreateTextureFromScratch(scratch, metaData);
 }
@@ -688,7 +689,7 @@ TexHandle GraphicsResourceManager::LoadTextureFromMemory(const void* _data, size
 	const DXGI_FORMAT desiredFormat{ _isData ? DirectX::MakeLinear(metaData.format) : DirectX::MakeSRGB(metaData.format) };
 	if (!scratch.OverrideFormat(desiredFormat))
 	{
-		DEBUG_LOG_ERROR("テクスチャのFormat変更に失敗しました\n",);
+		DEBUG_LOG_ERROR("テクスチャのFormat変更に失敗しました\n", );
 		return TexHandle{};
 	}
 
@@ -828,7 +829,7 @@ MaterialData* GraphicsResourceManager::Lookup(MaterialHandle _handle)
 ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 {
 	// 新規スロットを追加できる、または解放済みスロットを再利用できるか
-	const bool canRegister{ !modelFreeList.empty() || modelSlots.size() < MAX_MODEL_COUNT};
+	const bool canRegister{ !modelFreeList.empty() || modelSlots.size() < MAX_MODEL_COUNT };
 
 	DEBUG_ASSERT(canRegister && "モデルの登録上限に達しました\n");
 
@@ -864,7 +865,7 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 
 	if (data->meshes_count <= 0)
 	{
-		DEBUG_LOG_WARNING(	"モデル内にメッシュがありません\n");
+		DEBUG_LOG_WARNING("モデル内にメッシュがありません\n");
 		cgltf_free(data);
 		return ModelHandle{}; // メッシュがなければ空を返す
 	}
@@ -872,6 +873,35 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 
 	ModelData modelData{}; // SubMeshを溜めるデータ
 	std::filesystem::path modelDir{ std::filesystem::path(_filePath).parent_path() }; // ファイル名を除いたフォルダをとりだす。(uriの基準を出すため)
+
+	// glTF内で同じ画像が複数のマテリアルやprimitiveから参照されたら同じGPUテクスチャを再利用する
+	// ColorとDataではsRGBの解釈が異なるので二つ
+	std::unordered_map<const cgltf_image*, TexHandle> colorTextureCache{};
+	std::unordered_map<const cgltf_image*, TexHandle> dataTextureCache{};
+
+	// 同自画像を探索してからロードするラムダ
+	auto loadGltfTextureCached =
+		[&](const cgltf_texture_view& _textureView, bool _isData)->TexHandle
+		{
+			// テクスチャまたは画像が設定されていなければ空ハンドル
+			if (!_textureView.texture || !_textureView.texture->image) return TexHandle{};
+
+			const cgltf_image* image{ _textureView.texture->image };
+
+			// フラグによって分ける
+			auto& cache{ _isData ? dataTextureCache : colorTextureCache };
+
+			// すでにロード済みなら作成済みのHandleを再利用
+			const auto found{ cache.find(image) };
+			if (found != cache.end()) return found->second;
+
+			// この画像が初めて出たときだけGPUリソースの作成を行う
+			const TexHandle loadedTexture{ LoadTextureFromGltf(_textureView, modelDir, _isData) };
+			// 無効ハンドルも記録し、壊れた同一画像に対して何度もロードを行わないようにする
+			cache.emplace(image, loadedTexture);
+			return loadedTexture;
+		};
+
 	// node配列を見て基準にループする
 	for (cgltf_size i = 0; i < data->nodes_count; i++)
 	{
@@ -1000,7 +1030,7 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 			SubMesh sub{}; // サブメッシュ
 			sub.vertexBuffer = vertBuffer;
 			sub.indexBuffer = indexBuffer;
-			
+
 			TexHandle baseColor{}; // ベースカラーテクスチャ
 			TexHandle normalMap{}; // ノーマルマップ
 			TexHandle metallic{}; // メタリック
@@ -1009,16 +1039,16 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 			// テクスチャや各パラメータの代入
 			if (prim.material)
 			{
-				baseColor = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.base_color_texture, modelDir, false); // ベースカラーテクスチャ
-				normalMap = LoadTextureFromGltf(prim.material->normal_texture, modelDir, true); // ノーマルマップ
-				metallic = LoadTextureFromGltf(prim.material->pbr_metallic_roughness.metallic_roughness_texture, modelDir, true); // メタリック
-				emissive = LoadTextureFromGltf(prim.material->emissive_texture, modelDir, false); // 自己発光
+				baseColor = loadGltfTextureCached(prim.material->pbr_metallic_roughness.base_color_texture, false); // ベースカラーテクスチャ
+				normalMap = loadGltfTextureCached(prim.material->normal_texture, true); // ノーマルマップ
+				metallic = loadGltfTextureCached(prim.material->pbr_metallic_roughness.metallic_roughness_texture, true); // メタリック
+				emissive = loadGltfTextureCached(prim.material->emissive_texture, false); // 自己発光
 
 				sub.material.textures[MaterialTex::BaseColor] = baseColor;
 				sub.material.textures[MaterialTex::Normal] = normalMap;
 				sub.material.textures[MaterialTex::MetallicRoughness] = metallic;
 				sub.material.textures[MaterialTex::Emissive] = emissive;
-				sub.material.baseColorFactor =	 ToVec4(prim.material->pbr_metallic_roughness.base_color_factor);
+				sub.material.baseColorFactor = ToVec4(prim.material->pbr_metallic_roughness.base_color_factor);
 				sub.material.metallic = prim.material->pbr_metallic_roughness.metallic_factor;
 				sub.material.roughness = prim.material->pbr_metallic_roughness.roughness_factor;
 				sub.material.emissiveFactor = ToVec3(prim.material->emissive_factor);
@@ -1155,7 +1185,7 @@ RTHandle GraphicsResourceManager::CreateRenderTarget(UINT _width, UINT _height)
 	}
 
 	// RTVとSRVを作る
-	DescriptorHandle rtv{DescriptorManager::Instance().Allocate(HeapType::RTV)}; // RTVで確保
+	DescriptorHandle rtv{ DescriptorManager::Instance().Allocate(HeapType::RTV) }; // RTVで確保
 	if (!rtv.IsValid())
 	{
 		DEBUG_LOG_ERROR("RTVでのDescriptorHandleの確保に失敗しました\n");
@@ -1221,9 +1251,9 @@ ShaderHandle GraphicsResourceManager::RegisterShader(ShaderUsage _usage, ShaderS
 		DEBUG_LOG_ERROR("登録するShaderがnullです\n");
 		return ShaderHandle{};
 	}
-	
+
 	const bool canRegister{ !shaderFreeList.empty() || shaderSlots.size() < MAX_CUSTOM_SHADER_COUNT };
-	if(!canRegister)
+	if (!canRegister)
 	{
 		DEBUG_LOG_ERROR("Shaderの登録上限に達しました\n");
 		return ShaderHandle{};
@@ -1254,7 +1284,7 @@ ShaderHandle GraphicsResourceManager::RegisterShader(ShaderUsage _usage, ShaderS
 
 MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, ComPtr<ID3D12PipelineState> _pipelineState)
 {
-	ShaderData* shaderData{Lookup(_shader)};
+	ShaderData* shaderData{ Lookup(_shader) };
 	if (!shaderData)
 	{
 		DEBUG_LOG_ERROR("Materialの作成元shaderが無効です\n");
@@ -1267,7 +1297,7 @@ MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, C
 		return MaterialHandle{};
 	}
 
-	const bool canRegister{!materialFreeList.empty() || materialSlots.size() < MAX_MATERIAL_COUNT};
+	const bool canRegister{ !materialFreeList.empty() || materialSlots.size() < MAX_MATERIAL_COUNT };
 	if (!canRegister)
 	{
 		DEBUG_LOG_ERROR("Materialの登録上限に達しました\n");
@@ -1380,7 +1410,7 @@ void GraphicsResourceManager::Unload(ModelHandle _handle)
 
 void GraphicsResourceManager::Unload(RTHandle _handle)
 {
-	RenderTargetData* data{ Lookup(_handle)};
+	RenderTargetData* data{ Lookup(_handle) };
 	if (!data)
 	{
 		// 無効なハンドル

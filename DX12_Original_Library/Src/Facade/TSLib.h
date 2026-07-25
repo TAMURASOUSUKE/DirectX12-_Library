@@ -1,4 +1,16 @@
 #pragma once
+
+// TSLibは現状Windows専用ライブラリなのでこのヘッダー1枚でWinMainに必要な型も使用可能にする
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+// windows.hのmin/maxマクロによるstd::min/std::maxとの衝突を防ぐ
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#include <windows.h>
 #include "../Math/TSMath.h"
 #include "../Collision/Collider.h"
 #include "../Debug/DebugLogs.h"  
@@ -7,6 +19,8 @@
 #include "Collision.h"
 #include "Input.h"
 #include "Sound.h"
+
+
 // 初期化などlibrary全体の機能をまとめてユーザーに提供する
 namespace TSLib
 {

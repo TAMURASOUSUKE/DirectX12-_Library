@@ -141,9 +141,6 @@
     <ClInclude Include="Src\Graphics\RingConstantBuffer.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Core\Handle\HandleConstant.h">
-      <Filter>Src\Core\Handle</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Core\Handle\TexHandle.h">
       <Filter>Src\Core\Handle</Filter>
     </ClInclude>
@@ -252,8 +249,14 @@
     <ClInclude Include="Src\Core\TextEncoding.h">
       <Filter>Src\Core</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Facade\GfxType.h">
-      <Filter>Src\Facade</Filter>
+    <ClInclude Include="Src\Graphics\GfxType.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Handle\HandlePassKey.h">
+      <Filter>Src\Core\Handle</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Handle\HandlePacking.h">
+      <Filter>Src\Core\Handle</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

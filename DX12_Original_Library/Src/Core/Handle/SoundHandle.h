@@ -1,5 +1,5 @@
 #pragma once
-#include "HandleConstant.h"
+#include "HandlePassKey.h"
 
 // サウンドをロードしたときに返すハンドルを作成する
 class SoundHandle

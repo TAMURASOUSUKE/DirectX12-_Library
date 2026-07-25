@@ -1,5 +1,5 @@
 #pragma once
-#include "HandleConstant.h"
+#include "HandlePassKey.h"
 
 // テクスチャを管理するHandle
 class TexHandle

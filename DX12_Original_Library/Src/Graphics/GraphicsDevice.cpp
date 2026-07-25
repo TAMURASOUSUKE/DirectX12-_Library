@@ -310,7 +310,7 @@ void GraphicsDevice::BeginFrame()
 }
 
 // フレームの最後に行う処理
-void GraphicsDevice::EndFrame()
+bool GraphicsDevice::EndFrame()
 {
 	// 描画先-> 表示用
 	D3D12_RESOURCE_BARRIER barrier{}; // バリア
@@ -322,7 +322,13 @@ void GraphicsDevice::EndFrame()
 	cmdList->ResourceBarrier(1, &barrier);
 
 	// コマンドリストを閉じる(これ以上の書き込みを禁止する)
-	cmdList->Close();
+	const HRESULT closeResult{ cmdList->Close() };
+	if (FAILED(closeResult))
+	{
+		DEBUG_LOG_ERROR("描画コマンドリストのCloseに失敗しました HRESULT=0x{:08X}\n", static_cast<unsigned int>(closeResult));
+		DEBUG_ASSERT(false);
+		return false;
+	}
 
 	// コマンドリストをコマンドキューに投げる
 	ID3D12CommandList* cmdLists[]{ cmdList.Get() }; // 複数のコマンドリストを投げられるよう配列管理する
@@ -331,14 +337,39 @@ void GraphicsDevice::EndFrame()
 	const UINT vsync{ isVSyncEnabled ? 1u : 0u };
 
 	// バッファ交換を行う(Present)
-	swapChain->Present(vsync, 0); // 第一引数 : VSyncの間隔(1 = モニターの垂直同期を一回待つ) 今後この戻り値はassert候補
-
+	const HRESULT presentResult{ swapChain->Present(vsync, 0) }; // 第一引数 : VSyncの間隔(1 = モニターの垂直同期を一回待つ)
+	if (FAILED(presentResult))
+	{
+		const HRESULT removedReason{ device ? device->GetDeviceRemovedReason() : E_POINTER };
+		DEBUG_LOG_ERROR("Presentに失敗しました HRESULT=0x{:08X} DeviceRemovedReason=0x{:08X}\n", static_cast<unsigned int>(presentResult), static_cast<unsigned int>(removedReason));
+		// 描画命令はすでにExcuteしているのでGPU作業追跡のためSignalまでは行う
+	}
+	// まだ成功していない値を先に確定値へ入れない
+	const UINT64 signalValue{ fenceValueCounter + 1 };
+	const UINT submittedFrameIndex{ currentFrameIndex };
 	// フェンスシグナルを出す(このフレームの命令が全て終わったらカウンタをこの値にしろという命令)
-	fenceValues[currentFrameIndex] = ++fenceValueCounter;
-	cmdQueue->Signal(fence.Get(), fenceValues[currentFrameIndex]);
+	const HRESULT signalResult{ cmdQueue->Signal(fence.Get(), fenceValues[currentFrameIndex]) };
+	if (FAILED(signalResult))
+	{
+		DEBUG_LOG_ERROR("フレーム終了時のFence Signalに失敗しました HRESULT=0x{:08X}\n", static_cast<unsigned int>(signalResult));
+		DEBUG_ASSERT(false);
+		return false;
+	}
+
+	// シグナルが成功してから最後に送信した値として確定する
+	fenceValueCounter = signalValue;
+	fenceValues[submittedFrameIndex] = signalValue;
+	
+	if (FAILED(presentResult))
+	{
+		DEBUG_ASSERT(false);
+		return false;
+	}
+
 
 	// 現在のframeIndexを更新
 	currentFrameIndex = swapChain->GetCurrentBackBufferIndex();
+	return true;
 }
 
 

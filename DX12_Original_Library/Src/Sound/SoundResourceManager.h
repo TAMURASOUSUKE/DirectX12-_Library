@@ -1,7 +1,6 @@
 #pragma once
 #include <vector>
 #include "../Core/Handle/SoundHandle.h"
-#include "SoundConstant.h"
 #include "SoundType.h"
 
 // 音関連のリソース管理を集約するクラス

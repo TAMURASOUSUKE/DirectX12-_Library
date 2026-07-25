@@ -1,5 +1,5 @@
 #pragma once
-#include "HandleConstant.h"
+#include "HandlePassKey.h"
 
 // モデルをロードしたときに返すハンドルを作成する
 class ModelHandle
