@@ -2,7 +2,7 @@
 #include "../FPS/FPSConstant.h"
 #include "../FPS/FPSSystem.h"
 #include "TimeInternal.h"
-#include "Time.h"
+#include "TSTime.h"
 
 namespace {
 	// 時間管理システムの実体はFacade内部だけで所有する
