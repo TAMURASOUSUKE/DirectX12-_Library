@@ -52,30 +52,30 @@ namespace {
 	constexpr GraphicsPipelineDesc PIPELINE_TABLE[]{
 		// 図形塗りつぶし
 		{.rootSignatureID = RootSigID::Shape, .pipelineID = PipelineID::ShapeFill,
-		  .vsPath = L"../Src/Shaders/ShapeVS.hlsl", .psPath = L"../Src/Shaders/ShapePS.hlsl", 
+		  .vs = BuiltinShaderID::ShapeVS, .ps = BuiltinShaderID::ShapePS,
 		  .layout = InputLayout::Shape, .blend = BlendMode::Alpha, .depth = DepthParam::None },
 		  // 図形ワイヤー
 		{.rootSignatureID = RootSigID::Shape, .pipelineID = PipelineID::ShapeWire,
-		  .vsPath = L"../Src/Shaders/ShapeVS.hlsl", .psPath = L"../Src/Shaders/ShapePS.hlsl",
+		  .vs = BuiltinShaderID::ShapeVS, .ps = BuiltinShaderID::ShapePS,
 		  .layout = InputLayout::Shape, .blend = BlendMode::Alpha, .depth = DepthParam::None,
 		  .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE },
 		  // 3Dモデル
 		{.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::Model,
-		 .vsPath = L"../Src/Shaders/ModelVS.hlsl", .psPath = L"../Src/Shaders/ModelPS.hlsl",
+		 .vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
 		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite},
 		 // テクスチャ 
 		 {.rootSignatureID = RootSigID::Texture, .pipelineID = PipelineID::Sprite,
-		  .vsPath = L"../Src/Shaders/TextureVS.hlsl", .psPath = L"../Src/Shaders/TexturePS.hlsl",
+		  .vs = BuiltinShaderID::TextureVS, .ps = BuiltinShaderID::TexturePS,
 		  .layout = InputLayout::Sprite, .blend = BlendMode::Alpha, .depth = DepthParam::None},
 		  // Terrain
 		{.rootSignatureID = RootSigID::Terrain, .pipelineID = PipelineID::TerrainWire,
-		.vsPath = L"../Src/Shaders/TerrainVS.hlsl", .psPath = L"../Src/Shaders/TerrainPS.hlsl",
-		.hsPath = L"../Src/Shaders/TerrainHS.hlsl", .dsPath = L"../Src/Shaders/TerrainDS.hlsl",
+		.vs = BuiltinShaderID::TerrainVS, .ps = BuiltinShaderID::TerrainPS,
+		.hs = BuiltinShaderID::TerrainHS, .ds = BuiltinShaderID::TerrainDS,
 		.layout = InputLayout::Texture, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite, // textureを流用できる
 		.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH, .fillMode = D3D12_FILL_MODE_WIREFRAME},// hsとdsを使うのでパッチ系のpipelineという大分類にする , 分割された三角形を確認できるようにワイヤー
 		// PostEffect
 		{.rootSignatureID = RootSigID::PostEffect, .pipelineID = PipelineID::PostEffect,
-		 .vsPath = L"../Src/Shaders/PostEffectVS.hlsl", .psPath = L"../Src/Shaders/PostEffectPS.hlsl",
+		 .vs = BuiltinShaderID::PostEffectVS, .ps = BuiltinShaderID::PostEffectPS,
 		 .layout = InputLayout::None, .blend = BlendMode::Opaque, // レイアウトはSV_VertexIDから直接作るので頂点入力はない、Blendも完全に画面を置き換えるのでブレンド無し
 		 .depth = DepthParam::None, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE} // 2D画像を画面へ貼るだけなので深度は使わない
 	};
@@ -1005,8 +1005,7 @@ MaterialHandle Gfx::CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pix
 		ShaderData* vertexData{ resourceManager.Lookup(_vertexShader)};
 		if (!vertexData)
 		{
-			DEBUG_LOG_ERROR("VertexShaderHandleが無効です\n");
-			return MaterialHandle{};
+			DEBUG_LOG_ERROR("VertexShaderHandleが無効です\n");			return MaterialHandle{};
 		}
 		if (vertexData->stage != ShaderStage::Vertex)
 		{

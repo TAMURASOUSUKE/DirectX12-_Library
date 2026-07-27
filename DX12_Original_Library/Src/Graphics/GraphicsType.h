@@ -15,6 +15,32 @@ using Microsoft::WRL::ComPtr;
 
 // 描画関連で汎用的に使う型を定義する
 
+	// ライブラリ内蔵Shaderを識別するID
+enum class BuiltinShaderID : size_t
+{
+	ShapeVS,
+	ShapePS,
+
+	ModelVS,
+	ModelPS,
+
+	TextureVS,
+	TexturePS,
+
+	TerrainVS,
+	TerrainHS,
+	TerrainDS,
+	TerrainPS,
+
+	PostEffectVS,
+	PostEffectPS,
+
+	Count,
+
+	// Shaderを使用しない場合用
+	None = Count
+};
+
 // heapの種類
 enum class HeapType
 {
@@ -114,11 +140,12 @@ struct GraphicsPipelineDesc
 {
 	RootSigID rootSignatureID{ RootSigID::Count }; // ルートシグネチャの鍵
 	PipelineID pipelineID{PipelineID::Count}; // パイプラインステートの鍵
-	const wchar_t* vsPath{ nullptr }; // 頂点シェーダーパス
-	const wchar_t* psPath{ nullptr }; // ピクセルシェーダーパス
-	const wchar_t* hsPath{ nullptr }; // ハルシェーダーパス
-	const wchar_t* dsPath{ nullptr }; // ドメインシェーダーパス
-	const wchar_t* gsPath{ nullptr }; // ジオメトリシェーダーパス
+	// 内蔵Shaderを指定する
+	BuiltinShaderID  vs{ BuiltinShaderID::None }; // 頂点シェーダー
+	BuiltinShaderID ps{ BuiltinShaderID::None }; // ピクセルシェーダー
+	BuiltinShaderID hs{ BuiltinShaderID::None }; // ハルシェーダー
+	BuiltinShaderID ds{ BuiltinShaderID::None }; // ドメインシェーダー
+	BuiltinShaderID gs{ BuiltinShaderID::None }; // ジオメトリシェーダー
 	InputLayout layout{InputLayout::None}; // 入力レイアウト
 	BlendMode blend{BlendMode::Opaque}; // ブレンドモード
 	DepthParam depth{DepthParam::None

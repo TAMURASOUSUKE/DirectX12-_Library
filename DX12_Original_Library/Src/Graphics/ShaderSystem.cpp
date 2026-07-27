@@ -6,9 +6,27 @@
 #include "../Core/TextEncoding.h"
 #include "ShaderSystem.h"
 
+// ビルド時にFXCが生成する内蔵Shaderバイトコード
+#include "ShapeVSBytecode.h"
+#include "ShapePSBytecode.h"
+
+#include "ModelVSBytecode.h"
+#include "ModelPSBytecode.h"
+
+#include "TextureVSBytecode.h"
+#include "TexturePSBytecode.h"
+
+#include "TerrainVSBytecode.h"
+#include "TerrainHSBytecode.h"
+#include "TerrainDSBytecode.h"
+#include "TerrainPSBytecode.h"
+
+#include "PostEffectVSBytecode.h"
+#include "PostEffectPSBytecode.h"
+
 // GraphicsTypeに設定されているenumを実の値へと変換する
-namespace
-{
+namespace {
+
 	// テクスチャの入力レイアウト
 	constexpr  D3D12_INPUT_ELEMENT_DESC TEX_LAYOUT[]
 	{
@@ -276,11 +294,10 @@ namespace
 		// ReadOnly
 		{DEPTH_READ_ONLY, DXGI_FORMAT_D24_UNORM_S8_UINT}
 	};
-	static_assert(_countof(DEPTH_TABLE) == static_cast<size_t>(DepthParam::Count),"DepthParamのID数と実値の総数が合いません\n");
+	static_assert(_countof(DEPTH_TABLE) == static_cast<size_t>(DepthParam::Count), "DepthParamのID数と実値の総数が合いません\n");
 }
 
-namespace
-{
+namespace {
 	// 共通部品作成ヘルパー関数
 	// CBV作成
 	RootParamDesc MakeRootCBV(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
@@ -351,13 +368,35 @@ namespace
 		bytecode.BytecodeLength = _size;
 		return bytecode;
 	}
+
+	// BuiltinShaderIDと同じ順番で、ビルド時生成済みバイトコードを並べる
+	const D3D12_SHADER_BYTECODE BUILTIN_SHADER_BYTECODE_TABLE[]
+	{
+		MakeShaderBytecode(g_ShapeVS, sizeof(g_ShapeVS)),
+		MakeShaderBytecode(g_ShapePS, sizeof(g_ShapePS)),
+
+		MakeShaderBytecode(g_ModelVS, sizeof(g_ModelVS)),
+		MakeShaderBytecode(g_ModelPS, sizeof(g_ModelPS)),
+
+		MakeShaderBytecode(g_TextureVS, sizeof(g_TextureVS)),
+		MakeShaderBytecode(g_TexturePS, sizeof(g_TexturePS)),
+
+		MakeShaderBytecode(g_TerrainVS, sizeof(g_TerrainVS)),
+		MakeShaderBytecode(g_TerrainHS, sizeof(g_TerrainHS)),
+		MakeShaderBytecode(g_TerrainDS, sizeof(g_TerrainDS)),
+		MakeShaderBytecode(g_TerrainPS, sizeof(g_TerrainPS)),
+
+		MakeShaderBytecode(g_PostEffectVS, sizeof(g_PostEffectVS)),
+		MakeShaderBytecode(g_PostEffectPS, sizeof(g_PostEffectPS))
+	};
+
+	// ID追加時にバイトコード表の追加忘れを検出する
+	static_assert(std::size(BUILTIN_SHADER_BYTECODE_TABLE) == static_cast<size_t>(BuiltinShaderID::Count));
 }
 
 // 初期化処理
 void ShaderSystem::Setup(ID3D12Device* _device)
 {
-	defaultPostEffectVS.Reset();
-	defaultSpriteVS.Reset();
 	// 作成されたデバイスと結合
 	if (_device != nullptr)
 	{
@@ -369,9 +408,6 @@ void ShaderSystem::Setup(ID3D12Device* _device)
 // 終了処理
 void ShaderSystem::Shutdown()
 {
-	defaultPostEffectVS.Reset();
-	defaultSpriteVS.Reset();
-
 	// PSOはRootSigを使って作成しているため先にPSOを解放する
 	for (ComPtr<ID3D12PipelineState>& pipeline : pipelines)
 	{
@@ -495,8 +531,8 @@ bool ShaderSystem::CreateRootSignature(const RootSignatureDesc& _desc)
 		switch (src.type)
 		{
 		case D3D12_ROOT_PARAMETER_TYPE_CBV:
-		case D3D12_ROOT_PARAMETER_TYPE_SRV: 
-		case D3D12_ROOT_PARAMETER_TYPE_UAV: 
+		case D3D12_ROOT_PARAMETER_TYPE_SRV:
+		case D3D12_ROOT_PARAMETER_TYPE_UAV:
 			// RootDescriptorの場合処理 cbvならb番号、srvならt番号、uavならu番号
 			dst.Descriptor.ShaderRegister = src.shaderRegister;
 			dst.Descriptor.RegisterSpace = src.registerSpace;
@@ -579,7 +615,7 @@ bool ShaderSystem::CreateRootSignature(const RootSignatureDesc& _desc)
 	ComPtr<ID3DBlob> errorBlob{};
 
 	// serialize(RootSignatureの設計図をGPUドライバが扱えるバイナリに変換する)
-	HRESULT result{D3D12SerializeRootSignature(&nativeDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &signatureBlob, &errorBlob)};
+	HRESULT result{ D3D12SerializeRootSignature(&nativeDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &signatureBlob, &errorBlob) };
 	if (FAILED(result))
 	{
 		DEBUG_LOG_ERROR("RootSignatureのserialize化に失敗しました\n");
@@ -612,7 +648,7 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 		return false;
 	}
 
-	const size_t pipelineID{static_cast<size_t>(_desc.pipelineID)}; // IDを取り出す
+	const size_t pipelineID{ static_cast<size_t>(_desc.pipelineID) }; // IDを取り出す
 	const size_t rootSignatureID{ static_cast<size_t>(_desc.rootSignatureID) };
 	const size_t layoutID{ static_cast<size_t>(_desc.layout) };
 	const size_t blendID{ static_cast<size_t>(_desc.blend) };
@@ -645,62 +681,70 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 	}
 
 	// VSは必須とする
-	if (!_desc.vsPath)
+	if (_desc.vs == BuiltinShaderID::None)
 	{
-		DEBUG_LOG_ERROR("VSパスが設定されていません\n");
+		DEBUG_LOG_ERROR("VSが設定されていません\n");
 		return false;
 	}
 
-	// 各シェーダーのコンパイル
-	ComPtr<ID3DBlob> vsBlob{ Compile(_desc.vsPath, "main", "vs_5_0") }; // 頂点
-	if (!vsBlob) { DEBUG_LOG_ERROR("VSのコンパイルに失敗しました\n"); return false; }
-
-	ComPtr<ID3DBlob> psBlob{}; // ピクセル
-	ComPtr<ID3DBlob> hsBlob{}; // ハル
-	ComPtr<ID3DBlob> dsBlob{}; // ドメイン
-	ComPtr<ID3DBlob> gsBlob{}; // ジオメトリ
-
 	// テッセレーションではHSとDSはセットで扱う
-	if ((_desc.hsPath == nullptr) != (_desc.dsPath == nullptr))
+	const bool usesHS{ _desc.hs != BuiltinShaderID::None };
+	const bool usesDS{ _desc.ds != BuiltinShaderID::None };
+	if (usesHS != usesDS)
 	{
 		DEBUG_LOG_ERROR("HSとDSは両方設定する必要があります\n");
 		return false;
 	}
-	if ((_desc.hsPath != nullptr) && _desc.topology != D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
+	if (usesHS && _desc.topology != D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
 	{
 		DEBUG_LOG_ERROR("HSとDSを使用する場合はTopologyTypeをPATCHにしてください\n");
 		return false;
 	}
-	if ((_desc.hsPath == nullptr) && _desc.topology == D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
+	if (!usesHS && _desc.topology == D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
 	{
 		DEBUG_LOG_ERROR("PATCHを使用する場合はHSとDSが必要です\n");
 		return false;
 	}
 
-	if (_desc.psPath)
+	// IDからコンパイル済みBytecodeを取得する
+	const D3D12_SHADER_BYTECODE vs{ GetBuiltinShaderBytecode(_desc.vs) };
+	const D3D12_SHADER_BYTECODE ps{ GetBuiltinShaderBytecode(_desc.ps) };
+	const D3D12_SHADER_BYTECODE hs{ GetBuiltinShaderBytecode(_desc.hs) };
+	const D3D12_SHADER_BYTECODE ds{ GetBuiltinShaderBytecode(_desc.ds) };
+	const D3D12_SHADER_BYTECODE gs{ GetBuiltinShaderBytecode(_desc.gs) };
+
+	// 必須VSの取得失敗
+	if (!vs.pShaderBytecode || vs.BytecodeLength == 0)
 	{
-		psBlob = Compile(_desc.psPath, "main", "ps_5_0");
-		if (!psBlob) { DEBUG_LOG_ERROR("PSのコンパイルに失敗しました\n"); return false; }
-	}
-	if (_desc.hsPath)
-	{
-		hsBlob = Compile(_desc.hsPath, "main", "hs_5_0"); // ハル
-		if (!hsBlob) { DEBUG_LOG_ERROR("HSのコンパイルに失敗しました\n"); return false; }
-	}
-	if (_desc.dsPath)
-	{
-		dsBlob = Compile(_desc.dsPath, "main", "ds_5_0"); // ドメイン
-		if (!dsBlob) { DEBUG_LOG_ERROR("DSのコンパイルに失敗しました\n"); return false; }
-	}
-	if (_desc.gsPath)
-	{
-		gsBlob = Compile(_desc.gsPath, "main", "gs_5_0"); // ジオメトリ
-		if (!gsBlob) { DEBUG_LOG_ERROR("GSのコンパイルに失敗しました\n"); return false; }
+		DEBUG_LOG_ERROR("内蔵VSの取得に失敗しました\n");
+		return false;
 	}
 
-	
+	// 指定した任意ステージが取得できなかった場合
+	if (_desc.ps != BuiltinShaderID::None && !ps.pShaderBytecode || ps.BytecodeLength == 0)
+	{
+		DEBUG_LOG_ERROR("内蔵PSの取得に失敗しました\n");
+		return false;
+	}
+	if (usesHS && (!hs.pShaderBytecode || hs.BytecodeLength == 0))
+	{
+		DEBUG_LOG_ERROR("内蔵HSの取得に失敗しました\n");
+		return false;
+	}
+	if (usesDS && (!ds.pShaderBytecode || ds.BytecodeLength == 0))
+	{
+		DEBUG_LOG_ERROR("内蔵DSの取得に失敗しました\n");
+		return false;
+	}
+	if (_desc.gs != BuiltinShaderID::None && (!gs.pShaderBytecode || gs.BytecodeLength == 0))
+	{
+		DEBUG_LOG_ERROR("内蔵GSの取得に失敗しました\n");
+		return false;
+	}
+
+
 	// 生成して登録
-	ComPtr<ID3D12PipelineState> pipeline{ BuildGraphicsPipeline(_desc, MakeShaderBytecode(vsBlob.Get()),MakeShaderBytecode(psBlob.Get()),MakeShaderBytecode(hsBlob.Get()), MakeShaderBytecode(dsBlob.Get()), MakeShaderBytecode(gsBlob.Get())) };
+	ComPtr<ID3D12PipelineState> pipeline{ BuildGraphicsPipeline(_desc, vs, ps, hs, ds, gs)};
 
 	if (!pipeline)
 	{
@@ -798,29 +842,14 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _us
 	}
 
 	// 頂点シェーダーが入力されいていない場合は内蔵のものを使う
-	ID3DBlob* useVertexShader{ _vertexShader };
+	BuiltinShaderID defaultVertexShader{ BuiltinShaderID::None };
 	GraphicsPipelineDesc desc{};
 
 	switch (_usage)
 	{
 	case ShaderUsage::PostEffect:
-
-		if (!useVertexShader)
-		{
-			// 初回だけ内蔵VSをコンパイル
-			if (!defaultPostEffectVS)
-			{
-				defaultPostEffectVS = Compile(L"../Src/Shaders/PostEffectVS.hlsl", "main", "vs_5_0");
-			}
-
-			if (!defaultPostEffectVS)
-			{
-				DEBUG_LOG_ERROR("PostEffect用の内蔵VSの読み込みに失敗しました\n");
-				return nullptr;
-			}
-
-			useVertexShader = defaultPostEffectVS.Get();
-		}
+		// 内蔵のVSを指定
+		defaultVertexShader = BuiltinShaderID::PostEffectVS;
 		// PostEffect用の標準PSO設定
 		desc.rootSignatureID = RootSigID::PostEffect;
 		// 動的なMaterialなので固定PipelineIDは使用しない
@@ -836,23 +865,8 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _us
 		break;
 
 	case ShaderUsage::Sprite:
-
-		if (!useVertexShader)
-		{
-			// 初回だけ内蔵VSをコンパイル
-			if (!defaultSpriteVS)
-			{
-				defaultSpriteVS = Compile(L"../Src/Shaders/TextureVS.hlsl", "main", "vs_5_0");
-			}
-
-			if (!defaultSpriteVS)
-			{
-				DEBUG_LOG_ERROR("Sprite用の内蔵VSの読み込みに失敗しました\n");
-				return nullptr;
-			}
-
-			useVertexShader = defaultSpriteVS.Get();
-		}
+		// 内蔵のVSを指定
+		defaultVertexShader = BuiltinShaderID::TextureVS;
 		// Sprite用の標準PSO設定
 		desc.rootSignatureID = RootSigID::Texture;
 		// 動的なMaterialなので固定PipelineIDは使用しない
@@ -870,7 +884,19 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _us
 		DEBUG_LOG_ERROR("不明なShaderUsageです\n");
 		return nullptr;
 	}
-	return BuildGraphicsPipeline(desc, MakeShaderBytecode(useVertexShader), MakeShaderBytecode(_pixelShader));
+
+	D3D12_SHADER_BYTECODE vertexBytecode{};
+	// ユーザーがVSを指定している場合はそのコンパイル結果を使う
+	if (_vertexShader) vertexBytecode = MakeShaderBytecode(_vertexShader);
+	else vertexBytecode = GetBuiltinShaderBytecode(defaultVertexShader);
+
+	if (!vertexBytecode.pShaderBytecode || vertexBytecode.BytecodeLength == 0)
+	{
+		DEBUG_LOG_ERROR("Mateiral用VertexShaderの取得に失敗しました\n");
+		return nullptr;
+	}
+	const D3D12_SHADER_BYTECODE pixelBytecode{ MakeShaderBytecode(_pixelShader) };
+	return BuildGraphicsPipeline(desc, vertexBytecode, pixelBytecode);
 }
 
 std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
@@ -926,7 +952,7 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 		// RootParam[1]-[4]へmaterial slot0-3を追加する
 		postEffectDesc.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL));  // ユーザーが定義した定数バッファを受け取る。(将来VSからも見えるようにする可能性があるのでAllにする)
 	}
-	D3D12_STATIC_SAMPLER_DESC sampler{MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL)};
+	D3D12_STATIC_SAMPLER_DESC sampler{ MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL) };
 	// 画面端で反対側のピクセルを拾わないようにClampする
 	sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
@@ -952,7 +978,7 @@ ComPtr<ID3D12PipelineState> ShaderSystem::BuildGraphicsPipeline(const GraphicsPi
 		return nullptr;
 	}
 
-	 // IDを取り出す
+	// IDを取り出す
 	const size_t rootSignatureID{ static_cast<size_t>(_desc.rootSignatureID) };
 	const size_t layoutID{ static_cast<size_t>(_desc.layout) };
 	const size_t blendID{ static_cast<size_t>(_desc.blend) };
@@ -983,12 +1009,12 @@ ComPtr<ID3D12PipelineState> ShaderSystem::BuildGraphicsPipeline(const GraphicsPi
 		DEBUG_LOG_ERROR("HSとDSは両方設定する必要があります\n");
 		return nullptr;
 	}
-	if (hasDS&& _desc.topology != D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
+	if (hasHS && _desc.topology != D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
 	{
 		DEBUG_LOG_ERROR("HSとDSを使用する場合はTopologyTypeをPATCHにしてください\n");
 		return nullptr;
 	}
-	if (!hasDS && _desc.topology == D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
+	if (!hasHS && _desc.topology == D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH)
 	{
 		DEBUG_LOG_ERROR("PATCHを使用する場合はHSとDSが必要です\n");
 		return nullptr;
@@ -1054,4 +1080,18 @@ ComPtr<ID3D12PipelineState> ShaderSystem::BuildGraphicsPipeline(const GraphicsPi
 	}
 
 	return pipeline;
+}
+
+D3D12_SHADER_BYTECODE ShaderSystem::GetBuiltinShaderBytecode(BuiltinShaderID _id)
+{
+	if (_id == BuiltinShaderID::None) return {}; // このステージを使わないなら空
+
+	const size_t index{ static_cast<size_t>(_id) };
+	if (index >= static_cast<size_t>(BuiltinShaderID::Count))
+	{
+		DEBUG_LOG_ERROR("無効なBuiltinShaderIDが指定されました ID = {}\n", index);
+		return {};
+	}
+
+	return BUILTIN_SHADER_BYTECODE_TABLE[index];
 }
