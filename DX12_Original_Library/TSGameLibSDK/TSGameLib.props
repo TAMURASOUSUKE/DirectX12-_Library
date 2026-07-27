@@ -46,4 +46,20 @@
 
   </ItemDefinitionGroup>
 
+  <!--
+    DirectXTex.libが参照するPDBをリンク前に出力先へコピーする。
+    SDKを別PCへ移動してもLNK4099が出ないようにする。
+  -->
+  <Target Name="TSGameLibCopyDirectXTexPdb"
+          BeforeTargets="Link"
+          Condition="'$(Platform)' == 'x64'
+                  and Exists('$(TSGameLibRoot)lib\x64\$(Configuration)\DirectXTex.pdb')">
+
+    <Copy
+      SourceFiles="$(TSGameLibRoot)lib\x64\$(Configuration)\DirectXTex.pdb"
+      DestinationFolder="$(OutDir)"
+      SkipUnchangedFiles="true" />
+
+  </Target>
+
 </Project>
