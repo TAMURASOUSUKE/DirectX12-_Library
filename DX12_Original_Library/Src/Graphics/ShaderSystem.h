@@ -36,13 +36,13 @@ public:
 	ID3D12RootSignature* GetRootSignature(RootSigID _id) const { return rootSigs[static_cast<int>(_id)].Get(); }
 private:
 	// コンパイル済みShaderとPSO設定から、GraphicsPipelineを組み立てる
-	ComPtr<ID3D12PipelineState> BuildGraphicsPipeline(const GraphicsPipelineDesc& _desc, ID3DBlob* _vsBlob, ID3DBlob* _psBlob, ID3DBlob* _hsBlob = nullptr, ID3DBlob* _dsBlob = nullptr, ID3DBlob* _gsBlob = nullptr);
+	ComPtr<ID3D12PipelineState> BuildGraphicsPipeline(const GraphicsPipelineDesc& _desc, const D3D12_SHADER_BYTECODE& _vs, const D3D12_SHADER_BYTECODE& _ps, const D3D12_SHADER_BYTECODE& _hs = {}, const D3D12_SHADER_BYTECODE& _ds = {}, const D3D12_SHADER_BYTECODE& _gs = {});
+
+	// 内蔵ShaderIDからコンパイル済みバイトコードを取得する初回だけコンパイルして2回目以降はキャッシュを返す
+	D3D12_SHADER_BYTECODE GetBuiltinShaderBytecode(BuiltinShaderID _id);
 
 private:
 	ID3D12Device* device{ nullptr }; // 内部保存するデバイス所有しないので生ポでいい
 	ComPtr<ID3D12PipelineState> pipelines[static_cast<int>(PipelineID::Count)]; // パイプラインステート用台帳配列
 	ComPtr<ID3D12RootSignature> rootSigs[static_cast<int>(RootSigID::Count)]; // ルートシグネチャ用台帳配列
-	ComPtr<ID3DBlob> defaultPostEffectVS{}; // 同じHLSLをMaterial作成ごとに再コンパイルしないため保持する
-	ComPtr<ID3DBlob> defaultSpriteVS{}; // 上記と同様の目的のSprite版
-
 };
