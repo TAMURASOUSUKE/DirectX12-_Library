@@ -1,0 +1,9 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+  </Configurations>
+
+  <Project
+      Path="TSGameLibSDKSmokeTest.vcxproj"
+      Id="b3f74162-23dd-4ec2-9f8b-8c2bbaafd5a0" />
+</Solution>
