@@ -445,25 +445,25 @@ namespace {
 }
 
 // 初期化処理(これを呼ぶだけで初期化処理が済むようにする)
-bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _wclientHeight, int _virtualWidth, int _virtualHeight)
+bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, int _virtualWidth, int _virtualHeight)
 {
-	if (_clientWidth <= 0 || _wclientHeight <= 0 || _virtualWidth <= 0 || _virtualHeight <= 0)
+	if (_clientWidth <= 0 || _clientHeight <= 0 || _virtualWidth <= 0 || _virtualHeight <= 0)
 	{
 		DEBUG_LOG_ERROR("ウィンドウサイズと仮想解像度には0より大きい値を指定してください\n");
 		return false;
 	}
 
 	screenWidth = _clientWidth;
-	screenHeight = _wclientHeight;
+	screenHeight = _clientHeight;
 	virtualWidth = _virtualWidth;
 	virtualHeight = _virtualHeight;
 	// 前回の初期化状態を引き継がない
 	currentPostEffectMaterial = {};
 
-	DEBUG_LOG("ClientSize = {} x {}\n", _clientWidth, _wclientHeight);
+	DEBUG_LOG("ClientSize = {} x {}\n", _clientWidth, _clientHeight);
 
 
-	GraphicsDevice::Instance().Initialize(_hwnd, _clientWidth, _wclientHeight); // デバイスの初期化
+	GraphicsDevice::Instance().Initialize(_hwnd, _clientWidth, _clientHeight); // デバイスの初期化
 	if (!GraphicsDevice::Instance().GetDevice())
 	{
 		DEBUG_LOG_ERROR("デバイスの読み込みに失敗しました\n");
@@ -498,7 +498,7 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _wclientHeight, i
 	GraphicsResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
 	
 	// 画面と同じサイズの内部描画先を作成
-	sceneRenderTarget = GraphicsResourceManager::Instance().CreateRenderTarget(static_cast<UINT>(_clientWidth), static_cast<UINT>(_wclientHeight));
+	sceneRenderTarget = GraphicsResourceManager::Instance().CreateRenderTarget(static_cast<UINT>(_clientWidth), static_cast<UINT>(_clientHeight));
 	if (!sceneRenderTarget.IsValid())
 	{
 		DEBUG_LOG_ERROR("シーン描画用RenderTargetの作成に失敗しました\n");

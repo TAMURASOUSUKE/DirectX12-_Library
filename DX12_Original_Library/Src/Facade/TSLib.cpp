@@ -10,6 +10,11 @@
 // 初期化
 bool TSLib::Initialize(const wchar_t* _title, int _width, int _height)
 {
+	return Initialize(_title, _width, _height, System::WindowMode::Windowed);
+}
+
+bool TSLib::Initialize(const wchar_t* _title, int _virtualWidth, int _virtualHeight, System::WindowMode _mode)
+{
 	HRESULT comResult{};
 	comResult = CoInitializeEx(nullptr, COINIT_MULTITHREADED); // COMを初期化
 	DEBUG_ASSERT(SUCCEEDED(comResult));
@@ -22,11 +27,11 @@ bool TSLib::Initialize(const wchar_t* _title, int _width, int _height)
 	bool result{ false };
 
 	TimeInternal::Initialize();
-	result = SystemInternal::Initialize(_title, _width, _height);
+	result = SystemInternal::Initialize(_title, _virtualWidth, _virtualHeight, _mode);
 	DEBUG_ASSERT(result && "Windowの初期化に失敗しました\n");
 	if (!result) return result;
 	const Vector2Int clientSize{ SystemInternal::GetClientSize() };
-	result = GfxInternal::Initialize(SystemInternal::GetHWND(), clientSize.x, clientSize.y, _width, _height); // グラフィックの初期化とウィンドウ作成
+	result = GfxInternal::Initialize(SystemInternal::GetHWND(), clientSize.x, clientSize.y, _virtualWidth, _virtualHeight); // グラフィックの初期化とウィンドウ作成
 	DEBUG_ASSERT(result && "ゲームの初期化に失敗しました\n");
 	if (!result) return result;
 	result = InputInternal::Initialize(SystemInternal::GetHWND());

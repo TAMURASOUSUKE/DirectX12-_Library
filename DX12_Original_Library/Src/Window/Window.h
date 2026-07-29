@@ -9,8 +9,10 @@
 class Window
 {
 public:
-	bool GenerateWindow(int _clientWidth, int _clientHeight); // ウィンドウ作成
-
+	// ウィンドウ作成 : 通常のタイトルバー付き
+	bool GenerateWindow(int _clientWidth, int _clientHeight);
+	// プライマリモニター全体を覆うタイトルバー無しWindow
+	bool GenerateBorderlessFullscreen();
 	// ウィンドウと登録したClassを破棄する
 	void Shutdown();
 
@@ -28,8 +30,10 @@ public:
 	HWND GetHWND() const { return hwnd; } // ウィンドウハンドルの取得
 
 private:
-	static LRESULT CALLBACK WindowProc(HWND _hwnd, UINT _msg, WPARAM _wp, LPARAM _lp); // カスタムのプロシージャ
+	// 計算済みのWindowStyle、位置、外側サイズからWin32Windowを生成する
+	bool GenerateNativeWindow(DWORD _windowStyle, int _x, int _y, int _width, int _height);
 
+	static LRESULT CALLBACK WindowProc(HWND _hwnd, UINT _msg, WPARAM _wp, LPARAM _lp); // カスタムのプロシージャ
  private:
 	 std::function<void(short)> onWheel{}; // 回転量計算用
 	 HWND hwnd{ nullptr }; // ウィンドウハンドル

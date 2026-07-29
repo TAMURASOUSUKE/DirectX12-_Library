@@ -11,7 +11,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
 
 	// 初期化 失敗したら-1を返す
-	if (!TSLib::Initialize(L"SoundTest", 1280, 720)) return -1;
+	if (!TSLib::Initialize(L"SoundTest", 1280, 720, System::WindowMode::BorderlessFullscreen)) return -1;
 
 	Time::SetTargetFPS(60);
 
@@ -19,11 +19,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	SoundHandle testSound{ Sound::LoadSound("Res/Test.wav") };
 	SoundHandle testSound02{ Sound::LoadSound("Res/Phuniaya_2.wav") };
 	SoundHandle testSound03{ Sound::LoadSound("Res/Better_Days.wav") };
+	SoundHandle mizushimaVoice{ Sound::LoadSound("Res/User.wav") };
 	float testVolume{ 0.8f }; // テスト用音量
 	float crossFadeTime{ 0.0f };
 	bool isSetVolume{ false };
 
-	while (TSLib::ProcessMessage())
+	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 
@@ -54,6 +55,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPushed(KeyCode::Button::D3)) crossFadeTime -= 0.5f;
 		crossFadeTime = std::clamp(crossFadeTime, 0.0f, 15.0f);
 		if (Input::IsKeyPushed(KeyCode::Button::F)) Sound::CrossfadeBGM(testSound02, false, crossFadeTime);
+		if (Input::IsKeyPushed(KeyCode::Button::M)) Sound::CrossfadeBGM(mizushimaVoice, false, crossFadeTime);
 
 		if (isSetVolume)
 		{

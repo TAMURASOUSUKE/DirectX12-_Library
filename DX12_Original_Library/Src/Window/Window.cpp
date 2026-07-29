@@ -25,21 +25,6 @@ bool Window::GenerateWindow(int _clientWidth, int _clientHeight)
 	// 現在はスワップチェーンなどのリサイズ処理を持っていないため最大化とドラッグによるサイズ変更を禁止する
 	constexpr DWORD WINDOW_STYLE{ WS_OVERLAPPEDWINDOW & ~(WS_THICKFRAME | WS_MAXIMIZEBOX) };
 
-	// ウィンドウクラスの設定
-	WNDCLASSEX wc{}; // ウィンドウクラス
-	wc.cbSize = sizeof(WNDCLASSEX);
-	wc.lpfnWndProc = WindowProc; //　メッセージ処理(今はデフォルト)
-	wc.hInstance = GetModuleHandle(nullptr);
-	wc.lpszClassName = WINDOW_CLASS_NAME; // クラス名
-
-	const ATOM classAtom{ RegisterClassEx(&wc) };
-	// すでに同じクラスが登録されている場合以外の失敗を検出する
-	if (classAtom == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
-	{
-		DEBUG_LOG_ERROR("ウィンドウクラスの登録に失敗しました\n");
-		return false;
-	}
-
 	// タイトルバーとウィンドウの枠分外側サイズを大きくする
 	RECT windowRect{ 0, 0, _clientWidth, _clientHeight };
 	if (!AdjustWindowRectEx(&windowRect, WINDOW_STYLE, false, 0))
@@ -50,27 +35,39 @@ bool Window::GenerateWindow(int _clientWidth, int _clientHeight)
 	const int windowWidth{ windowRect.right - windowRect.left };
 	const int windowHeight{ windowRect.bottom - windowRect.top };
 
-	hwnd = CreateWindowExW(
-		0,
-		WINDOW_CLASS_NAME, // クラス名
-	   windowTitle.c_str(), // タイトルバー
-	   WINDOW_STYLE, // スタイル(標準ウィンドウ)
-	   CW_USEDEFAULT, CW_USEDEFAULT, // 位置
-	   windowWidth, windowHeight, // サイズ
-	   nullptr, nullptr,
-	   wc.hInstance,
-	   this // マウス回転を積むためにプロシージャに自身のポインタを渡す
-   );
+	return GenerateNativeWindow(WINDOW_STYLE, CW_USEDEFAULT, CW_USEDEFAULT, windowWidth, windowHeight);
+}
 
-	if (!hwnd)
+bool Window::GenerateBorderlessFullscreen()
+{
+	// 現在はプライマリモニターを使用する
+	const POINT primaryMonitorPoint{ 0, 0 };
+	const HMONITOR monitor{ MonitorFromPoint(primaryMonitorPoint, MONITOR_DEFAULTTOPRIMARY) };
+
+	if (monitor == nullptr)
 	{
-		DEBUG_LOG_ERROR("WindowHandleが空です\n");
+		DEBUG_LOG_ERROR("プライマリモニターの取得に失敗しました\n");
 		return false;
 	}
 
+	MONITORINFO monitorInfo{};
+	monitorInfo.cbSize = sizeof(MONITORINFO);
 
-	ShowWindow(hwnd, SW_SHOW);
-	return true;
+	if (!GetMonitorInfoW(monitor, &monitorInfo))
+	{
+		DEBUG_LOG_ERROR("モニター情報の取得に失敗しました\n");
+		return false;
+	}
+
+	const RECT& monitorRect{ monitorInfo.rcMonitor };
+
+	const int monitorWidth{ monitorRect.right - monitorRect.left };
+	const int monitorHeight{ monitorRect.bottom - monitorRect.top };
+
+	// WS_POPUPにはタイトルバーや外枠がない
+	constexpr DWORD BORDERLESS_STYLE{ WS_POPUP };
+
+	return GenerateNativeWindow(BORDERLESS_STYLE, monitorRect.left, monitorRect.top, monitorWidth, monitorHeight);
 }
 
 void Window::Shutdown()
@@ -142,6 +139,55 @@ void Window::RequestQuit()
 	{
 		DEBUG_LOG_ERROR("ウィンドウ終了要求の送信に失敗しました\n");
 	}
+}
+
+bool Window::GenerateNativeWindow(DWORD _windowStyle, int _x, int _y, int _width, int _height)
+{
+	if (hwnd)
+	{
+		DEBUG_LOG_ERROR("ウィンドウはすでに生成されています\n");
+		return false;
+	}
+
+	WNDCLASSEXW windowClass{};
+	windowClass.cbSize = sizeof(WNDCLASSEXW);
+	windowClass.lpfnWndProc = WindowProc;
+	windowClass.hInstance = GetModuleHandleW(nullptr);
+	windowClass.lpszClassName = WINDOW_CLASS_NAME;
+
+	// 通常の矢印カーソルを使用する
+	windowClass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+	const ATOM classAtom{ RegisterClassExW(&windowClass) };
+
+	// すでに同じクラスが登録されている場合以外の失敗を検出する
+	if (classAtom == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
+	{
+		DEBUG_LOG_ERROR("ウィンドウクラスの登録に失敗しました\n");
+		return false;
+	}
+
+	hwnd = CreateWindowExW(
+		0,
+		WINDOW_CLASS_NAME, // クラス名
+		windowTitle.c_str(), // タイトルバー
+		_windowStyle, // スタイル
+		_x, _y, // 位置
+		_width, _height, // サイズ
+		nullptr, nullptr,
+		windowClass.hInstance,
+		this // マウス回転を積むためにプロシージャに自身のポインタを渡す
+	);
+
+	if (!hwnd)
+	{
+		DEBUG_LOG_ERROR("WindowHandleの生成に失敗しました\n");
+		return false;
+	}
+
+
+	ShowWindow(hwnd, SW_SHOW);
+	UpdateWindow(hwnd);
+	return true;
 }
 
 // メンバ関数は暗黙的にthisポインタを持つので引数の整合性を取るためにstatic関数にする必要がある

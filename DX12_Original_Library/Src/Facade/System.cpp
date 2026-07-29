@@ -1,5 +1,6 @@
 #include "../Window/Window.h"
 #include "SystemInternal.h"
+#include "../Debug/DebugLogs.h"
 #include "System.h"
 
 namespace
@@ -7,18 +8,33 @@ namespace
 	Window window{}; // ここを唯一の所有者とする
 }
 
- bool SystemInternal::Initialize(const wchar_t* _title, int _width, int _height)
+bool SystemInternal::Initialize(const wchar_t* _title, int _width, int _height, System::WindowMode _mode)
 {
+	if (_width <= 0 || _height <= 0) return false;
 	 // 生成前にタイトルを保存
 	 if (!window.SetWindowTitle(_title)) return false;
-	 // 指定されたクライアントサイズでWindowを生成する
-	 if (!window.GenerateWindow(_width, _height))
+
+	 bool generated{ false };
+	 // モードによって分岐する
+	 switch (_mode)
+	 {
+	 case System::WindowMode::Windowed:
+		 generated = window.GenerateWindow(_width, _height);
+		 break;
+	 case System::WindowMode::BorderlessFullscreen:
+		 generated = window.GenerateBorderlessFullscreen();
+		 break;
+	 default:
+		 DEBUG_LOG_ERROR("不明なWindowModeが指定されました\n");
+		 return false;
+	 }
+
+	 if (!generated)
 	 {
 		 // ウィンドウクラスの登録後に失敗している可能性を考慮してシャットダウンする
 		 window.Shutdown();
 		 return false;
 	 }
-
 	 return true;
 }
  void SystemInternal::Finish()

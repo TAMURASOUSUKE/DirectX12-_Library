@@ -20,6 +20,7 @@ Facade/Input.h
 Facade/Sound.h
 Facade/TSLib.h
 Facade/TSTime.h
+Facade/System.h
 
 Graphics/GfxType.h
 
