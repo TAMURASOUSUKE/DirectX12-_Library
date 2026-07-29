@@ -3,7 +3,6 @@
 #include <utility>
 #include "../External/Common/d3dx12.h"
 #include "../External/cgltf.h"
-#include "../Window/Window.h"
 #include "../Debug/DebugLogs.h"
 #include "../Graphics/GraphicsDevice.h"
 #include "../Graphics/DescriptorManager.h"
@@ -22,7 +21,6 @@
 
 // 無名名前空間で変数を保持する
 namespace {
-	Window window; // window作成クラス
 	RTHandle sceneRenderTarget{}; // シーン全体を描画する内部用RenderTarget
 	D3D12_CPU_DESCRIPTOR_HANDLE currentRTV{}; // 現在OMSetRenderTargetsで設定しているRTV
 	ShaderSystem shaderSystem; // Shader読み込みなどを管理するファイル
@@ -447,38 +445,25 @@ namespace {
 }
 
 // 初期化処理(これを呼ぶだけで初期化処理が済むようにする)
-bool GfxInternal::Initialize(const wchar_t* _title, int _windowWidth, int _windowHeight, int _virtualWidth, int _virtualHeight)
+bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _wclientHeight, int _virtualWidth, int _virtualHeight)
 {
-	if (_windowWidth <= 0 || _windowHeight <= 0 || _virtualWidth <= 0 || _virtualHeight <= 0)
+	if (_clientWidth <= 0 || _wclientHeight <= 0 || _virtualWidth <= 0 || _virtualHeight <= 0)
 	{
 		DEBUG_LOG_ERROR("ウィンドウサイズと仮想解像度には0より大きい値を指定してください\n");
 		return false;
 	}
 
-	screenWidth = _windowWidth;
-	screenHeight = _windowHeight;
+	screenWidth = _clientWidth;
+	screenHeight = _wclientHeight;
 	virtualWidth = _virtualWidth;
 	virtualHeight = _virtualHeight;
 	// 前回の初期化状態を引き継がない
 	currentPostEffectMaterial = {};
 
-	window.SetWindowName(_title); // 名前設定
-	if (!window.GenerateWindow(_windowWidth, _windowHeight)) // ウィンドウを作成
-	{
-		DEBUG_LOG_ERROR("ウィンドウ作成に失敗しました\n");
-		return false;
-	}
+	DEBUG_LOG("ClientSize = {} x {}\n", _clientWidth, _wclientHeight);
 
-	RECT clientRect{};
-	GetClientRect(window.GetHWND(), &clientRect);
 
-	const int actualWidth{ clientRect.right - clientRect.left };
-
-	const int actualHeight{ clientRect.bottom - clientRect.top };
-
-	DEBUG_LOG("ClientSize = {} x {}\n", actualWidth, actualHeight);
-
-	GraphicsDevice::Instance().Initialize(window.GetHWND(), _windowWidth, _windowHeight); // デバイスの初期化
+	GraphicsDevice::Instance().Initialize(_hwnd, _clientWidth, _wclientHeight); // デバイスの初期化
 	if (!GraphicsDevice::Instance().GetDevice())
 	{
 		DEBUG_LOG_ERROR("デバイスの読み込みに失敗しました\n");
@@ -513,7 +498,7 @@ bool GfxInternal::Initialize(const wchar_t* _title, int _windowWidth, int _windo
 	GraphicsResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
 	
 	// 画面と同じサイズの内部描画先を作成
-	sceneRenderTarget = GraphicsResourceManager::Instance().CreateRenderTarget(static_cast<UINT>(_windowWidth), static_cast<UINT>(_windowHeight));
+	sceneRenderTarget = GraphicsResourceManager::Instance().CreateRenderTarget(static_cast<UINT>(_clientWidth), static_cast<UINT>(_wclientHeight));
 	if (!sceneRenderTarget.IsValid())
 	{
 		DEBUG_LOG_ERROR("シーン描画用RenderTargetの作成に失敗しました\n");
@@ -1354,16 +1339,6 @@ void Gfx::Unload(MaterialHandle _handle)
 		currentPostEffectMaterial = {};
 	}
 	GraphicsResourceManager::Instance().Unload(_handle);
-}
-
-HWND GfxInternal::GetHWND()
-{
-	return window.GetHWND();
-}
-
-void GfxInternal::SetOnWheel(std::function<void(short)> _func)
-{
-	window.SetOnWheel(_func);
 }
 
 void GfxInternal::DrawAnimationModel(Transform _transform, AnimInstanceData& _anim)

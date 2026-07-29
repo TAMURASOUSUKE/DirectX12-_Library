@@ -179,6 +179,8 @@
     <ClInclude Include="Src\Facade\InputInternal.h" />
     <ClInclude Include="Src\Facade\Sound.h" />
     <ClInclude Include="Src\Facade\SoundInternal.h" />
+    <ClInclude Include="Src\Facade\System.h" />
+    <ClInclude Include="Src\Facade\SystemInternal.h" />
     <ClInclude Include="Src\Facade\TSTime.h" />
     <ClInclude Include="Src\Facade\TimeInternal.h" />
     <ClInclude Include="Src\Facade\TSLib.h" />
@@ -237,6 +239,7 @@
     <ClCompile Include="Src\Facade\Gfx.cpp" />
     <ClCompile Include="Src\Facade\Input.cpp" />
     <ClCompile Include="Src\Facade\Sound.cpp" />
+    <ClCompile Include="Src\Facade\System.cpp" />
     <ClCompile Include="Src\Facade\TSTime.cpp" />
     <ClCompile Include="Src\Facade\TSLib.cpp" />
     <ClCompile Include="Src\FPS\FPSCounter.cpp" />

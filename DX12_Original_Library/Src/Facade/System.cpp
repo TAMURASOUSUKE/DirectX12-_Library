@@ -21,41 +21,37 @@ namespace
 
 	 return true;
 }
- bool SystemInternal::ProcessMessage()
- {
-
- }
  void SystemInternal::Finish()
  {
-
+	 window.Shutdown();
  }
  HWND SystemInternal::GetHWND()
  {
-
+	 return window.GetHWND();
  }
  void SystemInternal::SetOnWheel(std::function<void(short)> _func)
  {
-
+	 window.SetOnWheel(_func);
  }
  Vector2Int SystemInternal::GetClientSize()
  {
-
+	 return window.GetClientSize();
  }
  Vector2Int System::GetClientSize()
  {
-
+	 return window.GetClientSize();
  }
  void System::SetWindowTitle(const wchar_t* _title)
  {
-
+	 window.SetWindowTitle(_title);
  }
  bool System::IsWindowFocused()
  {
-
+	 return window.IsFocused();
  }
  void System::RequestQuit()
  {
-
+	 window.RequestQuit();
  }
 
 

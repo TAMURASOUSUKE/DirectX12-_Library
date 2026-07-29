@@ -9,9 +9,6 @@ namespace SystemInternal
 	// Windowを生成する
 	bool Initialize(const wchar_t* _title, int _width, int _height);
 
-	// Windowsメッセージを処理する
-	bool ProcessMessage();
-
 	// Windowを破棄する
 	void Finish();
 

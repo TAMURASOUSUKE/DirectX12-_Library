@@ -4,6 +4,7 @@
 #include "InputInternal.h"
 #include "SoundInternal.h"
 #include "TimeInternal.h"
+#include "SystemInternal.h"
 #include "TSLib.h"
 
 // 初期化
@@ -21,10 +22,14 @@ bool TSLib::Initialize(const wchar_t* _title, int _width, int _height)
 	bool result{ false };
 
 	TimeInternal::Initialize();
-	result = GfxInternal::Initialize(_title, _width, _height, _width, _height); // グラフィックの初期化とウィンドウ作成
+	result = SystemInternal::Initialize(_title, _width, _height);
+	DEBUG_ASSERT(result && "Windowの初期化に失敗しました\n");
+	if (!result) return result;
+	const Vector2Int clientSize{ SystemInternal::GetClientSize() };
+	result = GfxInternal::Initialize(SystemInternal::GetHWND(), clientSize.x, clientSize.y, _width, _height); // グラフィックの初期化とウィンドウ作成
 	DEBUG_ASSERT(result && "ゲームの初期化に失敗しました\n");
 	if (!result) return result;
-	result = InputInternal::Initialize(GfxInternal::GetHWND());
+	result = InputInternal::Initialize(SystemInternal::GetHWND());
 	DEBUG_ASSERT(result && "入力処理の初期化に失敗しました\n");
 	if (!result) return result;
 	result = SoundInternal::Initialize(); // XAudio2はCoInitializeに依存するため初期化が行われるGfxの後に初期化
@@ -32,7 +37,7 @@ bool TSLib::Initialize(const wchar_t* _title, int _width, int _height)
 	if (!result) return result;
 
 	// コールバックの配線接続 : ラムダで渡す
-	GfxInternal::SetOnWheel([](short _d) { InputInternal::AddMouseWheelDelta(_d); });
+	SystemInternal::SetOnWheel([](short _d) { InputInternal::AddMouseWheelDelta(_d); });
 
 	return result;
 }
@@ -70,6 +75,7 @@ void TSLib::Finish()
 	SoundInternal::Finish(); // 音の終了処理
 	InputInternal::Finish(); // 入力の終了処理
 	GfxInternal::Finish(); // グラフィックの終了処理
+	SystemInternal::Finish(); // システムの終了処理
 	TimeInternal::Finish(); // 時間管理の終了処理
 	CoUninitialize(); // COMも閉じる
 }
