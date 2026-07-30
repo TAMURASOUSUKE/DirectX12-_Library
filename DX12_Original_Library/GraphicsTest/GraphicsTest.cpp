@@ -140,6 +140,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	float time{ 0.0f };
 	int spriteAnimTime{ 0 };
 
+	// 外部ファイルの読み込み
+	std::vector<std::uint8_t> bytes{};
+	if (File::ReadAllBytes("Res/JapaneseTest.bin", bytes))
+	{
+		DEBUG_LOG("読込みサイズ : {} byte\n", bytes.size());
+
+		for (const std::uint8_t value : bytes)
+		{
+			DEBUG_LOG("0x{:02X}\n", value);
+		}
+	}
+
 
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))

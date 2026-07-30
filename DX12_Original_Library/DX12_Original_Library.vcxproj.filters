@@ -276,6 +276,9 @@
     <ClInclude Include="Src\File\CSVTable.h">
       <Filter>Src\File</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Facade\File.h">
+      <Filter>Src\Facade</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -391,6 +394,12 @@
     </ClCompile>
     <ClCompile Include="Src\Facade\System.cpp">
       <Filter>Src\Facade</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Facade\File.cpp">
+      <Filter>Src\Facade</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\File\CSVTable.cpp">
+      <Filter>Src\File</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

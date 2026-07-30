@@ -173,6 +173,7 @@
     <ClInclude Include="Src\Debug\DebugLogs.h" />
     <ClInclude Include="Src\External\cgltf.h" />
     <ClInclude Include="Src\Facade\Collision.h" />
+    <ClInclude Include="Src\Facade\File.h" />
     <ClInclude Include="Src\Facade\Gfx.h" />
     <ClInclude Include="Src\Facade\GfxInternal.h" />
     <ClInclude Include="Src\Facade\Input.h" />
@@ -237,12 +238,14 @@
     <ClCompile Include="Src\Debug\DebugLogs.cpp" />
     <ClCompile Include="Src\External\CgltfEnable.cpp" />
     <ClCompile Include="Src\Facade\Collision.cpp" />
+    <ClCompile Include="Src\Facade\File.cpp" />
     <ClCompile Include="Src\Facade\Gfx.cpp" />
     <ClCompile Include="Src\Facade\Input.cpp" />
     <ClCompile Include="Src\Facade\Sound.cpp" />
     <ClCompile Include="Src\Facade\System.cpp" />
     <ClCompile Include="Src\Facade\TSTime.cpp" />
     <ClCompile Include="Src\Facade\TSLib.cpp" />
+    <ClCompile Include="Src\File\CSVTable.cpp" />
     <ClCompile Include="Src\FPS\FPSCounter.cpp" />
     <ClCompile Include="Src\FPS\FPSLimiter.cpp" />
     <ClCompile Include="Src\FPS\FPSSystem.cpp" />
