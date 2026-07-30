@@ -58,6 +58,9 @@
     <Filter Include="Src\Graphics\InternalResource">
       <UniqueIdentifier>{2db4ea0c-db4f-48e0-8351-e335a35e7fb6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\File">
+      <UniqueIdentifier>{02ec397d-9f59-48d4-bc12-9ae7b5b28dd9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Math\MathConstant.h">
@@ -269,6 +272,9 @@
     </ClInclude>
     <ClInclude Include="Src\Facade\System.h">
       <Filter>Src\Facade</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\File\CSVTable.h">
+      <Filter>Src\File</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
