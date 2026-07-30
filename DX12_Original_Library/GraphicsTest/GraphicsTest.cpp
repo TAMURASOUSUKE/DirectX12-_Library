@@ -1,7 +1,6 @@
 #include "../Src/Facade/TSLib.h"
 #include <string> // テスト用
 #include <algorithm>
-#include "../Src/Graphics/GraphicsType.h" // デバッグ用に一時的に
 #include "../Src/Facade/GfxInternal.h" // デバッグ用に一時的に
 
 // テスト用として渡す定数バッファ
