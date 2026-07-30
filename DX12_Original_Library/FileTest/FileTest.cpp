@@ -51,6 +51,28 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		}
 	}
 
+	const std::string sourceText{ "TSGameLib 日本語書き込みテスト\nUTF-8で保存されています\n" };
+	if (!File::WriteAllText("Res/日本語書込みテスト.txt", sourceText))
+	{
+		DEBUG_LOG_ERROR("[FAIL] テキストの書込みに失敗しました\n");
+	}
+	else
+	{
+		std::string loadedText{};
+		if (!File::ReadAllText("Res/日本語書込みテスト.txt", loadedText))
+		{
+			DEBUG_LOG_ERROR("[FAIL] テキストの読込みに失敗しました\n");
+		}
+		else if (sourceText == loadedText)
+		{
+			DEBUG_LOG("[PASS] 書込み前と読込み後のテキストが一致しました\n");
+		}
+		else
+		{
+			DEBUG_LOG_ERROR("[FAIL] 書込み前と読込み後のテキストが一致しません\n");
+		}
+	}
+
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
 	{

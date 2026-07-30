@@ -48,7 +48,24 @@ bool File::ReadAllText(const char* _filePath, std::string& _outText)
 
 bool File::WriteAllText(const char* _filePath, const std::string& _text)
 {
-	return true;
+	// ToUTF-16は文字数をintでWindowsAPIへ渡すのでintの上限を超える文字列は変換できない
+	if (_text.size() > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+	{
+		DEBUG_LOG_ERROR("書き込むテキストが大きすぎます FilePath : {}\n", _filePath ? _filePath : "(null)");
+		return false;
+	}
+
+	// この関数はUTF-8テキスト保存用なので不正なUTF-8が渡された時には書き込まずに失敗させる(空は0byteテキスト)
+	if (!_text.empty() && TextEncoding::ToUtf16(_text).empty())
+	{
+		DEBUG_LOG_ERROR("UTF-8ではない文字列が含まれています FilePath : {}\n", _filePath ? _filePath : "(null)");
+		return false;
+	}
+
+	// stringが持っているUTF-8の各バイトをWriteAllBytesへ渡せるuint_8t配列へコピー
+	const std::vector<std::uint8_t> bytes(_text.begin(), _text.end());
+	// フォルダ作成などはWriteALlBytesの方へ任せる
+	return WriteAllBytes(_filePath, bytes);
 }
 
 bool File::ReadAllBytes(const char* _filePath, std::vector<std::uint8_t>& _outBytes)
