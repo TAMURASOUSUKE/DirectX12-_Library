@@ -7,6 +7,32 @@
 
 bool File::ReadAllText(const char* _filePath, std::string& _outText)
 {
+	std::vector<std::uint8_t> bytes{};
+	// ファイルをバイト列として読む
+	if (!ReadAllBytes(_filePath, bytes)) return false;
+
+	std::size_t textBegin{ 0 };
+	// UTF-8BOM(EF BB BF)がついている場合は読み飛ばす
+	if (bytes.size() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+	{
+		textBegin = 3;
+	}
+	std::string temporaryText{};
+	// 空ファイルまたはBOMしかないファイルも対応できるようにする
+	if (textBegin < bytes.size())
+	{
+		temporaryText.assign(reinterpret_cast<const char*>(bytes.data() + textBegin), bytes.size() - textBegin);
+	}
+	
+	// UTF-8として正しい文字列かを検査する(空の場合は正常なため検査しない)
+	if (!temporaryText.empty() && TextEncoding::ToUtf16(temporaryText).empty())
+	{
+		DEBUG_LOG_ERROR("UTF-8ではない文字列が含まれています FilePath : {}\n", _filePath);
+		return false;
+	}
+
+	// 全て成功してから出力へ移す
+	_outText = std::move(temporaryText);
 	return true;
 }
 
