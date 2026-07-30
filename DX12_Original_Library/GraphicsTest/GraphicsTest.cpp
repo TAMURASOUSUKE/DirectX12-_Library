@@ -152,6 +152,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		}
 	}
 
+	std::string text{};
+
+	if (File::ReadAllText("Res/日本語テキスト.txt", text))
+	{
+		DEBUG_LOG("テキスト読込み成功\n{}\n", text);
+	}
+
 
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
