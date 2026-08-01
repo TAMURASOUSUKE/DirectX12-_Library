@@ -73,6 +73,35 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		}
 	}
 
+	// Excelを読めるようにするためにBOMを付ける
+	const std::string csvText{
+	"\xEF\xBB\xBF"
+	"Month,StageName,Description\r\n"
+	"1,錦帯橋,\"春,桜の季節\"\r\n"
+	"2,錦川,\"\"\"鵜飼\"\"の季節\"\r\n"
+	"3,紅葉谷,\"1行目\n2行目\"\r\n"
+	};
+
+	File::WriteAllText("Res/StageTest.csv", csvText);
+
+	CSVTable table{};
+
+	if (File::LoadCSV("Res/StageTest.csv", table))
+	{
+		const int monthColumn{ table.FindColumn("Month") };
+		const int nameColumn{ table.FindColumn("StageName") };
+		const int descriptionColumn{ table.FindColumn("Description") };
+
+		for (const auto& row : table.rows)
+		{
+			DEBUG_LOG("Month={} Stage={} Description={}\n", row[monthColumn], row[nameColumn], row[descriptionColumn]);
+		}
+	}
+	else
+	{
+		DEBUG_LOG_ERROR("[FAIL] CSVの読込みに失敗しました\n");
+	}
+
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
 	{
