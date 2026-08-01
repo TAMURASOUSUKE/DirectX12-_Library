@@ -13,6 +13,7 @@
 #include <limits>
 #include <string_view>
 #include <bcrypt.h>
+#include <algorithm>
 #include "../Core/TextEncoding.h"
 #include "../Debug/DebugLogs.h"
 #include "File.h"
@@ -191,6 +192,39 @@ namespace
 		_outErrorLine = 0;
 		return true;
 	}
+
+	// BCryptOpenAlgorithmProviderで取得したアルゴリズムプロバイダーを自動解放する
+	struct BCryptAlgorithmGuard
+	{
+		BCryptAlgorithmGuard() = default;
+
+		// 二重解放防止のコピーガード
+		BCryptAlgorithmGuard(const BCryptAlgorithmGuard&) = delete;
+		BCryptAlgorithmGuard& operator=(const BCryptAlgorithmGuard&) = delete;
+
+		~BCryptAlgorithmGuard()
+		{
+			if (handle) BCryptCloseAlgorithmProvider(handle, 0);
+		}
+		BCRYPT_ALG_HANDLE handle{ nullptr };
+	};
+
+	// BCryptGEnerateSymmetricKeyで取得した対象キーハンドルを自動解放できるようにする
+	struct BCryptKeyGuard
+	{
+		BCryptKeyGuard() = default;
+
+		// 二重解放防止のコピーガード
+		BCryptKeyGuard(const BCryptKeyGuard&) = delete;
+		BCryptKeyGuard& operator=(const BCryptKeyGuard&) = delete;
+		~BCryptKeyGuard()
+		{
+			if (handle) BCryptDestroyKey(handle);
+		}
+
+		BCRYPT_KEY_HANDLE handle{ nullptr };
+	};
+
 }
 
 bool File::ReadAllText(const char* _filePath, std::string& _outText)
@@ -429,7 +463,7 @@ bool File::LoadCSV(const char* _filePath, CSVTable& _outTable)
 	{
 		if (temporaryTable.headers[i].empty())
 		{
-			DEBUG_LOG_ERROR("CSVのヘッダー名が空です FilePath : {} Column\n", _filePath, i);
+			DEBUG_LOG_ERROR("CSVのヘッダー名が空です FilePath : {} Column : {}\n", _filePath, i);
 			return false;
 		}
 
@@ -463,10 +497,285 @@ bool File::LoadCSV(const char* _filePath, CSVTable& _outTable)
 
 bool File::WriteEncryptedBytes(const char* _filePath, const std::vector<std::uint8_t>& _plainBytes, const CryptoKey& _key)
 {
-	return true;
+	// 暗号処理を始める前にパスを検査する
+	if (!_filePath || _filePath[0] == '\0')
+	{
+		DEBUG_LOG_ERROR("WriteEncryptedBytesに空のファイルパスが渡されました\n");
+		return false;
+	}
+	// BCryptEncryptが受け取るサイズはULONGなので上限を検査する
+	if (_plainBytes.size() > static_cast<std::size_t>(std::numeric_limits<ULONG>::max()))
+	{
+		DEBUG_LOG_ERROR("暗号化するデータが大きすぎます FilePath : {}\n", _filePath);
+		return false;
+	}
+	// CryptoKey{}のまま使うのを防ぐ
+	bool hasNonZeroKeyByte{ false };
+	for (const std::uint8_t keyByte : _key.bytes)
+	{
+		if (keyByte != 0)
+		{
+			hasNonZeroKeyByte = true;
+			break;
+		}
+	}
+	if (!hasNonZeroKeyByte)
+	{
+		DEBUG_LOG_ERROR("暗号鍵がすべて0です FilePath : {}\n", _filePath);
+		return false;
+	}
+
+	// 変数の寿命に合わせて解放(RAII)なので以降returnしても自動解放される
+	BCryptAlgorithmGuard algorithm{};
+	BCryptKeyGuard key{};
+
+	// AESアルゴリズムプロバイダーを開く
+	NTSTATUS status{ BCryptOpenAlgorithmProvider(&algorithm.handle, BCRYPT_AES_ALGORITHM, nullptr, 0) };
+	if (!BCRYPT_SUCCESS(status))
+	{
+		DEBUG_LOG_ERROR("AESプロバイダーを開けませんでした status = 0x{:08X}\n", static_cast<std::uint32_t>(status));
+		return false;
+	}
+	// AESの動作モードをGCMへと変更する
+	status = BCryptSetProperty(algorithm.handle, BCRYPT_CHAINING_MODE, reinterpret_cast<PUCHAR>(const_cast<wchar_t*>(BCRYPT_CHAIN_MODE_GCM)), static_cast<ULONG>(sizeof(BCRYPT_CHAIN_MODE_GCM)), 0);
+	if (!BCRYPT_SUCCESS(status))
+	{
+		DEBUG_LOG_ERROR("AESのモードをGCMへ変更できませんでした status = 0x{:08X}\n", static_cast<std::uint32_t>(status));
+		return false;
+	}
+	// 公開APIで受け取った32バイトのKeyからBCryptEcryptで使用するキーハンドルを作る
+	status = BCryptGenerateSymmetricKey(algorithm.handle, &key.handle, nullptr, 0, reinterpret_cast<PUCHAR>(const_cast<std::uint8_t*>(_key.bytes.data())), static_cast<ULONG>(_key.bytes.size()), 0);
+	if (!BCRYPT_SUCCESS(status))
+	{
+		DEBUG_LOG_ERROR("AES-256キーハンドルを作成できませんでした status = 0x{:08X}\n", static_cast<std::uint32_t>(status));
+		return false;
+	}
+	// 同じ鍵でも毎回異なる暗号文になるようにNonceを生成
+	std::array<std::uint8_t, GCM_NONCE_SIZE> nonce{};
+	status = BCryptGenRandom(nullptr, reinterpret_cast<PUCHAR>(nonce.data()), static_cast<ULONG>(nonce.size()), BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+	if (!BCRYPT_SUCCESS(status))
+	{
+		DEBUG_LOG_ERROR("Nonceの乱数生成に失敗しました status = 0x{:08X}\n", static_cast<std::uint32_t>(status));
+		return false;
+	}
+	// 暗号ファイルの認証対象となるヘッダー
+	std::array<std::uint8_t, ENCRYPTED_HEADER_SIZE> header{};
+	std::copy(ENCRYPTED_FILE_MAGIC.begin(), ENCRYPTED_FILE_MAGIC.end(), header.begin()); // 先頭4byteへTSGFを保存
+	header[4] = ENCRYPTED_FILE_VERSION;
+	header[5] = ENCRYPTION_AES_256_GCM;
+	// header[6],[7]は将来拡張用
+	// 暗号文サイズを8byteのリトルエンディアンで保存
+	const std::uint64_t cipherSize{ static_cast<std::uint64_t>(_plainBytes.size()) };
+	for (std::size_t i = 0; i < sizeof(cipherSize); i++)
+	{
+		// 狙ったバイトを最下位に落とす
+		header[8 + i] = static_cast<std::uint8_t>((cipherSize >> (i * 8)) & 0xFF);
+	}
+	// GCMでは暗号文と平文のサイズが同じ
+	std::vector<std::uint8_t> cipherBytes(_plainBytes.size());
+	std::array<std::uint8_t, GCM_TAG_SIZE> tag{};
+
+	// AES-GCMへNonce,AAD,Tagの保存先を伝える
+	BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO authInfo{};
+	BCRYPT_INIT_AUTH_MODE_INFO(authInfo);
+
+	authInfo.pbNonce = reinterpret_cast<PUCHAR>(nonce.data());
+	authInfo.cbNonce = static_cast<ULONG>(nonce.size());
+	// ヘッダーは暗号化しないが改ざん検知の対象に
+	authInfo.pbAuthData = reinterpret_cast<PUCHAR>(header.data());
+	authInfo.cbAuthData = static_cast<ULONG>(header.size());
+	// BCryptEncryptがここへTagを書く
+	authInfo.pbTag = reinterpret_cast<PUCHAR>(tag.data());
+	authInfo.cbTag = static_cast<ULONG>(tag.size());
+	ULONG encryptedSize{ 0 };
+	// 空データでも有効なポインタを渡せるようにダミーを用意する
+	std::uint8_t dummyInput{ 0 };
+	std::uint8_t dummyOutput{ 0 };
+	PUCHAR plainData{ _plainBytes.empty() ? &dummyInput : reinterpret_cast<PUCHAR>(const_cast<std::uint8_t*>(_plainBytes.data())) };
+	PUCHAR cipherData{ cipherBytes.empty() ? &dummyOutput : reinterpret_cast<PUCHAR>(cipherBytes.data()) };
+
+	// 平文をAES-256-GCMで暗号化する
+	status = BCryptEncrypt(key.handle, plainData, static_cast<ULONG>(_plainBytes.size()), &authInfo, nullptr, 0, cipherData, static_cast<ULONG>(cipherBytes.size()), &encryptedSize, 0);
+	if (!BCRYPT_SUCCESS(status))
+	{
+		DEBUG_LOG_ERROR("AES-256-GCMの暗号化に失敗しましたStatus=0x{:08X}\n", static_cast<std::uint32_t>(status));
+		return false;
+	}
+	if (encryptedSize != cipherBytes.size())
+	{
+		DEBUG_LOG_ERROR("暗号文サイズが想定と一致しません Expected={} Actual={}\n", cipherBytes.size(), encryptedSize);
+		return false;
+	}
+	// ファイル全体を入れる領域がオーバーフローしないか検査する
+	if (cipherBytes.size() > std::numeric_limits<std::size_t>::max() - ENCRYPTED_PAYLOAD_OFFSET)
+	{
+		DEBUG_LOG_ERROR("暗号ファイル全体のサイズが大きすぎます\n");
+		return false;
+	}
+	// Header + Nonce + Tag + CipherTextを1つのバイト列へまとめる
+	std::vector<std::uint8_t> encryptedFile(ENCRYPTED_PAYLOAD_OFFSET + cipherBytes.size());
+
+	std::copy(header.begin(), header.end(), encryptedFile.begin());
+	std::copy(nonce.begin(), nonce.end(), encryptedFile.begin() + ENCRYPTED_HEADER_SIZE);
+	std::copy(tag.begin(), tag.end(), encryptedFile.begin() + ENCRYPTED_HEADER_SIZE + GCM_NONCE_SIZE);
+	std::copy(cipherBytes.begin(), cipherBytes.end(), encryptedFile.begin() + ENCRYPTED_PAYLOAD_OFFSET);
+	// 実際のファイル保存とアトミック置換は既存関数へ任せる
+	return WriteAllBytes(_filePath, encryptedFile);
 }
 
 bool File::ReadEncryptedBytes(const char* _filePath, const CryptoKey& _key, std::vector<std::uint8_t>& _outPlainBytes)
 {
+	// 暗号ファイル全体をバイト列として読む
+	std::vector<std::uint8_t> encryptedFile{};
+
+	if (!ReadAllBytes(_filePath, encryptedFile))
+	{
+		return false;
+	}
+
+	// Header + Nonce + Tagが最低限必要
+	if (encryptedFile.size() < ENCRYPTED_PAYLOAD_OFFSET)
+	{
+		DEBUG_LOG_ERROR("暗号ファイルのサイズが小さすぎます FilePath : {}\n", _filePath);
+		return false;
+	}
+
+	// 先頭4バイトがTSGFか検査する
+	if (!std::equal(ENCRYPTED_FILE_MAGIC.begin(), ENCRYPTED_FILE_MAGIC.end(), encryptedFile.begin()))
+	{
+		DEBUG_LOG_ERROR("TSGameLibの暗号ファイルではありません FilePath : {}\n", _filePath);
+		return false;
+	}
+	// 読み込み側が対応しているファイル形式か検査する
+	if (encryptedFile[4] != ENCRYPTED_FILE_VERSION)
+	{
+		DEBUG_LOG_ERROR("対応していない暗号ファイルバージョンです FilePath : {} Version : {}\n", _filePath, encryptedFile[4]);
+		return false;
+	}
+	// AES-256-GCM形式か検査する
+	if (encryptedFile[5] != ENCRYPTION_AES_256_GCM)
+	{
+		DEBUG_LOG_ERROR("対応していない暗号方式です FilePath : {} Algorithm : {}\n", _filePath, encryptedFile[5]);
+		return false;
+	}
+	// Version 1では予約領域は0でなければならない
+	if (encryptedFile[6] != 0 || encryptedFile[7] != 0)
+	{
+		DEBUG_LOG_ERROR("暗号ファイルの予約領域が不正です FilePath : {}\n", _filePath);
+		return false;
+	}
+	// ヘッダーに保存されている8バイトのサイズを復元する
+	std::uint64_t storedCipherSize{ 0 };
+	for (std::size_t i = 0; i < sizeof(storedCipherSize); ++i)
+	{
+		storedCipherSize |= static_cast<std::uint64_t>(encryptedFile[8 + i]) << (i * 8);
+	}
+	// 実際にファイル内へ存在する暗号文サイズ
+	const std::size_t actualCipherSize{ encryptedFile.size() - ENCRYPTED_PAYLOAD_OFFSET };
+	// ヘッダー値と実ファイルサイズが一致するか検査する
+	if (storedCipherSize != static_cast<std::uint64_t>(actualCipherSize))
+	{
+		DEBUG_LOG_ERROR("暗号文サイズがヘッダーと一致しません FilePath : {} Header : {} Actual : {}\n", _filePath, storedCipherSize, actualCipherSize);
+		return false;
+	}
+	// BCryptDecryptが受け取れる最大サイズを確認する
+	if (storedCipherSize > static_cast<std::uint64_t>(std::numeric_limits<ULONG>::max()))
+	{
+		DEBUG_LOG_ERROR("暗号文が大きすぎます FilePath : {}\n", _filePath);
+		return false;
+	}
+
+	// すべて0の鍵は拒否する
+	const bool hasNonZeroKeyByte{std::any_of(_key.bytes.begin(), _key.bytes.end(),
+			[](uint8_t _value)
+			{
+				return _value != 0;
+			})
+	};
+	if (!hasNonZeroKeyByte)
+	{
+		DEBUG_LOG_ERROR("暗号鍵が設定されていません\n");
+		return false;
+	}
+	// AESアルゴリズムプロバイダーと鍵を作成する
+	BCryptAlgorithmGuard algorithm{};
+	BCryptKeyGuard key{};
+
+	// プロバイダーを開く
+	NTSTATUS status{ BCryptOpenAlgorithmProvider(&algorithm.handle, BCRYPT_AES_ALGORITHM, nullptr, 0) };
+	if (!BCRYPT_SUCCESS(status))
+	{
+		DEBUG_LOG_ERROR("AESアルゴリズムプロバイダーの作成に失敗しました Status : {}\n", static_cast<unsigned long>(status));
+		return false;
+	}
+
+	// AESの暗号化方式をGCMに設定する
+	status = BCryptSetProperty(algorithm.handle, BCRYPT_CHAINING_MODE, reinterpret_cast<PUCHAR>(const_cast<wchar_t*>(BCRYPT_CHAIN_MODE_GCM)), sizeof(BCRYPT_CHAIN_MODE_GCM), 0);
+	if (!BCRYPT_SUCCESS(status))
+	{
+		DEBUG_LOG_ERROR("AES-GCMの設定に失敗しました Status : {}\n", static_cast<unsigned long>(status));
+		return false;
+	}
+	// ユーザーから渡された鍵をCNGの鍵オブジェクトに変換する
+	status = BCryptGenerateSymmetricKey(algorithm.handle, &key.handle, nullptr, 0, reinterpret_cast<PUCHAR>( const_cast<uint8_t*>(_key.bytes.data())), static_cast<ULONG>(_key.bytes.size()), 0);
+	if (!BCRYPT_SUCCESS(status))
+	{
+		DEBUG_LOG_ERROR("復号鍵の作成に失敗しました Status : {}\n", static_cast<unsigned long>(status));
+		return false;
+	}
+
+	// ファイル内の各領域を指すポインタを作る
+	PUCHAR headerData{ reinterpret_cast<PUCHAR>(encryptedFile.data()) };
+	PUCHAR nonceData{ reinterpret_cast<PUCHAR>(encryptedFile.data() + ENCRYPTED_HEADER_SIZE) };
+	PUCHAR tagData{ reinterpret_cast<PUCHAR>(encryptedFile.data() + ENCRYPTED_HEADER_SIZE + GCM_NONCE_SIZE) };
+	PUCHAR cipherData{ reinterpret_cast<PUCHAR>(encryptedFile.data() + ENCRYPTED_PAYLOAD_OFFSET) };
+
+	// 認証付き暗号に渡す情報を設定する
+	BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO authInfo{};
+	BCRYPT_INIT_AUTH_MODE_INFO(authInfo);
+
+	authInfo.pbNonce = nonceData;
+	authInfo.cbNonce = static_cast<ULONG>(GCM_NONCE_SIZE);
+
+	// ヘッダーも認証対象にする
+	// 暗号化時と同じ範囲を指定しなければ認証に失敗する
+	authInfo.pbAuthData = headerData;
+	authInfo.cbAuthData = static_cast<ULONG>(ENCRYPTED_HEADER_SIZE);
+
+	// 復号時には、保存されていた認証タグを検証用に渡す
+	authInfo.pbTag = tagData;
+	authInfo.cbTag = static_cast<ULONG>(GCM_TAG_SIZE);
+
+	// 復号が成功するまで出力引数には書き込まない
+	std::vector<uint8_t> temporaryPlainBytes(actualCipherSize);
+
+	uint8_t dummyCipherByte{};
+	uint8_t dummyPlainByte{};
+
+	// 空データの場合もAPIへ安全なポインタを渡す
+	PUCHAR decryptInput{ actualCipherSize == 0 ? &dummyCipherByte : cipherData };
+	PUCHAR decryptOutput{ temporaryPlainBytes.empty() ? &dummyPlainByte : reinterpret_cast<PUCHAR>(temporaryPlainBytes.data()) };
+	ULONG decryptedSize{ 0 };
+
+	status = BCryptDecrypt(key.handle, decryptInput, static_cast<ULONG>(actualCipherSize), &authInfo, nullptr, 0, decryptOutput, static_cast<ULONG>(temporaryPlainBytes.size()), &decryptedSize, 0);
+	if (!BCRYPT_SUCCESS(status))
+	{
+		// 鍵が違う、またはヘッダー・nonce・tag・暗号文の
+		// いずれかが改ざんされている場合もここへ来る
+		if (!temporaryPlainBytes.empty()) SecureZeroMemory(temporaryPlainBytes.data(), temporaryPlainBytes.size());
+		DEBUG_LOG_ERROR("暗号化ファイルの復号または認証に失敗しました FilePath : {} Status : {}\n", _filePath, static_cast<unsigned long>(status));
+		return false;
+	}
+
+	// APIが報告した復号サイズも確認する
+	if (decryptedSize != temporaryPlainBytes.size())
+	{
+		if (!temporaryPlainBytes.empty()) SecureZeroMemory(temporaryPlainBytes.data(), temporaryPlainBytes.size());
+		DEBUG_LOG_ERROR("復号後のデータサイズが一致しません FilePath : {} Expected : {} Actual : {}\n", _filePath, temporaryPlainBytes.size(), decryptedSize);
+		return false;
+	}
+
+	// 認証まで成功したデータだけを呼び出し側へ渡す
+	_outPlainBytes = std::move(temporaryPlainBytes);
 	return true;
 }
