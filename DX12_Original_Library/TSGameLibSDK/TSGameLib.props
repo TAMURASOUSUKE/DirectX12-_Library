@@ -23,7 +23,7 @@
       <!-- std::formatなどを使用するためC++20が必要 -->
       <LanguageStandard>stdcpp20</LanguageStandard>
 
-      <!-- 日本語コメントや文字列をUTF-8として扱いつつデバッグ機能を有効にする -->
+      <!-- 日本語コメントや文字列をUTF-8として扱う -->
       <AdditionalOptions>
         /utf-8 /Zc:preprocessor %(AdditionalOptions)
       </AdditionalOptions>

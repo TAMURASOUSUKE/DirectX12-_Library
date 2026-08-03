@@ -21,8 +21,10 @@ Facade/Sound.h
 Facade/TSLib.h
 Facade/TSTime.h
 Facade/System.h
+Facade/File.h
 
 Graphics/GfxType.h
+File/CSVTable.h
 
 Input/InputName.h
 

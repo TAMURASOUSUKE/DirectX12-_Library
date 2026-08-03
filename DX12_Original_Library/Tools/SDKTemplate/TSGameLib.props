@@ -25,7 +25,7 @@
 
       <!-- 日本語コメントや文字列をUTF-8として扱う -->
       <AdditionalOptions>
-        /utf-8 %(AdditionalOptions)
+        /utf-8 /Zc:preprocessor %(AdditionalOptions)
       </AdditionalOptions>
     </ClCompile>
 
