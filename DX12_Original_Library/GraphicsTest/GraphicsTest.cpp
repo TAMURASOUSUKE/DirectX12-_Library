@@ -140,7 +140,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	float time{ 0.0f };
 	int spriteAnimTime{ 0 };
 
-
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
 	{

@@ -20,6 +20,7 @@
 #include "Input.h"
 #include "Sound.h"
 #include "System.h"
+#include "File.h"
 
 
 // 初期化などlibrary全体の機能をまとめてユーザーに提供する

@@ -11,7 +11,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
 
 	// 初期化 失敗したら-1を返す
-	if (!TSLib::Initialize(L"SoundTest", 1280, 720, System::WindowMode::BorderlessFullscreen)) return -1;
+	if (!TSLib::Initialize(L"SoundTest", 1280, 720)) return -1;
 
 	Time::SetTargetFPS(60);
 
