@@ -116,10 +116,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	Transform modelTransform02{};
 	modelTransform01.SetPosition({ -1.0f, 0.0f, 0.0f });
 	modelTransform02.SetPosition({ 1.0f, 0.0f, 0.0f });
-	AnimInstanceData anim01{};
-	AnimInstanceData anim02{};
-	anim01.modelHandle = testModel;
-	anim02.modelHandle = testModel;
+	AnimInstanceHandle testModelAnim01{ Gfx::CreateAnimInstance(testModel) }; // testModelからAnimationのInstanceを作る
 
 	bool testFlag{ false };
 	int testWheel{ 0 };
@@ -153,11 +150,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			hasLoadedRuntimeTexture = runtimeTexture.IsValid();
 		}
 
-		// アニメーションテスト
-		anim01.currentTime += Time::DeltaTime();
-		anim02.currentTime += Time::DeltaTime() * 0.5f;
-		if (anim01.currentTime > 0.667f) anim01.currentTime = 0.0f; // 一旦Runのdurationでループさせる
-		if (anim02.currentTime > 0.667f) anim02.currentTime = 0.0f; // 一旦Runのdurationでループさせる
 
 		// Terrain操作
 		float heightSpeed{ 3.0f };
@@ -260,7 +252,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::SetMaterialParameter(glitchMaterial, 0, glitch);
 
 		// 2Dアニメーション更新
-		Gfx::UpdateSpriteAnimation(atlasAnims[atlasAnimIndex], atlasAnimDescs[atlasDescIndex], Time::DeltaTime());
+		Gfx::UpdateSpriteAnim(atlasAnims[atlasAnimIndex], atlasAnimDescs[atlasDescIndex], Time::DeltaTime());
 		if (isAttacking && atlasAnimDescs[ATTACK_INDEX].isFinished) isAttacking = false;
 
 		// 現在描画するアトラスとフレーム(シェーダー側で使うため計算)
@@ -287,6 +279,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		timeScale = std::clamp(timeScale, 0.0f, 10.0f); // 最大でもタイムスケールは10にとどめておく
 		Time::SetTimeScale(timeScale);
 
+		// 3Dモデルアニメーション
+		Gfx::UpdateAnim(testModelAnim01, Time::DeltaTime());
+		if (Input::IsKeyPushed(KeyCode::Button::SPACE)) Gfx::PlayAnim(testModelAnim01, 1, true, -1);
 
 		std::string fpsValue{ std::format("CurrentMeasuredFPS : {:.1f}", Time::FPS()) };
 		std::string targetFPS{ std::format("CurrentSettingFPS : {}", Time::GetTargetFPS()) };
@@ -301,10 +296,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
 
-		// モデル + アニメーション(デバッグ用なのでまだ公開関数ではないです)
-		GfxInternal::DrawAnimationModel(modelTransform01, anim01);
-		GfxInternal::DrawAnimationModel(modelTransform02, anim02);
-
 		// Shaderテスト
 		Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, Vector2::One, 0.0f, Gfx::SpriteFlip::None, { 1.0f, 0.0f, 0.0f, 1.0f });
 
@@ -318,6 +309,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::SetMaterialParameter(glitchMaterial, 2, fullParameter);
 		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, glitchMaterial, { 1.0f, 1.0f }, 0.0f, Gfx::SpriteFlip::Horizontal);
+
+		// 3Dモデルアニメーション
+		Gfx::DrawAnimatedModel(testModelAnim01, modelTransform01);
+
 
 		if (runtimeTexture.IsValid()) Gfx::DrawSprite(runtimeTexture, { 500.0f, 300.0f });
 

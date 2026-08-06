@@ -78,7 +78,7 @@ AnimInstanceHandle AnimationSystem::Create(ModelHandle _modelHandle)
 	return AnimInstanceHandle{ PassKey{}, packed };
 }
 
-bool AnimationSystem::Play(AnimInstanceHandle _handle, int _clipIndex, bool _isLoop)
+bool AnimationSystem::Play(AnimInstanceHandle _handle, int _clipIndex, bool _isLoop, float _playbackSpeed)
 {
 	AnimInstanceData* instance{ Lookup(_handle) };
 	if (!instance)
@@ -97,11 +97,16 @@ bool AnimationSystem::Play(AnimInstanceHandle _handle, int _clipIndex, bool _isL
 		DEBUG_LOG_ERROR("アニメーションクリップ番号が範囲外です ClipIndex : {} ClipCount : {}", _clipIndex, model->animations.size());
 		return false;
 	}
+	if (!std::isfinite(_playbackSpeed) || _playbackSpeed == 0.0f)
+	{
+		DEBUG_LOG_ERROR("再生速度には0以外の有限値を渡してください PlaybackSpeed : {}\n", _playbackSpeed);
+		return false;
+	}
 	// 最初から最後まで再生
-	return PlayRange(_handle, _clipIndex, 0.0f, model->animations[_clipIndex].duration, _isLoop);
+	return PlayRange(_handle, _clipIndex, 0.0f, model->animations[_clipIndex].duration, _isLoop, _playbackSpeed);
 }
 
-bool AnimationSystem::PlayRange(AnimInstanceHandle _handle, int _clipIndex, float _startTime, float _endTime, bool _isLoop)
+bool AnimationSystem::PlayRange(AnimInstanceHandle _handle, int _clipIndex, float _startTime, float _endTime, bool _isLoop, float _playbackSpeed)
 {
 	AnimInstanceData* instance{ Lookup(_handle) };
 	if (!instance)
@@ -130,17 +135,44 @@ bool AnimationSystem::PlayRange(AnimInstanceHandle _handle, int _clipIndex, floa
 		DEBUG_LOG_ERROR("アニメーション再生区間が不正です Start : {} End : {} Duration : {}\n", _startTime, _endTime, animation.duration);
 		return false;
 	}
+	if (!std::isfinite(_playbackSpeed) || _playbackSpeed == 0.0f)
+	{
+		DEBUG_LOG_ERROR("再生速度には0以外の有限値を渡してください PlaybackSpeed : {}\n", _playbackSpeed);
+		return false;
+	}
 
 	// 指定区間を入れる
 	instance->currentAnim = _clipIndex;
+	instance->playbackSpeed = _playbackSpeed;
 	instance->playbackStartTime = _startTime;
 	instance->playbackEndTime = _endTime;
+	instance->currentTime = _playbackSpeed > 0 ? _startTime : _endTime; // 逆再生時は区間末尾から始める
+	instance->isPaused = false;
 	instance->isLoop = _isLoop;
 	instance->isPlaying = true;
 	instance->isFinished = false;
 
 	// 指定姿勢へ
 	GraphicsResourceManager::Instance().UpdateGlobalPose(*instance);
+	return true;
+}
+
+bool AnimationSystem::ResumePlay(AnimInstanceHandle _handle)
+{
+	AnimInstanceData* instance{ Lookup(_handle) };
+	if (!instance)
+	{
+		DEBUG_LOG_ERROR("アニメーション再生に無効なハンドルが渡されました\n");
+		return false;
+	}
+	if (!instance->isPaused)
+	{
+		DEBUG_LOG_ERROR("一時停止中ではないアニメーションは再開できません\n");
+		return false;
+	}
+	instance->isPaused = false;
+	instance->isPlaying = true;
+	instance->isFinished = false;
 	return true;
 }
 
@@ -152,7 +184,32 @@ bool AnimationSystem::Stop(AnimInstanceHandle _handle)
 		DEBUG_LOG_ERROR("アニメーション再生に無効なハンドルが渡されました\n");
 		return false;
 	}
-	instance->isStopped = true; // 停止フラグを付ける
+	
+	instance->isPlaying = false;
+	instance->isFinished = false;
+	instance->isPaused = false;
+	// 逆再生かどうかによって戻す位置を決める
+	instance->currentTime = instance->playbackSpeed > 0.0f ? instance->playbackStartTime : instance->playbackEndTime;
+	// 指定姿勢へ
+	GraphicsResourceManager::Instance().UpdateGlobalPose(*instance);
+	return true;
+}
+
+bool AnimationSystem::Pause(AnimInstanceHandle _handle)
+{
+	AnimInstanceData* instance{ Lookup(_handle) };
+	if (!instance)
+	{
+		DEBUG_LOG_ERROR("アニメーション再生に無効なハンドルが渡されました\n");
+		return false;
+	}
+	if (!instance->isPlaying)
+	{
+		DEBUG_LOG_ERROR("再生中でないアニメーションは一時停止できません\n");
+		return false;
+	}
+	instance->isPaused = true;
+	instance->isPlaying = false;
 	return true;
 }
 
@@ -208,23 +265,30 @@ bool AnimationSystem::Update(AnimInstanceHandle _handle, float _deltaTime)
 		return false;
 	}
 
-	// 停止中でないなら計算する
-	if (instance->isStopped)
-	{
-		instance->isPlaying = false;
-		return true; // 停止状態は正常なのでtrueを返す
-	}
-
-	 instance->currentTime += _deltaTime;
+	// 速度を考慮して加算
+	 instance->currentTime += _deltaTime * instance->playbackSpeed;
 
 	if (instance->isLoop)
 	{
-		instance->currentTime = instance->playbackStartTime + std::fmod(instance->currentTime - instance->playbackStartTime, rangeDuration);
+		float offset{ std::fmod(instance->currentTime - instance->playbackStartTime, rangeDuration) };
+		// 逆再生で負のあまりになった場合区間の長さを足して0以上に戻す
+		if (offset < 0.0f) offset += rangeDuration;
+
+		instance->currentTime = instance->playbackStartTime + offset;
 	}
-	else if (instance->currentTime >= instance->playbackEndTime)
+	else if (instance->currentTime >= instance->playbackEndTime && instance->playbackSpeed > 0.0f)
 	{
-		// 非ループは最終時間で固定される
+		// 順再生非ループは最終時間で固定される
 		instance->currentTime = instance->playbackEndTime;
+		instance->isPaused = false;
+		instance->isPlaying = false;
+		instance->isFinished = true;
+	}
+	else if (instance->currentTime <= instance->playbackStartTime && instance->playbackSpeed < 0.0f)
+	{
+		// 逆再生非ループは先頭時間で固定
+		instance->currentTime = instance->playbackStartTime;
+		instance->isPaused = false;
 		instance->isPlaying = false;
 		instance->isFinished = true;
 	}
@@ -239,6 +303,23 @@ bool AnimationSystem::IsFinished(AnimInstanceHandle _handle)
 	AnimInstanceData* instance{ Lookup(_handle) };
 	if (!instance) return false;
 	return instance->isFinished;
+}
+
+bool AnimationSystem::SetAnimPlaybackSpeed(AnimInstanceHandle _handle, float _playbackSpeed)
+{
+	AnimInstanceData* instance{ Lookup(_handle) };
+	if (!instance)
+	{
+		DEBUG_LOG_ERROR("アニメーション再生に無効なハンドルが渡されました\n");
+		return false;
+	}
+	if (!std::isfinite(_playbackSpeed) || _playbackSpeed == 0.0f)
+	{
+		DEBUG_LOG_ERROR("再生速度には0以外の有限値を渡してください PlaybackSpeed : {}\n", _playbackSpeed);
+		return false;
+	}
+	instance->playbackSpeed = _playbackSpeed;
+	return true;
 }
 
 AnimInstanceData* AnimationSystem::Lookup(AnimInstanceHandle _handle)
@@ -267,18 +348,19 @@ AnimInstanceData* AnimationSystem::Lookup(AnimInstanceHandle _handle)
 	return &slot.data; // 実体を返す
 }
 
-void AnimationSystem::Destroy(AnimInstanceHandle _handle)
+bool AnimationSystem::Destroy(AnimInstanceHandle _handle)
 {
 	// ハンドルの正当性をLookupで検査する
 	AnimInstanceData* data{ Lookup(_handle) };
 	if (!data)
 	{
 		DEBUG_LOG_ERROR("不正なハンドルが渡されました\n");
-		return;
+		return false;
 	}
 
 	const int index{ UnpackIndex(_handle.GetRaw(PassKey{}))};
 	slots[index].data = AnimInstanceData{};
 	slots[index].generation++; // 世代を上げて破棄前のハンドルを再利用できなくする
 	freeList.push(index); // この位置を使えるようにする
+	return true;
 }

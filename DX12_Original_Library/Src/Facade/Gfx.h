@@ -5,6 +5,7 @@
 #include "../Core/Handle/ModelHandle.h"
 #include "../Core/Handle/ShaderHandle.h"
 #include "../Core/Handle/MaterialHandle.h"
+#include "../Core/Handle/AnimInstanceHandle.h"
 #include "../Graphics/GfxType.h"
 #include "../Component/Transform.h"
 #include "../Math/TSMath.h"
@@ -129,7 +130,8 @@ namespace Gfx
 	MaterialHandle CreateMaterial(ShaderHandle _pixel);
 	// material読み込み(VSも指定する版)
 	MaterialHandle CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader);
-
+	// モデルをもとにアニメーション個体の作成
+	AnimInstanceHandle CreateAnimInstance(ModelHandle _handle);
 
 	// 矩形描画
 	void DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation = 0.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f }, bool _isWireframe = false);
@@ -164,12 +166,31 @@ namespace Gfx
 	// Shader適用アトラスを用いてスプライト描画をする(指定アトラス, セルのIndex, 位置, ピクセル幅, material,回転, 画像の状態, 色, uv最小値, uv最大値, レイヤー)
 	void DrawSpriteSized(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, Vector2 _pixelSize, MaterialHandle _material,float _radRotation = 0.0f, SpriteFlip _flip = SpriteFlip::None, Vector4 _color = Vector4::One, RenderLayer _layer = RenderLayer::ForeGround);
 	// 設定に従って現在フレームを進める(対象アトラス, 設定, 時間)
-	bool UpdateSpriteAnimation(const TextureAtlas& _atlas, SpriteAnimationState& _state, float _deltaTime);
+	bool UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _state, float _deltaTime);
 
 
 	// 静的モデルを描画する
 	void DrawModel(ModelHandle _model, Transform _transform);
-
+	// アニメーションつきモデルを描画する
+	void DrawAnimatedModel(AnimInstanceHandle _handle, Transform _transform);
+	// 指定したアニメーション個体のアニメーションを更新する
+	bool UpdateAnim(AnimInstanceHandle _handle, float _deltaTime);
+	// 指定したアニメーションを最初から最後まで再生する
+	bool PlayAnim(AnimInstanceHandle _handle, int _clipIndex, bool _isLoop, float _playbackSpeed = 1.0f);
+	// 指定したアニメーションを指定した範囲で再生する
+	bool PlayRangeAnim(AnimInstanceHandle _handle, int _clipIndex, float _startTime, float _endTime, bool _isLoop, float _playbackSpeed = 1.0f);
+	// ポーズされているアニメーションを再開する
+	bool ResumePlayAnim(AnimInstanceHandle _handle);
+	// 指定したアニメーションの再生を停止する(次回再生時には最初からになります)
+	bool StopAnim(AnimInstanceHandle _handle);
+	// 選択したアニメーションの再生を停止して維持する(再開はResumeAnimから行ってください)
+	bool PauseAnim(AnimInstanceHandle _handle);
+	// 指定したアニメーションが再生終了しているか(停止中は終了ではないのでfalseになります)
+	bool IsFinishedAnim(AnimInstanceHandle _handle);
+	// 指定したアニメーションの再生速度を変更する(負数なら逆再生になります)
+	bool SetAnimPlaybackSpeed(AnimInstanceHandle _handle, float _playbackSpeed);
+	// 指定したアニメーションを破棄する
+	bool DestroyAnim(AnimInstanceHandle _handle);
 
 	// terrainを描画する : 位置, 大きさ(xz平面にのみかかります), 分割係数 , 高さ ,変形形状を決めるheightMap(無ければplane描画になります)
 	void DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap = {});

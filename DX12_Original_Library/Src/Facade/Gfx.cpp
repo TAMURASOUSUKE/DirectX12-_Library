@@ -83,10 +83,8 @@ namespace {
 
 namespace {
 	// スキンメッシュ付き
-	void DrawSkinnedModel(AnimInstanceData& _anim, Transform _transform)
+	void DrawSkinnedModel(const AnimInstanceData& _anim, Transform _transform)
 	{
-		GraphicsResourceManager::Instance().UpdateGlobalPose(_anim);
-
 		// skinningRingCBVはMAX_BONE_NUM個分しか確保していないため GPUへ送る前に上限を確認する
 		if (_anim.skinningMatrices.size() > MAX_BONE_NUM)
 		{
@@ -1019,6 +1017,11 @@ MaterialHandle Gfx::CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pix
 	return resourceManager.RegisterMaterial(_pixelShader, std::move(pipeline));
 }
 
+AnimInstanceHandle Gfx::CreateAnimInstance(ModelHandle _handle)
+{
+	return animSystem.Create(_handle);
+}
+
 void Gfx::DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation, Vector4 _color, bool _isWireframe)
 {
 	shapeBatch.RegisterBox(_leftTop, _rightBottom, _radRotation, _color, _isWireframe);
@@ -1211,7 +1214,7 @@ void Gfx::DrawSpriteSized(const TextureAtlas& _atlas, int _frameIndex, Vector2 _
 	DrawSpriteSized(_atlas.texture, _position, _pixelSize, _material, _radRotation, _flip, _color, uvMin, uvMax, _layer);
 }
 
-bool Gfx::UpdateSpriteAnimation(const TextureAtlas& _atlas, SpriteAnimationState& _state, float _deltaTime)
+bool Gfx::UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _state, float _deltaTime)
 {
 	if (!_state.IsValid(_atlas))
 	{
@@ -1265,6 +1268,63 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 
 	// 今の状態では静的モデルだけ
 	DrawStaticModel(_model, _transform);
+}
+
+void Gfx::DrawAnimatedModel(AnimInstanceHandle _handle, Transform _transform)
+{
+	AnimInstanceData* instance{ animSystem.Lookup(_handle) };
+	if (!instance) return;
+	{
+		// マクロがスコープを抜けるとEndEventするので囲う
+		GPU_MARKER("backGround");
+		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get()); // 背景の上に来るように3D描画前には背景batchをFlushする
+	}
+	DrawSkinnedModel(*instance, _transform);
+}
+
+bool Gfx::UpdateAnim(AnimInstanceHandle _handle, float _deltaTime)
+{
+	return animSystem.Update(_handle, _deltaTime);
+}
+
+bool Gfx::PlayAnim(AnimInstanceHandle _handle, int _clipIndex, bool _isLoop, float _playbackSpeed)
+{
+	return animSystem.Play(_handle, _clipIndex, _isLoop, _playbackSpeed);
+}
+
+bool Gfx::PlayRangeAnim(AnimInstanceHandle _handle, int _clipIndex, float _startTime, float _endTime, bool _isLoop, float _playbackSpeed)
+{
+	return animSystem.PlayRange(_handle, _clipIndex, _startTime, _endTime, _isLoop, _playbackSpeed);
+}
+
+bool Gfx::ResumePlayAnim(AnimInstanceHandle _handle)
+{
+	return animSystem.ResumePlay(_handle);
+}
+
+bool Gfx::StopAnim(AnimInstanceHandle _handle)
+{
+	return animSystem.Stop(_handle);
+}
+
+bool Gfx::PauseAnim(AnimInstanceHandle _handle)
+{
+	return animSystem.Pause(_handle);
+}
+
+bool Gfx::IsFinishedAnim(AnimInstanceHandle _handle)
+{
+	return animSystem.IsFinished(_handle);
+}
+
+bool Gfx::SetAnimPlaybackSpeed(AnimInstanceHandle _handle, float _playbackSpeed)
+{
+	return animSystem.SetAnimPlaybackSpeed(_handle, _playbackSpeed);
+}
+
+bool Gfx::DestroyAnim(AnimInstanceHandle _handle)
+{
+	return animSystem.Destroy(_handle);
 }
 
 void Gfx::DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap)
@@ -1342,15 +1402,4 @@ void Gfx::Unload(MaterialHandle _handle)
 		currentPostEffectMaterial = {};
 	}
 	GraphicsResourceManager::Instance().Unload(_handle);
-}
-
-void GfxInternal::DrawAnimationModel(Transform _transform, AnimInstanceData& _anim)
-{
-	{
-		// 3D描画より後ろに登録されたスプライトを先に描画する
-		GPU_MARKER("backGround");
-		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
-	}
-
-	DrawSkinnedModel(_anim, _transform);
 }

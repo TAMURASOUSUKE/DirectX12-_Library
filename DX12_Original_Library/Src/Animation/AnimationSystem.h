@@ -24,13 +24,19 @@ public:
 	AnimInstanceHandle Create(ModelHandle _modelHandle);
 
 	// 選択したアニメーションを先頭から再生する
-	bool Play(AnimInstanceHandle _handle, int _clipIndex, bool _isLoop);
+	bool Play(AnimInstanceHandle _handle, int _clipIndex, bool _isLoop, float _playbackSpeed = 1.0f);
 
 	// 選択したアニメーションを指定した区間で再生する
-	bool PlayRange(AnimInstanceHandle _handle, int _clipIndex, float _startTime, float _endTime, bool _isLoop);
+	bool PlayRange(AnimInstanceHandle _handle, int _clipIndex, float _startTime, float _endTime, bool _isLoop, float _playbackSpeed = 1.0f);
 
-	// 選択したアニメーションの再生を停止する
+	// ポーズされているアニメーションを再開する
+	bool ResumePlay(AnimInstanceHandle _handle);
+
+	// 選択したアニメーションの再生を停止して最初に戻す
 	bool Stop(AnimInstanceHandle _handle);
+
+	// 選択したアニメーションの再生を停止して維持する
+	bool Pause(AnimInstanceHandle _handle);
 
 	// 再生時刻を進めて現在の姿勢を更新する
 	bool Update(AnimInstanceHandle _handle, float _deltaTime);
@@ -38,11 +44,14 @@ public:
 	// 非ループアニメーションが終了したか
 	bool IsFinished(AnimInstanceHandle _handle);
 
-	// 世代付きハンドルから個体データを取得する
+	// 指定したアニメーションの再生速度を変更する(負数なら逆再生)
+	bool SetAnimPlaybackSpeed(AnimInstanceHandle _handle, float _playbackSpeed);
+
+	// 世代付きハンドルから個体データを
 	AnimInstanceData* Lookup(AnimInstanceHandle _handle);
 
 	// アニメーション個体を破棄して席を返却する
-	void Destroy(AnimInstanceHandle _handle);
+	bool Destroy(AnimInstanceHandle _handle);
 
 private:
 	std::vector<AnimInstanceSlot> slots{}; // アニメーション個体の台帳

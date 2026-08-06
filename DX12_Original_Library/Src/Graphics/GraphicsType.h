@@ -358,8 +358,8 @@ struct AnimInstanceData
 	float currentTime{ 0.0f }; // 再生時刻
 	float playbackStartTime{ 0.0f }; // 再生開始時刻
 	float playbackEndTime{ 0.0f }; // 再生終了時刻
-
-	bool isStopped{ false }; // 再生を停止しているか
+	float playbackSpeed{ 1.0f }; // 再生速度(負数にすると逆再生)
+	bool isPaused{ false }; // 再生停止か
 	bool isLoop{ true };       // 最後まで行ったら先頭へ戻すか
 	bool isPlaying{ false };   // 現在時間を進めるか
 	bool isFinished{ false };  // 非ループ再生が最後まで到達したか
