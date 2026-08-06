@@ -16,6 +16,7 @@
 #include "../Graphics/GraphicsConstant.h"
 #include "../Graphics/GraphicsType.h"
 #include "../Graphics/InternalResource/DefaultFontData.h"
+#include "../Animation/AnimationSystem.h"
 #include "GfxInternal.h" // 外部公開しないもの
 #include "Gfx.h" // 外部公開するもの
 
@@ -39,6 +40,7 @@ namespace {
 	SpriteBatch fgBatch; // 手前のスプライトバッチ処理
 	SpriteBatch bgBatch; // 背景のスプライトバッチ処理
 	ShapeBatch shapeBatch; // 基本図形のバッチ処理
+	AnimationSystem animSystem; // 3Dモデルのアニメーションシステム
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	int screenWidth{ 0 }; // 画面の横幅
 	int screenHeight{ 0 }; // 画面の縦幅
@@ -92,7 +94,7 @@ namespace {
 			return;
 		}
 
-		ModelData* model{ GraphicsResourceManager::Instance().Lookup(_anim.handle) }; // ハンドル分解
+		ModelData* model{ GraphicsResourceManager::Instance().Lookup(_anim.modelHandle) }; // ハンドル分解
 		if (!model) return;
 
 		auto cmd{ GraphicsDevice::Instance().GetCommandList() };
@@ -282,7 +284,7 @@ namespace {
 			DEBUG_LOG_ERROR("Terrainグリッドの作成に失敗しました\n");
 			return false;
 		}
-		terrainRingCBV.Initialize(sizeof(TerrainCB));
+		terrainRingCBV.Setup(sizeof(TerrainCB));
 		return true;
 	}
 
@@ -413,6 +415,7 @@ namespace {
 		// 仮で作っているTerrainのVB.IBを解放する(これは一時的な物なので3Dの基本図形描画時になくなる予定)
 		terrainIndexBuffer = IndexBuffer{};
 		terrainVertexBuffer = VertexBuffer{};
+		animSystem.Shutdown();
 		// RingConstantBufferの解放
 		mvpRingCBV.Shutdown();
 		materialRingCBV.Shutdown();
@@ -463,14 +466,14 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	DEBUG_LOG("ClientSize = {} x {}\n", _clientWidth, _clientHeight);
 
 
-	GraphicsDevice::Instance().Initialize(_hwnd, _clientWidth, _clientHeight); // デバイスの初期化
+	GraphicsDevice::Instance().Setup(_hwnd, _clientWidth, _clientHeight); // デバイスの初期化
 	if (!GraphicsDevice::Instance().GetDevice())
 	{
 		DEBUG_LOG_ERROR("デバイスの読み込みに失敗しました\n");
 		return false; // デバイス読み込み失敗したらfalse
 	}
 
-	DescriptorManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // ディスクリプタマネージャーをデバイスを使って初期化
+	DescriptorManager::Instance().Setup(GraphicsDevice::Instance().GetDevice()); // ディスクリプタマネージャーをデバイスを使って初期化
 
 	shaderSystem.Setup(GraphicsDevice::Instance().GetDevice()); // ShaderSystemの初期化
 
@@ -495,7 +498,7 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 		}
 	}
 
-	GraphicsResourceManager::Instance().Initialize(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
+	GraphicsResourceManager::Instance().Setup(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
 	
 	// 画面と同じサイズの内部描画先を作成
 	sceneRenderTarget = GraphicsResourceManager::Instance().CreateRenderTarget(static_cast<UINT>(_clientWidth), static_cast<UINT>(_clientHeight));
@@ -523,10 +526,10 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	// 透視投影行列の作成(一旦ハードコーディング)
 	const float virtualAspect{ static_cast<float>(_virtualWidth) / static_cast<float>(_virtualHeight) };
 	vpMat = Mat4x4::MakeLookAt({ 0.0f, 3.0f, -3.0f }, { 0.0f, 1.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, virtualAspect, 0.1f, 100.0f);
-	mvpRingCBV.Initialize(sizeof(Mat4x4)); // リングバッファ初期化
-	materialRingCBV.Initialize(sizeof(MaterialCB));  // materialのリング定数バッファを初期化
-	skinningRingCBV.Initialize(sizeof(Mat4x4) * MAX_BONE_NUM); // ボーン用の定数バッファを更新
-	userMaterialParameterRingCBV.Initialize(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE), static_cast<UINT>(MAX_MATERIAL_PARAMETER_UPDATE_PER_FRAME));
+	mvpRingCBV.Setup(sizeof(Mat4x4)); // リングバッファ初期化
+	materialRingCBV.Setup(sizeof(MaterialCB));  // materialのリング定数バッファを初期化
+	skinningRingCBV.Setup(sizeof(Mat4x4) * MAX_BONE_NUM); // ボーン用の定数バッファを更新
+	userMaterialParameterRingCBV.Setup(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE), static_cast<UINT>(MAX_MATERIAL_PARAMETER_UPDATE_PER_FRAME));
 
 	// ゼロダミーCBの作成(未設定のMaterialパラメータを安全に0として読ませる)
 	zeroMaterialParameterBuffer = GraphicsResourceManager::Instance().CreateDynamicBuffer(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE));
@@ -537,7 +540,7 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	}
 	//CreateDynamicBufferした後の未定義の中身に対して明示的に0クリアを入れる
 	std::memset(zeroMaterialParameterBuffer.mappedPtr, 0, MAX_MATERIAL_PARAMETER_SIZE);
-
+	animSystem.Setup(); // アニメーションシステムのセットアップ
 	// スプライトバッチ処理初期化
 	fgBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
 	bgBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());

@@ -31,7 +31,7 @@ public:
 	}
 
 	// 初期化処理
-	void Initialize(ID3D12Device* _device);
+	void Setup(ID3D12Device* _device);
 	// 終了処理
 	void Shutdown();
 	// EndFrame時にFence値を構造体へ

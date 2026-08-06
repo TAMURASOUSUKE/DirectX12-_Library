@@ -29,7 +29,7 @@ DescriptorManager& DescriptorManager::Instance()
 	return instance;
 }
 
-void DescriptorManager::Initialize(ID3D12Device* _device)
+void DescriptorManager::Setup(ID3D12Device* _device)
 {
 	HRESULT result{}; // 生成結果等を確認するための変数
 	

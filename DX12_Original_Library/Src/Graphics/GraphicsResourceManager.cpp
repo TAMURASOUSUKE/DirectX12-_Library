@@ -306,7 +306,7 @@ namespace {
 	}
 }
 
-void GraphicsResourceManager::Initialize(ID3D12Device* _device)
+void GraphicsResourceManager::Setup(ID3D12Device* _device)
 {
 	if (_device != nullptr)
 	{
@@ -1617,7 +1617,7 @@ TexHandle GraphicsResourceManager::CreateMetaTexture(Vector3 _color)
 // globalポーズを計算する関数
 void GraphicsResourceManager::UpdateGlobalPose(AnimInstanceData& _instance)
 {
-	ModelData* model{ GraphicsResourceManager::Instance().Lookup(_instance.handle) }; // データ部分を分解する
+	ModelData* model{ GraphicsResourceManager::Instance().Lookup(_instance.modelHandle) }; // データ部分を分解する
 	if (!model) return;
 
 	// 初回もしくはサイズが違ったときに確保しなおす

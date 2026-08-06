@@ -11,7 +11,7 @@ class RingConstantBuffer
 public:
 	// 初期化
 	// データサイズと1フレームの最大更新回数を指定する(省略時は従来のMAX_CB_PER_FRAMEを使用する)
-	void Initialize(UINT _dataSize, UINT _maxUpadatePerFrame = static_cast<UINT>(MAX_CB_PER_FRAME));
+	void Setup(UINT _dataSize, UINT _maxUpadatePerFrame = static_cast<UINT>(MAX_CB_PER_FRAME));
 	// 終了処理
 	void Shutdown();
 	// 更新(書き込み先,読み込み元,データサイズ) そのスライスのGPUアドレスを返す

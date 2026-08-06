@@ -10,7 +10,7 @@ namespace
 
 bool SoundInternal::Initialize()
 {
-	SoundResourceManager::Instance().Initialize();
+	SoundResourceManager::Instance().Setup();
 	if (!soundSystem.Setup()) return false;
 	return true;
 }

@@ -118,8 +118,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	modelTransform02.SetPosition({ 1.0f, 0.0f, 0.0f });
 	AnimInstanceData anim01{};
 	AnimInstanceData anim02{};
-	anim01.handle = testModel;
-	anim02.handle = testModel;
+	anim01.modelHandle = testModel;
+	anim02.modelHandle = testModel;
 
 	bool testFlag{ false };
 	int testWheel{ 0 };

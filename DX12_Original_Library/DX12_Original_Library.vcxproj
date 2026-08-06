@@ -158,9 +158,11 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Src\Animation\AnimationSystem.h" />
     <ClInclude Include="Src\Collision\Collider.h" />
     <ClInclude Include="Src\Collision\CollisionSystem.h" />
     <ClInclude Include="Src\Component\Transform.h" />
+    <ClInclude Include="Src\Core\Handle\AnimInstanceHandle.h" />
     <ClInclude Include="Src\Core\Handle\HandlePacking.h" />
     <ClInclude Include="Src\Core\Handle\HandlePassKey.h" />
     <ClInclude Include="Src\Core\Handle\MaterialHandle.h" />
@@ -232,6 +234,7 @@
     <ClInclude Include="Src\Window\Window.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Src\Animation\AnimationSystem.cpp" />
     <ClCompile Include="Src\Collision\CollisionSystem.cpp" />
     <ClCompile Include="Src\Component\Transform.cpp" />
     <ClCompile Include="Src\Core\TextEncoding.cpp" />
