@@ -451,6 +451,12 @@
     <FxCompile Include="Src\Shaders\PostEffectPS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="Src\Shaders\Primitive3DVS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\Primitive3DPS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Src\Shaders\Terrain.hlsli">
@@ -460,6 +466,9 @@
       <Filter>Src\Shaders</Filter>
     </None>
     <None Include="Src\Shaders\SpriteContract.hlsli">
+      <Filter>Src\Shaders</Filter>
+    </None>
+    <None Include="Src\Shaders\Primitive3DContract.hlsli">
       <Filter>Src\Shaders</Filter>
     </None>
   </ItemGroup>
