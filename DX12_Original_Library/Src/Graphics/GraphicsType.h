@@ -253,6 +253,31 @@ struct ModelVertex
 	uint32_t bones[4]; // ボーン
 };
 
+// 3D基礎図形の単位メッシュを構成する頂点
+struct Primitive3DVertex
+{
+	float position[3]; // 単位メッシュのローカル座標
+	float normal[3]; // 法線
+};
+
+// 3D基礎図形の個体ごとに異なるデータ
+struct Primitive3DInstanceData
+{
+	Mat4x4 world{ Mat4x4::Identity }; // 単位メッシュを配置するWorld行列
+	Mat4x4 worldInverseTranspose{ Mat4x4::Identity }; // 非均一スケールでも法線を正しく変換するための逆転置行列
+	Vector4 color{ 1.0f, 1.0f, 1.0f, 1.0f }; // 個体ごとの色
+};
+
+// 1フレーム中の全基礎図形で共有するデータ
+struct Primitive3DFrameData
+{
+	Mat4x4 viewProjection{ Mat4x4::Identity };
+};
+// C++とHLSLのメモリ配置が食い違った場合、コンパイル時に発見する
+static_assert(sizeof(Primitive3DVertex) == 24);
+static_assert(sizeof(Primitive3DInstanceData) == 144);
+static_assert(sizeof(Primitive3DFrameData) == 64);
+
 namespace MaterialTex 
 {
 	// intの暗黙変換を行うため通常のenum

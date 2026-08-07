@@ -168,6 +168,13 @@ namespace Gfx
 	// 設定に従って現在フレームを進める(対象アトラス, 設定, 時間)
 	bool UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _state, float _deltaTime);
 
+	// 箱を描画する
+	void DrawCube();
+	// 球を描画する
+	void DrawShpere();
+	// 3D空間に線分を描画する
+	void DrawLine3D()
+
 
 	// 静的モデルを描画する
 	void DrawModel(ModelHandle _model, Transform _transform);
