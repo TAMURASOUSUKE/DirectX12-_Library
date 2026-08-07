@@ -16,7 +16,7 @@ class ShapeBatch
 {
 public:
 	// 初期化処理
-	void Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _fillState, ID3D12PipelineState* _wireState ,ID3D12Resource* _gpuVirtualAddres);
+	void Setup(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _fillState, ID3D12PipelineState* _wireState ,ID3D12Resource* _gpuVirtualAddres);
 	// 終了処理
 	void Shutdown();
 

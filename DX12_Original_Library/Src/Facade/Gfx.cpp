@@ -17,6 +17,7 @@
 #include "../Graphics/GraphicsType.h"
 #include "../Graphics/InternalResource/DefaultFontData.h"
 #include "../Animation/AnimationSystem.h"
+#include "../Graphics/Primitive3DBatch.h"
 #include "GfxInternal.h" // 外部公開しないもの
 #include "Gfx.h" // 外部公開するもの
 
@@ -40,6 +41,7 @@ namespace {
 	SpriteBatch fgBatch; // 手前のスプライトバッチ処理
 	SpriteBatch bgBatch; // 背景のスプライトバッチ処理
 	ShapeBatch shapeBatch; // 基本図形のバッチ処理
+	Primitive3DBatch primitive3DBatch; // 3Dの基礎図形
 	AnimationSystem animSystem; // 3Dモデルのアニメーションシステム
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	int screenWidth{ 0 }; // 画面の横幅
@@ -77,7 +79,19 @@ namespace {
 		{.rootSignatureID = RootSigID::PostEffect, .pipelineID = PipelineID::PostEffect,
 		 .vs = BuiltinShaderID::PostEffectVS, .ps = BuiltinShaderID::PostEffectPS,
 		 .layout = InputLayout::None, .blend = BlendMode::Opaque, // レイアウトはSV_VertexIDから直接作るので頂点入力はない、Blendも完全に画面を置き換えるのでブレンド無し
-		 .depth = DepthParam::None, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE} // 2D画像を画面へ貼るだけなので深度は使わない
+		 .depth = DepthParam::None, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE}, // 2D画像を画面へ貼るだけなので深度は使わない
+		// 3DPrimitiveFill
+		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DFill,
+		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DPS,
+		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
+		 .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+		 .fillMode = D3D12_FILL_MODE_SOLID},
+		 // 3DPrimitiveWire
+		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DWire,
+		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DPS,
+		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
+		 .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+		 .fillMode = D3D12_FILL_MODE_WIREFRAME}
 	};
 }
 
@@ -425,6 +439,7 @@ namespace {
 		fgBatch.Shutdown();
 		bgBatch.Shutdown();
 		shapeBatch.Shutdown();
+		primitive3DBatch.Shutdown();
 
 		// 正射影CBを解放する
 		if (orthConstantBufferData.cbvHandle.IsValid())
@@ -540,9 +555,14 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	std::memset(zeroMaterialParameterBuffer.mappedPtr, 0, MAX_MATERIAL_PARAMETER_SIZE);
 	animSystem.Setup(); // アニメーションシステムのセットアップ
 	// スプライトバッチ処理初期化
-	fgBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
-	bgBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
-	shapeBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Shape),shaderSystem.GetPipeline(PipelineID::ShapeFill), shaderSystem.GetPipeline(PipelineID::ShapeWire), orthConstantBufferData.resource.Get());
+	fgBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
+	bgBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
+	shapeBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Shape),shaderSystem.GetPipeline(PipelineID::ShapeFill), shaderSystem.GetPipeline(PipelineID::ShapeWire), orthConstantBufferData.resource.Get());
+	if (!primitive3DBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Primitive3D), shaderSystem.GetPipeline(PipelineID::Primitive3DFill), shaderSystem.GetPipeline(PipelineID::Primitive3DWire)))
+	{
+		DEBUG_LOG_ERROR("Primitive3DBatchの初期化に失敗しました\n");
+		return false;
+	}
 
 	// 文字列構造体初期化
 	defaultFont.texture = GraphicsResourceManager::Instance().LoadTextureFromMemory(InternalResource::defaultFontPng, InternalResource::defaultFontPngSize, false); // デフォルトフォント
@@ -571,6 +591,7 @@ void GfxInternal::BeginFrame()
 	bgBatch.Reset();
 	fgBatch.Reset();
 	shapeBatch.Reset();
+	primitive3DBatch.Reset();
 	// 定数バッファのカウンターリセット
 	mvpRingCBV.Reset();
 	materialRingCBV.Reset();
@@ -635,7 +656,11 @@ void GfxInternal::EndFrame()
 		GPU_MARKER("backGround");
 		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
 	}
-
+	// 3D基礎図形
+	{
+		GPU_MARKER("Primitive3D");
+		if (!primitive3DBatch.Flush(vpMat)) DEBUG_LOG_ERROR("Primitive3Dの更新に失敗しました\n");
+	}
 	{
 		GPU_MARKER("foreGround");
 		fgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
@@ -1256,6 +1281,18 @@ bool Gfx::UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _st
 		}
 	}
 	return true;
+}
+
+void Gfx::DrawCube(const Transform& _transform, Vector4 _color, bool _isWireframe)
+{
+	Primitive3DInstanceData instance{};
+	instance.world = _transform.GetWorldMatrix();
+
+	// ライトはまだ使用していないため暫定値 ライト実装時に非均一スケール対応行列へ置き換える
+	instance.worldInverseTranspose = Mat4x4::Identity;
+	instance.color = _color;
+
+	primitive3DBatch.Register(Primitive3DMeshID::Cube, instance, _isWireframe);
 }
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)

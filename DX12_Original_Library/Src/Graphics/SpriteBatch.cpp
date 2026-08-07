@@ -28,7 +28,7 @@ namespace
 }
 
 
-void SpriteBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _pipelineState, ID3D12Resource* _gpuVirtualAddres)
+void SpriteBatch::Setup(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _pipelineState, ID3D12Resource* _gpuVirtualAddres)
 {
 	DEBUG_ASSERT(_rootSig != nullptr && _pipelineState != nullptr && _gpuVirtualAddres != nullptr);
 	if (_rootSig == nullptr || _pipelineState == nullptr || _gpuVirtualAddres == nullptr) return;

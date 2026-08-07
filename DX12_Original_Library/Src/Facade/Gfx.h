@@ -168,6 +168,8 @@ namespace Gfx
 	// 設定に従って現在フレームを進める(対象アトラス, 設定, 時間)
 	bool UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _state, float _deltaTime);
 
+	// 単位CubeをTransformで配置して描画する
+	void DrawCube(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, bool _isWireframe = false);
 
 	// 静的モデルを描画する
 	void DrawModel(ModelHandle _model, Transform _transform);

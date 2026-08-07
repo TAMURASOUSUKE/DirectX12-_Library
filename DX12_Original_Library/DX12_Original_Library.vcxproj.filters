@@ -288,6 +288,9 @@
     <ClInclude Include="Src\Animation\AnimationSystem.h">
       <Filter>Src\Animation</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Graphics\Primitive3DBatch.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -412,6 +415,9 @@
     </ClCompile>
     <ClCompile Include="Src\Animation\AnimationSystem.cpp">
       <Filter>Src\Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\Primitive3DBatch.cpp">
+      <Filter>Src\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

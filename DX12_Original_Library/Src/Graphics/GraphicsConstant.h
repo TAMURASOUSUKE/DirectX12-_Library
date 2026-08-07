@@ -12,6 +12,7 @@ constexpr size_t QUAD_VERT_INDEXES{ 6 }; // Quadを描画するときの頂点�
 constexpr size_t CUBE_VERT_INDEXES{ 36 }; // cubeを描画するときの頂点インデックス数
 constexpr size_t MAX_SPRITE_COUNT{ 1024 }; // 登録できる最大のスプライト数
 constexpr size_t MAX_SHAPE_COUNT{ 1024 }; // 登録できる最大の基礎画像数
+constexpr size_t MAX_PRIMITIVE_3D_INSTANCE_COUNT{ 8192 }; // 1フレームに登録できる3D基礎図形インスタンスの総数
 constexpr size_t CIRCLE_DIVISION{ 32 }; // 円を描画するときの三角形分割数
 constexpr size_t MAX_CB_PER_FRAME{ 256 }; // フレーム内で使える定数バッファの最大数
 constexpr size_t MAX_BONE_NUM{ 256 }; // 最大ボーン数

@@ -21,6 +21,9 @@ enum class BuiltinShaderID : size_t
 	ShapeVS,
 	ShapePS,
 
+	Primitive3DVS,
+	Primitive3DPS,
+
 	ModelVS,
 	ModelPS,
 
@@ -56,6 +59,8 @@ enum class PipelineID
 	Model, // 3Dモデル
 	ShapeFill, //  2D基本図形塗りつぶし
 	ShapeWire, // 2D基本図形ワイヤー
+	Primitive3DFill, // 3D基礎図形塗りつぶし
+	Primitive3DWire, // 3D基礎図形ワイヤー
 	TerrainWire, // テッセレーションデモ
 	PostEffect, // シーンRTを画面へ描画するPSO
 	Count,
@@ -67,6 +72,7 @@ enum class RootSigID
 	Texture, // 画像用
 	Model, // 3Dモデル
 	Shape, // 2D基本形状
+	Primitive3D, // インスタンシング対応3D基礎図形
 	Terrain, // テッセレーションデモ
 	PostEffect, // シーンRTのSRVのPSから読むためのルートシグネチャ
 	Count,
@@ -88,6 +94,7 @@ enum class InputLayout
 	Sprite, // 画像(position + uv + color)
 	Model, // 3Dモデル
 	Shape, // 2D形状
+	Primitive3D, // 3D基礎図形
 	Count,
 };
 

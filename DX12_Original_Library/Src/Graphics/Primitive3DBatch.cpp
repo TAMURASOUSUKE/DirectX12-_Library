@@ -1,0 +1,310 @@
+#include <cstring>
+#include <limits>
+#include <cstdint>
+#include "../Debug/DebugLogs.h"
+#include "GraphicsDevice.h"
+#include "GraphicsResourceManager.h"
+#include "Primitive3DBatch.h"
+
+
+bool Primitive3DBatch::Setup(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _fillPipeLineState, ID3D12PipelineState* _wirePipeLineState)
+{
+	if (!_rootSig || !_fillPipeLineState || !_wirePipeLineState)
+	{
+		DEBUG_LOG_ERROR("Primitive3DBatchの初期か引数が不正です\n");
+		return false;
+	}
+
+	// size_tで計算してからDynamicBuffer作成へ　UINTで収まるか確認する
+	const std::size_t bufferSize{ sizeof(Primitive3DInstanceData) * MAX_PRIMITIVE_3D_INSTANCE_COUNT };
+	if (bufferSize > static_cast<std::size_t>((std::numeric_limits<UINT>::max)()))
+	{
+		DEBUG_LOG_ERROR("PrimitiveのインスタンスバッファサイズがUINT上限を超えています\n");
+		return false;
+	}
+
+	rootSignature = _rootSig;
+	fillPipeline = _fillPipeLineState;
+	wirePipeline = _wirePipeLineState;
+
+	// GPUが使用中のフレーム領域をCPUが上書きしないようにバックバッファ数だけ独立して確保
+	for (DynamicBuffer& buffer : instanceBuffers)
+	{
+		buffer = GraphicsResourceManager::Instance().CreateDynamicBuffer(static_cast<UINT>(bufferSize));
+		if (!buffer.resource || !buffer.mappedPtr)
+		{
+			DEBUG_LOG_ERROR("Primitive3DInstanceBuffer作成に失敗しました\n");
+			Shutdown();
+			return false;
+		}
+	}
+
+	frameConstantBuffer.Setup(static_cast<UINT>(sizeof(Primitive3DFrameData)), 1);
+	if (!CreateCubeMesh())
+	{
+		Shutdown();
+		return false;
+	}
+
+	// 初回の頻繁な再確保を抑える 全Bucketへ最大量ずつ確保しないよう小さな初期容量だけ
+	for (auto& modeBuckets : buckets)
+	{
+		for (Primitive3DInstanceBucket& bucket : modeBuckets)
+		{
+			bucket.instances.reserve(64);
+		}
+	}
+	return true;
+}
+
+void Primitive3DBatch::Shutdown()
+{
+	for (DynamicBuffer& buffer : instanceBuffers)
+	{
+		buffer = {};
+	}
+
+	for (auto& modeBuckets : buckets)
+	{
+		for (Primitive3DInstanceBucket& bucket : modeBuckets)
+		{
+			// 終了時なのでcapacityも返却
+			bucket.instances = std::vector<Primitive3DInstanceData>{};
+		}
+	}
+
+	for (auto& modeRanges : ranges)
+	{
+		for (Primitive3DInstanceRange& range : modeRanges)
+		{
+			range = {};
+		}
+	}
+	frameConstantBuffer.Shutdown();
+	for (Primitive3DMesh& mesh : meshes)
+	{
+		mesh = {};
+	}
+
+	registeredInstanceCount = 0;
+	droppedInstanceCount = 0;
+
+	rootSignature = nullptr;
+	fillPipeline = nullptr;
+	wirePipeline = nullptr;
+}
+
+bool Primitive3DBatch::Register(Primitive3DMeshID _meshID, const Primitive3DInstanceData& _instance, bool _isWireframe)
+{
+	const std::size_t meshIndex{ static_cast<std::size_t>(_meshID) };
+	if (meshIndex >= MESH_COUNT)
+	{
+		DEBUG_LOG_ERROR("Primitive3DBatchに無効なMeshIDが渡されました\n");
+		return false;
+	}
+
+	// 全メッシュ・全描画方法を合計した上限
+	if (registeredInstanceCount >= MAX_PRIMITIVE_3D_INSTANCE_COUNT)
+	{
+		droppedInstanceCount++;
+		return false;
+	}
+
+	const Primitive3DDrawMode drawMode{ _isWireframe ? Primitive3DDrawMode::Wire : Primitive3DDrawMode::Fill };
+	const std::size_t modeIndex{ static_cast<std::size_t>(drawMode) };
+
+	buckets[modeIndex][meshIndex].instances.push_back(_instance);
+	registeredInstanceCount++;
+	return true;
+
+}
+
+void Primitive3DBatch::Reset()
+{
+	if (droppedInstanceCount > 0) DEBUG_LOG_WARNING("Primitive3Dの登録上限を超えたため{}個を破棄しました\n", droppedInstanceCount);
+	for (auto& modeBuckets : buckets)
+	{
+		for (Primitive3DInstanceBucket& bucket : modeBuckets)
+		{
+			//  capacityは残して次フレームで再利用
+			bucket.instances.clear();
+		}
+	}
+
+	for (auto& modeRanges : ranges)
+	{
+		for (Primitive3DInstanceRange& range : modeRanges)
+		{
+			range = {};
+		}
+	}
+	frameConstantBuffer.Reset();
+	registeredInstanceCount = 0;
+	droppedInstanceCount = 0;
+}
+
+bool Primitive3DBatch::Flush(const Mat4x4& _viewProjection)
+{
+	if (registeredInstanceCount == 0) return true; // 登録されていない時は計算しない
+	if (!UploadCurrentFrameInstances()) return false; // 失敗したときは関数内でログが出る
+
+	Primitive3DFrameData frameData{};
+	frameData.viewProjection = _viewProjection;
+
+	const D3D12_GPU_VIRTUAL_ADDRESS frameAddress{ frameConstantBuffer.Update(&frameData, static_cast<UINT>(sizeof(frameData))) };
+	if (frameAddress == 0)
+	{
+		DEBUG_LOG_ERROR("Primitive3DのViewProjectionの更新に失敗しました\n");
+		return false;
+	}
+
+	const UINT frameIndex{ GraphicsDevice::Instance().GetCurrentFrameIndex() };
+	const DynamicBuffer& instanceBuffer{ instanceBuffers[frameIndex] };
+
+	ID3D12GraphicsCommandList* commandList{ GraphicsDevice::Instance().GetCommandList() };
+	if (!commandList || !instanceBuffer.resource || !rootSignature)
+	{
+		DEBUG_LOG_ERROR("Primitive3Dの描画に必要な状態が無効です\n");
+		return false;
+	}
+
+	commandList->SetGraphicsRootSignature(rootSignature);
+
+	// RootPrameter[0] = b0
+	commandList->SetGraphicsRootConstantBufferView(0, frameAddress);
+	commandList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	const D3D12_GPU_VIRTUAL_ADDRESS instanceBufferBase{ instanceBuffer.resource->GetGPUVirtualAddress() };
+
+	for (std::size_t modeIndex = 0; modeIndex < DRAW_MODE_COUNT; modeIndex++)
+	{
+		ID3D12PipelineState* pipeline{ modeIndex == static_cast<std::size_t>(Primitive3DDrawMode::Wire) ? wirePipeline : fillPipeline };
+		commandList->SetPipelineState(pipeline);
+
+		for (std::size_t meshIndex = 0; meshIndex < MESH_COUNT; meshIndex++)
+		{
+			const Primitive3DInstanceRange& range{ ranges[modeIndex][meshIndex] };
+			if (range.instanceCount == 0) continue; // インスタンスがないならスキップ
+
+			const Primitive3DMesh& mesh{ meshes[meshIndex] };
+			if (!mesh.IsValid())
+			{
+				DEBUG_LOG_ERROR("登録されたPrimitive3DMeshが作成されていません MeshID : {}", meshIndex);
+				continue;
+			}
+			commandList->IASetVertexBuffers(0, 1, &mesh.vertexBuffer.vertexView);
+			commandList->IASetIndexBuffer(&mesh.indexBuffer.indexView);
+
+			// このBacketの先頭までRootSRVのアドレスを進めるのでVS側のSV_InstanceIDは0始まりで使用できる
+			const D3D12_GPU_VIRTUAL_ADDRESS bucketAddress{ instanceBufferBase + static_cast<UINT64>(range.startInstance) * sizeof(Primitive3DInstanceData) };
+		
+			// RootParameter[1] = t0
+			commandList->SetGraphicsRootShaderResourceView(1, bucketAddress);
+			commandList->DrawIndexedInstanced(mesh.indexBuffer.indexCount, range.instanceCount, 0, 0, 0);
+		}
+	}
+	return true;
+}
+
+bool Primitive3DBatch::UploadCurrentFrameInstances()
+{
+	if (registeredInstanceCount == 0) return true;
+	const UINT frameIndex{ GraphicsDevice::Instance().GetCurrentFrameIndex() };
+
+	DynamicBuffer& currentBuffer{ instanceBuffers[frameIndex] };
+	if (!currentBuffer.mappedPtr || !currentBuffer.resource)
+	{
+		DEBUG_LOG_ERROR("Primitive3Dの現在フレーム用バッファが無効です\n");
+		return false;
+	}
+
+	auto* destination{ static_cast<Primitive3DInstanceData*>(currentBuffer.mappedPtr) };
+
+	UINT writePosition{ 0 };
+	// 各個体を全探索する
+	for (std::size_t modeIndex = 0; modeIndex < DRAW_MODE_COUNT; modeIndex++)
+	{
+		for (std::size_t meshIndex = 0; meshIndex < MESH_COUNT; meshIndex++)
+		{
+			const auto& instances{ buckets[modeIndex][meshIndex].instances }; // モードとメッシュが同一の配列を取り出す
+			Primitive3DInstanceRange& range{ ranges[modeIndex][meshIndex] };
+			range.startInstance = writePosition;
+			range.instanceCount = static_cast<UINT>(instances.size());
+			if (instances.empty()) continue; // 空の場合は計算しない
+
+			const std::size_t copySize{ instances.size() * sizeof(Primitive3DInstanceData) };
+			std::memcpy(destination + writePosition, instances.data(), copySize);
+			writePosition += range.instanceCount;
+		}
+	}
+	// Register時の合計と実際にコピーした合計が一致するか検証
+	DEBUG_ASSERT(writePosition == registeredInstanceCount);
+	return writePosition == registeredInstanceCount;
+}
+
+bool Primitive3DBatch::CreateCubeMesh()
+{
+	constexpr float HALF{ 0.5f };
+	// 面ごとに独立した4頂点を持たせることで各面二平らな法線を設定する
+	constexpr std::array<Primitive3DVertex, 24> VERTICES
+	{
+		// 前面 -Z
+		Primitive3DVertex{{-HALF, -HALF, -HALF}, {0.0f, 0.0f, -1.0f}},
+		Primitive3DVertex{{-HALF,  HALF, -HALF}, { 0.0f,  0.0f, -1.0f}},
+		Primitive3DVertex{{ HALF,  HALF, -HALF}, { 0.0f,  0.0f, -1.0f}},
+		Primitive3DVertex{{ HALF, -HALF, -HALF}, { 0.0f,  0.0f, -1.0f}},
+
+		// 後面 +Z
+		Primitive3DVertex{{ HALF, -HALF,  HALF}, { 0.0f,  0.0f,  1.0f}},
+		Primitive3DVertex{{ HALF,  HALF,  HALF}, { 0.0f,  0.0f,  1.0f}},
+		Primitive3DVertex{{-HALF,  HALF,  HALF}, { 0.0f,  0.0f,  1.0f}},
+		Primitive3DVertex{{-HALF, -HALF,  HALF}, { 0.0f,  0.0f,  1.0f}},
+
+		// 左面 -X
+		Primitive3DVertex{{-HALF, -HALF,  HALF}, {-1.0f,  0.0f,  0.0f}},
+		Primitive3DVertex{{-HALF,  HALF,  HALF}, {-1.0f,  0.0f,  0.0f}},
+		Primitive3DVertex{{-HALF,  HALF, -HALF}, {-1.0f,  0.0f,  0.0f}},
+		Primitive3DVertex{{-HALF, -HALF, -HALF}, {-1.0f,  0.0f,  0.0f}},
+
+		// 右面 +X
+		Primitive3DVertex{{ HALF, -HALF, -HALF}, { 1.0f,  0.0f,  0.0f}},
+		Primitive3DVertex{{ HALF,  HALF, -HALF}, { 1.0f,  0.0f,  0.0f}},
+		Primitive3DVertex{{ HALF,  HALF,  HALF}, { 1.0f,  0.0f,  0.0f}},
+		Primitive3DVertex{{ HALF, -HALF,  HALF}, { 1.0f,  0.0f,  0.0f}},
+
+		// 上面 +Y
+		Primitive3DVertex{{-HALF,  HALF, -HALF}, { 0.0f,  1.0f,  0.0f}},
+		Primitive3DVertex{{-HALF,  HALF,  HALF}, { 0.0f,  1.0f,  0.0f}},
+		Primitive3DVertex{{ HALF,  HALF,  HALF}, { 0.0f,  1.0f,  0.0f}},
+		Primitive3DVertex{{ HALF,  HALF, -HALF}, { 0.0f,  1.0f,  0.0f}},
+
+		// 下面 -Y
+		Primitive3DVertex{{-HALF, -HALF,  HALF}, { 0.0f, -1.0f,  0.0f}},
+		Primitive3DVertex{{-HALF, -HALF, -HALF}, { 0.0f, -1.0f,  0.0f}},
+		Primitive3DVertex{{ HALF, -HALF, -HALF}, { 0.0f, -1.0f,  0.0f}},
+		Primitive3DVertex{{ HALF, -HALF,  HALF}, { 0.0f, -1.0f,  0.0f}}
+	};
+
+	constexpr std::array<std::uint32_t, 36> INDECES
+	{
+		0, 1, 2, 0, 2, 3,
+		4, 5, 6, 4, 6, 7,
+		8, 9, 10, 8, 10, 11,
+		12, 13, 14, 12, 14, 15,
+		16, 17, 18, 16, 18, 19,
+		20, 21, 22, 20, 22, 23
+	};
+
+	const std::size_t meshIndex{ static_cast<std::size_t>(Primitive3DMeshID::Cube) };
+	Primitive3DMesh& cube{ meshes[meshIndex] };
+
+	cube.vertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(VERTICES.data(), static_cast<UINT>(sizeof(VERTICES)), static_cast<UINT>(sizeof(Primitive3DVertex)));
+	cube.indexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(INDECES.data(), static_cast<UINT>(sizeof(INDECES)), static_cast<UINT>(INDECES.size()));
+	if (!cube.IsValid())
+	{
+		DEBUG_LOG_ERROR("Primitive3Dの単位Cube作成に失敗しました\n");
+		return false;
+	}
+
+	return true;
+}
