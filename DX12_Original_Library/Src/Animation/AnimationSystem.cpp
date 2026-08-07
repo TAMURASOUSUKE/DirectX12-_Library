@@ -1,5 +1,6 @@
 #include <utility>
 #include <cmath>
+#include <algorithm>
 #include "../Debug/DebugLogs.h"
 #include "../Core/Handle/HandlePacking.h"
 #include "../Graphics/GraphicsResourceManager.h" // 今後リファクタリングで分離候補
@@ -10,6 +11,12 @@ void AnimationSystem::Setup()
 {
 	Shutdown(); // 再初期化対策
 	slots.reserve(MAX_ANIM_INSTANCE_COUNT); // 最大数をあらかじめ作って再確保を避ける
+	
+	// 姿勢計算中の再確保防止
+	localPoseCache.reserve(MAX_BONE_NUM);
+	translationCache.reserve(MAX_BONE_NUM);
+	rotationCache.reserve(MAX_BONE_NUM);
+	scaleCache.reserve(MAX_BONE_NUM);
 }
 
 void AnimationSystem::Shutdown()
@@ -19,6 +26,11 @@ void AnimationSystem::Shutdown()
 	{
 		freeList.pop();
 	}
+
+	localPoseCache.clear();
+	translationCache.clear();
+	rotationCache.clear();
+	scaleCache.clear();
 }
 
 AnimInstanceHandle AnimationSystem::Create(ModelHandle _modelHandle)
@@ -58,8 +70,8 @@ AnimInstanceHandle AnimationSystem::Create(ModelHandle _modelHandle)
 	instance.globalPoses.resize(model->bones.size(), Mat4x4::Identity);
 	instance.skinningMatrices.resize(model->bones.size(), Mat4x4::Identity);
 
-	// 後にこの計算処理を当Systemへ移植し初期姿勢を計算する
-	GraphicsResourceManager::Instance().UpdateGlobalPose(instance);
+	// 初期姿勢を計算する
+	UpdateGlobalPose(instance);
 
 	int index{ 0 };
 	if (!freeList.empty())
@@ -153,7 +165,7 @@ bool AnimationSystem::PlayRange(AnimInstanceHandle _handle, int _clipIndex, floa
 	instance->isFinished = false;
 
 	// 指定姿勢へ
-	GraphicsResourceManager::Instance().UpdateGlobalPose(*instance);
+	UpdateGlobalPose(*instance);
 	return true;
 }
 
@@ -191,7 +203,7 @@ bool AnimationSystem::Stop(AnimInstanceHandle _handle)
 	// 逆再生かどうかによって戻す位置を決める
 	instance->currentTime = instance->playbackSpeed > 0.0f ? instance->playbackStartTime : instance->playbackEndTime;
 	// 指定姿勢へ
-	GraphicsResourceManager::Instance().UpdateGlobalPose(*instance);
+	UpdateGlobalPose(*instance);
 	return true;
 }
 
@@ -253,7 +265,7 @@ bool AnimationSystem::Update(AnimInstanceHandle _handle, float _deltaTime)
 		instance->currentTime = 0.0f;
 		instance->isPlaying = false;
 		instance->isFinished = true;
-		GraphicsResourceManager::Instance().UpdateGlobalPose(*instance);
+		UpdateGlobalPose(*instance);
 		return true;
 	}
 
@@ -294,7 +306,7 @@ bool AnimationSystem::Update(AnimInstanceHandle _handle, float _deltaTime)
 	}
 
 	// 更新済みの時刻からボーン姿勢を再計算する
-	GraphicsResourceManager::Instance().UpdateGlobalPose(*instance);
+	UpdateGlobalPose(*instance);
 	return true;
 }
 
@@ -363,4 +375,146 @@ bool AnimationSystem::Destroy(AnimInstanceHandle _handle)
 	slots[index].generation++; // 世代を上げて破棄前のハンドルを再利用できなくする
 	freeList.push(index); // この位置を使えるようにする
 	return true;
+}
+
+void AnimationSystem::UpdateGlobalPose(AnimInstanceData& _instance)
+{
+	ModelData* model{ GraphicsResourceManager::Instance().Lookup(_instance.modelHandle) }; // データ部分を分解する
+	if (!model) return;
+
+	// 初回もしくはサイズが違ったときに確保しなおす
+	if (_instance.globalPoses.size() != model->bones.size())
+	{
+		_instance.globalPoses.resize(model->bones.size()); // globalPoseのサイズ確保
+		_instance.skinningMatrices.resize(model->bones.size()); // スキニング行列のサイズ確保
+	}
+
+	// アニメーションが存在し、指定番号が配列の範囲内か確認する
+	const bool hasValidAnimation{ !model->animations.empty() && _instance.currentAnim >= 0 && static_cast<size_t>(_instance.currentAnim) < model->animations.size() };
+	// アニメーションが存在するモデルのなのに範囲外を指定した場合は警告を出す
+	if (!hasValidAnimation && !model->animations.empty()) DEBUG_LOG_WARNING("指定されたアニメーションが範囲外です。バインドポーズで描画します");
+
+	// 補間したlocalposeを入れる一次領域を使いまわす(reserveをしているため必要な容量があればメモリの再確保が起きない)
+	localPoseCache.resize(model->bones.size());
+	if (hasValidAnimation)
+	{
+		const Animation& anim{ model->animations[_instance.currentAnim] }; // 指定のアニメーションを取り出す
+		SampleAnimation(anim, model->bones, _instance.currentTime, localPoseCache);
+	}
+
+	// ボーン数分回してglobal行列を求める
+	for (size_t i = 0; i < model->bones.size(); i++)
+	{
+		const Bone& bone{ model->bones[i] };  // ボーンを取り出す 
+		// アニメーションがあれば更新されたボーンのローカルポーズ、そうでなければバインドポーズ
+		Mat4x4 local{ hasValidAnimation ? localPoseCache[i] : model->bones[i].localPose };
+
+		if (bone.parentIndex < 0)
+		{
+			// Rootはローカルポーズがそのままグローバル行列になる(Armature変換をおこなう)
+			_instance.globalPoses[i] = local * model->skeletonRoot;
+		}
+		else
+		{
+			// 自身のローカルと親との乗算を行うことで自身のglobalposeを求めることができる(親が先計算されていることが前提)
+			_instance.globalPoses[i] = local * _instance.globalPoses[bone.parentIndex];
+		}
+	}
+
+	// スキニング行列の計算
+	for (size_t i = 0; i < model->bones.size(); i++)
+	{
+		// 行優先のためIBM * Globalにする
+		_instance.skinningMatrices[i] = model->bones[i].inverseBindMatrix * _instance.globalPoses[i];
+	}
+}
+
+void AnimationSystem::SampleAnimation(const Animation& _anim, const std::vector<Bone>& _bones, float _time, std::vector<Mat4x4>& _outLocalPoses)
+{
+	size_t boneCount{ _bones.size() }; // ボーン数
+	_outLocalPoses.resize(boneCount);
+	// ボーンごとのTRSを持つキャッシュ(バインドポーズから分解した値で初期化するのでアニメーションがないボーンはバインドポーズのまま)
+	translationCache.resize(boneCount); // 位置
+	rotationCache.resize(boneCount); // 回転
+	scaleCache.resize(boneCount); // スケール
+
+
+	// バインドポーズのローカルポーズからTRSを取り出して初期化
+	for (size_t i = 0; i < boneCount; i++)
+	{
+		translationCache[i] = _bones[i].bindTranslation;
+		rotationCache[i] = _bones[i].bindRotation;
+		scaleCache[i] = _bones[i].bindScale;
+	}
+
+	// 全チャンネルを回してアニメーションされるボーンを上書きする
+	for (const AnimChannel& ch : _anim.channels)
+	{
+		if (ch.times.empty() || ch.times.size() != ch.values.size())
+		{
+			DEBUG_LOG_WARNING("アニメーションチャンネルのキーフレームデータが不正です TimeCount : {} ValueCount : {}\n", ch.times.size(), ch.values.size());
+			// このチャンネルは適用せず、バインド姿勢を維持する
+			continue;
+		}
+
+		Vector4 v{ SampleChannel(ch, _time) }; // このチャンネルの補間値
+
+		const int bone{ ch.boneIndex };
+		if (bone < 0 || static_cast<std::size_t>(bone) >= boneCount)
+		{
+			DEBUG_LOG_WARNING("アニメーションチャンネルのBoneIndexが範囲外です BoneIndex : {} BoneCount : {}\n", bone, boneCount);
+			continue;
+		}
+
+		switch (ch.path)
+		{
+		case AnimPath::Translation: translationCache[bone] = Vector3{ v.x, v.y, v.z }; break;
+		case AnimPath::Rotation: rotationCache[bone] = Quaternion{ v }; break;
+		case AnimPath::Scale: scaleCache[bone] = Vector3{ v.x, v.y, v.z }; break;
+		}
+	}
+
+	// TRSからlocalPosを組み立てる
+	for (size_t i = 0; i < boneCount; i++)
+	{
+		Mat4x4 t{ Mat4x4::MakeTranslation(translationCache[i]) };
+		Mat4x4 r{ rotationCache[i].ToMat4x4() };
+		Mat4x4 s{ Mat4x4::MakeScaling(scaleCache[i]) };
+		_outLocalPoses[i] = s * r * t;
+	}
+}
+
+Vector4 AnimationSystem::SampleChannel(const AnimChannel& _channel, float _time)
+{
+	if (_channel.times.empty()) { return Vector4{}; } // キーフレームが0個の場合
+	if (_channel.times.size() == 1) { return _channel.values[0]; } // キーフレームが1つなら補完せずにそのまま返す
+
+	// 最初のキーフレームより前の位置の境界
+	if (_time <= _channel.times.front()) { return _channel.values.front(); } // 補完せずに最初の要素を返す
+	// 最後のキーフレームより後の位置の境界
+	if (_time >= _channel.times.back()) { return _channel.values.back(); } // 補完せずに最後の要素を返す
+
+	// 補完する二点間を探索する
+	auto it{ std::upper_bound(_channel.times.begin(), _channel.times.end(), _time) }; // 二分探索を行い入力された時間の次に大きい要素のイテレータを取得する(O(logN))
+	int index1{ static_cast<int>(it - _channel.times.begin()) }; // 後の要素のインデックス
+	int index0{ index1 - 1 }; // 前の要素のインデックス
+
+	// 補完を行う(回転はQuaternionで対応する)
+	// 今の場所 / 全体で0-1の補完率を求める
+	float ratio{ (_time - _channel.times[index0]) / (_channel.times[index1] - _channel.times[index0]) }; // 補完率
+	if (_channel.path == AnimPath::Rotation)
+	{
+		// 回転であればSlerpで補完する
+		Quaternion q0{ _channel.values[index0] }; // 前の値の四元数
+		Quaternion q1{ _channel.values[index1] }; // 後の値の四元数
+		Quaternion result{ Quaternion::Slerp(q0, q1, ratio) };  // 球面線形補完を行う
+		return Vector4{ result.x, result.y, result.z, result.w };
+	}
+	else
+	{
+		// 通常の補完
+		Vector4 v0{ _channel.values[index0] }; // 前の値
+		Vector4 v1{ _channel.values[index1] }; // 後の値
+		return v0 + (v1 - v0) * ratio; // 開始地点 + 全体 * 補完率でどのくらい進んだかを求める
+	}
 }

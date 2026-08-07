@@ -11,6 +11,7 @@ Core/Handle/ModelHandle.h
 Core/Handle/ShaderHandle.h
 Core/Handle/SoundHandle.h
 Core/Handle/TexHandle.h
+Core/Handle/AnimInstanceHandle.h
 
 Debug/DebugLogs.h
 

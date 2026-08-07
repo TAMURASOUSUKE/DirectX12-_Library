@@ -180,7 +180,7 @@ namespace Gfx
 	// 指定したアニメーションを指定した範囲で再生する
 	bool PlayRangeAnim(AnimInstanceHandle _handle, int _clipIndex, float _startTime, float _endTime, bool _isLoop, float _playbackSpeed = 1.0f);
 	// ポーズされているアニメーションを再開する
-	bool ResumePlayAnim(AnimInstanceHandle _handle);
+	bool ResumeAnim(AnimInstanceHandle _handle);
 	// 指定したアニメーションの再生を停止する(次回再生時には最初からになります)
 	bool StopAnim(AnimInstanceHandle _handle);
 	// 選択したアニメーションの再生を停止して維持する(再開はResumeAnimから行ってください)

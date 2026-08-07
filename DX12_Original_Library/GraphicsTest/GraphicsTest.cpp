@@ -280,8 +280,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Time::SetTimeScale(timeScale);
 
 		// 3Dモデルアニメーション
+		// 通常ループ再生
+		if (Input::IsKeyPushed(KeyCode::Button::SPACE)) Gfx::PlayAnim(testModelAnim01, 0, true, 1.0f);
+		// 逆方向ループ再生
+		if (Input::IsKeyPushed(KeyCode::Button::R)) Gfx::PlayAnim(testModelAnim01, 0, true, -1.0f);
+		// 現在の姿勢で一時停止
+		if (Input::IsKeyPushed(KeyCode::Button::P)) Gfx::PauseAnim(testModelAnim01); 
+		// 一時停止した位置から再開
+		if (Input::IsKeyPushed(KeyCode::Button::O)) Gfx::ResumeAnim(testModelAnim01);
+		// 再生方向に応じた開始位置へ戻して停止
+		if (Input::IsKeyPushed(KeyCode::Button::S)) Gfx::StopAnim(testModelAnim01);
 		Gfx::UpdateAnim(testModelAnim01, Time::DeltaTime());
-		if (Input::IsKeyPushed(KeyCode::Button::SPACE)) Gfx::PlayAnim(testModelAnim01, 1, true, -1);
 
 		std::string fpsValue{ std::format("CurrentMeasuredFPS : {:.1f}", Time::FPS()) };
 		std::string targetFPS{ std::format("CurrentSettingFPS : {}", Time::GetTargetFPS()) };
@@ -336,6 +345,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		TSLib::EndFrame(); // フレーム終了処理
 	}
 
+	// Finishで自動的に破棄されるが、シーン遷移などではこの順で明示的に破棄する必要があるためこの形
+	Gfx::DestroyAnim(testModelAnim01);
+	Gfx::Unload(testModel);
 	TSLib::Finish(); // 終了
 	return 0;
 }

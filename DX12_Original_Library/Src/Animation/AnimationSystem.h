@@ -54,6 +54,23 @@ public:
 	bool Destroy(AnimInstanceHandle _handle);
 
 private:
+	// 個体の現在時刻からグローバル姿勢とスキニング行列を計算する
+	void UpdateGlobalPose(AnimInstanceData& _instance);
+	
+	// クリップの各チャンネルを補間してボーンごとのローカル姿勢を作る
+	void SampleAnimation(const Animation& _animation, const std::vector<Bone>& _bones, float _time, std::vector<Mat4x4>& _outLocalPoses);
+
+	// 1チャンネル内の前後キーフレームを補間する
+	static Vector4 SampleChannel(const AnimChannel& _channel, float _time);
+
+private:
 	std::vector<AnimInstanceSlot> slots{}; // アニメーション個体の台帳
-	std::stack<int> freeList{};            // 解放済みスロット番号
+	std::stack<int> freeList{}; // 解放済みスロット番号
+
+	// 姿勢計算中だけ使う領域(単一スレッド想定なので今後変更する)
+	std::vector<Mat4x4> localPoseCache{};
+	std::vector<Vector3> translationCache{};
+	std::vector<Quaternion> rotationCache{};
+	std::vector<Vector3> scaleCache{};
+
 };
