@@ -61,6 +61,9 @@
     <Filter Include="Src\File">
       <UniqueIdentifier>{02ec397d-9f59-48d4-bc12-9ae7b5b28dd9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Animation">
+      <UniqueIdentifier>{9c6fa169-2baf-422d-816d-33a8138bd95c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Math\MathConstant.h">
@@ -279,6 +282,12 @@
     <ClInclude Include="Src\Facade\File.h">
       <Filter>Src\Facade</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Core\Handle\AnimInstanceHandle.h">
+      <Filter>Src\Core\Handle</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Animation\AnimationSystem.h">
+      <Filter>Src\Animation</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -400,6 +409,9 @@
     </ClCompile>
     <ClCompile Include="Src\File\CSVTable.cpp">
       <Filter>Src\File</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Animation\AnimationSystem.cpp">
+      <Filter>Src\Animation</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

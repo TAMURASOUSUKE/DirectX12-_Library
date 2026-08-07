@@ -29,7 +29,7 @@ public:
 	~DescriptorManager() = default;
 
 	// 初期化
-	void Initialize(ID3D12Device* _device);
+	void Setup(ID3D12Device* _device);
 	// 終了処理
 	void Shutdown();
 

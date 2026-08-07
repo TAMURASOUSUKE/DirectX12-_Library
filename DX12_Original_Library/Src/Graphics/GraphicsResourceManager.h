@@ -31,7 +31,7 @@ public:
 	}
 
 	// 初期化処理
-	void Initialize(ID3D12Device* _device);
+	void Setup(ID3D12Device* _device);
 	// 終了処理
 	void Shutdown();
 	// EndFrame時にFence値を構造体へ
@@ -81,11 +81,6 @@ public:
 	ShaderData* Lookup(ShaderHandle _handle);
 	MaterialData* Lookup(MaterialHandle _handle);
 
-	// ボーンのグローバルポーズを計算する
-	void UpdateGlobalPose(AnimInstanceData& _instance);
-	// Animation補完する関数(どのアニメーションか、ボーン、再生時刻、(出力)各ボーンの補完済みローカルポーズ)
-	void SampleAnimation(const Animation& _anim, const std::vector<Bone>& _bones , float _time, std::vector<Mat4x4>& _outLocalPoses);
-
 	// リソースを解放する
 	void Unload(TexHandle _handle);
 	void Unload(ModelHandle _handle);
@@ -114,9 +109,6 @@ private:
 	// 内部で使うメタテクスチャを作成するヘルパー(Initializeで作成用)
 	TexHandle CreateMetaTexture(Vector3 _color);
 
-	// Animation補完を助けるキーフレーム補完ヘルパー
-	Vector4 SampleChannel(const AnimChannel& _ch, float _time);
-
 private:
 	ID3D12Device* device{ nullptr }; // Initializeでデバイスを受け取って保持する
 
@@ -128,13 +120,6 @@ private:
 	std::vector<RenderTargetSlot> rtSlots; // RenderTargetのスロット
 	std::vector<ShaderSlot> shaderSlots; // シェーダーのスロット
 	std::vector<MaterialSlot> materialSlots; // materialのスロット
-
-	// アニメーション計算用の一時領域
-	// UpdateGlobalPoseは現在シングルスレッドで順番に呼ばれるため、全個体で共有して再利用する
-	std::vector<Mat4x4> animationLocalPoseCache{};
-	std::vector<Vector3> animationTranslationCache{};
-	std::vector<Quaternion> animationRotationCache{};
-	std::vector<Vector3> animationScaleCache{};
 
 	std::stack<int> texFreeList; // テクスチャリソースのフリーリスト
 	std::stack<int> modelFreeList; // モデルリソースのフリーリスト

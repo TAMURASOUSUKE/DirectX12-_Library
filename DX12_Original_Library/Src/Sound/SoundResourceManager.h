@@ -15,7 +15,7 @@ public:
 		return instance;
 	}
 
-	void Initialize(); // 引数なし、戻り値なしの理由はslotのサイズを制限してダングリングを防ぐためのreserveしかないから
+	void Setup(); // 引数なし、戻り値なしの理由はslotのサイズを制限してダングリングを防ぐためのreserveしかないから
 
 	// ファイル名をもとにハンドルを返す
 	SoundHandle LoadSound(const char* _filePath);

@@ -11,7 +11,7 @@ GraphicsDevice& GraphicsDevice::Instance()
 	return instance;
 }
 
-void GraphicsDevice::Initialize(HWND _hwnd, int _width, int _height)
+void GraphicsDevice::Setup(HWND _hwnd, int _width, int _height)
 {
 	// デバッグレイヤーの作成
 	/*

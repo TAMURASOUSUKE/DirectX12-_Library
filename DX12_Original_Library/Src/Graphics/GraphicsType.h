@@ -351,12 +351,25 @@ struct ModelData
 // 個体ごとのアニメーションの状態
 struct AnimInstanceData
 {
-	ModelHandle handle; // どのモデルかを判別するハンドル
+	ModelHandle modelHandle; // どのモデルかを判別するハンドル
 	std::vector<Mat4x4> globalPoses; // この個体の現在のボーン姿勢
 	std::vector<Mat4x4> skinningMatrices; // スキニング行列
 	int currentAnim{ 0 }; // 現在のアニメーション
 	float currentTime{ 0.0f }; // 再生時刻
+	float playbackStartTime{ 0.0f }; // 再生開始時刻
+	float playbackEndTime{ 0.0f }; // 再生終了時刻
+	float playbackSpeed{ 1.0f }; // 再生速度(負数にすると逆再生)
+	bool isPaused{ false }; // 再生停止か
+	bool isLoop{ true };       // 最後まで行ったら先頭へ戻すか
+	bool isPlaying{ false };   // 現在時間を進めるか
+	bool isFinished{ false };  // 非ループ再生が最後まで到達したか
 }; 
+
+struct AnimInstanceSlot
+{
+	AnimInstanceData data{}; // 個体ごとの再生状態
+	uint32_t generation{ 0 }; // 古いハンドルを見分ける世代
+};
 
 // 管理するスロット
 struct ModelSlot

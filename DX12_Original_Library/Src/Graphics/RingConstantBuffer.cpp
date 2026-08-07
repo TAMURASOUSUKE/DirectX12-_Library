@@ -7,7 +7,7 @@
 #include "GraphicsResourceManager.h"
 #include "RingConstantBuffer.h"
 
-void RingConstantBuffer::Initialize(UINT _dataSize, UINT _maxUpadatePerFrame)
+void RingConstantBuffer::Setup(UINT _dataSize, UINT _maxUpadatePerFrame)
 {
 	if (_dataSize == 0 || _maxUpadatePerFrame == 0)
 	{
