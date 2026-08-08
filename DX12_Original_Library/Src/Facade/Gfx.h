@@ -172,6 +172,8 @@ namespace Gfx
 	void DrawCube3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, bool _isWireframe = false);
 	// 単位SphereをTransformで配置して描画する
 	void DrawSphere3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, bool _isWireframe = false);
+	// 単位CylinderをTransformで配置して描画する
+	void DrawCylinder3D(const Transform& _transform, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f }, bool _isWireframe = false);
 
 	// 静的モデルを描画する
 	void DrawModel(ModelHandle _model, Transform _transform);

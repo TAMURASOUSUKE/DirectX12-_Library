@@ -140,12 +140,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// 3D基礎図形
 	Transform cube0{};
 	cube0.SetPosition({ -1.5f, 1.0f, 3.0f });
-	Transform cube1{};
-	cube1.SetPosition({ 0.0f, 1.0f, 3.0f });
-	Transform cube2{};
-	cube2.SetPosition({ 1.5f, 1.0f, 3.0f });
 	Transform sphere{};
-	sphere.SetPosition({1.0f, 1.0f, 3.0f});
+	sphere.SetPosition({ 0.0f, 1.0f, 3.0f });
+	Transform cylinder{};
+	cylinder.SetPosition({ 1.5f, 1.0f, 3.0f });
+	cylinder.SetScale({ 0.5f, 1.0f, 0.5f });
 
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
@@ -334,9 +333,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// 3D基礎図形
 		Gfx::DrawCube3D(cube0, { 1.0f, 0.0f, 0.0f, 1.0f });
-		Gfx::DrawCube3D(cube1, { 0.0f, 1.0f, 0.0f, 1.0f });
-		Gfx::DrawCube3D(cube2, { 0.0f, 0.0f, 1.0f, 1.0f }, true);
 		Gfx::DrawSphere3D(sphere, {0.0f, 0.0f, 0.0f, 1.0f}, true);
+		Gfx::DrawCylinder3D(cylinder, { 0.0f, 1.0f, 0.0f, 1.0f });
 
 		if (runtimeTexture.IsValid()) Gfx::DrawSprite(runtimeTexture, { 500.0f, 300.0f });
 

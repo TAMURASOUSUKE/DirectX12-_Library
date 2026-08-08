@@ -1306,6 +1306,11 @@ void Gfx::DrawSphere3D(const Transform& _transform, Vector4 _color, bool _isWire
 	primitive3DBatch.Register(Primitive3DMeshID::Sphere, MakePrimitive3DInstanceData(_transform, _color), _isWireframe);
 }
 
+void Gfx::DrawCylinder3D(const Transform& _transform, Vector4 _color, bool _isWireframe)
+{
+	primitive3DBatch.Register(Primitive3DMeshID::Cylinder, MakePrimitive3DInstanceData(_transform, _color), _isWireframe);
+}
+
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 {
 	{

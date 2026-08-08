@@ -152,7 +152,7 @@ Vector3 Quaternion::RotateVector(const Vector3& _vec) const
 	Quaternion vq{ _vec, 0.0f };
 	Quaternion inv{ -q.x, -q.y, -q.z, q.w };
 
-	Quaternion result{ inv * vq * q };
+	Quaternion result{ vq * q * inv };
 	return Vector3{ result.x, result.y, result.z };
 }
 

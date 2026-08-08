@@ -72,6 +72,8 @@ private:
 	bool CreateCubeMesh();
 	// 緯度経度方式で単位Sphereを作成
 	bool CreateSphereMesh();
+	// 単位Clyinderを作成する
+	bool CreateCylinderMesh();
 
 private:
 	static constexpr std::size_t MESH_COUNT{ static_cast<std::size_t>(Primitive3DMeshID::Count) };

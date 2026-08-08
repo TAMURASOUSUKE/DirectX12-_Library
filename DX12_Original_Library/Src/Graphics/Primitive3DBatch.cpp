@@ -40,7 +40,7 @@ bool Primitive3DBatch::Setup(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 	}
 
 	frameConstantBuffer.Setup(static_cast<UINT>(sizeof(Primitive3DFrameData)), 1);
-	if (!CreateCubeMesh() || !CreateSphereMesh())
+	if (!CreateCubeMesh() || !CreateSphereMesh() || !CreateCylinderMesh())
 	{
 		Shutdown();
 		return false;
@@ -307,6 +307,7 @@ bool Primitive3DBatch::CreateCubeMesh()
 	}
 	return true;
 }
+
 bool Primitive3DBatch::CreateSphereMesh()
 {
 	constexpr float radius{ 0.5f }; // 単位なので半径は0.5
@@ -374,7 +375,7 @@ bool Primitive3DBatch::CreateSphereMesh()
 	const bool isIndexBufferSizeValid{ indexBufferSize <= static_cast<std::size_t>((std::numeric_limits<UINT>::max)()) };
 	if (!isVertexBufferSizeValid || !isIndexBufferSizeValid)
 	{
-		DEBUG_LOG_ERROR("Primitive3D SphereのメッシュがUINT上限を超えています\n");
+		DEBUG_LOG_ERROR("Primitive3D SphereのメッシュサイズがUINT上限を超えています\n");
 		return false;
 	}
 
@@ -388,3 +389,107 @@ bool Primitive3DBatch::CreateSphereMesh()
 	return true;
 }
 
+bool Primitive3DBatch::CreateCylinderMesh()
+{
+	constexpr float RADIUS{ 0.5f };
+	constexpr float HALF_HEIGHT{ 0.5f };
+
+	std::vector<Primitive3DVertex> vertices{};
+	std::vector<std::uint32_t> indices{};
+
+	// 側面計算
+	const std::uint32_t sideStart{ static_cast<std::uint32_t>(vertices.size()) };
+
+	// 開始点と終了点を別頂点にしてインデックス計算を単純化するため +1個作成
+	for (UINT i = 0; i <= PRIMITIVE_3D_CYLINDER_DIVISION; i++)
+	{
+		const float angle{ 2.0f * Math::PI * static_cast<float>(i) / static_cast<float>(PRIMITIVE_3D_CYLINDER_DIVISION) };
+		const float x{ std::cos(angle) * RADIUS };
+		const float z{ std::sin(angle) * RADIUS };
+
+		// 側面法線には半径を含めずに長さ1の方向を使う
+		const float normalX{ std::cos(angle) };
+		const float normalZ{ std::sin(angle) };
+
+		vertices.push_back(Primitive3DVertex{ {x, -HALF_HEIGHT, z}, {normalX, 0.0f, normalZ} }); // 下側
+		vertices.push_back(Primitive3DVertex{ {x, HALF_HEIGHT, z}, {normalX, 0.0f, normalZ} }); // 上側
+	}
+
+	for (UINT i = 0; i < PRIMITIVE_3D_CYLINDER_DIVISION; i++)
+	{
+		const std::uint32_t bottom0{ sideStart + i * 2 };
+		const std::uint32_t top0{ bottom0 + 1 };
+		const std::uint32_t bottom1{ sideStart + (i + 1) * 2 };
+		const std::uint32_t top1{ bottom1 + 1 };
+
+		// 側面の四角形を2三角形へ分割
+		indices.push_back(bottom0);
+		indices.push_back(top0);
+		indices.push_back(top1);
+
+		indices.push_back(bottom0);
+		indices.push_back(top1);
+		indices.push_back(bottom1);
+	}
+
+	// 上蓋
+	const std::uint32_t topCenter{ static_cast<std::uint32_t>(vertices.size()) };
+	vertices.push_back(Primitive3DVertex{ {0.0f, HALF_HEIGHT, 0.0f}, {0.0f, 1.0f, 0.0f} });
+
+	const std::uint32_t topRimStart{ static_cast<std::uint32_t>(vertices.size()) };
+	for (UINT i = 0; i <= PRIMITIVE_3D_CYLINDER_DIVISION; i++)
+	{
+		const float angle{ 2.0f * Math::PI * static_cast<float>(i) / static_cast<float>(PRIMITIVE_3D_CYLINDER_DIVISION) };
+		vertices.push_back(Primitive3DVertex{ {std::cos(angle) * RADIUS, HALF_HEIGHT, std::sin(angle) * RADIUS}, {0.0f, 1.0f, 0.0f} });
+	}
+
+	for (UINT i = 0; i < PRIMITIVE_3D_CYLINDER_DIVISION; i++)
+	{
+		indices.push_back(topCenter);
+		indices.push_back(topRimStart + i + 1);
+		indices.push_back(topRimStart + i);
+	}
+
+	// 下蓋
+	const std::uint32_t bottomCenter{ static_cast<std::uint32_t>(vertices.size()) };
+	vertices.push_back(Primitive3DVertex{ {0.0f, -HALF_HEIGHT, 0.0f}, {0.0f, -1.0f, 0.0f} });
+
+	const std::uint32_t bottomRimStart{ static_cast<std::uint32_t>(vertices.size()) };
+	for (UINT i = 0; i <= PRIMITIVE_3D_CYLINDER_DIVISION; i++)
+	{
+		const float angle{ 2.0f * Math::PI * static_cast<float>(i) / static_cast<float>(PRIMITIVE_3D_CYLINDER_DIVISION) };
+		vertices.push_back(Primitive3DVertex{ {std::cos(angle) * RADIUS, -HALF_HEIGHT, std::sin(angle) * RADIUS}, {0.0f, -1.0f, 0.0f} });
+	}
+
+	for (UINT i = 0; i < PRIMITIVE_3D_CYLINDER_DIVISION; i++)
+	{
+		indices.push_back(bottomCenter);
+		indices.push_back(bottomRimStart + i + 1);
+		indices.push_back(bottomRimStart + i);
+	}
+
+	// GPUリソース作成
+	const std::size_t vertexBufferSize{ vertices.size() * sizeof(Primitive3DVertex) };
+	const std::size_t indexBufferSize{ indices.size() * sizeof(std::uint32_t) };
+
+	// UINT -> size_tの縮小変換なので上限確認を入れる
+	const bool isVertexBufferSizeValid{ vertexBufferSize <= static_cast<std::size_t>((std::numeric_limits<UINT>::max)()) };
+	const bool isIndexBufferSizeValid{ indexBufferSize <= static_cast<std::size_t>((std::numeric_limits<UINT>::max)()) };
+	if (!isVertexBufferSizeValid || !isIndexBufferSizeValid)
+	{
+		DEBUG_LOG_ERROR("Primitive3D CylinderのメッシュサイズがUINT上限を超えています\n");
+		return false;
+	}
+
+	const std::size_t meshIndex{ static_cast<std::size_t>(Primitive3DMeshID::Cylinder) };
+	Primitive3DMesh& cylinder{ meshes[meshIndex] };
+
+	cylinder.vertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(vertices.data(), static_cast<UINT>(vertexBufferSize), static_cast<UINT>(sizeof(Primitive3DVertex)));
+	cylinder.indexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(indices.data(), static_cast<UINT>(indexBufferSize), static_cast<UINT>(indices.size()));
+	if (!cylinder.IsValid())
+	{
+		DEBUG_LOG_ERROR("Primitive3Dの単位Cylinder作成に失敗しました\n");
+		return false;
+	}
+	return true;
+}
