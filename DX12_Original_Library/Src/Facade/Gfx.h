@@ -169,7 +169,9 @@ namespace Gfx
 	bool UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _state, float _deltaTime);
 
 	// 単位CubeをTransformで配置して描画する
-	void DrawCube(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, bool _isWireframe = false);
+	void DrawCube3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, bool _isWireframe = false);
+	// 単位SphereをTransformで配置して描画する
+	void DrawSphere3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, bool _isWireframe = false);
 
 	// 静的モデルを描画する
 	void DrawModel(ModelHandle _model, Transform _transform);

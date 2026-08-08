@@ -421,6 +421,19 @@ namespace {
 		}
 	}
 
+	// 3Dの基礎図形の共通部分を行うヘルパー
+	Primitive3DInstanceData MakePrimitive3DInstanceData(const Transform& _transform, Vector4 _color)
+	{
+		Primitive3DInstanceData instance{};
+		instance.world = _transform.GetWorldMatrix();
+
+		// ライト接続までは暫定
+		instance.worldInverseTranspose = Mat4x4::Identity;
+		instance.color = _color;
+
+		return instance;
+	}
+
 	// Gfx内のメンバの掃除
 	void ShutdownGfxOwnedResources()
 	{
@@ -1283,16 +1296,14 @@ bool Gfx::UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _st
 	return true;
 }
 
-void Gfx::DrawCube(const Transform& _transform, Vector4 _color, bool _isWireframe)
+void Gfx::DrawCube3D(const Transform& _transform, Vector4 _color, bool _isWireframe)
 {
-	Primitive3DInstanceData instance{};
-	instance.world = _transform.GetWorldMatrix();
+	primitive3DBatch.Register(Primitive3DMeshID::Cube, MakePrimitive3DInstanceData(_transform, _color), _isWireframe);
+}
 
-	// ライトはまだ使用していないため暫定値 ライト実装時に非均一スケール対応行列へ置き換える
-	instance.worldInverseTranspose = Mat4x4::Identity;
-	instance.color = _color;
-
-	primitive3DBatch.Register(Primitive3DMeshID::Cube, instance, _isWireframe);
+void Gfx::DrawSphere3D(const Transform& _transform, Vector4 _color, bool _isWireframe)
+{
+	primitive3DBatch.Register(Primitive3DMeshID::Sphere, MakePrimitive3DInstanceData(_transform, _color), _isWireframe);
 }
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)

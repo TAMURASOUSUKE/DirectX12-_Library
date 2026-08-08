@@ -40,7 +40,7 @@ bool Primitive3DBatch::Setup(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 	}
 
 	frameConstantBuffer.Setup(static_cast<UINT>(sizeof(Primitive3DFrameData)), 1);
-	if (!CreateCubeMesh())
+	if (!CreateCubeMesh() || !CreateSphereMesh())
 	{
 		Shutdown();
 		return false;
@@ -305,6 +305,86 @@ bool Primitive3DBatch::CreateCubeMesh()
 		DEBUG_LOG_ERROR("Primitive3Dの単位Cube作成に失敗しました\n");
 		return false;
 	}
-
 	return true;
 }
+bool Primitive3DBatch::CreateSphereMesh()
+{
+	constexpr float radius{ 0.5f }; // 単位なので半径は0.5
+	std::vector<Primitive3DVertex> vertices{};
+	std::vector<std::uint32_t> indices{};
+
+	// UVの継ぎ目では同じ位置を2回持つため+1
+	vertices.reserve(static_cast<std::size_t>(PRIMITIVE_3D_SPHERE_STACK_COUNT + 1) * static_cast<std::size_t>(PRIMITIVE_3D_SPHERE_SLICE_COUNT + 1));
+
+	for (UINT stack = 0; stack <= PRIMITIVE_3D_SPHERE_STACK_COUNT; stack++)
+	{
+		// 0-πで上端から下端へ進む
+		const float phi{ Math::PI * static_cast<float>(stack) / static_cast<float>(PRIMITIVE_3D_SPHERE_STACK_COUNT) };
+
+		const float y{ std::cos(phi) };
+		const float ringRadius{ std::sin(phi) };
+
+		for (UINT slice = 0; slice <= PRIMITIVE_3D_SPHERE_SLICE_COUNT; slice++)
+		{
+			// 0-2πで球体を一周
+			const float theta{ 2.0f * Math::PI * static_cast<float>(slice) / static_cast<float>(PRIMITIVE_3D_SPHERE_SLICE_COUNT) };
+
+			// 半径1の方向ベクトル
+			const Vector3 normal{ ringRadius * std::cos(theta), y, ringRadius * std::sin(theta) };
+			const Vector3 position{ normal * radius };
+
+			vertices.push_back(Primitive3DVertex{ {position.x, position.y, position.z}, {normal.x, normal.y, normal.z} });
+		}
+	}
+
+	// 上下に隣接する頂点を結んで三角形を作る
+	for (UINT stack = 0; stack < PRIMITIVE_3D_SPHERE_STACK_COUNT; stack++)
+	{
+		for (UINT slice = 0; slice < PRIMITIVE_3D_SPHERE_SLICE_COUNT; slice++)
+		{
+			const std::uint32_t topLeft{ stack * (PRIMITIVE_3D_SPHERE_SLICE_COUNT + 1) + slice };
+			const std::uint32_t topRight{ topLeft + 1 };
+			const std::uint32_t bottomLeft{ (stack + 1) * (PRIMITIVE_3D_SPHERE_SLICE_COUNT + 1) + slice };
+			const std::uint32_t bottomRight{ bottomLeft + 1 };
+
+			// 最上段では同じ位置の頂点を結び退化三角形を作らない
+			if (stack != 0)
+			{
+				indices.push_back(topLeft);
+				indices.push_back(bottomLeft);
+				indices.push_back(topRight);
+			}
+
+			if (stack != PRIMITIVE_3D_SPHERE_STACK_COUNT - 1)
+			{
+				indices.push_back(topRight);
+				indices.push_back(bottomLeft);
+				indices.push_back(bottomRight);
+			}
+		}
+	}
+
+	const std::size_t meshIndex{ static_cast<std::size_t>(Primitive3DMeshID::Sphere) };
+	Primitive3DMesh& sphere{ meshes[meshIndex] };
+	const std::size_t vertexBufferSize{ vertices.size() * sizeof(Primitive3DVertex) };
+	const std::size_t indexBufferSize{ indices.size() * sizeof(std::uint32_t) };
+
+	// UINT -> size_tの縮小変換なので上限確認を入れる
+	const bool isVertexBufferSizeValid{ vertexBufferSize <= static_cast<std::size_t>((std::numeric_limits<UINT>::max)()) };
+	const bool isIndexBufferSizeValid{ indexBufferSize <= static_cast<std::size_t>((std::numeric_limits<UINT>::max)()) };
+	if (!isVertexBufferSizeValid || !isIndexBufferSizeValid)
+	{
+		DEBUG_LOG_ERROR("Primitive3D SphereのメッシュがUINT上限を超えています\n");
+		return false;
+	}
+
+	sphere.vertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(vertices.data(), static_cast<UINT>(vertexBufferSize), static_cast<UINT>(sizeof(Primitive3DVertex)));
+	sphere.indexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(indices.data(), static_cast<UINT>(indexBufferSize), static_cast<UINT>(indices.size()));
+	if (!sphere.IsValid())
+	{
+		DEBUG_LOG_ERROR("Primitive3Dの単位Sphere作成に失敗しました\n");
+		return false;
+	}
+	return true;
+}
+

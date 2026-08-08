@@ -26,6 +26,9 @@ constexpr size_t MATERIAL_PARAMETER_SLOT_COUNT{ 4 }; // materialが保持でき�
 constexpr UINT MATERIAL_PARAMETER_REGISTER_BASE{ 4 }; // ユーザーパラメータが使用するHLSL側の先頭レジスタslot0 = b4, slot1 = b5...となる
 constexpr size_t SPRITE_BATCH_COUNT{ 2 }; // 現在存在するspritebatchの数(backとforground)
 constexpr size_t MAX_ANIM_INSTANCE_COUNT{ 1024 }; // 同時に存在できるアニメーション個体数
+constexpr UINT PRIMITIVE_3D_SPHERE_SLICE_COUNT{ 32 }; // 3D球体の横方向分割数
+constexpr UINT PRIMITIVE_3D_SPHERE_STACK_COUNT{ 16 }; // 3D球体の縦方向の分割数
+constexpr UINT PRIMITIVE_3D_CYLINDER_DIVISION{ 32 }; // 3D円柱の円周方向分割数
 // 1フレームで発生しうるMaterialParamerter更新の最大数
 // 全Spriteが別Runかつ4スロット全使用する最悪条件にPostEffectの4スロットを追加する
 constexpr size_t MAX_MATERIAL_PARAMETER_UPDATE_PER_FRAME{ MAX_SPRITE_COUNT * SPRITE_BATCH_COUNT * MATERIAL_PARAMETER_SLOT_COUNT + MATERIAL_PARAMETER_SLOT_COUNT };

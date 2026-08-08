@@ -70,6 +70,8 @@ private:
 
 	// 単位Cubeの静的VB・IBを作成する
 	bool CreateCubeMesh();
+	// 緯度経度方式で単位Sphereを作成
+	bool CreateSphereMesh();
 
 private:
 	static constexpr std::size_t MESH_COUNT{ static_cast<std::size_t>(Primitive3DMeshID::Count) };
