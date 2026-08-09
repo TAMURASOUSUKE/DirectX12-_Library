@@ -86,12 +86,18 @@ namespace {
 		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
 		 .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
 		 .fillMode = D3D12_FILL_MODE_SOLID},
-		 // 3DPrimitiveWire
-		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DWire,
+		 // 3DPrimitiveMeshWire
+		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DMeshWire,
 		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DPS,
 		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
 		 .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
-		 .fillMode = D3D12_FILL_MODE_WIREFRAME}
+		 .fillMode = D3D12_FILL_MODE_WIREFRAME},
+		 // 3DPrimitiveDebugLine
+		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DDebugLine,
+		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DPS,
+		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
+		 .depth = DepthParam::ReadOnly, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
+		 .fillMode = D3D12_FILL_MODE_SOLID}
 	};
 }
 
@@ -434,6 +440,22 @@ namespace {
 		return instance;
 	}
 
+	// 3D基礎図形の描画方法を内部の型に変換するヘルパー
+	Primitive3DDrawMode ConvertPrimitive3DStyle(Gfx::Primitive3DStyle _style)
+	{
+		switch (_style)
+		{
+		case Gfx::Primitive3DStyle::Fill:
+			return Primitive3DDrawMode::Fill;
+		case Gfx::Primitive3DStyle::MeshWireframe:
+			return Primitive3DDrawMode::MeshWireframe;
+		case Gfx::Primitive3DStyle::DebugLine:
+			return Primitive3DDrawMode::DebugLine;
+		default:
+			return Primitive3DDrawMode::Fill;
+		}
+	}
+
 	// Gfx内のメンバの掃除
 	void ShutdownGfxOwnedResources()
 	{
@@ -571,7 +593,7 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	fgBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
 	bgBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
 	shapeBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Shape),shaderSystem.GetPipeline(PipelineID::ShapeFill), shaderSystem.GetPipeline(PipelineID::ShapeWire), orthConstantBufferData.resource.Get());
-	if (!primitive3DBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Primitive3D), shaderSystem.GetPipeline(PipelineID::Primitive3DFill), shaderSystem.GetPipeline(PipelineID::Primitive3DWire)))
+	if (!primitive3DBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Primitive3D), shaderSystem.GetPipeline(PipelineID::Primitive3DFill), shaderSystem.GetPipeline(PipelineID::Primitive3DMeshWire), shaderSystem.GetPipeline(PipelineID::Primitive3DDebugLine)))
 	{
 		DEBUG_LOG_ERROR("Primitive3DBatchの初期化に失敗しました\n");
 		return false;
@@ -1296,19 +1318,20 @@ bool Gfx::UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _st
 	return true;
 }
 
-void Gfx::DrawCube3D(const Transform& _transform, Vector4 _color, bool _isWireframe)
+void Gfx::DrawCube3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
-	primitive3DBatch.Register(Primitive3DMeshID::Cube, MakePrimitive3DInstanceData(_transform, _color), _isWireframe);
+	primitive3DBatch.Register(Primitive3DMeshID::Cube, MakePrimitive3DInstanceData(_transform, _color), ConvertPrimitive3DStyle(_style));
 }
 
-void Gfx::DrawSphere3D(const Transform& _transform, Vector4 _color, bool _isWireframe)
+void Gfx::DrawSphere3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
-	primitive3DBatch.Register(Primitive3DMeshID::Sphere, MakePrimitive3DInstanceData(_transform, _color), _isWireframe);
+	primitive3DBatch.Register(Primitive3DMeshID::Sphere, MakePrimitive3DInstanceData(_transform, _color), ConvertPrimitive3DStyle(_style));
 }
 
 void Gfx::DrawCylinder3D(const Transform& _transform, Vector4 _color, bool _isWireframe)
 {
-	primitive3DBatch.Register(Primitive3DMeshID::Cylinder, MakePrimitive3DInstanceData(_transform, _color), _isWireframe);
+	const Primitive3DDrawMode drawMode{ _isWireframe ? Primitive3DDrawMode::MeshWireframe : Primitive3DDrawMode::Fill };
+	primitive3DBatch.Register(Primitive3DMeshID::Cylinder, MakePrimitive3DInstanceData(_transform, _color), drawMode);
 }
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)

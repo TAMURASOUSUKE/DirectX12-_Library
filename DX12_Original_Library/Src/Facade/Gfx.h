@@ -113,6 +113,14 @@ namespace Gfx
 		Data, // ハイトマップやノーマルマップなどの数値データ,Linerとして読み込む	
 	};
 
+	// 3Dの基本図形の描画方法を設定する
+	enum class Primitive3DStyle
+	{
+		Fill, // 塗りつぶし
+		MeshWireframe, // メッシュをワイヤー表示
+		DebugLine, // あたり判定可視化などデバッグ途用として余計な線を描画しないワイヤー表示
+	};
+
 
 	// 画面のクリア(引数で色を設定できるデフォルトは黒)
 	void ClearScreen(float _r = 0.0f, float _g = 0.0f, float _b = 0.0f, float _a = 1.0f);
@@ -169,9 +177,9 @@ namespace Gfx
 	bool UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _state, float _deltaTime);
 
 	// 単位CubeをTransformで配置して描画する
-	void DrawCube3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, bool _isWireframe = false);
+	void DrawCube3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, Primitive3DStyle _style = Primitive3DStyle::Fill);
 	// 単位SphereをTransformで配置して描画する
-	void DrawSphere3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, bool _isWireframe = false);
+	void DrawSphere3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, Primitive3DStyle _style = Primitive3DStyle::Fill);
 	// 単位CylinderをTransformで配置して描画する
 	void DrawCylinder3D(const Transform& _transform, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f }, bool _isWireframe = false);
 

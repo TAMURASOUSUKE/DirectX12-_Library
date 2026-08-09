@@ -142,6 +142,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	cube0.SetPosition({ -1.5f, 1.0f, 3.0f });
 	Transform sphere{};
 	sphere.SetPosition({ 0.0f, 1.0f, 3.0f });
+	sphere.SetRotation(Quaternion::FromEuler({0.0f, 40.0f * Math::DEG_TO_RAD, 0.0f}));
 	Transform cylinder{};
 	cylinder.SetPosition({ 1.5f, 1.0f, 3.0f });
 	cylinder.SetScale({ 0.5f, 1.0f, 0.5f });
@@ -332,8 +333,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawAnimatedModel(testModelAnim01, modelTransform01);
 
 		// 3D基礎図形
-		Gfx::DrawCube3D(cube0, { 1.0f, 0.0f, 0.0f, 1.0f });
-		Gfx::DrawSphere3D(sphere, {0.0f, 0.0f, 0.0f, 1.0f}, true);
+		Gfx::DrawCube3D(cube0, { 1.0f, 0.0f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
+		Gfx::DrawSphere3D(sphere, {0.0f, 0.0f, 0.0f, 1.0f}, Gfx::Primitive3DStyle::DebugLine);
 		Gfx::DrawCylinder3D(cylinder, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
 
 		if (runtimeTexture.IsValid()) Gfx::DrawSprite(runtimeTexture, { 500.0f, 300.0f });

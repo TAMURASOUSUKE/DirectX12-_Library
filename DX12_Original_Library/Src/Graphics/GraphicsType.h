@@ -60,7 +60,8 @@ enum class PipelineID
 	ShapeFill, //  2D基本図形塗りつぶし
 	ShapeWire, // 2D基本図形ワイヤー
 	Primitive3DFill, // 3D基礎図形塗りつぶし
-	Primitive3DWire, // 3D基礎図形ワイヤー
+	Primitive3DMeshWire, // 3D基礎図形メッシュをワイヤー表示
+	Primitive3DDebugLine, // あたり判定可視化用のLineList
 	TerrainWire, // テッセレーションデモ
 	PostEffect, // シーンRTを画面へ描画するPSO
 	Count,

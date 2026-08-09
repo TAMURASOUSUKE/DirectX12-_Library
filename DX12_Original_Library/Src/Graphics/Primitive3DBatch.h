@@ -21,7 +21,8 @@ enum class Primitive3DMeshID : std::size_t
 enum class Primitive3DDrawMode : std::size_t
 {
 	Fill,
-	Wire,
+	MeshWireframe,
+	DebugLine,
 	Count
 };
 
@@ -42,9 +43,12 @@ struct Primitive3DInstanceRange
 struct Primitive3DMesh
 {
 	VertexBuffer vertexBuffer{};
-	IndexBuffer indexBuffer{};
+	IndexBuffer triangleIndexBuffer{}; // FillとMeshWireFrameで使う三角形用IB
+	IndexBuffer debugLineIndexBuffer{}; // あたり判定可視化で使う線分ようIB
 
-	bool IsValid() const { return vertexBuffer.resource && indexBuffer.resource && indexBuffer.indexCount > 0; }
+	// それぞれのIBでのチェック
+	bool HasTriangleGeometry() const { return vertexBuffer.resource && triangleIndexBuffer.resource && triangleIndexBuffer.indexCount > 0; }
+	bool HasDebugLineGeometry() const { return vertexBuffer.resource && debugLineIndexBuffer.resource && debugLineIndexBuffer.indexCount > 0; }
 };
 
 // インスタンシングを使った3D基礎図形描画を管理する
@@ -52,12 +56,12 @@ class Primitive3DBatch
 {
 public:
 	// RootSignatureとPSOを受け取りフレームごとのインスタンスバッファを作成
-	bool Setup(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _fillPipeLineState, ID3D12PipelineState* _wirePipeLineState);
+	bool Setup(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _fillPipeLineState, ID3D12PipelineState* _wirePipeLineState, ID3D12PipelineState* _debugLineState);
 	// GPUリソースとCPU側の登録情報を解放する
 	void Shutdown();
 
 	// 1個分の基礎図形を対応するBucketへ登録する
-	bool Register(Primitive3DMeshID _meshID, const Primitive3DInstanceData& _instance, bool _isWireframe);
+	bool Register(Primitive3DMeshID _meshID, const Primitive3DInstanceData& _instance, Primitive3DDrawMode _drawMode);
 	// フレーム開始時に登録状態をリセットする
 	void Reset(); 
 
@@ -83,13 +87,12 @@ private:
 	std::array<std::array<Primitive3DInstanceBucket, MESH_COUNT>, DRAW_MODE_COUNT> buckets{}; // 描画方法とメッシュで個体を分ける
 	std::array<std::array<Primitive3DInstanceRange, MESH_COUNT>, DRAW_MODE_COUNT> ranges{}; // Upload後のGPUバッファ内の配置範囲
 	std::array<Primitive3DMesh, MESH_COUNT> meshes{}; // Cube.Sphereなどの単位メッシュ
+	std::array<ID3D12PipelineState*, DRAW_MODE_COUNT> pipelines{};
 
 	std::size_t registeredInstanceCount{ 0 };
 	std::size_t droppedInstanceCount{ 0 };
 
 	ID3D12RootSignature* rootSignature{ nullptr };
-	ID3D12PipelineState* fillPipeline{ nullptr };
-	ID3D12PipelineState* wirePipeline{ nullptr };
 
 	RingConstantBuffer frameConstantBuffer{}; // 全Primitive3Dで共有するviewProjection用CB
 };
