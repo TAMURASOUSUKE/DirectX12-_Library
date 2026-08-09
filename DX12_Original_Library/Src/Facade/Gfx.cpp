@@ -17,7 +17,7 @@
 #include "../Graphics/GraphicsType.h"
 #include "../Graphics/InternalResource/DefaultFontData.h"
 #include "../Animation/AnimationSystem.h"
-#include "../Graphics/Primitive3DBatch.h"
+#include "../Graphics/Primitive3DSystem.h"
 #include "GfxInternal.h" // 外部公開しないもの
 #include "Gfx.h" // 外部公開するもの
 
@@ -41,8 +41,8 @@ namespace {
 	SpriteBatch fgBatch; // 手前のスプライトバッチ処理
 	SpriteBatch bgBatch; // 背景のスプライトバッチ処理
 	ShapeBatch shapeBatch; // 基本図形のバッチ処理
-	Primitive3DBatch primitive3DBatch; // 3Dの基礎図形
 	AnimationSystem animSystem; // 3Dモデルのアニメーションシステム
+	Primitive3DSystem primitive3DSystem; // 3D基礎図形描画のシステム
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	int screenWidth{ 0 }; // 画面の横幅
 	int screenHeight{ 0 }; // 画面の縦幅
@@ -427,19 +427,6 @@ namespace {
 		}
 	}
 
-	// 3Dの基礎図形の共通部分を行うヘルパー
-	Primitive3DInstanceData MakePrimitive3DInstanceData(const Transform& _transform, Vector4 _color)
-	{
-		Primitive3DInstanceData instance{};
-		instance.world = _transform.GetWorldMatrix();
-
-		// ライト接続までは暫定
-		instance.worldInverseTranspose = Mat4x4::Identity;
-		instance.color = _color;
-
-		return instance;
-	}
-
 	// 3D基礎図形の描画方法を内部の型に変換するヘルパー
 	Primitive3DDrawMode ConvertPrimitive3DStyle(Gfx::Primitive3DStyle _style)
 	{
@@ -474,7 +461,7 @@ namespace {
 		fgBatch.Shutdown();
 		bgBatch.Shutdown();
 		shapeBatch.Shutdown();
-		primitive3DBatch.Shutdown();
+		primitive3DSystem.Shutdown();
 
 		// 正射影CBを解放する
 		if (orthConstantBufferData.cbvHandle.IsValid())
@@ -593,9 +580,9 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	fgBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
 	bgBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
 	shapeBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Shape),shaderSystem.GetPipeline(PipelineID::ShapeFill), shaderSystem.GetPipeline(PipelineID::ShapeWire), orthConstantBufferData.resource.Get());
-	if (!primitive3DBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Primitive3D), shaderSystem.GetPipeline(PipelineID::Primitive3DFill), shaderSystem.GetPipeline(PipelineID::Primitive3DMeshWire), shaderSystem.GetPipeline(PipelineID::Primitive3DDebugLine)))
+	if (!primitive3DSystem.Setup(shaderSystem.GetRootSignature(RootSigID::Primitive3D), shaderSystem.GetPipeline(PipelineID::Primitive3DFill), shaderSystem.GetPipeline(PipelineID::Primitive3DMeshWire), shaderSystem.GetPipeline(PipelineID::Primitive3DDebugLine)))
 	{
-		DEBUG_LOG_ERROR("Primitive3DBatchの初期化に失敗しました\n");
+		DEBUG_LOG_ERROR("Primitive3DSystemの初期化に失敗しました\n");
 		return false;
 	}
 
@@ -626,7 +613,7 @@ void GfxInternal::BeginFrame()
 	bgBatch.Reset();
 	fgBatch.Reset();
 	shapeBatch.Reset();
-	primitive3DBatch.Reset();
+	primitive3DSystem.Reset();
 	// 定数バッファのカウンターリセット
 	mvpRingCBV.Reset();
 	materialRingCBV.Reset();
@@ -694,7 +681,7 @@ void GfxInternal::EndFrame()
 	// 3D基礎図形
 	{
 		GPU_MARKER("Primitive3D");
-		if (!primitive3DBatch.Flush(vpMat)) DEBUG_LOG_ERROR("Primitive3Dの更新に失敗しました\n");
+		if (!primitive3DSystem.Flush(vpMat)) DEBUG_LOG_ERROR("Primitive3Dの更新に失敗しました\n");
 	}
 	{
 		GPU_MARKER("foreGround");
@@ -1320,69 +1307,22 @@ bool Gfx::UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _st
 
 void Gfx::DrawCube3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
-	primitive3DBatch.Register(Primitive3DMeshID::Cube, MakePrimitive3DInstanceData(_transform, _color), ConvertPrimitive3DStyle(_style));
+	primitive3DSystem.RegisterCube(_transform, _color, ConvertPrimitive3DStyle(_style));
 }
 
 void Gfx::DrawSphere3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
-	primitive3DBatch.Register(Primitive3DMeshID::Sphere, MakePrimitive3DInstanceData(_transform, _color), ConvertPrimitive3DStyle(_style));
+	primitive3DSystem.RegisterSphere(_transform, _color, ConvertPrimitive3DStyle(_style));
 }
 
 void Gfx::DrawCylinder3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
-	primitive3DBatch.Register(Primitive3DMeshID::Cylinder, MakePrimitive3DInstanceData(_transform, _color), ConvertPrimitive3DStyle(_style));
+	primitive3DSystem.RegisterCylinder(_transform, _color, ConvertPrimitive3DStyle(_style));
 }
 
 void Gfx::DrawCapsule3D(Vector3 _start, Vector3 _end, float _radius, Vector4 _color, Primitive3DStyle _style)
 {
-	// この関数内の組み立ては本来Primtive3DSystemで行う
-	if (_radius <= Math::EPSILON)
-	{
-		DEBUG_LOG_ERROR("DrawCapsule3Dに不正な半径が渡されました Radius : {}\n", _radius);
-		return;
-	}
-
-	const Primitive3DDrawMode drawMode{ ConvertPrimitive3DStyle(_style) };
-	const Vector3 axis{ _end - _start };
-	const float length{ axis.Length() };
-	const float diameter{ _radius * 2.0f };
-
-	// 線分が0ならCapsuleはSphereとする
-	if (length <= Math::EPSILON)
-	{
-		Transform sphere{};
-		sphere.SetPosition(_start);
-		sphere.SetScale({diameter, diameter, diameter});
-		primitive3DBatch.Register(Primitive3DMeshID::Sphere, MakePrimitive3DInstanceData(sphere, _color), drawMode);
-		return;
-	}
-
-	// すでにLengthがも止まっているのでNormalizeを呼んで計算を重複させない
-	const Vector3 direction{ axis / length };
-	const Vector3 center{ (_start + _end) * 0.5f };
-
-	// 中央のCylinder
-	Transform cylinder{};
-	cylinder.SetPosition(center);
-	cylinder.SetRotation(Quaternion::FromToRotation(Vector3::Up, direction));
-	cylinder.SetScale({ diameter, length, diameter });
-
-	// endのHemisphere
-	Transform endCap{};
-	endCap.SetPosition(_end);
-	endCap.SetRotation(Quaternion::FromToRotation(Vector3::Up, direction));
-	endCap.SetScale({ diameter, diameter, diameter });
-
-	// start側のHemisphere
-	Transform startCap{};
-	startCap.SetPosition(_start);
-	startCap.SetRotation(Quaternion::FromToRotation(Vector3::Up, -direction));
-	startCap.SetScale({ diameter, diameter, diameter });
-
-	// 各登録
-	primitive3DBatch.Register(Primitive3DMeshID::Cylinder, MakePrimitive3DInstanceData(cylinder, _color), drawMode);
-	primitive3DBatch.Register(Primitive3DMeshID::Hemisphere, MakePrimitive3DInstanceData(endCap, _color), drawMode);
-	primitive3DBatch.Register(Primitive3DMeshID::Hemisphere, MakePrimitive3DInstanceData(startCap, _color), drawMode);
+	primitive3DSystem.RegisterCapsule(_start, _end, _radius, _color, ConvertPrimitive3DStyle(_style));
 }
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)

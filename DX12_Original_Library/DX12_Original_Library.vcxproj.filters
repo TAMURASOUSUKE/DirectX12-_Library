@@ -291,6 +291,9 @@
     <ClInclude Include="Src\Graphics\Primitive3DBatch.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Graphics\Primitive3DSystem.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -417,6 +420,9 @@
       <Filter>Src\Animation</Filter>
     </ClCompile>
     <ClCompile Include="Src\Graphics\Primitive3DBatch.cpp">
+      <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\Primitive3DSystem.cpp">
       <Filter>Src\Graphics</Filter>
     </ClCompile>
   </ItemGroup>

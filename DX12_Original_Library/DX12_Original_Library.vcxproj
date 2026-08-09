@@ -201,6 +201,7 @@
     <ClInclude Include="Src\Graphics\GraphicsResourceManager.h" />
     <ClInclude Include="Src\Graphics\InternalResource\DefaultFontData.h" />
     <ClInclude Include="Src\Graphics\Primitive3DBatch.h" />
+    <ClInclude Include="Src\Graphics\Primitive3DSystem.h" />
     <ClInclude Include="Src\Graphics\RingConstantBuffer.h" />
     <ClInclude Include="Src\Graphics\ShaderSystem.h" />
     <ClInclude Include="Src\Graphics\ShapeBatch.h" />
@@ -259,6 +260,7 @@
     <ClCompile Include="Src\Graphics\GraphicsResourceManager.cpp" />
     <ClCompile Include="Src\Graphics\InternalResource\DefaultFontData.cpp" />
     <ClCompile Include="Src\Graphics\Primitive3DBatch.cpp" />
+    <ClCompile Include="Src\Graphics\Primitive3DSystem.cpp" />
     <ClCompile Include="Src\Graphics\RingConstantBuffer.cpp" />
     <ClCompile Include="Src\Graphics\ShaderSystem.cpp" />
     <ClCompile Include="Src\Graphics\ShapeBatch.cpp" />
