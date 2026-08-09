@@ -1,7 +1,7 @@
 #include <iostream>
 #include <variant>
 #include <string>
-#include "TSMath.h"
+#include "../Src/Facade/TSLib.h"
 
 int testCount{ 0 };
 int passCount{ 0 };
@@ -146,6 +146,11 @@ int main()
 
     Vector3 rotated = qMid.RotateVector(Vector3::Right);  // (1,0,0)を回転
     Check(NearEqual(rotated.x, 0.7071f) && NearEqual(rotated.z, 0.7071f), "Slerp中間値");
+
+	const Quaternion rotation{ Quaternion::FromToRotation(Vector3::Up, Vector3::Right) };
+	const Vector3 quaternionResult{ rotation.RotateVector(Vector3::Up) };
+	const Vector3 matrixResult{ rotation.ToMat4x4().TransformDirection(Vector3::Up) };
+	DEBUG_LOG("Quaternion = ({}, {}, {}) Matrix = ({}, {}, {})\n", quaternionResult.x, quaternionResult.y, quaternionResult.z, matrixResult.x, matrixResult.y, matrixResult.z);
 
     // 0除算による警告テスト
     Vector2 aVec2{ 10.0f, 10.0f };
