@@ -41,7 +41,7 @@ bool Primitive3DBatch::Setup(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 	}
 
 	frameConstantBuffer.Setup(static_cast<UINT>(sizeof(Primitive3DFrameData)), 1);
-	if (!CreateCubeMesh() || !CreateSphereMesh() || !CreateCylinderMesh())
+	if (!CreateCubeMesh() || !CreateSphereMesh() || !CreateCylinderMesh() || !CreateHemisphereMesh())
 	{
 		Shutdown();
 		return false;
@@ -464,7 +464,11 @@ bool Primitive3DBatch::CreateCylinderMesh()
 	constexpr float HALF_HEIGHT{ 0.5f };
 
 	std::vector<Primitive3DVertex> vertices{};
-	std::vector<std::uint32_t> indices{};
+	std::vector<std::uint32_t> triangleIndices{};
+	std::vector<std::uint32_t> debugLineIndices{};
+
+	// 縦線を90度間隔で結ぶため
+	static_assert(PRIMITIVE_3D_CYLINDER_DIVISION % 4 == 0, "Cylinderの分割数は4の倍数にしてください");
 
 	// 側面計算
 	const std::uint32_t sideStart{ static_cast<std::uint32_t>(vertices.size()) };
@@ -492,14 +496,37 @@ bool Primitive3DBatch::CreateCylinderMesh()
 		const std::uint32_t top1{ bottom1 + 1 };
 
 		// 側面の四角形を2三角形へ分割
-		indices.push_back(bottom0);
-		indices.push_back(top0);
-		indices.push_back(top1);
+		triangleIndices.push_back(bottom0);
+		triangleIndices.push_back(top0);
+		triangleIndices.push_back(top1);
 
-		indices.push_back(bottom0);
-		indices.push_back(top1);
-		indices.push_back(bottom1);
+		triangleIndices.push_back(bottom0);
+		triangleIndices.push_back(top1);
+		triangleIndices.push_back(bottom1);
 	}
+
+	const auto AddLine = [&debugLineIndices](std::uint32_t _start, std::uint32_t _end)
+		{
+			debugLineIndices.push_back(_start);
+			debugLineIndices.push_back(_end);
+		};
+
+	// デバッグ用のときの縦線4本
+	constexpr std::array<UINT, 4> VERTICAL_LINE_DIVISIONS
+	{
+		0, // 0度
+		PRIMITIVE_3D_CYLINDER_DIVISION / 4, // 90度
+		PRIMITIVE_3D_CYLINDER_DIVISION / 2,  // 180度
+		PRIMITIVE_3D_CYLINDER_DIVISION * 3 / 4, // 270度
+	};
+
+	for (UINT division : VERTICAL_LINE_DIVISIONS)
+	{
+		const std::uint32_t bottom{ sideStart + division * 2 };
+		const std::uint32_t top{ bottom + 1 };
+		AddLine(bottom, top);
+	}
+
 
 	// 上蓋
 	const std::uint32_t topCenter{ static_cast<std::uint32_t>(vertices.size()) };
@@ -514,9 +541,13 @@ bool Primitive3DBatch::CreateCylinderMesh()
 
 	for (UINT i = 0; i < PRIMITIVE_3D_CYLINDER_DIVISION; i++)
 	{
-		indices.push_back(topCenter);
-		indices.push_back(topRimStart + i + 1);
-		indices.push_back(topRimStart + i);
+		triangleIndices.push_back(topCenter);
+		triangleIndices.push_back(topRimStart + i + 1);
+		triangleIndices.push_back(topRimStart + i);
+
+		const std::uint32_t currentTop{ (sideStart + i * 2) + 1 };
+		const std::uint32_t nextTop{ (sideStart + (i + 1) * 2) + 1 };
+		AddLine(currentTop, nextTop);
 	}
 
 	// 下蓋
@@ -532,19 +563,25 @@ bool Primitive3DBatch::CreateCylinderMesh()
 
 	for (UINT i = 0; i < PRIMITIVE_3D_CYLINDER_DIVISION; i++)
 	{
-		indices.push_back(bottomCenter);
-		indices.push_back(bottomRimStart + i + 1);
-		indices.push_back(bottomRimStart + i);
+		triangleIndices.push_back(bottomCenter);
+		triangleIndices.push_back(bottomRimStart + i + 1);
+		triangleIndices.push_back(bottomRimStart + i);
+
+		const std::uint32_t currentBottom{ (sideStart + i * 2) };
+		const std::uint32_t nextBottom{ (sideStart + (i + 1) * 2) };
+		AddLine(currentBottom, nextBottom);
 	}
 
 	// GPUリソース作成
 	const std::size_t vertexBufferSize{ vertices.size() * sizeof(Primitive3DVertex) };
-	const std::size_t indexBufferSize{ indices.size() * sizeof(std::uint32_t) };
+	const std::size_t triangleIndexBufferSize{ triangleIndices.size() * sizeof(std::uint32_t) };
+	const std::size_t debugLineIndexBufferSize{ debugLineIndices.size() * sizeof(std::uint32_t) };
 
 	// UINT -> size_tの縮小変換なので上限確認を入れる
 	const bool isVertexBufferSizeValid{ vertexBufferSize <= static_cast<std::size_t>((std::numeric_limits<UINT>::max)()) };
-	const bool isIndexBufferSizeValid{ indexBufferSize <= static_cast<std::size_t>((std::numeric_limits<UINT>::max)()) };
-	if (!isVertexBufferSizeValid || !isIndexBufferSizeValid)
+	const bool isTriangleIndexBufferSizeValid{ triangleIndexBufferSize <= static_cast<std::size_t>((std::numeric_limits<UINT>::max)()) };
+	const bool isDebugLineIndexBufferSizeValid{ debugLineIndexBufferSize <= static_cast<std::size_t>((std::numeric_limits<UINT>::max)()) };
+	if (!isVertexBufferSizeValid || !isTriangleIndexBufferSizeValid || !isDebugLineIndexBufferSizeValid)
 	{
 		DEBUG_LOG_ERROR("Primitive3D CylinderのメッシュサイズがUINT上限を超えています\n");
 		return false;
@@ -554,11 +591,132 @@ bool Primitive3DBatch::CreateCylinderMesh()
 	Primitive3DMesh& cylinder{ meshes[meshIndex] };
 
 	cylinder.vertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(vertices.data(), static_cast<UINT>(vertexBufferSize), static_cast<UINT>(sizeof(Primitive3DVertex)));
-	cylinder.triangleIndexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(indices.data(), static_cast<UINT>(indexBufferSize), static_cast<UINT>(indices.size()));
-	if (!cylinder.HasTriangleGeometry())
+	cylinder.triangleIndexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(triangleIndices.data(), static_cast<UINT>(triangleIndexBufferSize), static_cast<UINT>(triangleIndices.size()));
+	cylinder.debugLineIndexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(debugLineIndices.data(), static_cast<UINT>(debugLineIndexBufferSize), static_cast<UINT>(debugLineIndices.size()));
+	if (!cylinder.HasTriangleGeometry() || !cylinder.HasDebugLineGeometry())
 	{
 		DEBUG_LOG_ERROR("Primitive3Dの単位Cylinder作成に失敗しました\n");
 		return false;
 	}
 	return true;
+}
+
+bool Primitive3DBatch::CreateHemisphereMesh()
+{
+	// 上半球なので0-π / 2まで生成
+	constexpr float RADIUS{ 0.5f };
+	constexpr UINT HEMISPHERE_STACK_COUNT{ PRIMITIVE_3D_SPHERE_STACK_COUNT / 2 };
+
+	static_assert(PRIMITIVE_3D_SPHERE_STACK_COUNT % 2 == 0, "SphereのStack数は偶数にしてください");
+	static_assert(PRIMITIVE_3D_SPHERE_SLICE_COUNT % 4 == 0, "SphereのSlice数は4の倍数にしてください");
+
+	std::vector<Primitive3DVertex> vertices{};
+	std::vector<std::uint32_t> triangleIndices{};
+	std::vector<std::uint32_t> debugLineIndices{};
+
+	vertices.reserve(static_cast<std::size_t>(HEMISPHERE_STACK_COUNT + 1) * static_cast<std::size_t>(PRIMITIVE_3D_SPHERE_SLICE_COUNT + 1));
+	for (UINT stack = 0; stack <= HEMISPHERE_STACK_COUNT; stack++)
+	{
+		// 0 - π / 2
+		const float phi{ (Math::PI * 0.5f) * static_cast<float>(stack) / static_cast<float>(HEMISPHERE_STACK_COUNT) };
+		const float y{ std::cos(phi) };
+		const float ringRadius{ std::sin(phi) };
+		for (UINT slice = 0; slice <= PRIMITIVE_3D_SPHERE_SLICE_COUNT; slice++)
+		{
+			const float theta{ 2.0f * Math::PI * static_cast<float>(slice) / static_cast<float>(PRIMITIVE_3D_SPHERE_SLICE_COUNT) };
+
+			// 方向はそのまま法線に使える
+			const Vector3 normal
+			{
+				ringRadius * std::cos(theta),
+				y,
+				ringRadius * std::sin(theta)
+			};
+
+			const  Vector3 position{ normal * RADIUS };
+			vertices.push_back(Primitive3DVertex{ position.x, position.y, position.z, normal.x, normal.y, normal.z });
+		}
+	}
+
+	// Triangle用のインデックス
+	const auto GetVertexIndex = [](UINT _stack, UINT _slice) -> std::uint32_t
+		{
+			return static_cast<std::uint32_t>(_stack * (PRIMITIVE_3D_SPHERE_SLICE_COUNT + 1) + _slice);
+		};
+
+	for (UINT stack = 0; stack < HEMISPHERE_STACK_COUNT; stack++)
+	{
+		for (UINT slice = 0; slice < PRIMITIVE_3D_SPHERE_SLICE_COUNT; slice++)
+		{
+			const std::uint32_t topLeft{ GetVertexIndex(stack, slice) };
+			const std::uint32_t topRight{ GetVertexIndex(stack, slice + 1) };
+			const std::uint32_t bottomLeft{ GetVertexIndex(stack + 1, slice) };
+			const std::uint32_t bottomRight{ GetVertexIndex(stack + 1, slice + 1) };
+
+			// 北極点では同じ位置の頂点を結ばない
+			if(stack != 0)
+			{
+				triangleIndices.push_back(topLeft);
+				triangleIndices.push_back(bottomLeft);
+				triangleIndices.push_back(topRight);
+			}
+
+			triangleIndices.push_back(topRight);
+			triangleIndices.push_back(bottomLeft);
+			triangleIndices.push_back(bottomRight);
+		}
+	}
+
+	// DebugLine用の線分作成ヘルパー
+	const auto AddLine = [&debugLineIndices](std::uint32_t _start, std::uint32_t _end)
+		{
+			debugLineIndices.push_back(_start);
+			debugLineIndices.push_back(_end);
+		};
+
+	// 円をかくときの角度
+	constexpr std::array<UINT, 4> ARC_SLICE
+	{
+		0, // 0度
+		PRIMITIVE_3D_SPHERE_SLICE_COUNT / 4, // 90度
+		PRIMITIVE_3D_SPHERE_SLICE_COUNT / 2, // 180度
+		PRIMITIVE_3D_SPHERE_SLICE_COUNT * 3 / 4 // 270度
+	};
+
+	for (UINT slice : ARC_SLICE)
+	{
+		for (UINT stack = 0; stack < HEMISPHERE_STACK_COUNT; stack++)
+		{
+			AddLine(GetVertexIndex(stack, slice), GetVertexIndex(stack + 1, slice));
+		}
+	}
+
+	// GPUリソース作成
+	const std::size_t vertexBufferSize{ vertices.size() * sizeof(Primitive3DVertex) };
+	const std::size_t triangleIndexBufferSize{ triangleIndices.size() * sizeof(std::uint32_t) };
+	const std::size_t debugLineIndexBufferSize{ debugLineIndices.size() * sizeof(std::uint32_t) };
+
+	// UINT -> size_tの縮小変換なので上限確認を入れる
+	const bool isVertexBufferSizeValid{ vertexBufferSize <= static_cast<std::size_t>((std::numeric_limits<UINT>::max)()) };
+	const bool isTriangleIndexBufferSizeValid{ triangleIndexBufferSize <= static_cast<std::size_t>((std::numeric_limits<UINT>::max)()) };
+	const bool isDebugLineIndexBufferSizeValid{ debugLineIndexBufferSize <= static_cast<std::size_t>((std::numeric_limits<UINT>::max)()) };
+	if (!isVertexBufferSizeValid || !isTriangleIndexBufferSizeValid || !isDebugLineIndexBufferSizeValid)
+	{
+		DEBUG_LOG_ERROR("Primitive3D HemisphereのメッシュサイズがUINT上限を超えています\n");
+		return false;
+	}
+
+	const std::size_t meshIndex{ static_cast<std::size_t>(Primitive3DMeshID::Hemisphere) };
+	Primitive3DMesh& hemisphere{ meshes[meshIndex] };
+
+	hemisphere.vertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(vertices.data(), static_cast<UINT>(vertexBufferSize), static_cast<UINT>(sizeof(Primitive3DVertex)));
+	hemisphere.triangleIndexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(triangleIndices.data(), static_cast<UINT>(triangleIndexBufferSize), static_cast<UINT>(triangleIndices.size()));
+	hemisphere.debugLineIndexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(debugLineIndices.data(), static_cast<UINT>(debugLineIndexBufferSize), static_cast<UINT>(debugLineIndices.size()));
+	if (!hemisphere.HasTriangleGeometry() || !hemisphere.HasDebugLineGeometry())
+	{
+		DEBUG_LOG_ERROR("Primitive3Dの単位Hemisphere作成に失敗しました\n");
+		return false;
+	}
+	return true;
+
 }

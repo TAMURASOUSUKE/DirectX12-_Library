@@ -181,7 +181,9 @@ namespace Gfx
 	// 単位SphereをTransformで配置して描画する
 	void DrawSphere3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, Primitive3DStyle _style = Primitive3DStyle::Fill);
 	// 単位CylinderをTransformで配置して描画する
-	void DrawCylinder3D(const Transform& _transform, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f }, bool _isWireframe = false);
+	void DrawCylinder3D(const Transform& _transform, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f }, Primitive3DStyle _style = Primitive3DStyle::Fill);
+	// 単位Capsuleを線分と半径で配置して描画する(XZ平面に垂直な時には下 = start上 = endです)
+	void DrawCapsule3D(Vector3 _start, Vector3 _end, float _radius, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f }, Primitive3DStyle _style = Primitive3DStyle::Fill);
 
 	// 静的モデルを描画する
 	void DrawModel(ModelHandle _model, Transform _transform);

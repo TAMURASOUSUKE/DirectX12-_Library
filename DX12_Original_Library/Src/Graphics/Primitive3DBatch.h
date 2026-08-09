@@ -13,6 +13,7 @@ enum class Primitive3DMeshID : std::size_t
 	Cube,
 	Sphere,
 	Cylinder,
+	Hemisphere, // capsuleの両端用
 	Plane,
 	Count
 };
@@ -78,6 +79,8 @@ private:
 	bool CreateSphereMesh();
 	// 単位Clyinderを作成する
 	bool CreateCylinderMesh();
+	// capsuleの両端で使う上半球を用意
+	bool CreateHemisphereMesh();
 
 private:
 	static constexpr std::size_t MESH_COUNT{ static_cast<std::size_t>(Primitive3DMeshID::Count) };

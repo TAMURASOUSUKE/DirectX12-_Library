@@ -335,9 +335,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		// 3D基礎図形
 		Gfx::DrawCube3D(cube0, { 1.0f, 0.0f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
 		Gfx::DrawSphere3D(sphere, {0.0f, 0.0f, 0.0f, 1.0f}, Gfx::Primitive3DStyle::DebugLine);
-		Gfx::DrawCylinder3D(cylinder, { 0.0f, 1.0f, 0.0f, 1.0f }, true);
+		Gfx::DrawCylinder3D(cylinder, { 0.0f, 1.0f, 0.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
+		Gfx::DrawCapsule3D({ 0.0f, -2.0f, 5.0f }, { 0.0f,  0.0f, 5.0f }, 0.5f, {0.2f, 1.0f, 0.3f}, Gfx::Primitive3DStyle::Fill);
+		Gfx::DrawCapsule3D({ -2.0f, -1.0f, 5.0f }, { 2.0f,  2.0f, 5.0f }, 0.5f, { 0.8f, 0.1f, 0.6f }, Gfx::Primitive3DStyle::DebugLine);
+		Gfx::DrawCapsule3D({ 3.0f,  2.0f, 5.0f }, { 3.0f, -2.0f, 5.0f }, 0.5f, { 0.7f, 0.5f, 0.7f }, Gfx::Primitive3DStyle::DebugLine);
 
-		if (runtimeTexture.IsValid()) Gfx::DrawSprite(runtimeTexture, { 500.0f, 300.0f });
+		// if (runtimeTexture.IsValid()) Gfx::DrawSprite(runtimeTexture, { 500.0f, 300.0f });
 
 		// アニメーションテスト
 		Gfx::SetMaterialParameter(glitchMaterial, 2, atlasParameter);

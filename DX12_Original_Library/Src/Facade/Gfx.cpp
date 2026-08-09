@@ -573,7 +573,7 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 
 	// 透視投影行列の作成(一旦ハードコーディング)
 	const float virtualAspect{ static_cast<float>(_virtualWidth) / static_cast<float>(_virtualHeight) };
-	vpMat = Mat4x4::MakeLookAt({ 0.0f, 3.0f, -3.0f }, { 0.0f, 1.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, virtualAspect, 0.1f, 100.0f);
+	vpMat = Mat4x4::MakeLookAt({ 0.0f, 1.0f, -3.0f }, { 0.0f, 1.0f, 1.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, virtualAspect, 0.1f, 100.0f);
 	mvpRingCBV.Setup(sizeof(Mat4x4)); // リングバッファ初期化
 	materialRingCBV.Setup(sizeof(MaterialCB));  // materialのリング定数バッファを初期化
 	skinningRingCBV.Setup(sizeof(Mat4x4) * MAX_BONE_NUM); // ボーン用の定数バッファを更新
@@ -1328,10 +1328,61 @@ void Gfx::DrawSphere3D(const Transform& _transform, Vector4 _color, Primitive3DS
 	primitive3DBatch.Register(Primitive3DMeshID::Sphere, MakePrimitive3DInstanceData(_transform, _color), ConvertPrimitive3DStyle(_style));
 }
 
-void Gfx::DrawCylinder3D(const Transform& _transform, Vector4 _color, bool _isWireframe)
+void Gfx::DrawCylinder3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
-	const Primitive3DDrawMode drawMode{ _isWireframe ? Primitive3DDrawMode::MeshWireframe : Primitive3DDrawMode::Fill };
-	primitive3DBatch.Register(Primitive3DMeshID::Cylinder, MakePrimitive3DInstanceData(_transform, _color), drawMode);
+	primitive3DBatch.Register(Primitive3DMeshID::Cylinder, MakePrimitive3DInstanceData(_transform, _color), ConvertPrimitive3DStyle(_style));
+}
+
+void Gfx::DrawCapsule3D(Vector3 _start, Vector3 _end, float _radius, Vector4 _color, Primitive3DStyle _style)
+{
+	// この関数内の組み立ては本来Primtive3DSystemで行う
+	if (_radius <= Math::EPSILON)
+	{
+		DEBUG_LOG_ERROR("DrawCapsule3Dに不正な半径が渡されました Radius : {}\n", _radius);
+		return;
+	}
+
+	const Primitive3DDrawMode drawMode{ ConvertPrimitive3DStyle(_style) };
+	const Vector3 axis{ _end - _start };
+	const float length{ axis.Length() };
+	const float diameter{ _radius * 2.0f };
+
+	// 線分が0ならCapsuleはSphereとする
+	if (length <= Math::EPSILON)
+	{
+		Transform sphere{};
+		sphere.SetPosition(_start);
+		sphere.SetScale({diameter, diameter, diameter});
+		primitive3DBatch.Register(Primitive3DMeshID::Sphere, MakePrimitive3DInstanceData(sphere, _color), drawMode);
+		return;
+	}
+
+	// すでにLengthがも止まっているのでNormalizeを呼んで計算を重複させない
+	const Vector3 direction{ axis / length };
+	const Vector3 center{ (_start + _end) * 0.5f };
+
+	// 中央のCylinder
+	Transform cylinder{};
+	cylinder.SetPosition(center);
+	cylinder.SetRotation(Quaternion::FromToRotation(Vector3::Up, direction));
+	cylinder.SetScale({ diameter, length, diameter });
+
+	// endのHemisphere
+	Transform endCap{};
+	endCap.SetPosition(_end);
+	endCap.SetRotation(Quaternion::FromToRotation(Vector3::Up, direction));
+	endCap.SetScale({ diameter, diameter, diameter });
+
+	// start側のHemisphere
+	Transform startCap{};
+	startCap.SetPosition(_start);
+	startCap.SetRotation(Quaternion::FromToRotation(Vector3::Up, -direction));
+	startCap.SetScale({ diameter, diameter, diameter });
+
+	// 各登録
+	primitive3DBatch.Register(Primitive3DMeshID::Cylinder, MakePrimitive3DInstanceData(cylinder, _color), drawMode);
+	primitive3DBatch.Register(Primitive3DMeshID::Hemisphere, MakePrimitive3DInstanceData(endCap, _color), drawMode);
+	primitive3DBatch.Register(Primitive3DMeshID::Hemisphere, MakePrimitive3DInstanceData(startCap, _color), drawMode);
 }
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)
