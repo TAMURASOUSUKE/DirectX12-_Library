@@ -288,6 +288,12 @@
     <ClInclude Include="Src\Animation\AnimationSystem.h">
       <Filter>Src\Animation</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Graphics\Primitive3DBatch.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Graphics\Primitive3DSystem.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -413,6 +419,12 @@
     <ClCompile Include="Src\Animation\AnimationSystem.cpp">
       <Filter>Src\Animation</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Graphics\Primitive3DBatch.cpp">
+      <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\Primitive3DSystem.cpp">
+      <Filter>Src\Graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Src\Shaders\TexturePS.hlsl">
@@ -451,6 +463,12 @@
     <FxCompile Include="Src\Shaders\PostEffectPS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="Src\Shaders\Primitive3DVS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\Primitive3DPS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Src\Shaders\Terrain.hlsli">
@@ -460,6 +478,9 @@
       <Filter>Src\Shaders</Filter>
     </None>
     <None Include="Src\Shaders\SpriteContract.hlsli">
+      <Filter>Src\Shaders</Filter>
+    </None>
+    <None Include="Src\Shaders\Primitive3DContract.hlsli">
       <Filter>Src\Shaders</Filter>
     </None>
   </ItemGroup>

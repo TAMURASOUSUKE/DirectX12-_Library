@@ -17,6 +17,7 @@
 #include "../Graphics/GraphicsType.h"
 #include "../Graphics/InternalResource/DefaultFontData.h"
 #include "../Animation/AnimationSystem.h"
+#include "../Graphics/Primitive3DSystem.h"
 #include "GfxInternal.h" // 外部公開しないもの
 #include "Gfx.h" // 外部公開するもの
 
@@ -41,6 +42,7 @@ namespace {
 	SpriteBatch bgBatch; // 背景のスプライトバッチ処理
 	ShapeBatch shapeBatch; // 基本図形のバッチ処理
 	AnimationSystem animSystem; // 3Dモデルのアニメーションシステム
+	Primitive3DSystem primitive3DSystem; // 3D基礎図形描画のシステム
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	int screenWidth{ 0 }; // 画面の横幅
 	int screenHeight{ 0 }; // 画面の縦幅
@@ -77,7 +79,25 @@ namespace {
 		{.rootSignatureID = RootSigID::PostEffect, .pipelineID = PipelineID::PostEffect,
 		 .vs = BuiltinShaderID::PostEffectVS, .ps = BuiltinShaderID::PostEffectPS,
 		 .layout = InputLayout::None, .blend = BlendMode::Opaque, // レイアウトはSV_VertexIDから直接作るので頂点入力はない、Blendも完全に画面を置き換えるのでブレンド無し
-		 .depth = DepthParam::None, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE} // 2D画像を画面へ貼るだけなので深度は使わない
+		 .depth = DepthParam::None, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE}, // 2D画像を画面へ貼るだけなので深度は使わない
+		// 3DPrimitiveFill
+		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DFill,
+		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DPS,
+		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
+		 .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+		 .fillMode = D3D12_FILL_MODE_SOLID},
+		 // 3DPrimitiveMeshWire
+		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DMeshWire,
+		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DPS,
+		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
+		 .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+		 .fillMode = D3D12_FILL_MODE_WIREFRAME},
+		 // 3DPrimitiveDebugLine
+		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DDebugLine,
+		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DPS,
+		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
+		 .depth = DepthParam::ReadOnly, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
+		 .fillMode = D3D12_FILL_MODE_SOLID}
 	};
 }
 
@@ -407,6 +427,22 @@ namespace {
 		}
 	}
 
+	// 3D基礎図形の描画方法を内部の型に変換するヘルパー
+	Primitive3DDrawMode ConvertPrimitive3DStyle(Gfx::Primitive3DStyle _style)
+	{
+		switch (_style)
+		{
+		case Gfx::Primitive3DStyle::Fill:
+			return Primitive3DDrawMode::Fill;
+		case Gfx::Primitive3DStyle::MeshWireframe:
+			return Primitive3DDrawMode::MeshWireframe;
+		case Gfx::Primitive3DStyle::DebugLine:
+			return Primitive3DDrawMode::DebugLine;
+		default:
+			return Primitive3DDrawMode::Fill;
+		}
+	}
+
 	// Gfx内のメンバの掃除
 	void ShutdownGfxOwnedResources()
 	{
@@ -425,6 +461,7 @@ namespace {
 		fgBatch.Shutdown();
 		bgBatch.Shutdown();
 		shapeBatch.Shutdown();
+		primitive3DSystem.Shutdown();
 
 		// 正射影CBを解放する
 		if (orthConstantBufferData.cbvHandle.IsValid())
@@ -460,9 +497,6 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	virtualHeight = _virtualHeight;
 	// 前回の初期化状態を引き継がない
 	currentPostEffectMaterial = {};
-
-	DEBUG_LOG("ClientSize = {} x {}\n", _clientWidth, _clientHeight);
-
 
 	GraphicsDevice::Instance().Setup(_hwnd, _clientWidth, _clientHeight); // デバイスの初期化
 	if (!GraphicsDevice::Instance().GetDevice())
@@ -523,7 +557,7 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 
 	// 透視投影行列の作成(一旦ハードコーディング)
 	const float virtualAspect{ static_cast<float>(_virtualWidth) / static_cast<float>(_virtualHeight) };
-	vpMat = Mat4x4::MakeLookAt({ 0.0f, 3.0f, -3.0f }, { 0.0f, 1.0f, 0.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, virtualAspect, 0.1f, 100.0f);
+	vpMat = Mat4x4::MakeLookAt({ 0.0f, 1.0f, -3.0f }, { 0.0f, 1.0f, 1.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, virtualAspect, 0.1f, 100.0f);
 	mvpRingCBV.Setup(sizeof(Mat4x4)); // リングバッファ初期化
 	materialRingCBV.Setup(sizeof(MaterialCB));  // materialのリング定数バッファを初期化
 	skinningRingCBV.Setup(sizeof(Mat4x4) * MAX_BONE_NUM); // ボーン用の定数バッファを更新
@@ -540,9 +574,14 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	std::memset(zeroMaterialParameterBuffer.mappedPtr, 0, MAX_MATERIAL_PARAMETER_SIZE);
 	animSystem.Setup(); // アニメーションシステムのセットアップ
 	// スプライトバッチ処理初期化
-	fgBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
-	bgBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
-	shapeBatch.Initialize(shaderSystem.GetRootSignature(RootSigID::Shape),shaderSystem.GetPipeline(PipelineID::ShapeFill), shaderSystem.GetPipeline(PipelineID::ShapeWire), orthConstantBufferData.resource.Get());
+	fgBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
+	bgBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
+	shapeBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Shape),shaderSystem.GetPipeline(PipelineID::ShapeFill), shaderSystem.GetPipeline(PipelineID::ShapeWire), orthConstantBufferData.resource.Get());
+	if (!primitive3DSystem.Setup(shaderSystem.GetRootSignature(RootSigID::Primitive3D), shaderSystem.GetPipeline(PipelineID::Primitive3DFill), shaderSystem.GetPipeline(PipelineID::Primitive3DMeshWire), shaderSystem.GetPipeline(PipelineID::Primitive3DDebugLine)))
+	{
+		DEBUG_LOG_ERROR("Primitive3DSystemの初期化に失敗しました\n");
+		return false;
+	}
 
 	// 文字列構造体初期化
 	defaultFont.texture = GraphicsResourceManager::Instance().LoadTextureFromMemory(InternalResource::defaultFontPng, InternalResource::defaultFontPngSize, false); // デフォルトフォント
@@ -571,6 +610,7 @@ void GfxInternal::BeginFrame()
 	bgBatch.Reset();
 	fgBatch.Reset();
 	shapeBatch.Reset();
+	primitive3DSystem.Reset();
 	// 定数バッファのカウンターリセット
 	mvpRingCBV.Reset();
 	materialRingCBV.Reset();
@@ -635,7 +675,11 @@ void GfxInternal::EndFrame()
 		GPU_MARKER("backGround");
 		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
 	}
-
+	// 3D基礎図形
+	{
+		GPU_MARKER("Primitive3D");
+		if (!primitive3DSystem.Flush(vpMat)) DEBUG_LOG_ERROR("Primitive3Dの更新に失敗しました\n");
+	}
 	{
 		GPU_MARKER("foreGround");
 		fgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
@@ -756,8 +800,6 @@ void GfxInternal::Finish()
 	const UINT64 submittedBefore{ graphicsDevice.GetLastSubmittedFenceValue() };
 
 	const UINT64 completedBefore{ graphicsDevice.GetCompletedFenceValue() };
-
-	DEBUG_LOG("[FenceSensor BeforeWait] submitted={} completed={} inFlight={}", submittedBefore, completedBefore, completedBefore < submittedBefore);
 #endif
 
 	bool result{ GraphicsDevice::Instance().WaitForGPU() }; // GPUの待機をしてから各終了処理を行う
@@ -773,8 +815,6 @@ void GfxInternal::Finish()
 	const UINT64 submittedAfter{ graphicsDevice.GetLastSubmittedFenceValue() };
 
 	const UINT64 completedAfter{ graphicsDevice.GetCompletedFenceValue() };
-
-	DEBUG_LOG("[FenceSensor AfterWait] submitted={} completed={} inFlight={}", submittedAfter, completedAfter, completedAfter < submittedAfter);
 #endif
 
 	ShutdownGfxOwnedResources(); // Gfxが所有するリソースの削除
@@ -790,7 +830,6 @@ void GfxInternal::Finish()
 	{
 		const HRESULT reason = device->GetDeviceRemovedReason();
 
-		DEBUG_LOG("[Sensor1] GetDeviceRemovedReason = 0x{:08X}", static_cast<unsigned int>(reason));
 	}
 #endif
 
@@ -1256,6 +1295,66 @@ bool Gfx::UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _st
 		}
 	}
 	return true;
+}
+
+void Gfx::DrawCube3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
+{
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterCube(_transform, _color, ConvertPrimitive3DStyle(_style))) return;
+}
+
+void Gfx::DrawSphere3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
+{
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterSphere(_transform, _color, ConvertPrimitive3DStyle(_style))) return; 
+}
+
+void Gfx::DrawCylinder3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
+{
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterCylinder(_transform, _color, ConvertPrimitive3DStyle(_style))) return;
+}
+
+void Gfx::DrawCapsule3D(Vector3 _start, Vector3 _end, float _radius, Vector4 _color, Primitive3DStyle _style)
+{
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterCapsule(_start, _end, _radius, _color, ConvertPrimitive3DStyle(_style))) return;
+}
+
+void Gfx::DrawPlane3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
+{
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterPlane(_transform, _color, ConvertPrimitive3DStyle(_style))) return;
+}
+
+void Gfx::DrawLine3D(Vector3 _start, Vector3 _end, Vector4 _color)
+{
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterLine(_start, _end, _color)) return;
+}
+
+void Gfx::DrawGrid3D(Vector3 _center, Quaternion _rotation,unsigned int _halfCellCount, float _cellSize, Vector4 _color)
+{
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterGrid(_center, _rotation, _halfCellCount, _cellSize, _color)) return;
+}
+
+void Gfx::DrawWorldAxisGrid3D(Vector3 _center, unsigned int _halfCellCount, float _cellSize, Vector4 _xAxisColor, Vector4 _yAxisColor, Vector4 _zAxisColor)
+{
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterWorldAxisGrid(_center, _halfCellCount, _cellSize, _xAxisColor, _yAxisColor, _zAxisColor)) return;
+}
+
+void Gfx::DrawAxis3D(Vector3 _origin, Quaternion _rotation, float _length, Vector4 _xColor, Vector4 _yColor, Vector4 _zColor)
+{
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterAxis(_origin, _rotation, _length, _xColor, _yColor, _zColor)) return;
+}
+
+void Gfx::DrawAABB3D(const AABB& _aabb, Vector4 _color)
+{
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterAABB(_aabb, _color)) return;
 }
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)

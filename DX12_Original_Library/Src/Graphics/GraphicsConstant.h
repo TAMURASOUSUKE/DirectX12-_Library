@@ -12,6 +12,7 @@ constexpr size_t QUAD_VERT_INDEXES{ 6 }; // Quadを描画するときの頂点�
 constexpr size_t CUBE_VERT_INDEXES{ 36 }; // cubeを描画するときの頂点インデックス数
 constexpr size_t MAX_SPRITE_COUNT{ 1024 }; // 登録できる最大のスプライト数
 constexpr size_t MAX_SHAPE_COUNT{ 1024 }; // 登録できる最大の基礎画像数
+constexpr size_t MAX_PRIMITIVE_3D_INSTANCE_COUNT{ 8192 }; // 1フレームに登録できる3D基礎図形インスタンスの総数
 constexpr size_t CIRCLE_DIVISION{ 32 }; // 円を描画するときの三角形分割数
 constexpr size_t MAX_CB_PER_FRAME{ 256 }; // フレーム内で使える定数バッファの最大数
 constexpr size_t MAX_BONE_NUM{ 256 }; // 最大ボーン数
@@ -25,6 +26,9 @@ constexpr size_t MATERIAL_PARAMETER_SLOT_COUNT{ 4 }; // materialが保持でき�
 constexpr UINT MATERIAL_PARAMETER_REGISTER_BASE{ 4 }; // ユーザーパラメータが使用するHLSL側の先頭レジスタslot0 = b4, slot1 = b5...となる
 constexpr size_t SPRITE_BATCH_COUNT{ 2 }; // 現在存在するspritebatchの数(backとforground)
 constexpr size_t MAX_ANIM_INSTANCE_COUNT{ 1024 }; // 同時に存在できるアニメーション個体数
+constexpr UINT PRIMITIVE_3D_SPHERE_SLICE_COUNT{ 32 }; // 3D球体の横方向分割数
+constexpr UINT PRIMITIVE_3D_SPHERE_STACK_COUNT{ 16 }; // 3D球体の縦方向の分割数
+constexpr UINT PRIMITIVE_3D_CYLINDER_DIVISION{ 32 }; // 3D円柱の円周方向分割数
 // 1フレームで発生しうるMaterialParamerter更新の最大数
 // 全Spriteが別Runかつ4スロット全使用する最悪条件にPostEffectの4スロットを追加する
 constexpr size_t MAX_MATERIAL_PARAMETER_UPDATE_PER_FRAME{ MAX_SPRITE_COUNT * SPRITE_BATCH_COUNT * MATERIAL_PARAMETER_SLOT_COUNT + MATERIAL_PARAMETER_SLOT_COUNT };

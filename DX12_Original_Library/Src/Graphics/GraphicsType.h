@@ -21,6 +21,9 @@ enum class BuiltinShaderID : size_t
 	ShapeVS,
 	ShapePS,
 
+	Primitive3DVS,
+	Primitive3DPS,
+
 	ModelVS,
 	ModelPS,
 
@@ -56,6 +59,9 @@ enum class PipelineID
 	Model, // 3Dモデル
 	ShapeFill, //  2D基本図形塗りつぶし
 	ShapeWire, // 2D基本図形ワイヤー
+	Primitive3DFill, // 3D基礎図形塗りつぶし
+	Primitive3DMeshWire, // 3D基礎図形メッシュをワイヤー表示
+	Primitive3DDebugLine, // あたり判定可視化用のLineList
 	TerrainWire, // テッセレーションデモ
 	PostEffect, // シーンRTを画面へ描画するPSO
 	Count,
@@ -67,6 +73,7 @@ enum class RootSigID
 	Texture, // 画像用
 	Model, // 3Dモデル
 	Shape, // 2D基本形状
+	Primitive3D, // インスタンシング対応3D基礎図形
 	Terrain, // テッセレーションデモ
 	PostEffect, // シーンRTのSRVのPSから読むためのルートシグネチャ
 	Count,
@@ -88,6 +95,7 @@ enum class InputLayout
 	Sprite, // 画像(position + uv + color)
 	Model, // 3Dモデル
 	Shape, // 2D形状
+	Primitive3D, // 3D基礎図形
 	Count,
 };
 
@@ -252,6 +260,31 @@ struct ModelVertex
 	float weight[4]; // ボーンの重み
 	uint32_t bones[4]; // ボーン
 };
+
+// 3D基礎図形の単位メッシュを構成する頂点
+struct Primitive3DVertex
+{
+	float position[3]; // 単位メッシュのローカル座標
+	float normal[3]; // 法線
+};
+
+// 3D基礎図形の個体ごとに異なるデータ
+struct Primitive3DInstanceData
+{
+	Mat4x4 world{ Mat4x4::Identity }; // 単位メッシュを配置するWorld行列
+	Mat4x4 worldInverseTranspose{ Mat4x4::Identity }; // 非均一スケールでも法線を正しく変換するための逆転置行列
+	Vector4 color{ 1.0f, 1.0f, 1.0f, 1.0f }; // 個体ごとの色
+};
+
+// 1フレーム中の全基礎図形で共有するデータ
+struct Primitive3DFrameData
+{
+	Mat4x4 viewProjection{ Mat4x4::Identity };
+};
+// C++とHLSLのメモリ配置が食い違った場合、コンパイル時に発見する
+static_assert(sizeof(Primitive3DVertex) == 24);
+static_assert(sizeof(Primitive3DInstanceData) == 144);
+static_assert(sizeof(Primitive3DFrameData) == 64);
 
 namespace MaterialTex 
 {

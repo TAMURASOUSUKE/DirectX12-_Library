@@ -19,7 +19,7 @@ class SpriteBatch
 {
 public:
 	// 初期化
-	void Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _pipelineState, ID3D12Resource* _gpuVirtualAddres);
+	void Setup(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _pipelineState, ID3D12Resource* _gpuVirtualAddres);
 	// 終了処理
 	void Shutdown();
 	// スプライトの登録(画像とパイプラインとパラメータと位置とサイズと回転角度とUV空間)

@@ -5,4 +5,5 @@
 namespace Collision
 {
 	bool Intersect(Rect _rect01, Rect _rect02);
+	bool Intersect(AABB _cube01, AABB _cube02);
 }

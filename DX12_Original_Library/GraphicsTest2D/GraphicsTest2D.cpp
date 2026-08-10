@@ -1,7 +1,6 @@
 #include "../Src/Facade/TSLib.h"
 #include <string> // テスト用
 #include <algorithm>
-#include "../Src/Facade/GfxInternal.h" // デバッグ用に一時的に
 
 // テスト用として渡す定数バッファ
 struct GrayScaleParameter
@@ -57,7 +56,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	const Vector2 windowSize{ 1280.0f, 720.0f };
 
 	// 初期化 失敗したら-1を返す
-	if (!TSLib::Initialize(L"GraphicsTest", static_cast<int>(windowSize.x), static_cast<int>(windowSize.y)))return -1;
+	if (!TSLib::Initialize(L"GraphicsTest2D", static_cast<int>(windowSize.x), static_cast<int>(windowSize.y)))return -1;
 	Time::SetTargetFPS(0);
 
 	// ハンドルの取得
@@ -86,11 +85,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	TexHandle background{ Gfx::LoadTexture("Res/bg.png") }; // 背景のハンドル取得
 	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png") }; // Enemyのハンドル取得
 	TexHandle player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
-	TexHandle heightMap{ Gfx::LoadTexture("Res/TestVolume.png") }; // ハイトマップ取得
 	TexHandle minivan{ Gfx::LoadTexture("Res/Minivan.png") }; // sRGBテスト
 	TexHandle runtimeTexture{}; // 実行中にロードができるか確認
 	bool hasLoadedRuntimeTexture{ false };
-	// TexHandle heightMap{ Gfx::LoadTexture("Res/Crater.jpg") }; // ハイトマップ取得
 
 	// Atlas
 	Gfx::TextureAtlas idleAnim{ Gfx::LoadTextureAtlas("Res/Idle.png", 8, 1, 8) }; // IdleMotion
@@ -109,23 +106,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	bool isAttacking{ false };
 	int attackAtlasIndex{ 2 };
 
-	// Model
-	ModelHandle testModel{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Testモデルのロード
-	ModelHandle testPlayer{ Gfx::LoadModel("Res/TestPlayer.glb") }; // Playerモデルのロード
-	Transform modelTransform01{};
-	Transform modelTransform02{};
-	modelTransform01.SetPosition({ -1.0f, 0.0f, 0.0f });
-	modelTransform02.SetPosition({ 1.0f, 0.0f, 0.0f });
-	AnimInstanceHandle testModelAnim01{ Gfx::CreateAnimInstance(testModel) }; // testModelからAnimationのInstanceを作る
-
-	bool testFlag{ false };
-	int testWheel{ 0 };
-	int testWheelNotch{ 0 };
-
-	float t{ 0.0f }; // 時間
-	float tessFactor{ 4.0f }; // HSでの分割数
-	float heightFactor{ 0.0f }; // Terrainの高さ
-
 	// あたり判定(テスト)
 	Rect testRect01{ {200.0f, 200.0f}, {30.0f, 30.0f} };
 	Rect testRect02{ {400.0f, 400.0f}, {30.0f, 30.0f} };
@@ -136,6 +116,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	float timeScale{ 1.0f };
 	float time{ 0.0f };
 	int spriteAnimTime{ 0 };
+
 
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
@@ -149,17 +130,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			runtimeTexture = Gfx::LoadTexture("Res/T_003_sword_01_01.png");
 			hasLoadedRuntimeTexture = runtimeTexture.IsValid();
 		}
-
-
-		// Terrain操作
-		float heightSpeed{ 3.0f };
-		if (Input::IsKeyPress(KeyCode::Button::UP)) heightFactor += heightSpeed * Time::UnscaledDeltaTime();
-		if (Input::IsKeyPress(KeyCode::Button::DOWN)) heightFactor -= heightSpeed * Time::UnscaledDeltaTime();
-		if (Input::IsKeyPushed(KeyCode::Button::D2)) tessFactor *= 2.0f;
-		if (Input::IsKeyPushed(KeyCode::Button::D1)) tessFactor /= 2.0f;
-		tessFactor = std::clamp(tessFactor, 2.0f, 64.0f);
-
-		heightFactor = std::clamp(heightFactor, -20.0f, 20.0f);
 
 		// 操作(矩形判定確認やキャラクター動作確認に使っています)
 		Vector2 dir{ Vector2::Zero };
@@ -279,19 +249,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		timeScale = std::clamp(timeScale, 0.0f, 10.0f); // 最大でもタイムスケールは10にとどめておく
 		Time::SetTimeScale(timeScale);
 
-		// 3Dモデルアニメーション
-		// 通常ループ再生
-		if (Input::IsKeyPushed(KeyCode::Button::SPACE)) Gfx::PlayAnim(testModelAnim01, 0, true, 1.0f);
-		// 逆方向ループ再生
-		if (Input::IsKeyPushed(KeyCode::Button::R)) Gfx::PlayAnim(testModelAnim01, 0, true, -1.0f);
-		// 現在の姿勢で一時停止
-		if (Input::IsKeyPushed(KeyCode::Button::P)) Gfx::PauseAnim(testModelAnim01); 
-		// 一時停止した位置から再開
-		if (Input::IsKeyPushed(KeyCode::Button::O)) Gfx::ResumeAnim(testModelAnim01);
-		// 再生方向に応じた開始位置へ戻して停止
-		if (Input::IsKeyPushed(KeyCode::Button::S)) Gfx::StopAnim(testModelAnim01);
-		Gfx::UpdateAnim(testModelAnim01, Time::DeltaTime());
-
 		std::string fpsValue{ std::format("CurrentMeasuredFPS : {:.1f}", Time::FPS()) };
 		std::string targetFPS{ std::format("CurrentSettingFPS : {}", Time::GetTargetFPS()) };
 		std::string unscaledDeltaTime{ std::format("CurrentUnscaledDeltaTime: {:.6f}", Time::UnscaledDeltaTime()) };
@@ -303,7 +260,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		// スプライトバッチテスト
 		Gfx::DrawSpriteSized(background, { 0.0f, 0.0f }, windowSize, 0.0f, Gfx::SpriteFlip::None, Vector4::One, Vector2::Zero, Vector2::One, RenderLayer::BackGround);
 
-		Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
+		// Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
 
 		// Shaderテスト
 		Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, Vector2::One, 0.0f, Gfx::SpriteFlip::None, { 1.0f, 0.0f, 0.0f, 1.0f });
@@ -319,11 +276,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::SetMaterialParameter(glitchMaterial, 2, fullParameter);
 		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, glitchMaterial, { 1.0f, 1.0f }, 0.0f, Gfx::SpriteFlip::Horizontal);
 
-		// 3Dモデルアニメーション
-		Gfx::DrawAnimatedModel(testModelAnim01, modelTransform01);
-
-
-		if (runtimeTexture.IsValid()) Gfx::DrawSprite(runtimeTexture, { 500.0f, 300.0f });
+		// if (runtimeTexture.IsValid()) Gfx::DrawSprite(runtimeTexture, { 500.0f, 300.0f });
 
 		// アニメーションテスト
 		Gfx::SetMaterialParameter(glitchMaterial, 2, atlasParameter);
@@ -344,10 +297,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}
-
-	// Finishで自動的に破棄されるが、シーン遷移などではこの順で明示的に破棄する必要があるためこの形
-	Gfx::DestroyAnim(testModelAnim01);
-	Gfx::Unload(testModel);
 	TSLib::Finish(); // 終了
 	return 0;
 }

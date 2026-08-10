@@ -200,6 +200,8 @@
     <ClInclude Include="Src\Graphics\GraphicsType.h" />
     <ClInclude Include="Src\Graphics\GraphicsResourceManager.h" />
     <ClInclude Include="Src\Graphics\InternalResource\DefaultFontData.h" />
+    <ClInclude Include="Src\Graphics\Primitive3DBatch.h" />
+    <ClInclude Include="Src\Graphics\Primitive3DSystem.h" />
     <ClInclude Include="Src\Graphics\RingConstantBuffer.h" />
     <ClInclude Include="Src\Graphics\ShaderSystem.h" />
     <ClInclude Include="Src\Graphics\ShapeBatch.h" />
@@ -257,6 +259,8 @@
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsResourceManager.cpp" />
     <ClCompile Include="Src\Graphics\InternalResource\DefaultFontData.cpp" />
+    <ClCompile Include="Src\Graphics\Primitive3DBatch.cpp" />
+    <ClCompile Include="Src\Graphics\Primitive3DSystem.cpp" />
     <ClCompile Include="Src\Graphics\RingConstantBuffer.cpp" />
     <ClCompile Include="Src\Graphics\ShaderSystem.cpp" />
     <ClCompile Include="Src\Graphics\ShapeBatch.cpp" />
@@ -289,6 +293,12 @@
     <FxCompile Include="Src\Shaders\PostEffectVS.hlsl">
       <ShaderType>Vertex</ShaderType>
     </FxCompile>
+    <FxCompile Include="Src\Shaders\Primitive3DPS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\Primitive3DVS.hlsl">
+      <ShaderType>Vertex</ShaderType>
+    </FxCompile>
     <FxCompile Include="Src\Shaders\ShapePS.hlsl">
       <ShaderType>Pixel</ShaderType>
     </FxCompile>
@@ -316,6 +326,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Src\Shaders\PostEffectContract.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Src\Shaders\Primitive3DContract.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>

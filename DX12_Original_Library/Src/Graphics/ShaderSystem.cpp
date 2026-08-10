@@ -24,6 +24,8 @@
 #include "PostEffectVSBytecode.h"
 #include "PostEffectPSBytecode.h"
 
+#include "Primitive3DVSBytecode.h"
+#include "Primitive3DPSBytecode.h"
 // GraphicsTypeに設定されているenumを実の値へと変換する
 namespace {
 
@@ -171,6 +173,31 @@ namespace {
 		}
 	};
 
+	// 3D基礎図形の単位メッシュ用入力レイアウト
+	constexpr D3D12_INPUT_ELEMENT_DESC PRIMITIVE_3D_LAYOUT[]
+	{
+		// position
+		{
+			"POSITION",
+			0,
+			DXGI_FORMAT_R32G32B32_FLOAT,
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		},
+		// normal
+		{
+			"NORMAL",
+			0,
+			DXGI_FORMAT_R32G32B32_FLOAT,
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		},
+	};
+
 	// Layoutをenumと同期させる
 	struct LayoutEntry
 	{
@@ -188,7 +215,9 @@ namespace {
 		// 3DModel
 		{MODEL_LAYOUT, _countof(MODEL_LAYOUT)},
 		// Shape
-		{SHAPE_LAYOUT, _countof(SHAPE_LAYOUT)}
+		{SHAPE_LAYOUT, _countof(SHAPE_LAYOUT)},
+		// Primitive3D
+		{PRIMITIVE_3D_LAYOUT, _countof(PRIMITIVE_3D_LAYOUT)}
 	};
 	static_assert(_countof(LAYOUT_TABLE) == static_cast<size_t>(InputLayout::Count), "InputLayoutのID数と実値の総数が合いません\n");
 
@@ -310,6 +339,17 @@ namespace {
 		return desc;
 	}
 
+	// バッファをGPU仮想アドレスから直接読むRootSRVの作成
+	RootParamDesc MakeRootSRV(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+	{
+		RootParamDesc desc{};
+		desc.type = D3D12_ROOT_PARAMETER_TYPE_SRV;
+		desc.shaderRegister = _shaderRegister;
+		desc.registerSpace = 0;
+		desc.visibility = _visibility;
+		return desc;
+	}
+
 	// DescriptorTableでのSRV作成
 	RootParamDesc MakeSRVTable(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
 	{
@@ -374,6 +414,9 @@ namespace {
 	{
 		MakeShaderBytecode(g_ShapeVS, sizeof(g_ShapeVS)),
 		MakeShaderBytecode(g_ShapePS, sizeof(g_ShapePS)),
+
+		MakeShaderBytecode(g_Primitive3DVS, sizeof(g_Primitive3DVS)),
+		MakeShaderBytecode(g_Primitive3DPS, sizeof(g_Primitive3DPS)),
 
 		MakeShaderBytecode(g_ModelVS, sizeof(g_ModelVS)),
 		MakeShaderBytecode(g_ModelPS, sizeof(g_ModelPS)),
@@ -960,6 +1003,14 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	postEffectDesc.staticSamplers.push_back(sampler);
 	postEffectDesc.flags = D3D12_ROOT_SIGNATURE_FLAG_NONE; // 頂点バッファを使用しないためIAの許可は不要
 	descs.push_back(std::move(postEffectDesc));
+	// インスタンシング対応3D基礎図形
+	RootSignatureDesc primitive3D{};
+	primitive3D.rootSignatureID = RootSigID::Primitive3D;
+	// 全図形共通のViewProjectionをb0からVSが読む
+	primitive3D.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // RootParameter[0]
+	// 個体ごとのWorld行列、法線行列、色をt0からVSが読む
+	primitive3D.parameters.push_back(MakeRootSRV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // RootParameter[1]
+	descs.push_back(std::move(primitive3D));
 	return descs;
 }
 

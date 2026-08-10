@@ -5,7 +5,7 @@
 #include "GraphicsResourceManager.h"
 #include "ShapeBatch.h"
 
-void ShapeBatch::Initialize(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _fillState, ID3D12PipelineState* _wireState, ID3D12Resource* _gpuVirtualAddres)
+void ShapeBatch::Setup(ID3D12RootSignature* _rootSig, ID3D12PipelineState* _fillState, ID3D12PipelineState* _wireState, ID3D12Resource* _gpuVirtualAddres)
 {
 	DEBUG_ASSERT(_rootSig != nullptr && _wireState != nullptr && _fillState != nullptr && _gpuVirtualAddres != nullptr);
 	if (_rootSig == nullptr || _wireState == nullptr || _fillState == nullptr || _gpuVirtualAddres == nullptr) return;

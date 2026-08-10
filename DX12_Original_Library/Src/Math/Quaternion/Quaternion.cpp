@@ -44,9 +44,45 @@ Quaternion Quaternion::FromEuler(const float _pitch, const float _yaw, const flo
 	return result;
 }
 
-Quaternion Quaternion::FromEuler(const Vector3& rotation)
+Quaternion Quaternion::FromEuler(const Vector3& _rotation)
 {
-	return FromEuler(rotation.x, rotation.y, rotation.z);
+	return FromEuler(_rotation.x, _rotation.y, _rotation.z);
+}
+
+Quaternion Quaternion::FromToRotation(const Vector3& _from, const Vector3& _to)
+{
+	// ゼロベクトルには方向がないのでIdentityを返す
+	if (_from.LengthSquared() <= Math::EPSILON * Math::EPSILON || _to.LengthSquared() <= Math::EPSILON * Math::EPSILON) return Quaternion::Identity;
+
+	// 正規化
+	const Vector3 from{ Vector3::Normalized(_from) };
+	const Vector3 to{ Vector3::Normalized(_to) };
+
+	// 浮動小数点誤差でacosの定義域を超えないようにする
+	const float dot{ std::clamp(Vector3::Dot(from, to), -1.0f, 1.0f) };
+
+	// ほぼ同じ方向なら回転は必要ない
+	if (dot >= 1.0f - Math::EPSILON) return Quaternion::Identity;
+
+	// ほぼ真逆なら外積が0になって回転軸を作れない
+	if (dot <= -1.0f + Math::EPSILON)
+	{
+		// Fromと並行ではない軸を作って垂直な回転軸を作る
+		Vector3 axis{ Vector3::Cross(from, Vector3::Right) };
+		// FromがRightと並行だった場合は別の方向を使う
+		if (axis.LengthSquared() <= Math::EPSILON * Math::EPSILON) axis = Vector3::Cross(from, Vector3::Forward);
+
+		axis.Normalize();
+
+		// 真逆なので180度回転させる
+		return Quaternion::FromAxisAngle(axis, Math::PI);
+	}
+
+	// 通常の場合は外積から回転軸を求める
+	Vector3 rotationAxis{ Vector3::Cross(from, to) };
+	rotationAxis.Normalize();
+	const float angle{ std::acosf(dot)};
+	return Quaternion::FromAxisAngle(rotationAxis, angle);
 }
 
 // 補完
@@ -150,9 +186,10 @@ Vector3 Quaternion::RotateVector(const Vector3& _vec) const
 {
 	Quaternion q{ Normalized((*this)) };
 	Quaternion vq{ _vec, 0.0f };
+	// 虚部の符号を反転させて単位Quaternionの逆回転を作る
 	Quaternion inv{ -q.x, -q.y, -q.z, q.w };
 
-	Quaternion result{ inv * vq * q };
+	Quaternion result{ q * vq * inv };
 	return Vector3{ result.x, result.y, result.z };
 }
 
