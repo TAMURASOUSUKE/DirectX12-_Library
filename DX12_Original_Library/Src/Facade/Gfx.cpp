@@ -1307,22 +1307,74 @@ bool Gfx::UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _st
 
 void Gfx::DrawCube3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
-	primitive3DSystem.RegisterCube(_transform, _color, ConvertPrimitive3DStyle(_style));
+	if (!primitive3DSystem.RegisterCube(_transform, _color, ConvertPrimitive3DStyle(_style)))
+	{
+		DEBUG_LOG_ERROR("Cubeの描画に失敗しました\n");
+		return;
+	}
 }
 
 void Gfx::DrawSphere3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
-	primitive3DSystem.RegisterSphere(_transform, _color, ConvertPrimitive3DStyle(_style));
+	if (!primitive3DSystem.RegisterSphere(_transform, _color, ConvertPrimitive3DStyle(_style)))
+	{
+		DEBUG_LOG_ERROR("Sphereの描画に失敗しました\n");
+		return;
+	}
 }
 
 void Gfx::DrawCylinder3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
-	primitive3DSystem.RegisterCylinder(_transform, _color, ConvertPrimitive3DStyle(_style));
+	if (!primitive3DSystem.RegisterCylinder(_transform, _color, ConvertPrimitive3DStyle(_style)))
+	{
+		DEBUG_LOG_ERROR("Cylinderの描画に失敗しました\n");
+		return;
+	}
 }
 
 void Gfx::DrawCapsule3D(Vector3 _start, Vector3 _end, float _radius, Vector4 _color, Primitive3DStyle _style)
 {
-	primitive3DSystem.RegisterCapsule(_start, _end, _radius, _color, ConvertPrimitive3DStyle(_style));
+	if (!primitive3DSystem.RegisterCapsule(_start, _end, _radius, _color, ConvertPrimitive3DStyle(_style)))
+	{
+		DEBUG_LOG_ERROR("Capsuleの描画に失敗しました\n");
+		return;
+	}
+}
+
+void Gfx::DrawPlane3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
+{
+	if (!primitive3DSystem.RegisterPlane(_transform, _color, ConvertPrimitive3DStyle(_style)))
+	{
+		DEBUG_LOG_ERROR("Planeの描画に失敗しました\n");
+		return;
+	}
+}
+
+void Gfx::DrawLine3D(Vector3 _start, Vector3 _end, Vector4 _color)
+{
+	if (primitive3DSystem.RegisterLine(_start, _end, _color))
+	{
+		DEBUG_LOG_ERROR("Lineの描画に失敗しました\n");
+		return;
+	}
+}
+
+void Gfx::DrawGrid3D(Vector3 _center, Quaternion _rotation,unsigned int _halfCellCount, float _cellSize, Vector4 _color)
+{
+	if (!primitive3DSystem.RegisterGrid(_center, _rotation, _halfCellCount, _cellSize, _color))
+	{
+		DEBUG_LOG_ERROR("Gridの描画に失敗しました\n");
+		return;
+	}
+}
+
+void Gfx::DrawWorldAxisGrid(Vector3 _center, unsigned int _halfCellCount, float _cellSize, Vector4 _xAxisColor, Vector4 _yAxisColor, Vector4 _zAxisColor)
+{
+	if (!primitive3DSystem.RegisterWorldAxisGrid(_center, _halfCellCount, _cellSize, _xAxisColor, _yAxisColor, _zAxisColor))
+	{
+		DEBUG_LOG_ERROR("WorldAxisGridの描画に失敗しました\n");
+		return;
+	}
 }
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)

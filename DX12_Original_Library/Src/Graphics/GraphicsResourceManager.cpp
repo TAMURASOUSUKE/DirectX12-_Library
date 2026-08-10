@@ -641,7 +641,7 @@ TexHandle GraphicsResourceManager::LoadTexture(const char* _filePath, bool _isDa
 	DirectX::TexMetadata metaData{}; // 画像のメタデータ
 	DirectX::ScratchImage scratch{}; // 画像管理クラス
 	result = DirectX::LoadFromWICFile(path.c_str(), flag, &metaData, scratch);
-	DEBUG_ASSERT(SUCCEEDED(result));
+	DEBUG_ASSERT(SUCCEEDED(result) && "LoadFromWICFileに失敗しました");
 	if (FAILED(result))
 	{
 		return TexHandle{}; // 空を返す

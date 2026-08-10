@@ -182,8 +182,16 @@ namespace Gfx
 	void DrawSphere3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, Primitive3DStyle _style = Primitive3DStyle::Fill);
 	// 単位CylinderをTransformで配置して描画する
 	void DrawCylinder3D(const Transform& _transform, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f }, Primitive3DStyle _style = Primitive3DStyle::Fill);
-	// 単位Capsuleを線分と半径で配置して描画する(XZ平面に垂直な時には下 = start上 = endです)
+	// 単位Capsuleを線分と半径で配置して描画する
 	void DrawCapsule3D(Vector3 _start, Vector3 _end, float _radius, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f }, Primitive3DStyle _style = Primitive3DStyle::Fill);
+	// 単位PlaneをTransformで配置して描画する
+	void DrawPlane3D(const Transform& _transform, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f }, Primitive3DStyle _style = Primitive3DStyle::Fill);
+	// 単位Lineを始点と終点で配置する
+	void DrawLine3D(Vector3 _start, Vector3 _end, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f});
+	// 平面上に3DGridを描画する(中心座標、中心から片側端までのCell数、Cell1つ分のサイズ(デフォルトは1m), 色)
+	void DrawGrid3D(Vector3 _center, Quaternion _rotation = Quaternion::Identity,unsigned int _halfCellCount = 10, float _cellSize = 1.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f });
+	// ワールド空間の座標軸に沿ったグリッドを生成する(中心座標、中心から片側端までのCell数、Cell1つ分のサイズ(デフォルトは1m), 各軸のグリッドの色(デフォルトはX = 赤 Y = 緑 Z = 青です))
+	void DrawWorldAxisGrid(Vector3 _center, unsigned int _halfCellCount = 10, float _cellSize = 1.0f, Vector4 _xAxisColor = { 1.0f, 0.0f, 0.0f, 1.0f }, Vector4 _yAxisColor = { 0.0f, 1.0f, 0.0f, 1.0f }, Vector4 _zAxisColor = { 0.0f, 0.0f, 1.0f, 1.0f });
 
 	// 静的モデルを描画する
 	void DrawModel(ModelHandle _model, Transform _transform);

@@ -41,7 +41,7 @@ bool Primitive3DBatch::Setup(ID3D12RootSignature* _rootSig, ID3D12PipelineState*
 	}
 
 	frameConstantBuffer.Setup(static_cast<UINT>(sizeof(Primitive3DFrameData)), 1);
-	if (!CreateCubeMesh() || !CreateSphereMesh() || !CreateCylinderMesh() || !CreateHemisphereMesh())
+	if (!CreateCubeMesh() || !CreateSphereMesh() || !CreateCylinderMesh() || !CreateHemisphereMesh() || !CreatePlaneMesh() || !CreateLineMesh())
 	{
 		Shutdown();
 		return false;
@@ -759,5 +759,75 @@ bool Primitive3DBatch::CreateHemisphereMesh()
 		return false;
 	}
 	return true;
+}
 
+bool Primitive3DBatch::CreatePlaneMesh()
+{
+	constexpr float HALF{ 0.5f };
+
+	// 平面上に1x1の四角形を作る上面として扱うため全頂点の法線は+Y
+	constexpr std::array<Primitive3DVertex, 4> VERTICES
+	{
+		Primitive3DVertex{{-HALF, 0.0f, -HALF}, {0.0f, 1.0f, 0.0f}}, // 左上
+		Primitive3DVertex{{-HALF, 0.0f, HALF}, {0.0f, 1.0f, 0.0f}}, // 左下
+		Primitive3DVertex{{HALF, 0.0f, HALF}, {0.0f, 1.0f, 0.0f}}, // 右下
+		Primitive3DVertex{{HALF, 0.0f, -HALF}, {0.0f, 1.0f, 0.0f}}, // 右上
+	};
+
+	// 四角形を2枚の三角形として描画する
+	constexpr std::array<std::uint32_t, 6> TRIANGLE_INDICES
+	{
+		0, 1, 2,
+		0, 2, 3,
+	};
+
+	// DebugLineでは対角線を出さない
+	constexpr std::array<std::uint32_t, 8> DEBUG_LINE_INDICES
+	{
+		0, 1,
+		1, 2, 
+		2, 3,
+		3, 0
+	};
+
+	const std::size_t meshIndex{ static_cast<std::size_t>(Primitive3DMeshID::Plane) };
+	Primitive3DMesh& plane{ meshes[meshIndex] };
+	plane.vertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(VERTICES.data(), static_cast<UINT>(sizeof(VERTICES)), static_cast<UINT>(sizeof(Primitive3DVertex)));
+	plane.triangleIndexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(TRIANGLE_INDICES.data(), static_cast<UINT>(sizeof(TRIANGLE_INDICES)), static_cast<UINT>(TRIANGLE_INDICES.size()));
+	plane.debugLineIndexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(DEBUG_LINE_INDICES.data(), static_cast<UINT>(sizeof(DEBUG_LINE_INDICES)), static_cast<UINT>(DEBUG_LINE_INDICES.size()));
+	
+	if (!plane.HasTriangleGeometry() || !plane.HasDebugLineGeometry())
+	{
+		DEBUG_LOG_ERROR("Primitive3Dの単位Plane作成に失敗しました\n");
+		return false;
+	}
+
+	return true;
+}
+
+bool Primitive3DBatch::CreateLineMesh()
+{
+	constexpr float HALF{ 0.5f };
+
+	constexpr std::array<Primitive3DVertex, 2> VERTICES
+	{
+		// 法線は線描画では使わないが頂点形式を共通化するために値を入れる
+		Primitive3DVertex{{-HALF, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}}, 
+		Primitive3DVertex{{HALF, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+	};
+
+	constexpr std::array<std::uint32_t, 2> LINE_INDICES{ 0, 1, };
+
+	const std::size_t meshIndex{ static_cast<std::size_t>(Primitive3DMeshID::Line) };
+	Primitive3DMesh& line{ meshes[meshIndex] };
+	line.vertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(VERTICES.data(), static_cast<UINT>(sizeof(VERTICES)), static_cast<UINT>(sizeof(Primitive3DVertex)));
+	line.debugLineIndexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(LINE_INDICES.data(), static_cast<UINT>(sizeof(LINE_INDICES)), static_cast<UINT>(LINE_INDICES.size()));
+
+	if (!line.HasDebugLineGeometry())
+	{
+		DEBUG_LOG_ERROR("Line3Dの単位Plane作成に失敗しました\n");
+		return false;
+	}
+
+	return true;
 }

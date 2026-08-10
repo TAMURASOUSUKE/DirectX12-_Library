@@ -24,6 +24,7 @@
     <ProjectGuid>{806203b0-000e-4855-a108-20e1e4333790}</ProjectGuid>
     <RootNamespace>GraphicsTest</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>GraphicsTest2D</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -143,7 +144,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="GraphicsTest.cpp" />
+    <ClCompile Include="GraphicsTest2D.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DX12_Original_Library.vcxproj">
