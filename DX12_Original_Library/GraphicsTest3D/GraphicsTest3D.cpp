@@ -14,13 +14,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	TexHandle heightMap{ Gfx::LoadTexture("Res/TestVolume.png") }; // ハイトマップ取得
 
 	// Model
-	ModelHandle testModel{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Testモデルのロード
-	ModelHandle testPlayer{ Gfx::LoadModel("Res/TestPlayer.glb") }; // Playerモデルのロード
-	Transform modelTransform01{};
-	Transform modelTransform02{};
-	modelTransform01.SetPosition({ -1.0f, 0.0f, 0.0f });
-	modelTransform02.SetPosition({ 1.0f, 0.0f, 0.0f });
-	AnimInstanceHandle testModelAnim01{ Gfx::CreateAnimInstance(testModel) }; // testModelからAnimationのInstanceを作る
+	ModelHandle player{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Playerモデルのロード
+	ModelHandle toon{ Gfx::LoadModel("Res/TestPlayer.glb") }; // Toon用モデルのロード
+	Transform playerPosition{};
+	Transform toonTransform{};
+	playerPosition.SetPosition({ -1.0f, 0.0f, 0.0f });
+	toonTransform.SetPosition({ 1.0f, 0.0f, 0.0f });
+	AnimInstanceHandle testModelAnim01{ Gfx::CreateAnimInstance(player) }; // testModelからAnimationのInstanceを作る
 
 	float t{ 0.0f }; // 時間
 	float tessFactor{ 4.0f }; // HSでの分割数
@@ -33,14 +33,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	int spriteAnimTime{ 0 };
 
 	// 3D基礎図形
-	Transform cube0{};
-	cube0.SetPosition({ -2.5f, 1.0f, 3.0f });
-	Transform sphere{};
-	sphere.SetPosition({ -1.5f, 1.0f, 3.0f });
+	Transform cube{};
+	cube.SetPosition({ -2.5f, 1.0f, 3.0f });
 	Transform cylinder{};
 	cylinder.SetPosition({ -1.0f, 1.0f, 3.0f });
 	Transform plane{};
 	plane.SetPosition({ 0.0f, -2.0f, 4.0f });
+	Transform sphere{};
+	sphere.SetPosition({ 1.5f, 1.0f, 3.0f });
+
+	// あたり判定を行えるか
+	Transform debugCubeAABB{};
+	debugCubeAABB.SetPosition({ -2.0f, 0.0f, 3.0f });
+	AABB debugCube{debugCubeAABB.GetPosition() + Vector3{-0.5f, 0.0f, -0.5f}, debugCubeAABB.GetPosition() + Vector3{0.5f, 2.0f,  0.5f} };
+	Vector4 hitColor{ 0.0f, 0.0f, 0.0f, 1.0 };
 
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
@@ -68,6 +74,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		timeScale = std::clamp(timeScale, 0.0f, 10.0f); // 最大でもタイムスケールは10にとどめておく
 		Time::SetTimeScale(timeScale);
 
+		// モデル移動
+		Vector3 dir{ Vector3::Zero };
+		if (Input::IsKeyPress(KeyCode::Button::W)) dir.z += 1.0f;
+		if (Input::IsKeyPress(KeyCode::Button::A)) dir.x -= 1.0f;
+		if (Input::IsKeyPress(KeyCode::Button::S)) dir.z -= 1.0f;
+		if (Input::IsKeyPress(KeyCode::Button::D)) dir.x += 1.0f;
+		dir.Normalize();
+		float speed{ 3.0f };
+		playerPosition.SetPosition(playerPosition.GetPosition() + dir * speed * Time::DeltaTime());
+		// AABB確認
+		AABB playerAABB{ playerPosition.GetPosition() + Vector3{-0.5f, 0.0f, -0.5f}, playerPosition.GetPosition() + Vector3{0.5f, 2.0f,  0.5f} };
+		if (Collision::Intersect(playerAABB, debugCube)) hitColor = { 1.0f, 0.0f, 0.0f, 1.0f };
+		else hitColor = { 0.0f, 1.0f, 0.0f, 1.0f };
+
 		// 3Dモデルアニメーション
 		// 通常ループ再生
 		if (Input::IsKeyPushed(KeyCode::Button::SPACE)) Gfx::PlayAnim(testModelAnim01, 0, true, 1.0f);
@@ -91,17 +111,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 
 		// 3Dモデルアニメーション
-		Gfx::DrawAnimatedModel(testModelAnim01, modelTransform01);
+		Gfx::DrawAnimatedModel(testModelAnim01, playerPosition);
 
 		// 3D基礎図形
-		Gfx::DrawCube3D(cube0, { 1.0f, 0.0f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
-		Gfx::DrawSphere3D(sphere, { 0.0f, 0.0f, 0.0f, 1.0f }, Gfx::Primitive3DStyle::Fill);
+		Gfx::DrawCube3D(cube, { 1.0f, 0.0f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
+		Gfx::DrawSphere3D(sphere, { 0.0f, 0.5f, 0.0f, 1.0f }, Gfx::Primitive3DStyle::Fill);
 		Gfx::DrawCylinder3D(cylinder, { 0.0f, 1.0f, 0.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
 		Gfx::DrawCapsule3D({ 0.0f, -2.0f, 5.0f }, { 0.0f,  0.0f, 5.0f }, 0.5f, { 0.2f, 1.0f, 0.3f }, Gfx::Primitive3DStyle::Fill);
 		Gfx::DrawPlane3D(plane, { 0.0f, 0.3f, 0.4f }, Gfx::Primitive3DStyle::Fill);
 		Gfx::DrawLine3D({ 2.0f, 1.0f, 6.0f }, {-1.0f, -3.0f, 6.0f});
 		// Gfx::DrawGrid3D({ 0.0f, -1.0f, 5.0f }, Quaternion::FromEuler(-45.0f * Math::DEG_TO_RAD, 0.0f, 0.0f), 10, 1.0f, {0.4f, 0.4f, 0.4f, 1.0f});
-		Gfx::DrawWorldAxisGrid({0.0f, -1.0f, 5.0f});
+		// Gfx::DrawWorldAxisGrid3D({0.0f, -1.0f, 5.0f});
+		Gfx::DrawAxis3D(playerPosition.GetPosition(), playerPosition.GetRotation());
+		Gfx::DrawAABB3D(playerAABB,hitColor);
+		Gfx::DrawAABB3D(debugCube,{ 0.0f, 0.0f, 1.0f, 1.0f });
+
 
 		Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });
 		Gfx::DrawString(targetFPS.c_str(), { 0.0f, 30.0f });

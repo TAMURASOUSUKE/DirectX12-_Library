@@ -10,6 +10,8 @@
 #include "../Component/Transform.h"
 #include "../Math/TSMath.h"
 
+struct AABB; // 描画側が判定側に依存しない
+
 // グラフィックスに関する機能をユーザーに簡易的に提供するためのファイル
 namespace Gfx 
 {
@@ -191,7 +193,12 @@ namespace Gfx
 	// 平面上に3DGridを描画する(中心座標、中心から片側端までのCell数、Cell1つ分のサイズ(デフォルトは1m), 色)
 	void DrawGrid3D(Vector3 _center, Quaternion _rotation = Quaternion::Identity,unsigned int _halfCellCount = 10, float _cellSize = 1.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f });
 	// ワールド空間の座標軸に沿ったグリッドを生成する(中心座標、中心から片側端までのCell数、Cell1つ分のサイズ(デフォルトは1m), 各軸のグリッドの色(デフォルトはX = 赤 Y = 緑 Z = 青です))
-	void DrawWorldAxisGrid(Vector3 _center, unsigned int _halfCellCount = 10, float _cellSize = 1.0f, Vector4 _xAxisColor = { 1.0f, 0.0f, 0.0f, 1.0f }, Vector4 _yAxisColor = { 0.0f, 1.0f, 0.0f, 1.0f }, Vector4 _zAxisColor = { 0.0f, 0.0f, 1.0f, 1.0f });
+	void DrawWorldAxisGrid3D(Vector3 _center, unsigned int _halfCellCount = 10, float _cellSize = 1.0f, Vector4 _xAxisColor = { 1.0f, 0.0f, 0.0f, 1.0f }, Vector4 _yAxisColor = { 0.0f, 1.0f, 0.0f, 1.0f }, Vector4 _zAxisColor = { 0.0f, 0.0f, 1.0f, 1.0f });
+	// ローカル座標軸を描画する
+	void DrawAxis3D(Vector3 _origin, Quaternion _rotation = Quaternion::Identity, float _length = 1.0f, Vector4 _xColor = { 1.0f, 0.0f, 0.0f, 1.0f }, Vector4 _yColor = { 0.0f, 1.0f, 0.0f, 1.0f }, Vector4 _zColor = { 0.0f, 0.0f, 1.0f, 1.0f });
+	// AABBをデバッグ表示する
+	void DrawAABB3D(const AABB& _aabb, Vector4 _color = { 0.0f, 1.0f, 0.0f, 1.0f });
+
 
 	// 静的モデルを描画する
 	void DrawModel(ModelHandle _model, Transform _transform);

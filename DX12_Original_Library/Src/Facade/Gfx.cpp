@@ -498,9 +498,6 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	// 前回の初期化状態を引き継がない
 	currentPostEffectMaterial = {};
 
-	DEBUG_LOG("ClientSize = {} x {}\n", _clientWidth, _clientHeight);
-
-
 	GraphicsDevice::Instance().Setup(_hwnd, _clientWidth, _clientHeight); // デバイスの初期化
 	if (!GraphicsDevice::Instance().GetDevice())
 	{
@@ -803,8 +800,6 @@ void GfxInternal::Finish()
 	const UINT64 submittedBefore{ graphicsDevice.GetLastSubmittedFenceValue() };
 
 	const UINT64 completedBefore{ graphicsDevice.GetCompletedFenceValue() };
-
-	DEBUG_LOG("[FenceSensor BeforeWait] submitted={} completed={} inFlight={}", submittedBefore, completedBefore, completedBefore < submittedBefore);
 #endif
 
 	bool result{ GraphicsDevice::Instance().WaitForGPU() }; // GPUの待機をしてから各終了処理を行う
@@ -820,8 +815,6 @@ void GfxInternal::Finish()
 	const UINT64 submittedAfter{ graphicsDevice.GetLastSubmittedFenceValue() };
 
 	const UINT64 completedAfter{ graphicsDevice.GetCompletedFenceValue() };
-
-	DEBUG_LOG("[FenceSensor AfterWait] submitted={} completed={} inFlight={}", submittedAfter, completedAfter, completedAfter < submittedAfter);
 #endif
 
 	ShutdownGfxOwnedResources(); // Gfxが所有するリソースの削除
@@ -837,7 +830,6 @@ void GfxInternal::Finish()
 	{
 		const HRESULT reason = device->GetDeviceRemovedReason();
 
-		DEBUG_LOG("[Sensor1] GetDeviceRemovedReason = 0x{:08X}", static_cast<unsigned int>(reason));
 	}
 #endif
 
@@ -1307,74 +1299,62 @@ bool Gfx::UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _st
 
 void Gfx::DrawCube3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
-	if (!primitive3DSystem.RegisterCube(_transform, _color, ConvertPrimitive3DStyle(_style)))
-	{
-		DEBUG_LOG_ERROR("Cubeの描画に失敗しました\n");
-		return;
-	}
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterCube(_transform, _color, ConvertPrimitive3DStyle(_style))) return;
 }
 
 void Gfx::DrawSphere3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
-	if (!primitive3DSystem.RegisterSphere(_transform, _color, ConvertPrimitive3DStyle(_style)))
-	{
-		DEBUG_LOG_ERROR("Sphereの描画に失敗しました\n");
-		return;
-	}
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterSphere(_transform, _color, ConvertPrimitive3DStyle(_style))) return; 
 }
 
 void Gfx::DrawCylinder3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
-	if (!primitive3DSystem.RegisterCylinder(_transform, _color, ConvertPrimitive3DStyle(_style)))
-	{
-		DEBUG_LOG_ERROR("Cylinderの描画に失敗しました\n");
-		return;
-	}
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterCylinder(_transform, _color, ConvertPrimitive3DStyle(_style))) return;
 }
 
 void Gfx::DrawCapsule3D(Vector3 _start, Vector3 _end, float _radius, Vector4 _color, Primitive3DStyle _style)
 {
-	if (!primitive3DSystem.RegisterCapsule(_start, _end, _radius, _color, ConvertPrimitive3DStyle(_style)))
-	{
-		DEBUG_LOG_ERROR("Capsuleの描画に失敗しました\n");
-		return;
-	}
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterCapsule(_start, _end, _radius, _color, ConvertPrimitive3DStyle(_style))) return;
 }
 
 void Gfx::DrawPlane3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
-	if (!primitive3DSystem.RegisterPlane(_transform, _color, ConvertPrimitive3DStyle(_style)))
-	{
-		DEBUG_LOG_ERROR("Planeの描画に失敗しました\n");
-		return;
-	}
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterPlane(_transform, _color, ConvertPrimitive3DStyle(_style))) return;
 }
 
 void Gfx::DrawLine3D(Vector3 _start, Vector3 _end, Vector4 _color)
 {
-	if (primitive3DSystem.RegisterLine(_start, _end, _color))
-	{
-		DEBUG_LOG_ERROR("Lineの描画に失敗しました\n");
-		return;
-	}
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterLine(_start, _end, _color)) return;
 }
 
 void Gfx::DrawGrid3D(Vector3 _center, Quaternion _rotation,unsigned int _halfCellCount, float _cellSize, Vector4 _color)
 {
-	if (!primitive3DSystem.RegisterGrid(_center, _rotation, _halfCellCount, _cellSize, _color))
-	{
-		DEBUG_LOG_ERROR("Gridの描画に失敗しました\n");
-		return;
-	}
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterGrid(_center, _rotation, _halfCellCount, _cellSize, _color)) return;
 }
 
-void Gfx::DrawWorldAxisGrid(Vector3 _center, unsigned int _halfCellCount, float _cellSize, Vector4 _xAxisColor, Vector4 _yAxisColor, Vector4 _zAxisColor)
+void Gfx::DrawWorldAxisGrid3D(Vector3 _center, unsigned int _halfCellCount, float _cellSize, Vector4 _xAxisColor, Vector4 _yAxisColor, Vector4 _zAxisColor)
 {
-	if (!primitive3DSystem.RegisterWorldAxisGrid(_center, _halfCellCount, _cellSize, _xAxisColor, _yAxisColor, _zAxisColor))
-	{
-		DEBUG_LOG_ERROR("WorldAxisGridの描画に失敗しました\n");
-		return;
-	}
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterWorldAxisGrid(_center, _halfCellCount, _cellSize, _xAxisColor, _yAxisColor, _zAxisColor)) return;
+}
+
+void Gfx::DrawAxis3D(Vector3 _origin, Quaternion _rotation, float _length, Vector4 _xColor, Vector4 _yColor, Vector4 _zColor)
+{
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterAxis(_origin, _rotation, _length, _xColor, _yColor, _zColor)) return;
+}
+
+void Gfx::DrawAABB3D(const AABB& _aabb, Vector4 _color)
+{
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterAABB(_aabb, _color)) return;
 }
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)

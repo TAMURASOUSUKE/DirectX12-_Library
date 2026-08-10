@@ -657,7 +657,6 @@ TexHandle GraphicsResourceManager::LoadTexture(const char* _filePath, bool _isDa
 
 	// オーバーライド後のメタデータを取得しなおす
 	metaData = scratch.GetMetadata();
-	DEBUG_LOG("メタデータフォーマットの数値は{}です。: TexturePath : {}\n", static_cast<unsigned int>(metaData.format), _filePath);
 
 	return CreateTextureFromScratch(scratch, metaData);
 }
@@ -691,7 +690,6 @@ TexHandle GraphicsResourceManager::LoadTextureFromMemory(const void* _data, size
 
 	// オーバーライド後のメタデータを取得しなおす
 	metaData = scratch.GetMetadata();
-	DEBUG_LOG("メタデータフォーマットの数値は{}です\n", static_cast<unsigned int>(metaData.format));
 
 	return CreateTextureFromScratch(scratch, metaData);
 }
@@ -865,7 +863,6 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 		cgltf_free(data);
 		return ModelHandle{}; // メッシュがなければ空を返す
 	}
-	DEBUG_LOG("mesh_count : {}\n", data->meshes_count);
 
 	ModelData modelData{}; // SubMeshを溜めるデータ
 	std::filesystem::path modelDir{ std::filesystem::path(_filePath).parent_path() }; // ファイル名を除いたフォルダをとりだす。(uriの基準を出すため)
@@ -1087,23 +1084,10 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 	if (data->skins_count > 0)
 	{
 		LoadBone(data->skins[0], data, modelData.bones, modelData.skeletonRoot);
-		DEBUG_LOG("bones loaded : {}\n", modelData.bones.size());
-
-		// ルートボーンが1個か確認（階層の健全性チェック）
-		for (size_t i = 0; i < modelData.bones.size(); i++)
-		{
-			if (modelData.bones[i].parentIndex < 0)
-				DEBUG_LOG("root bone at index: {}\n", i);
-		}
 
 		if (data->animations_count > 0)
 		{
 			LoadAnimation(data, modelData.animations);
-			DEBUG_LOG("animations loaded: {}\n", modelData.animations.size());
-			for (const auto& a : modelData.animations)
-			{
-				DEBUG_LOG("anim '{}' channels : {} duration : {}\n", a.name, a.channels.size(), a.duration);
-			}
 		}
 	}
 

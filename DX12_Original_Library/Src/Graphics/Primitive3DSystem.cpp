@@ -1,3 +1,5 @@
+#include <array>
+#include "../Collision/Collider.h" // 中身が必要なためcpp側でinclude
 #include "../Debug/DebugLogs.h"
 #include "Primitive3DSystem.h"
 
@@ -139,6 +141,63 @@ bool Primitive3DSystem::RegisterWorldAxisGrid(Vector3 _center, UINT _halfCellCou
 	if (!AppendGridRegistrations(registrations, _center, Quaternion::FromEuler({ 0.0f, 0.0f, 90.0f * Math::DEG_TO_RAD }), _halfCellCount, _cellSize, _zAxisColor)) return false; // YZ平面
 	// 完成後に一度だけ登録確定
 	return batch.RegisterGroup(registrations);
+}
+
+bool Primitive3DSystem::RegisterAxis(Vector3 _origin, Quaternion _rotation, float _length, Vector4 _xColor, Vector4 _yColor, Vector4 _zColor)
+{
+	if (_length <= Math::EPSILON)
+	{
+		DEBUG_LOG_ERROR("座標軸の長さには0より大きい値を指定してください Length : {}\n", _length);
+		return false;
+	}
+	// 回転を表せないゼロQuaternionを除外する
+	if (_rotation.LengthSquared() <= Math::EPSILON * Math::EPSILON)
+	{
+		DEBUG_LOG_ERROR("座標軸に無効なQuaternionが渡されました\n");
+		return false;
+	}
+	const Quaternion rotation{ Quaternion::Normalized(_rotation) };
+	// 基準軸をQuaternionで回して実際の軸方向を求める
+	const Vector3 xEnd{ _origin + rotation.RotateVector(Vector3::Right) * _length };
+	const Vector3 yEnd{ _origin + rotation.RotateVector(Vector3::Up) * _length };
+	const Vector3 zEnd{ _origin + rotation.RotateVector(Vector3::Forward) * _length };
+
+	const auto xLine{ MakeLineRegistration(_origin, xEnd, _xColor) };
+	const auto yLine{ MakeLineRegistration(_origin, yEnd, _yColor) };
+	const auto zLine{ MakeLineRegistration(_origin, zEnd, _zColor) };
+
+	if (!xLine || !yLine || !zLine)
+	{
+		DEBUG_LOG_ERROR("座標軸を構成するLineの生成に失敗しました\n");
+		return false;
+	}
+
+	const std::array<Primitive3DRegistration, 3> registrations{ *xLine, *yLine, *zLine };
+	// 3軸を全部登録できる場合だけ確定する
+	return batch.RegisterGroup(registrations);
+}
+
+bool Primitive3DSystem::RegisterAABB(const AABB& _aabb, Vector4 _color)
+{
+	if (!_aabb.IsValid())
+	{
+		DEBUG_LOG_ERROR("AABBの最小座標と最大座標が逆転しています\n");
+		return false;
+	}
+	const Vector3 size{ _aabb.GetSize() };
+	// 現在のMakeInstanceDataは0スケールの逆数を計算するため厚さ0のAABBは描画対象外にする
+	if (size.x <= Math::EPSILON || size.y <= Math::EPSILON || size.z <= Math::EPSILON)
+	{
+		DEBUG_LOG_ERROR("AABBの各軸の大きさには0より大きい値が必要です Size : ({}, {}, {})\n", size.x, size.y, size.z);
+		return false;
+	}
+
+	Transform transform{};
+	transform.SetPosition(_aabb.GetCenter());
+	transform.SetScale(size);
+
+	// AABBは回転させないため、RotationはIdentityのまま
+	return RegisterCube(transform, _color, Primitive3DDrawMode::DebugLine);
 }
 
 Primitive3DInstanceData Primitive3DSystem::MakeInstanceData(const Transform& _transform, Vector4 _color)

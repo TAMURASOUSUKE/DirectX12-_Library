@@ -3,6 +3,8 @@
 #include "Primitive3DBatch.h"
 #include "../Component/Transform.h"
 
+struct AABB; // 描画側が判定側に依存しないようにするために前方宣言
+
 // 3D基礎図形の意味付けと、Primitive3DBatchへの登録を管理する
 class Primitive3DSystem
 {
@@ -28,7 +30,9 @@ public:
 	bool RegisterLine(Vector3 _start, Vector3 _end, Vector4 _color); // 3D線分
 	bool RegisterGrid(Vector3 _center, Quaternion _rotation, UINT _halfCellCount, float _cellSize, Vector4 _color); // グリッド
 	bool RegisterWorldAxisGrid(Vector3 _center, UINT _halfCellCount, float _cellSize, Vector4 _xAxisColor, Vector4 _yAxisColor, Vector4 _zAxisColor); // ワールド空間軸に沿ったグリッド
-	
+	bool RegisterAxis(Vector3 _origin, Quaternion _rotation, float _length,Vector4 _xColor, Vector4 _yColor, Vector4 _zColor); // ローカル軸を指定位置へ
+	bool RegisterAABB(const AABB& _aabb, Vector4 _color);
+
 private:
 	// Transformと色から、GPUへ渡せる個体データを作る
 	static Primitive3DInstanceData MakeInstanceData(const Transform& _transform, Vector4 _color);
