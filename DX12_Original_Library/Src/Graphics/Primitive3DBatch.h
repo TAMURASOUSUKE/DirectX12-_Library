@@ -1,4 +1,5 @@
 #pragma once
+#include <span>
 #include <array>
 #include <vector>
 #include <cstddef>
@@ -52,6 +53,14 @@ struct Primitive3DMesh
 	bool HasDebugLineGeometry() const { return vertexBuffer.resource && debugLineIndexBuffer.resource && debugLineIndexBuffer.indexCount > 0; }
 };
 
+// Batchへ渡す一個分の登録命令
+struct Primitive3DRegistration
+{
+	Primitive3DMeshID meshID{};
+	Primitive3DInstanceData instance{};
+	Primitive3DDrawMode drawMode{};
+};
+
 // インスタンシングを使った3D基礎図形描画を管理する
 class Primitive3DBatch
 {
@@ -65,6 +74,9 @@ public:
 	bool Register(Primitive3DMeshID _meshID, const Primitive3DInstanceData& _instance, Primitive3DDrawMode _drawMode);
 	// フレーム開始時に登録状態をリセットする
 	void Reset(); 
+
+	// 複数の図形を全部成功または全部失敗で登録する(中途半端な状態を作らない)
+	bool RegisterGroup(std::span<const Primitive3DRegistration> _registration); // spanを使うことで連続したメモリ領域をコピーせず受け取る
 
 	// 登録済みのインスタンスを描画する
 	bool Flush(const Mat4x4& _viewProjection);

@@ -96,31 +96,18 @@ void Primitive3DBatch::Shutdown()
 
 bool Primitive3DBatch::Register(Primitive3DMeshID _meshID, const Primitive3DInstanceData& _instance, Primitive3DDrawMode _drawMode)
 {
-	const std::size_t meshIndex{ static_cast<std::size_t>(_meshID) };
-	if (meshIndex >= MESH_COUNT)
+	// 単体登録も1要素のグループとして扱い容量・ID検査の実装をRegisterGroupへ一本化する
+	const std::array<Primitive3DRegistration, 1> registrations
 	{
-		DEBUG_LOG_ERROR("Primitive3DBatchに無効なMeshIDが渡されました\n");
-		return false;
-	}
+		Primitive3DRegistration
+		{
+			_meshID,
+			_instance,
+			_drawMode
+		}
+	};
 
-	// 全メッシュ・全描画方法を合計した上限
-	if (registeredInstanceCount >= MAX_PRIMITIVE_3D_INSTANCE_COUNT)
-	{
-		droppedInstanceCount++;
-		return false;
-	}
-
-	const std::size_t modeIndex{ static_cast<std::size_t>(_drawMode) };
-	if (modeIndex >= DRAW_MODE_COUNT)
-	{
-		DEBUG_LOG_ERROR("Primitive3DBatchに無効なDrawModeが渡されました\n");
-		return false;
-	}
-
-	buckets[modeIndex][meshIndex].instances.push_back(_instance);
-	registeredInstanceCount++;
-	return true;
-
+	return RegisterGroup(registrations);
 }
 
 void Primitive3DBatch::Reset()
@@ -145,6 +132,60 @@ void Primitive3DBatch::Reset()
 	frameConstantBuffer.Reset();
 	registeredInstanceCount = 0;
 	droppedInstanceCount = 0;
+}
+
+bool Primitive3DBatch::RegisterGroup(std::span<const Primitive3DRegistration> _registration)
+{
+	if (_registration.empty()) return true; // 空なのでtrueを返す
+
+	// registeredInstanceCountが上限を超えていると残り容量の引き算でアンダーフローするため先に検査する
+	if (registeredInstanceCount > MAX_PRIMITIVE_3D_INSTANCE_COUNT)
+	{
+		// Assertで止める前に値を出す
+		DEBUG_LOG_ERROR("Primitive3Dの登録数が上限を超えた不正な値です registered : {} max : {}", registeredInstanceCount, MAX_PRIMITIVE_3D_INSTANCE_COUNT);
+		DEBUG_ASSERT(false); // registeredInstanceCountは上限以下でないといけないので止める
+		return false;
+	}
+
+	// 現在後何個登録できるか
+	const std::size_t remainingCapacity{ MAX_PRIMITIVE_3D_INSTANCE_COUNT - registeredInstanceCount };
+	// Group全体が追加できるか確認
+	if (_registration.size() > remainingCapacity)
+	{
+		DEBUG_LOG_ERROR("残り容量を超えたグループを登録しようとしました 残り容量 : {} 登録量 : {}\n", remainingCapacity, _registration.size());
+		droppedInstanceCount += _registration.size(); // 全ての要素を破棄するため全要素を加える
+		return false;
+	}
+
+	for (const Primitive3DRegistration& registration : _registration)
+	{
+		// ID確認
+		const std::size_t meshIndex{ static_cast<std::size_t>(registration.meshID) };
+		if (meshIndex >= MESH_COUNT)
+		{
+			DEBUG_LOG_ERROR("RegisterGroupに無効なMeshIDが含まれています\n");
+			return false;
+		}
+		// DrawMode確認
+		const std::size_t modeIndex{ static_cast<std::size_t>(registration.drawMode) };
+		if (modeIndex >= DRAW_MODE_COUNT)
+		{
+			DEBUG_LOG_ERROR("RegisterGroupに無効なDrawModeが含まれています\n");
+			return false;
+		}
+	}
+
+	// 確認ができたので全てのデータをpushbackする
+	for (const Primitive3DRegistration& registration : _registration)
+	{
+		// Registerを使うと確認が重複するので自前で追加
+		const std::size_t meshIndex{ static_cast<std::size_t>(registration.meshID) };
+		const std::size_t modeIndex{ static_cast<std::size_t>(registration.drawMode) };
+		buckets[modeIndex][meshIndex].instances.push_back(registration.instance);
+	}
+	// 全要素の登録が完了したので件数の反映
+	registeredInstanceCount += _registration.size();
+	return true;
 }
 
 bool Primitive3DBatch::Flush(const Mat4x4& _viewProjection)

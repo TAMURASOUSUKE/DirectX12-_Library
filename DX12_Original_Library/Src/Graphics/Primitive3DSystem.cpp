@@ -41,7 +41,7 @@ bool Primitive3DSystem::RegisterCapsule(Vector3 _start, Vector3 _end, float _rad
 {
 	if (_radius <= Math::EPSILON)
 	{
-		DEBUG_LOG_ERROR("DrawCapsule3Dに不正な半径が渡されました Radius : {}\n", _radius);
+		DEBUG_LOG_ERROR("RegisterCapsule3Dに不正な半径が渡されました Radius : {}\n", _radius);
 		return false;
 	}
 
@@ -58,7 +58,7 @@ bool Primitive3DSystem::RegisterCapsule(Vector3 _start, Vector3 _end, float _rad
 		return batch.Register(Primitive3DMeshID::Sphere, MakeInstanceData(sphere, _color), _drawMode);
 	}
 
-	// すでにLengthがも止まっているのでNormalizeを呼んで計算を重複させない
+	// すでにLengthが求まっているのでNormalizeを呼んで計算を重複させない
 	const Vector3 direction{ axis / length };
 	const Vector3 center{ (_start + _end) * 0.5f };
 
@@ -80,14 +80,29 @@ bool Primitive3DSystem::RegisterCapsule(Vector3 _start, Vector3 _end, float _rad
 	startCap.SetRotation(Quaternion::FromToRotation(Vector3::Up, -direction));
 	startCap.SetScale({ diameter, diameter, diameter });
 
-	// 各登録
-	if (!batch.Register(Primitive3DMeshID::Cylinder, MakeInstanceData(cylinder, _color), _drawMode) ||
-		!batch.Register(Primitive3DMeshID::Hemisphere, MakeInstanceData(endCap, _color), _drawMode) ||
-		!batch.Register(Primitive3DMeshID::Hemisphere, MakeInstanceData(startCap, _color), _drawMode))
+	// 3つを一つのグループとして登録する
+	const std::array<Primitive3DRegistration, 3> registrations
 	{
-		return false;
-	}
-	return true;
+		Primitive3DRegistration
+		{
+			Primitive3DMeshID::Cylinder,
+			MakeInstanceData(cylinder, _color),
+			_drawMode
+		},
+			Primitive3DRegistration
+		{
+			Primitive3DMeshID::Hemisphere,
+			MakeInstanceData(endCap, _color),
+			_drawMode
+		},
+			Primitive3DRegistration
+		{
+			Primitive3DMeshID::Hemisphere,
+			MakeInstanceData(startCap, _color),
+			_drawMode
+		},
+	};
+	return batch.RegisterGroup(registrations);
 }
 
 Primitive3DInstanceData Primitive3DSystem::MakeInstanceData(const Transform& _transform, Vector4 _color)
