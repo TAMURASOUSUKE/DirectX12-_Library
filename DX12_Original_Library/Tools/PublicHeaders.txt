@@ -4,6 +4,7 @@
 
 Collision/Collider.h
 Component/Transform.h
+Component/Camera.h
 
 Core/Handle/HandlePassKey.h
 Core/Handle/MaterialHandle.h
