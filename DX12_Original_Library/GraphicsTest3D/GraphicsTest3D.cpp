@@ -107,7 +107,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPress(KeyCode::Button::A)) dir -= cameraRight;
 		if (Input::IsKeyPress(KeyCode::Button::S)) dir -= cameraForward;
 		if (Input::IsKeyPress(KeyCode::Button::D)) dir += cameraRight;
-		float speed{ 3.0f };
+		float speed{ 20.0f };
 		dir.Normalize();
 		objectPosition.Translate(dir * speed * Time::DeltaTime());
 		camera.transform.Translate(dir * speed * Time::DeltaTime());
@@ -128,7 +128,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		// 一時停止した位置から再開
 		if (Input::IsKeyPushed(KeyCode::Button::O)) Gfx::ResumeAnim(testModelAnim01);
 		// 再生方向に応じた開始位置へ戻して停止
-		if (Input::IsKeyPushed(KeyCode::Button::S)) Gfx::StopAnim(testModelAnim01);
+		if (Input::IsKeyPushed(KeyCode::Button::B)) Gfx::StopAnim(testModelAnim01);
 		Gfx::UpdateAnim(testModelAnim01, Time::DeltaTime());
 
 		std::string fpsValue{ std::format("CurrentMeasuredFPS : {:.1f}", Time::FPS()) };
@@ -153,7 +153,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawPlane3D(plane, { 0.0f, 0.3f, 0.4f }, Gfx::Primitive3DStyle::Fill);
 		Gfx::DrawLine3D({ 2.0f, 1.0f, 6.0f }, {-1.0f, -3.0f, 6.0f});
 		// Gfx::DrawGrid3D({ 0.0f, -1.0f, 5.0f }, Quaternion::FromEuler(-45.0f * Math::DEG_TO_RAD, 0.0f, 0.0f), 10, 1.0f, {0.4f, 0.4f, 0.4f, 1.0f});
-		Gfx::DrawWorldAxisGrid3D({0.0f, -1.0f, 5.0f});
+		Gfx::DrawWorldAxisGrid3D({ 0.0f, -1.0f, 5.0f }, 10, 1.0f,{1.0f, 1.0f, 1.0f, 1.0}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f});
 		Gfx::DrawAxis3D(objectPosition.GetPosition(), objectPosition.GetRotation());
 		Gfx::DrawAABB3D(playerAABB,hitColor);
 		Gfx::DrawAABB3D(debugCube,{ 0.0f, 0.0f, 1.0f, 1.0f });

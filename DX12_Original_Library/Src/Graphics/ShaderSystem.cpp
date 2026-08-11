@@ -965,6 +965,7 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	model.parameters.push_back(MakeRootCBV(1, D3D12_SHADER_VISIBILITY_PIXEL)); // material用定数バッファ(b1)
 	model.parameters.push_back(MakeRootCBV(2, D3D12_SHADER_VISIBILITY_VERTEX)); // スキニング行列(b2)
 	model.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_PIXEL)); // テクスチャ(t0)
+	model.parameters.push_back(MakeRootCBV(3, D3D12_SHADER_VISIBILITY_PIXEL)); // ライティング(b3)
 	model.staticSamplers.push_back(MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL)); // サンプラー設定(s0)
 	descs.push_back(std::move(model)); // model変数は使わないのでmoveして空にする(コピーの必要性なし)
 	// Shape用
@@ -1010,6 +1011,7 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	primitive3D.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // RootParameter[0]
 	// 個体ごとのWorld行列、法線行列、色をt0からVSが読む
 	primitive3D.parameters.push_back(MakeRootSRV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // RootParameter[1]
+	primitive3D.parameters.push_back(MakeRootCBV(3, D3D12_SHADER_VISIBILITY_PIXEL)); // b3(ライティング)
 	descs.push_back(std::move(primitive3D));
 	return descs;
 }

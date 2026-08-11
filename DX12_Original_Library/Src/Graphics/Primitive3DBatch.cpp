@@ -188,7 +188,7 @@ bool Primitive3DBatch::RegisterGroup(std::span<const Primitive3DRegistration> _r
 	return true;
 }
 
-bool Primitive3DBatch::Flush(const Mat4x4& _viewProjection)
+bool Primitive3DBatch::Flush(const Mat4x4& _viewProjection, D3D12_GPU_VIRTUAL_ADDRESS _sceneLightAddress)
 {
 	if (registeredInstanceCount == 0) return true; // 登録されていない時は計算しない
 	if (!UploadCurrentFrameInstances()) return false; // 失敗したときは関数内でログが出る
@@ -207,7 +207,7 @@ bool Primitive3DBatch::Flush(const Mat4x4& _viewProjection)
 	const DynamicBuffer& instanceBuffer{ instanceBuffers[frameIndex] };
 
 	ID3D12GraphicsCommandList* commandList{ GraphicsDevice::Instance().GetCommandList() };
-	if (!commandList || !instanceBuffer.resource || !rootSignature)
+	if (!commandList || !instanceBuffer.resource || !rootSignature || _sceneLightAddress == 0)
 	{
 		DEBUG_LOG_ERROR("Primitive3Dの描画に必要な状態が無効です\n");
 		return false;
@@ -215,8 +215,8 @@ bool Primitive3DBatch::Flush(const Mat4x4& _viewProjection)
 
 	commandList->SetGraphicsRootSignature(rootSignature);
 
-	// RootPrameter[0] = b0
-	commandList->SetGraphicsRootConstantBufferView(0, frameAddress);
+	commandList->SetGraphicsRootConstantBufferView(0, frameAddress); 	// RootPrameter[0] = b0 : ViewProjection
+	commandList->SetGraphicsRootConstantBufferView(2, _sceneLightAddress); // RootParameter[2] = b3 : sceneLight 
 
 	const D3D12_GPU_VIRTUAL_ADDRESS instanceBufferBase{ instanceBuffer.resource->GetGPUVirtualAddress() };
 

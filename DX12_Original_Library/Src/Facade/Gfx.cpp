@@ -19,6 +19,7 @@
 #include "../Animation/AnimationSystem.h"
 #include "../Graphics/Primitive3DSystem.h"
 #include "../Graphics/CameraSystem.h"
+#include "../Graphics/LightSystem.h"
 #include "GfxInternal.h" // 外部公開しないもの
 #include "Gfx.h" // 外部公開するもの
 
@@ -43,6 +44,7 @@ namespace {
 	AnimationSystem animSystem; // 3Dモデルのアニメーションシステム
 	Primitive3DSystem primitive3DSystem; // 3D基礎図形描画のシステム
 	CameraSystem cameraSystem; // カメラ制御システム
+	LightSystem lightSystem; // ライト管理システム
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	int screenWidth{ 0 }; // 画面の横幅
 	int screenHeight{ 0 }; // 画面の縦幅
@@ -462,6 +464,7 @@ namespace {
 		bgBatch.Shutdown();
 		shapeBatch.Shutdown();
 		primitive3DSystem.Shutdown();
+		lightSystem.Shutdown();
 
 		// 正射影CBを解放する
 		if (orthConstantBufferData.cbvHandle.IsValid())
@@ -580,6 +583,11 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	}
 	//CreateDynamicBufferした後の未定義の中身に対して明示的に0クリアを入れる
 	std::memset(zeroMaterialParameterBuffer.mappedPtr, 0, MAX_MATERIAL_PARAMETER_SIZE);
+	if (!lightSystem.Setup())
+	{
+		DEBUG_LOG_ERROR("LightSystemの初期化にしっぱいしました\n");
+		return false;
+	}
 	animSystem.Setup(); // アニメーションシステムのセットアップ
 	// スプライトバッチ処理初期化
 	fgBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
@@ -625,6 +633,7 @@ void GfxInternal::BeginFrame()
 	skinningRingCBV.Reset();
 	terrainRingCBV.Reset();
 	userMaterialParameterRingCBV.Reset();
+	lightSystem.BeginFrame();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto dsv{ GraphicsDevice::Instance().GetDSV() };
@@ -685,8 +694,9 @@ void GfxInternal::EndFrame()
 	}
 	// 3D基礎図形
 	{
+		const D3D12_GPU_VIRTUAL_ADDRESS lightAddress{ lightSystem.GetFrameGPUAddress() };
 		GPU_MARKER("Primitive3D");
-		if (!primitive3DSystem.Flush(cameraSystem.GetViewProjectionMatrix())) DEBUG_LOG_ERROR("Primitive3Dの更新に失敗しました\n");
+		if (!primitive3DSystem.Flush(cameraSystem.GetViewProjectionMatrix(), lightAddress)) DEBUG_LOG_ERROR("Primitive3Dの更新に失敗しました\n");
 	}
 	{
 		GPU_MARKER("foreGround");
@@ -877,6 +887,17 @@ bool Gfx::SetCamera(const Camera& _camera)
 		DEBUG_LOG_ERROR("3Dカメラの設定に失敗しました\n");
 		return false;
 	}
+	return true;
+}
+
+bool Gfx::SetSceneLight(const SceneLight& _sceneLight)
+{
+	if (!lightSystem.SetSceneLight(_sceneLight))
+	{
+		DEBUG_LOG_ERROR("シーンライトの設定に失敗しました\n");
+		return false;
+	}
+
 	return true;
 }
 

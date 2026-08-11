@@ -19,7 +19,7 @@ public:
 	void Reset();
 
 	// 登録された図形をまとめて描画する
-	bool Flush(const Mat4x4& _viewProjection);
+	bool Flush(const Mat4x4& _viewProjection, D3D12_GPU_VIRTUAL_ADDRESS _sceneLightAddress);
 
 	// 単体図形をBatchへ登録する
 	bool RegisterCube(const Transform& _transform, Vector4 _color, Primitive3DDrawMode _drawMode); // 箱

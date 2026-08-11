@@ -162,6 +162,7 @@
     <ClInclude Include="Src\Collision\Collider.h" />
     <ClInclude Include="Src\Collision\CollisionSystem.h" />
     <ClInclude Include="Src\Component\Camera.h" />
+    <ClInclude Include="Src\Component\Light.h" />
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\AnimInstanceHandle.h" />
     <ClInclude Include="Src\Core\Handle\HandlePacking.h" />
@@ -202,6 +203,7 @@
     <ClInclude Include="Src\Graphics\GraphicsType.h" />
     <ClInclude Include="Src\Graphics\GraphicsResourceManager.h" />
     <ClInclude Include="Src\Graphics\InternalResource\DefaultFontData.h" />
+    <ClInclude Include="Src\Graphics\LightSystem.h" />
     <ClInclude Include="Src\Graphics\Primitive3DBatch.h" />
     <ClInclude Include="Src\Graphics\Primitive3DSystem.h" />
     <ClInclude Include="Src\Graphics\RingConstantBuffer.h" />
@@ -262,6 +264,7 @@
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsResourceManager.cpp" />
     <ClCompile Include="Src\Graphics\InternalResource\DefaultFontData.cpp" />
+    <ClCompile Include="Src\Graphics\LightSystem.cpp" />
     <ClCompile Include="Src\Graphics\Primitive3DBatch.cpp" />
     <ClCompile Include="Src\Graphics\Primitive3DSystem.cpp" />
     <ClCompile Include="Src\Graphics\RingConstantBuffer.cpp" />
@@ -328,6 +331,7 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Src\Shaders\Lighting.hlsli" />
     <None Include="Src\Shaders\PostEffectContract.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

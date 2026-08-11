@@ -80,7 +80,7 @@ public:
 	bool RegisterGroup(std::span<const Primitive3DRegistration> _registration); // spanを使うことで連続したメモリ領域をコピーせず受け取る
 
 	// 登録済みのインスタンスを描画する
-	bool Flush(const Mat4x4& _viewProjection);
+	bool Flush(const Mat4x4& _viewProjection, D3D12_GPU_VIRTUAL_ADDRESS _sceneLightAddress);
 
 private:
 	// CPU側Bucketを現在フレームのGPUバッファへ連続コピーする
