@@ -18,6 +18,7 @@
 #include "../Graphics/InternalResource/DefaultFontData.h"
 #include "../Animation/AnimationSystem.h"
 #include "../Graphics/Primitive3DSystem.h"
+#include "../Graphics/CameraSystem.h"
 #include "GfxInternal.h" // 外部公開しないもの
 #include "Gfx.h" // 外部公開するもの
 
@@ -36,13 +37,12 @@ namespace {
 	// 全Terrain描画で共有するグリッド
 	VertexBuffer terrainVertexBuffer{};
 	IndexBuffer terrainIndexBuffer{};
-	Mat4x4 vpMat; // View * Projection
-	Mat4x4 mvpMat;
 	SpriteBatch fgBatch; // 手前のスプライトバッチ処理
 	SpriteBatch bgBatch; // 背景のスプライトバッチ処理
 	ShapeBatch shapeBatch; // 基本図形のバッチ処理
 	AnimationSystem animSystem; // 3Dモデルのアニメーションシステム
 	Primitive3DSystem primitive3DSystem; // 3D基礎図形描画のシステム
+	CameraSystem cameraSystem; // カメラ制御システム
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	int screenWidth{ 0 }; // 画面の横幅
 	int screenHeight{ 0 }; // 画面の縦幅
@@ -117,7 +117,7 @@ namespace {
 
 		auto cmd{ GraphicsDevice::Instance().GetCommandList() };
 		Mat4x4 worldMat{ _transform.GetWorldMatrix() }; // ワールド行列の取得
-		mvpMat = worldMat * vpMat;
+		const Mat4x4 mvpMat{ worldMat * cameraSystem.GetViewProjectionMatrix() };
 
 		cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Model));
 		cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::Model));
@@ -180,7 +180,7 @@ namespace {
 		if (!model) return; // 無効ハンドルガード
 		auto cmd{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリストのキャッシュ
 		Mat4x4 worldMat{ _transform.GetWorldMatrix() };
-		mvpMat = worldMat * vpMat;
+		const Mat4x4 mvpMat{ worldMat * cameraSystem.GetViewProjectionMatrix() };
 
 		// パイプライン設定
 		cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Model));
@@ -341,7 +341,7 @@ namespace {
 		const Mat4x4 translationMat{ Mat4x4::MakeTranslation(_position) };
 		const Mat4x4 worldMat{ scaleMat * translationMat }; // 行優先なのでS->T
 		TerrainCB cb{};
-		cb.mvp = worldMat * vpMat;
+		cb.mvp = worldMat * cameraSystem.GetViewProjectionMatrix();
 		cb.color = _color;
 		cb.heightScale = effectiveHeightScale;
 		cb.tessFactor = std::clamp(_tessFactor, 1.0f, 64.0f); // HSの分割係数の有効範囲内(1-64)にClamp
@@ -555,9 +555,17 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	const Mat4x4 orthMat{ Mat4x4::MakeOrthGraphic(static_cast<float>(_virtualWidth), static_cast<float>(_virtualHeight)) }; // 変換行列の作成
 	orthConstantBufferData = GraphicsResourceManager::Instance().CreateConstantBuffer(&orthMat, sizeof(Mat4x4));
 
-	// 透視投影行列の作成(一旦ハードコーディング)
-	const float virtualAspect{ static_cast<float>(_virtualWidth) / static_cast<float>(_virtualHeight) };
-	vpMat = Mat4x4::MakeLookAt({ 0.0f, 1.0f, -3.0f }, { 0.0f, 1.0f, 1.0f }, Vector3::Up) * Mat4x4::MakePerspective(60.0f * Math::DEG_TO_RAD, virtualAspect, 0.1f, 100.0f);
+	// カメラ設定
+	Camera defaultCamera{};
+	defaultCamera.transform.SetPosition({0.0f, 1.0f, -3.0f}); // 初期位置
+	defaultCamera.transform.SetRotation({Quaternion::Identity}); // Identityは+Z方向を見る
+	const float aspectRatio{ static_cast<float>(_clientWidth) / static_cast<float>(_clientHeight) };
+	if (!cameraSystem.Setup(defaultCamera, aspectRatio))
+	{
+		DEBUG_LOG_ERROR("CameraSystemの初期化に失敗しました\n");
+		return false;
+	}
+	
 	mvpRingCBV.Setup(sizeof(Mat4x4)); // リングバッファ初期化
 	materialRingCBV.Setup(sizeof(MaterialCB));  // materialのリング定数バッファを初期化
 	skinningRingCBV.Setup(sizeof(Mat4x4) * MAX_BONE_NUM); // ボーン用の定数バッファを更新
@@ -678,7 +686,7 @@ void GfxInternal::EndFrame()
 	// 3D基礎図形
 	{
 		GPU_MARKER("Primitive3D");
-		if (!primitive3DSystem.Flush(vpMat)) DEBUG_LOG_ERROR("Primitive3Dの更新に失敗しました\n");
+		if (!primitive3DSystem.Flush(cameraSystem.GetViewProjectionMatrix())) DEBUG_LOG_ERROR("Primitive3Dの更新に失敗しました\n");
 	}
 	{
 		GPU_MARKER("foreGround");
@@ -862,6 +870,15 @@ bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _s
 	return resourceManager.SetMaterialParameter(_handle, _slot, _data, _dataSize);
 }
 
+bool Gfx::SetCamera(const Camera& _camera)
+{
+	if (!cameraSystem.SetCamera(_camera))
+	{
+		DEBUG_LOG_ERROR("3Dカメラの設定に失敗しました\n");
+		return false;
+	}
+	return true;
+}
 
 // 描画先をクリアする(色指定可能)
 void Gfx::ClearScreen(float _r, float _g, float _b, float _a)

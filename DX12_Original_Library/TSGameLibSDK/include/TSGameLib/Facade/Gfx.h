@@ -8,7 +8,10 @@
 #include "../Core/Handle/AnimInstanceHandle.h"
 #include "../Graphics/GfxType.h"
 #include "../Component/Transform.h"
+#include "../Component/Camera.h"
 #include "../Math/TSMath.h"
+
+struct AABB; // 描画側が判定側に依存しない
 
 // グラフィックスに関する機能をユーザーに簡易的に提供するためのファイル
 namespace Gfx 
@@ -113,10 +116,19 @@ namespace Gfx
 		Data, // ハイトマップやノーマルマップなどの数値データ,Linerとして読み込む	
 	};
 
+	// 3Dの基本図形の描画方法を設定する
+	enum class Primitive3DStyle
+	{
+		Fill, // 塗りつぶし
+		MeshWireframe, // メッシュをワイヤー表示
+		DebugLine, // あたり判定可視化などデバッグ途用として余計な線を描画しないワイヤー表示
+	};
+
+	// 現在使用する3Dカメラを設定する(呼ぶ場合は必ず3D描画前に呼んでください)
+	bool SetCamera(const Camera& _camera);
 
 	// 画面のクリア(引数で色を設定できるデフォルトは黒)
 	void ClearScreen(float _r = 0.0f, float _g = 0.0f, float _b = 0.0f, float _a = 1.0f);
-
 
 	//画像読み込み : ファイル名とどの用途として読み込むか(ノーマルマップなどの数値データならColorではなくDataとしてください)
 	TexHandle LoadTexture(const char* _filePath, TextureUsage _usage = TextureUsage::Color);
@@ -167,6 +179,27 @@ namespace Gfx
 	void DrawSpriteSized(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, Vector2 _pixelSize, MaterialHandle _material,float _radRotation = 0.0f, SpriteFlip _flip = SpriteFlip::None, Vector4 _color = Vector4::One, RenderLayer _layer = RenderLayer::ForeGround);
 	// 設定に従って現在フレームを進める(対象アトラス, 設定, 時間)
 	bool UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _state, float _deltaTime);
+
+	// 単位CubeをTransformで配置して描画する
+	void DrawCube3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, Primitive3DStyle _style = Primitive3DStyle::Fill);
+	// 単位SphereをTransformで配置して描画する
+	void DrawSphere3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, Primitive3DStyle _style = Primitive3DStyle::Fill);
+	// 単位CylinderをTransformで配置して描画する
+	void DrawCylinder3D(const Transform& _transform, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f }, Primitive3DStyle _style = Primitive3DStyle::Fill);
+	// 単位Capsuleを線分と半径で配置して描画する
+	void DrawCapsule3D(Vector3 _start, Vector3 _end, float _radius, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f }, Primitive3DStyle _style = Primitive3DStyle::Fill);
+	// 単位PlaneをTransformで配置して描画する
+	void DrawPlane3D(const Transform& _transform, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f }, Primitive3DStyle _style = Primitive3DStyle::Fill);
+	// 単位Lineを始点と終点で配置する
+	void DrawLine3D(Vector3 _start, Vector3 _end, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f});
+	// 平面上に3DGridを描画する(中心座標、中心から片側端までのCell数、Cell1つ分のサイズ(デフォルトは1m), 色)
+	void DrawGrid3D(Vector3 _center, Quaternion _rotation = Quaternion::Identity,unsigned int _halfCellCount = 10, float _cellSize = 1.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f });
+	// ワールド空間の座標軸に沿ったグリッドを生成する(中心座標、中心から片側端までのCell数、Cell1つ分のサイズ(デフォルトは1m), 各軸のグリッドの色(デフォルトはX = 赤 Y = 緑 Z = 青です))
+	void DrawWorldAxisGrid3D(Vector3 _center, unsigned int _halfCellCount = 10, float _cellSize = 1.0f, Vector4 _xAxisColor = { 1.0f, 0.0f, 0.0f, 1.0f }, Vector4 _yAxisColor = { 0.0f, 1.0f, 0.0f, 1.0f }, Vector4 _zAxisColor = { 0.0f, 0.0f, 1.0f, 1.0f });
+	// ローカル座標軸を描画する
+	void DrawAxis3D(Vector3 _origin, Quaternion _rotation = Quaternion::Identity, float _length = 1.0f, Vector4 _xColor = { 1.0f, 0.0f, 0.0f, 1.0f }, Vector4 _yColor = { 0.0f, 1.0f, 0.0f, 1.0f }, Vector4 _zColor = { 0.0f, 0.0f, 1.0f, 1.0f });
+	// AABBをデバッグ表示する
+	void DrawAABB3D(const AABB& _aabb, Vector4 _color = { 0.0f, 1.0f, 0.0f, 1.0f });
 
 
 	// 静的モデルを描画する

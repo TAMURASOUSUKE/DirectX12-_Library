@@ -26,7 +26,10 @@ public:
 
 	// オイラー角から四元数を生成する
 	static Quaternion FromEuler(const float _pitch, const float _yaw,const  float _roll);
-	static Quaternion FromEuler(const Vector3& rotation); // Vec3版
+	static Quaternion FromEuler(const Vector3& _rotation); // Vec3版
+
+	// From方向をTo方向へ向けるQuaternionを作る
+	static Quaternion FromToRotation(const Vector3& _from, const Vector3& _to);
 
 	// 補完
 	static Quaternion Slerp(const Quaternion& _from, const Quaternion& _to, float _t);

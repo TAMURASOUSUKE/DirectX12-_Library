@@ -161,6 +161,7 @@
     <ClInclude Include="Src\Animation\AnimationSystem.h" />
     <ClInclude Include="Src\Collision\Collider.h" />
     <ClInclude Include="Src\Collision\CollisionSystem.h" />
+    <ClInclude Include="Src\Component\Camera.h" />
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\AnimInstanceHandle.h" />
     <ClInclude Include="Src\Core\Handle\HandlePacking.h" />
@@ -192,6 +193,7 @@
     <ClInclude Include="Src\FPS\FPSLimiter.h" />
     <ClInclude Include="Src\FPS\FPSSystem.h" />
     <ClInclude Include="Src\FPS\FPSCounter.h" />
+    <ClInclude Include="Src\Graphics\CameraSystem.h" />
     <ClInclude Include="Src\Graphics\DescriptorManager.h" />
     <ClInclude Include="Src\Graphics\GfxType.h" />
     <ClInclude Include="Src\Graphics\GPUMarker.h" />
@@ -254,6 +256,7 @@
     <ClCompile Include="Src\FPS\FPSCounter.cpp" />
     <ClCompile Include="Src\FPS\FPSLimiter.cpp" />
     <ClCompile Include="Src\FPS\FPSSystem.cpp" />
+    <ClCompile Include="Src\Graphics\CameraSystem.cpp" />
     <ClCompile Include="Src\Graphics\DescriptorManager.cpp" />
     <ClCompile Include="Src\Graphics\GPUMarker.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />

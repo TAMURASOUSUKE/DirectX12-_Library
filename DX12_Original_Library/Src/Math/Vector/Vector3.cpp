@@ -31,7 +31,7 @@ void Vector3::Normalize()
 {
 	float len{ Length() }; // ベクトルの長さを取得
 
-	if (len > 0.0f) // 0除防止
+	if (len > Math::EPSILON) // 0除防止
 	{
 		x /= len;
 		y /= len;

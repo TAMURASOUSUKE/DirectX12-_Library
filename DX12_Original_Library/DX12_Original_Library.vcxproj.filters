@@ -294,6 +294,12 @@
     <ClInclude Include="Src\Graphics\Primitive3DSystem.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Component\Camera.h">
+      <Filter>Src\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Graphics\CameraSystem.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -423,6 +429,9 @@
       <Filter>Src\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Src\Graphics\Primitive3DSystem.cpp">
+      <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\CameraSystem.cpp">
       <Filter>Src\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
