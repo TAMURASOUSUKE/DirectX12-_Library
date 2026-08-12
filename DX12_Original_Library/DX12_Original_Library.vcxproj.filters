@@ -484,7 +484,10 @@
     <FxCompile Include="Src\Shaders\Primitive3DVS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Src\Shaders\Primitive3DPS.hlsl">
+    <FxCompile Include="Src\Shaders\Primitive3DUnlitPS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\Primitive3DLitPS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
   </ItemGroup>

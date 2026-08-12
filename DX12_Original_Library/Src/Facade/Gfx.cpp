@@ -30,7 +30,9 @@ namespace {
 	ShaderSystem shaderSystem; // Shader読み込みなどを管理するファイル
 	ConstantBufferData orthConstantBufferData; // 正射影行列用定数バッファのデータメンバ
 	DynamicBuffer zeroMaterialParameterBuffer{}; // パラメータ未設定スロットへバインドするゼロ埋めCB 全スロットで同じGPUアドレス
-	RingConstantBuffer mvpRingCBV; // MVP行列用定数バッファのデータメンバ
+	RingConstantBuffer sceneFrameRingCBV; // 1フレーム共通
+	RingConstantBuffer modelObjectRingCBV{}; //モデル個体ごと
+	D3D12_GPU_VIRTUAL_ADDRESS sceneFrameGPUAddress{ 0 }; // 同じフレーム中にSceneFrameCBを再転送しないためのキャッシュ
 	RingConstantBuffer materialRingCBV; // material用定数バッファのデータメンバ
 	RingConstantBuffer skinningRingCBV; // スキニング行列定数バッファのデータメンバ
 	RingConstantBuffer userMaterialParameterRingCBV{}; // 外部MaterialのユーザーパラメータをGPUへ送るRing, PostEffectとSpriteで将来共有する
@@ -84,26 +86,83 @@ namespace {
 		 .depth = DepthParam::None, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE}, // 2D画像を画面へ貼るだけなので深度は使わない
 		// 3DPrimitiveFill
 		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DFill,
-		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DPS,
+		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DLitPS,
 		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
 		 .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
 		 .fillMode = D3D12_FILL_MODE_SOLID},
 		 // 3DPrimitiveMeshWire
 		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DMeshWire,
-		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DPS,
+		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DLitPS, // テスト用に光を受ける
 		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
 		 .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
 		 .fillMode = D3D12_FILL_MODE_WIREFRAME},
 		 // 3DPrimitiveDebugLine
 		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DDebugLine,
-		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DPS,
+		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DUnlitPS,
 		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
 		 .depth = DepthParam::ReadOnly, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
 		 .fillMode = D3D12_FILL_MODE_SOLID}
 	};
+
+	// モデルVSと同じ配置だがWorldの逆転置行列を作ることで非均一スケールでも正しく法線を取れるようにする
+	struct ModelTransformCB
+	{
+		Mat4x4 mvp{ Mat4x4::Identity };
+		Mat4x4 worldInverseTranspose{ Mat4x4::Identity }; // 逆転置行列
+	};
+
+	// 1フレーム内のモデル描画で共有するデータ
+	struct SceneFrameCB
+	{
+		Mat4x4 viewProjection{ Mat4x4::Identity };
+		Vector4 cameraPosition{}; // wは未使用
+	};
+	// モデル個体ごとに異なるデータ
+	struct ModelObjectCB
+	{
+		Mat4x4 world{ Mat4x4::Identity };
+		Mat4x4 worldInverseTranspose{ Mat4x4::Identity }; // 逆転置行列
+	};
+	static_assert(sizeof(SceneFrameCB) == 80, "SceneFrameCBのサイズがHLSLと一致しません");
+	static_assert(sizeof(ModelObjectCB) == 128, "ModelObjectCBのサイズがHLSLと一致しません");
 }
 
 namespace {
+	// フレームデータを1度だけ転送するヘルパー
+	D3D12_GPU_VIRTUAL_ADDRESS GetSceneFrameGPUAddress()
+	{
+		// 現在フレームですでに転送していれば再利用
+		if (sceneFrameGPUAddress != 0) return sceneFrameGPUAddress;
+
+		const Vector3 cameraPosition{ cameraSystem.GetCameraPosition() };
+		SceneFrameCB frameData{};
+		frameData.viewProjection = cameraSystem.GetViewProjectionMatrix();
+		frameData.cameraPosition = { cameraPosition.x, cameraPosition.y, cameraPosition.z, 0.0f };
+
+		sceneFrameGPUAddress = sceneFrameRingCBV.Update(&frameData, static_cast<UINT>(sizeof(frameData)));
+		if (sceneFrameGPUAddress == 0) DEBUG_LOG_ERROR("SceneFrameCBのGPU転送に失敗しました\n");
+		return sceneFrameGPUAddress;
+	}
+
+	// 静的モデルとアニメーションモデルで個体それぞれのCBを組み立てるヘルパー
+	bool TryMakeModelObjectCB(const Transform& _transform, ModelObjectCB& _outCB)
+	{
+		const Vector3 scale{ _transform.GetScale() };
+
+		// 逆数を計算するため0スケールは受け入れない
+		if (std::abs(scale.x) <= Math::EPSILON || std::abs(scale.y) <= Math::EPSILON || std::abs(scale.z) <= Math::EPSILON)
+		{
+			DEBUG_LOG_ERROR("ModelのScaleに0へ近い値が指定されました Scale : ({}, {}, {})", scale.x, scale.y, scale.z);
+			return false;
+		}
+		const Vector3 inverseScale{ 1.0f / scale.x, 1.0f / scale.y, 1.0f / scale.z };
+		_outCB.world = _transform.GetWorldMatrix();
+
+		// TransformをSRT構成にしたので逆行列計算を使わずに逆スケールと回転行列を使って法線行列を作る
+		_outCB.worldInverseTranspose = Mat4x4::MakeScaling(inverseScale) * _transform.GetRotation().ToMat4x4();
+		return true;
+	}
+
 	// スキンメッシュ付き
 	void DrawSkinnedModel(const AnimInstanceData& _anim, Transform _transform)
 	{
@@ -118,23 +177,37 @@ namespace {
 		if (!model) return;
 
 		auto cmd{ GraphicsDevice::Instance().GetCommandList() };
-		Mat4x4 worldMat{ _transform.GetWorldMatrix() }; // ワールド行列の取得
-		const Mat4x4 mvpMat{ worldMat * cameraSystem.GetViewProjectionMatrix() };
+		ModelObjectCB objectData{};
+		if (!TryMakeModelObjectCB(_transform, objectData)) return;
 
 		cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Model));
 		cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::Model));
 
 		DescriptorManager::Instance().SetDiscriptor(cmd);
-		const D3D12_GPU_VIRTUAL_ADDRESS mvpUpdate{ mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)) };
-		const D3D12_GPU_VIRTUAL_ADDRESS skinningUpdate{ skinningRingCBV.Update(_anim.skinningMatrices.data(), sizeof(Mat4x4) * static_cast<UINT>(_anim.skinningMatrices.size())) };
-		if ((mvpUpdate <= 0) || (skinningUpdate <= 0))
+		const D3D12_GPU_VIRTUAL_ADDRESS frameDataAddress{GetSceneFrameGPUAddress()};
+		const D3D12_GPU_VIRTUAL_ADDRESS objectAddress{ modelObjectRingCBV.Update(&objectData, static_cast<UINT>(sizeof(objectData))) };
+		const D3D12_GPU_VIRTUAL_ADDRESS skinningAddress{ skinningRingCBV.Update(_anim.skinningMatrices.data(), sizeof(Mat4x4) * static_cast<UINT>(_anim.skinningMatrices.size())) };
+		const D3D12_GPU_VIRTUAL_ADDRESS lightAddress{ lightSystem.GetFrameGPUAddress() };
+		if ((frameDataAddress <= 0) || (objectAddress <= 0))
 		{
-			DEBUG_LOG_ERROR("mvpもしくはスキンのUpdateで失敗しました\n");
+			DEBUG_LOG_ERROR("モデル変換データのGPU転送に失敗しました\n");
 			return;
 		}
-		cmd->SetGraphicsRootConstantBufferView(0, mvpUpdate); // MVP更新
-		cmd->SetGraphicsRootConstantBufferView(2, skinningUpdate); // ボーンを更新
-		cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		if (skinningAddress <= 0)
+		{
+			DEBUG_LOG_ERROR("スキンのUpdateで失敗しました\n");
+			return;
+		}
+		if (lightAddress <= 0)
+		{
+			DEBUG_LOG_ERROR("モデル用SceneLightの取得に失敗しました\n");
+			return;
+		}
+		cmd->SetGraphicsRootConstantBufferView(0, frameDataAddress); // フレーム共通
+		cmd->SetGraphicsRootConstantBufferView(2, skinningAddress); // ボーンを更新
+		cmd->SetGraphicsRootConstantBufferView(4, lightAddress); // ライトの更新
+		cmd->SetGraphicsRootConstantBufferView(5, objectAddress); // モデル個体データ
+		cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 		// サブメッシュ分回す
 		for (const SubMesh& sub : model->subMeshes)
@@ -145,13 +218,13 @@ namespace {
 			matCB.metallic = sub.material.metallic;
 			matCB.roughness = sub.material.roughness;
 			matCB.emissiveFactor = sub.material.emissiveFactor;
-			const D3D12_GPU_VIRTUAL_ADDRESS materialUpdate{ materialRingCBV.Update(&matCB, sizeof(MaterialCB)) };
-			if (materialUpdate <= 0)
+			const D3D12_GPU_VIRTUAL_ADDRESS materialAddress{ materialRingCBV.Update(&matCB, sizeof(MaterialCB)) };
+			if (materialAddress <= 0)
 			{
 				DEBUG_LOG_ERROR("マテリアルringbufferのUpateで失敗しました\n");
 				return; // materialのUpdateで失敗したらモデルをあきらめる
 			}
-			cmd->SetGraphicsRootConstantBufferView(1, materialUpdate);
+			cmd->SetGraphicsRootConstantBufferView(1, materialAddress);
 
 			TextureData* tex{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
 			if (tex)
@@ -181,8 +254,8 @@ namespace {
 		ModelData* model{ GraphicsResourceManager::Instance().Lookup(_model) };
 		if (!model) return; // 無効ハンドルガード
 		auto cmd{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリストのキャッシュ
-		Mat4x4 worldMat{ _transform.GetWorldMatrix() };
-		const Mat4x4 mvpMat{ worldMat * cameraSystem.GetViewProjectionMatrix() };
+		ModelObjectCB objectData{};
+		if (!TryMakeModelObjectCB(_transform, objectData)) return;
 
 		// パイプライン設定
 		cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Model));
@@ -190,18 +263,32 @@ namespace {
 
 		DescriptorManager::Instance().SetDiscriptor(cmd); // Flushと同じ考え方
 
-		const D3D12_GPU_VIRTUAL_ADDRESS mvpUpdate{ mvpRingCBV.Update(&mvpMat, sizeof(Mat4x4)) };
-		const D3D12_GPU_VIRTUAL_ADDRESS skinningUpdate{ skinningRingCBV.Update(&Mat4x4::Identity, sizeof(Mat4x4)) };
-		if ((mvpUpdate <= 0) || (skinningUpdate <= 0))
+		const D3D12_GPU_VIRTUAL_ADDRESS frameDataAddress{ GetSceneFrameGPUAddress() };
+		const D3D12_GPU_VIRTUAL_ADDRESS objectAddress{ modelObjectRingCBV.Update(&objectData, static_cast<UINT>(sizeof(objectData))) };
+		const D3D12_GPU_VIRTUAL_ADDRESS skinningAddress{ skinningRingCBV.Update(&Mat4x4::Identity, sizeof(Mat4x4)) };
+		const D3D12_GPU_VIRTUAL_ADDRESS lightAddress{ lightSystem.GetFrameGPUAddress() };
+		if ((frameDataAddress <= 0) || (objectAddress <= 0))
 		{
-			DEBUG_LOG_ERROR("mvpもしくはスキンのUpdateで失敗しました\n");
+			DEBUG_LOG_ERROR("モデル変換データのGPU転送に失敗しました\n");
+			return;
+		}
+		if (skinningAddress <= 0)
+		{
+			DEBUG_LOG_ERROR("スキンのUpdateで失敗しました\n");
+			return;
+		}
+		if (lightAddress <= 0)
+		{
+			DEBUG_LOG_ERROR("モデル用SceneLightの取得に失敗しました\n");
 			return;
 		}
 
-		cmd->SetGraphicsRootConstantBufferView(0, mvpUpdate);
+		cmd->SetGraphicsRootConstantBufferView(0, frameDataAddress);
 		// 静的描画の場合は単位行列を送る
-		cmd->SetGraphicsRootConstantBufferView(2, skinningUpdate);
-		cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		cmd->SetGraphicsRootConstantBufferView(2, skinningAddress);
+		cmd->SetGraphicsRootConstantBufferView(4, lightAddress);
+		cmd->SetGraphicsRootConstantBufferView(5, objectAddress); // モデル個体データ
+		cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 
 
@@ -453,12 +540,14 @@ namespace {
 		terrainVertexBuffer = VertexBuffer{};
 		animSystem.Shutdown();
 		// RingConstantBufferの解放
-		mvpRingCBV.Shutdown();
+		sceneFrameRingCBV.Shutdown();
+		modelObjectRingCBV.Shutdown();
 		materialRingCBV.Shutdown();
 		skinningRingCBV.Shutdown();
 		terrainRingCBV.Shutdown();
 		userMaterialParameterRingCBV.Shutdown();
 		zeroMaterialParameterBuffer = DynamicBuffer{}; // 解放
+		sceneFrameGPUAddress = 0;
 		// Batchが所有するVB,IBを解放
 		fgBatch.Shutdown();
 		bgBatch.Shutdown();
@@ -569,7 +658,8 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 		return false;
 	}
 	
-	mvpRingCBV.Setup(sizeof(Mat4x4)); // リングバッファ初期化
+	sceneFrameRingCBV.Setup(static_cast<UINT>(sizeof(SceneFrameCB)), 1); 
+	modelObjectRingCBV.Setup(static_cast<UINT>(sizeof(ModelObjectCB)));
 	materialRingCBV.Setup(sizeof(MaterialCB));  // materialのリング定数バッファを初期化
 	skinningRingCBV.Setup(sizeof(Mat4x4) * MAX_BONE_NUM); // ボーン用の定数バッファを更新
 	userMaterialParameterRingCBV.Setup(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE), static_cast<UINT>(MAX_MATERIAL_PARAMETER_UPDATE_PER_FRAME));
@@ -628,7 +718,9 @@ void GfxInternal::BeginFrame()
 	shapeBatch.Reset();
 	primitive3DSystem.Reset();
 	// 定数バッファのカウンターリセット
-	mvpRingCBV.Reset();
+	sceneFrameRingCBV.Reset();
+	modelObjectRingCBV.Reset();
+	sceneFrameGPUAddress = 0;
 	materialRingCBV.Reset();
 	skinningRingCBV.Reset();
 	terrainRingCBV.Reset();

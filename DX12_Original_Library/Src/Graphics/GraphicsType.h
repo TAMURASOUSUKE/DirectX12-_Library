@@ -22,7 +22,8 @@ enum class BuiltinShaderID : size_t
 	ShapePS,
 
 	Primitive3DVS,
-	Primitive3DPS,
+	Primitive3DUnlitPS,
+	Primitive3DLitPS,
 
 	ModelVS,
 	ModelPS,
