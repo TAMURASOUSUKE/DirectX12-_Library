@@ -44,5 +44,36 @@ PBRGeometry MakePBRGeometry(float3 _worldNormal, float3 _worldPosition, float3 _
 	return geometry;
 }
 
+// Schlink近似によって現在の角度での反射率を求める
+float3 CalculateFresnelSchlick(float3 _f0, float _viewDotHalf)
+{
+	// 誤差による範囲外防止(0-1へ制限)
+	const float clampedViewDotHalf = saturate(_viewDotHalf);
+	
+	// 正面ではF0, 斜めになるほどに1に近づく
+	return _f0 + (1.0f - _f0) * pow(1.0f - clampedViewDotHalf, 5.0f);
+}
+
+static const float TS_PI = 3.14159265359;
+// GGX法線分布関数
+// 中間方向Hを向いている微細面がどれくらい存在するかを求める
+float CalculateDistributionGGX(float _normalDotHalf, float _roughness)
+{
+	const float normalDotHalf = saturate(_normalDotHalf); // 値を整える
+	
+	// roughnessが0だと分母が0に近づくため完全な0にならないように下限を設ける
+	const float roughness = max(saturate(_roughness), 0.045f);
+	
+	// PBRで使う知覚的roughnessをGGX用のalphaへ変換
+	const float alpha = roughness * roughness;
+	const float alphaSquared = alpha * alpha;
+	
+	const float normalDotHalfSquared = normalDotHalf * normalDotHalf;
+	const float denominatorBase = normalDotHalfSquared * (alphaSquared - 1.0f) + 1.0f;
+	const float denominator = TS_PI * denominatorBase * denominatorBase;
+	
+	// 浮動小数点誤差による0除算を防ぐ
+	return alphaSquared / max(denominator, 1.0e-6f);
+}
 
 #endif

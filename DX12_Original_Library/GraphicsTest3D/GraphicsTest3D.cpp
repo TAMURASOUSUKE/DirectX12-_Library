@@ -73,7 +73,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		TSLib::BeginFrame(); // フレーム開始処理
 		time += Time::DeltaTime();
 		// ライト回転をして影響を確認
-		sceneLight.directional.direction = { std::cos(time), -0.6f, std::sin(time) };
+		// sceneLight.directional.direction = { std::cos(time), -0.6f, std::sin(time) };
 
 		// Terrain操作
 		float heightSpeed{ 3.0f };
