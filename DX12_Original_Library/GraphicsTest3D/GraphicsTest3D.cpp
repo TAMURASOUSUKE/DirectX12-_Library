@@ -107,7 +107,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			camera.transform.SetRotation(Quaternion::FromEuler({ cameraPtich, cameraYaw, 0.0f }));
 		}
 
-		// モデル・カメラ移動
+		// カメラ移動
 		Vector3 dir{ Vector3::Zero };
 		const Quaternion cameraRotation{ camera.transform.GetRotation() };
 		const Vector3 cameraForward{ cameraRotation.RotateVector(Vector3::Forward) };
@@ -116,9 +116,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPress(KeyCode::Button::A)) dir -= cameraRight;
 		if (Input::IsKeyPress(KeyCode::Button::S)) dir -= cameraForward;
 		if (Input::IsKeyPress(KeyCode::Button::D)) dir += cameraRight;
-		float speed{ 20.0f };
+		float speed{ 8.0f };
 		dir.Normalize();
-		objectPosition.Translate(dir * speed * Time::DeltaTime());
 		camera.transform.Translate(dir * speed * Time::DeltaTime());
 
 		// AABB確認

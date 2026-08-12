@@ -963,7 +963,7 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	// ModelRootSignature
 	RootSignatureDesc model{};
 	model.rootSignatureID = RootSigID::Model;
-	model.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // 座標変換などの定数バッファ(b0)
+	model.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_ALL)); // 座標変換などの定数バッファ 今後PSからもカメラ位置を読むため(b0)
 	model.parameters.push_back(MakeRootCBV(1, D3D12_SHADER_VISIBILITY_PIXEL)); // material用定数バッファ(b1)
 	model.parameters.push_back(MakeRootCBV(2, D3D12_SHADER_VISIBILITY_VERTEX)); // スキニング行列(b2)
 	model.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_PIXEL)); // テクスチャ(t0)

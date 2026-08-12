@@ -507,5 +507,8 @@
     <None Include="Src\Shaders\Lighting.hlsli">
       <Filter>Src\Shaders</Filter>
     </None>
+    <None Include="Src\Shaders\PBRLighting.hlsli">
+      <Filter>Src\Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
