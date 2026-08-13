@@ -76,4 +76,65 @@ float CalculateDistributionGGX(float _normalDotHalf, float _roughness)
 	return alphaSquared / max(denominator, 1.0e-6f);
 }
 
+// 1方向について微細面が隠されずに見える割合を求める
+float CalculateGeometrySchlickGGX(float _normalDotDirection, float _roughness)
+{
+	const float normalDotDirection = saturate(_normalDotDirection);
+	const float roughness = saturate(_roughness);
+	
+	// 直接光用のroughness変換
+	const float remappedRoughness = roughness + 1.0f;
+	const float k = remappedRoughness * remappedRoughness / 8.0f;
+	
+	const float denominator = normalDotDirection * (1.0f - k) + k;
+	return normalDotDirection / max(denominator, 1.0e-6f);
+}
+
+// ライト側とカメラ側の遮蔽を合わせる
+float CalculateGeometrySmith(float _normalDotView, float _normalDotLight, float _roughness)
+{
+	// カメラか見える割合
+	const float geometryView = CalculateGeometrySchlickGGX(_normalDotView, _roughness);
+	// ライトが届く割合
+	const float geometryLight = CalculateGeometrySchlickGGX(_normalDotLight, _roughness);
+	return geometryView * geometryLight;
+}
+
+// Cook-TorranceBRDFによる直接光を計算する
+float3 CalculateCookTorranceDirectLight(PBRGeometry _geometry, float3 _baseColor, float _metallic, float _roughness, float3 _lightColor, float _lightIntensity)
+{
+	const float metallic = saturate(_metallic);
+	// 完全な0によるGGXの特異点を避ける
+	const float roughness = max(saturate(_roughness), 0.045f);
+	
+	// 非金属は4％金属はBaseColorを正反射率として使う
+	const float nonMetallicF0 = float3(0.04f, 0.04f, 0.04f);
+	float3 f0 = lerp(nonMetallicF0, _baseColor, metallic);
+	
+	// Cook-Torranceの3要素
+	const float3 fresnel = CalculateFresnelSchlick(f0, _geometry.VdotH);
+	const float distribution = CalculateDistributionGGX(_geometry.NdotH, roughness);
+	const float geometry = CalculateGeometrySmith(_geometry.NdotV, _geometry.NdotL, roughness);
+	
+	// F * D * G
+	const float3 specularNumrator = fresnel * distribution * geometry;
+	
+	// 4(N・V)(N・L)
+	const float specularDenominator = max(4.0f * _geometry.NdotV * _geometry.NdotV, 1.0e-6f); // 正面から外れたときの0除算防止
+	
+	const float specular = specularNumrator / specularDenominator;
+	
+	// フレネルで反射しなかった分だけ拡散へ回す
+	const float3 specularRatio = fresnel;
+	// 金属は拡散反射を持たない
+	const float3 diffuseRatio = (1.0f - specularRatio) * (1.0f - metallic);
+	
+	// Lambert拡散反射 πで割ってエネルギーを正規化する
+	const float3 diffuse = diffuseRatio * _baseColor / TS_PI;
+	const float3 radiance = _lightColor * max(_lightIntensity, 0.0f);
+
+	// NdotLで面へ入射する光量を反映
+	return (diffuse + specular) * radiance * _geometry.NdotL;
+}
+
 #endif

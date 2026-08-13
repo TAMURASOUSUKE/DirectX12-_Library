@@ -73,7 +73,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		TSLib::BeginFrame(); // フレーム開始処理
 		time += Time::DeltaTime();
 		// ライト回転をして影響を確認
-		// sceneLight.directional.direction = { std::cos(time), -0.6f, std::sin(time) };
+		sceneLight.directional.direction = { std::cos(time), -0.6f, std::sin(time) };
 
 		// Terrain操作
 		float heightSpeed{ 3.0f };
@@ -148,7 +148,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::SetCamera(camera); // 3D描画前に呼ぶ
 		Gfx::SetSceneLight(sceneLight);
-		Gfx::ClearScreen(); // 画面クリア(黒)
+		Gfx::ClearScreen(0.11f, 0.13f, 0.12f); // 画面クリア
 
 
 		// 3Dモデルアニメーション
