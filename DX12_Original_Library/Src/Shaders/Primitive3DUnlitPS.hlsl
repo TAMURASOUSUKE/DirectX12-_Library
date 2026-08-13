@@ -1,7 +1,7 @@
 #include "Primitive3DContract.hlsli"
 
+// Grid・Axis・AABBなど、指定色を正確に表示するPS
 float4 main(Primitive3DVSOutput _input) : SV_TARGET
 {
-	// 今はライトに対応せずに設定された色をそのまま表示する
 	return _input.color;
 }

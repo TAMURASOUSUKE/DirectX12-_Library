@@ -162,6 +162,7 @@
     <ClInclude Include="Src\Collision\Collider.h" />
     <ClInclude Include="Src\Collision\CollisionSystem.h" />
     <ClInclude Include="Src\Component\Camera.h" />
+    <ClInclude Include="Src\Component\Light.h" />
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\AnimInstanceHandle.h" />
     <ClInclude Include="Src\Core\Handle\HandlePacking.h" />
@@ -202,6 +203,7 @@
     <ClInclude Include="Src\Graphics\GraphicsType.h" />
     <ClInclude Include="Src\Graphics\GraphicsResourceManager.h" />
     <ClInclude Include="Src\Graphics\InternalResource\DefaultFontData.h" />
+    <ClInclude Include="Src\Graphics\LightSystem.h" />
     <ClInclude Include="Src\Graphics\Primitive3DBatch.h" />
     <ClInclude Include="Src\Graphics\Primitive3DSystem.h" />
     <ClInclude Include="Src\Graphics\RingConstantBuffer.h" />
@@ -262,6 +264,7 @@
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsResourceManager.cpp" />
     <ClCompile Include="Src\Graphics\InternalResource\DefaultFontData.cpp" />
+    <ClCompile Include="Src\Graphics\LightSystem.cpp" />
     <ClCompile Include="Src\Graphics\Primitive3DBatch.cpp" />
     <ClCompile Include="Src\Graphics\Primitive3DSystem.cpp" />
     <ClCompile Include="Src\Graphics\RingConstantBuffer.cpp" />
@@ -296,7 +299,10 @@
     <FxCompile Include="Src\Shaders\PostEffectVS.hlsl">
       <ShaderType>Vertex</ShaderType>
     </FxCompile>
-    <FxCompile Include="Src\Shaders\Primitive3DPS.hlsl">
+    <FxCompile Include="Src\Shaders\Primitive3DLitPS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\Primitive3DUnlitPS.hlsl">
       <ShaderType>Pixel</ShaderType>
     </FxCompile>
     <FxCompile Include="Src\Shaders\Primitive3DVS.hlsl">
@@ -328,6 +334,18 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Src\Shaders\Lighting.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Src\Shaders\PBRLighting.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
     <None Include="Src\Shaders\PostEffectContract.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

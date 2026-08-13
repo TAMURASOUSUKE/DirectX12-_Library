@@ -59,12 +59,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// 真下真上まで回すとLookAtの軸が不安定になるため少し手前で止める
 	constexpr float  MAX_CAMERA_PITCH{ 89.0f * Math::DEG_TO_RAD };
 
+	SceneLight sceneLight{};
+	sceneLight.directional.direction = { 1.0f, -1.0f, 1.0f };
+	sceneLight.directional.color = { 1.0f, 1.0f, 1.0f };
+	sceneLight.directional.intensity = 1.0f;
+
+	sceneLight.ambient.color = { 1.0f, 1.0f, 1.0f };
+	sceneLight.ambient.intensity = 0.15f;
+
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 		time += Time::DeltaTime();
-
+		// ライト回転をして影響を確認
+		sceneLight.directional.direction = { std::cos(time), -0.6f, std::sin(time) };
 
 		// Terrain操作
 		float heightSpeed{ 3.0f };
@@ -98,7 +107,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			camera.transform.SetRotation(Quaternion::FromEuler({ cameraPtich, cameraYaw, 0.0f }));
 		}
 
-		// モデル・カメラ移動
+		// カメラ移動
 		Vector3 dir{ Vector3::Zero };
 		const Quaternion cameraRotation{ camera.transform.GetRotation() };
 		const Vector3 cameraForward{ cameraRotation.RotateVector(Vector3::Forward) };
@@ -107,9 +116,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPress(KeyCode::Button::A)) dir -= cameraRight;
 		if (Input::IsKeyPress(KeyCode::Button::S)) dir -= cameraForward;
 		if (Input::IsKeyPress(KeyCode::Button::D)) dir += cameraRight;
-		float speed{ 3.0f };
+		float speed{ 8.0f };
 		dir.Normalize();
-		objectPosition.Translate(dir * speed * Time::DeltaTime());
 		camera.transform.Translate(dir * speed * Time::DeltaTime());
 
 		// AABB確認
@@ -128,7 +136,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		// 一時停止した位置から再開
 		if (Input::IsKeyPushed(KeyCode::Button::O)) Gfx::ResumeAnim(testModelAnim01);
 		// 再生方向に応じた開始位置へ戻して停止
-		if (Input::IsKeyPushed(KeyCode::Button::S)) Gfx::StopAnim(testModelAnim01);
+		if (Input::IsKeyPushed(KeyCode::Button::B)) Gfx::StopAnim(testModelAnim01);
 		Gfx::UpdateAnim(testModelAnim01, Time::DeltaTime());
 
 		std::string fpsValue{ std::format("CurrentMeasuredFPS : {:.1f}", Time::FPS()) };
@@ -139,7 +147,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 
 		Gfx::SetCamera(camera); // 3D描画前に呼ぶ
-		Gfx::ClearScreen(); // 画面クリア(黒)
+		Gfx::SetSceneLight(sceneLight);
+		Gfx::ClearScreen(0.11f, 0.13f, 0.12f); // 画面クリア
 
 
 		// 3Dモデルアニメーション
@@ -147,16 +156,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// 3D基礎図形
 		Gfx::DrawCube3D(cube, { 1.0f, 0.0f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
-		Gfx::DrawSphere3D(sphere, { 0.0f, 0.5f, 0.0f, 1.0f }, Gfx::Primitive3DStyle::Fill);
+		Gfx::DrawSphere3D(sphere, { 0.0f, 0.5f, 0.0f, 1.0f }, Gfx::Primitive3DStyle::MeshWireframe);
 		Gfx::DrawCylinder3D(cylinder, { 0.0f, 1.0f, 0.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
 		Gfx::DrawCapsule3D({ 0.0f, -2.0f, 5.0f }, { 0.0f,  0.0f, 5.0f }, 0.5f, { 0.2f, 1.0f, 0.3f }, Gfx::Primitive3DStyle::Fill);
 		Gfx::DrawPlane3D(plane, { 0.0f, 0.3f, 0.4f }, Gfx::Primitive3DStyle::Fill);
 		Gfx::DrawLine3D({ 2.0f, 1.0f, 6.0f }, {-1.0f, -3.0f, 6.0f});
 		// Gfx::DrawGrid3D({ 0.0f, -1.0f, 5.0f }, Quaternion::FromEuler(-45.0f * Math::DEG_TO_RAD, 0.0f, 0.0f), 10, 1.0f, {0.4f, 0.4f, 0.4f, 1.0f});
-		Gfx::DrawWorldAxisGrid3D({0.0f, -1.0f, 5.0f});
+		// Gfx::DrawWorldAxisGrid3D({ 0.0f, -1.0f, 5.0f }, 10, 1.0f,{1.0f, 1.0f, 1.0f, 1.0}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f});
 		Gfx::DrawAxis3D(objectPosition.GetPosition(), objectPosition.GetRotation());
-		Gfx::DrawAABB3D(playerAABB,hitColor);
-		Gfx::DrawAABB3D(debugCube,{ 0.0f, 0.0f, 1.0f, 1.0f });
+		// Gfx::DrawAABB3D(playerAABB,hitColor);
+		// Gfx::DrawAABB3D(debugCube,{ 0.0f, 0.0f, 1.0f, 1.0f });
 
 
 		Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });

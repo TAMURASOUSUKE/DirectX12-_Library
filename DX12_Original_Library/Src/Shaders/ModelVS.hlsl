@@ -1,9 +1,20 @@
 // テクスチャを表示するための基本的なシェーダー
 #pragma pack_matrix(row_major) // 全ての行列を行優先としてあつかう
 
-cbuffer MVP : register(b0) // ルートパラメータ[0]のCBV
+// 1フレーム共通
+cbuffer SceneFrameCB : register(b0)
 {
-    float4x4 mvp;
+	float4x4 viewProjection;
+
+    // xyz：カメラ位置 w：未使用
+	float4 cameraPosition;
+}
+
+// モデル個体ごと
+cbuffer ModelObjectCB : register(b4)
+{
+	float4x4 world;
+	float4x4 worldInverseTranspose;
 }
 
 cbuffer BoneCB : register(b2)
@@ -24,24 +35,40 @@ struct VS_OUTPUT
 {
     float4 position : SV_Position;
     float2 uv : TEXCOORD;
+	float3 worldNormal : NORMAL0;
+	float3 worldPosition : POSITION0;
 };
 
 VS_OUTPUT main(VS_INPUT _input)
 {
     VS_OUTPUT output;
     
-    // 4つのボーン行列を重みで混ぜることで行列を作成する
-    float4x4 skinMatrix =
-        boneMatrices[_input.bone.x] * _input.weight.x +
-        boneMatrices[_input.bone.y] * _input.weight.y +
-        boneMatrices[_input.bone.z] * _input.weight.z +
-        boneMatrices[_input.bone.w] * _input.weight.w;
-    
-    // 合成した行列と位置を乗算する
-    float4 skinnedPos = mul(float4(_input.position, 1.0f), skinMatrix);
-
-    // MVP乗算
-    output.position = mul(skinnedPos, mvp); // skinnedPosにmvpを掛ける
+	float4 pos = float4(_input.position, 1.0f);
+    // 頂点が影響を受ける4本のボーン行列を作成して位置と乗算
+	const float4 skinnedPos =
+        mul(pos, boneMatrices[_input.bone.x]) * _input.weight.x +
+		mul(pos, boneMatrices[_input.bone.y]) * _input.weight.y +
+		mul(pos, boneMatrices[_input.bone.z]) * _input.weight.z +
+        mul(pos, boneMatrices[_input.bone.w]) * _input.weight.w;
+	
+	// スキニング後のローカル座標をワールド空間へ移す
+	const float4 worldPosition = mul(skinnedPos, world);
+	
+	// 法線は位置ではなく方向のためw = 0
+	const float4 localNormal = float4(_input.normal, 0.0f);
+	// 法線も同じ4本のボーンに追従させる
+	const float3 skinnedNormal = 
+		mul(localNormal, boneMatrices[_input.bone.x]).xyz * _input.weight.x +
+		mul(localNormal, boneMatrices[_input.bone.y]).xyz * _input.weight.y +
+		mul(localNormal, boneMatrices[_input.bone.z]).xyz * _input.weight.z +
+        mul(localNormal, boneMatrices[_input.bone.w]).xyz * _input.weight.w;
+	
+	// 画面座標へ変換
+	output.position = mul(worldPosition, viewProjection);
+	// PBRで使用するためにワールド座標を残す
+	output.worldPosition = worldPosition.xyz;
+	// モデルの回転と非均一スケールを法線へ反映
+	output.worldNormal = normalize(mul(float4(skinnedNormal, 0.0f), worldInverseTranspose).xyz);
     output.uv = _input.uv;
     return output;
 }

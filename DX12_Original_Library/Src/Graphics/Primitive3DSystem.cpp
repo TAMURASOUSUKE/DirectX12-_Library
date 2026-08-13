@@ -19,9 +19,9 @@ void Primitive3DSystem::Reset()
 	batch.Reset();
 }
 
-bool Primitive3DSystem::Flush(const Mat4x4& _viewProjection)
+bool Primitive3DSystem::Flush(const Mat4x4& _viewProjection, D3D12_GPU_VIRTUAL_ADDRESS _sceneLightAddress)
 {
-	return batch.Flush(_viewProjection);
+	return batch.Flush(_viewProjection, _sceneLightAddress);
 }
 
 bool Primitive3DSystem::RegisterCube(const Transform& _transform, Vector4 _color, Primitive3DDrawMode _drawMode)
