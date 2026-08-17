@@ -88,87 +88,10 @@ void GraphicsDevice::Setup(HWND _hwnd, int _width, int _height)
 	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
 	if (FAILED(result)) return;
 
-	// 現在のバッファ番号を取得
-	currentFrameIndex = swapChain->GetCurrentBackBufferIndex();
-
-	// RTV用ディスクリプタヒープを作成しバックバッファにRTVを作成
-
-	// ディスクリプタヒープを作成
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc{}; // 設定用構造体
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV; // RTVを指定
-	rtvHeapDesc.NumDescriptors = FRAME_BUFFER_COUNT; // バッファ数分
-	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // RTVがCPUonlyのため(GPU非可視)
-
-	// ディスクリプタヒープの実際の作成
-	result = device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap));
-	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
-	if (FAILED(result)) return;
-
-	// ディスクリプタ一つ分のサイズを取得
-	rtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV); // RTVなのでそれを指定
-
-	// Heapの先頭ハンドルを取得
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle{ rtvHeap->GetCPUDescriptorHandleForHeapStart()};
-
-	// RenderTargetViewの設定構造体を用いて設定を行う
-	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
-	rtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-	rtvDesc.Texture2D.MipSlice = 0;
-	rtvDesc.Texture2D.PlaneSlice = 0;
-
-	for (int i = 0; i < FRAME_BUFFER_COUNT; i++)
-	{
-		// バックバッファの取得
-		result = swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffers[i]));
-		DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
-		if (FAILED(result)) return;
-
-		// RTVの作成
-		device->CreateRenderTargetView(backBuffers[i].Get(), &rtvDesc, rtvHandle);
-
-		// スロット一つ分ずらす
-		rtvHandle.ptr += rtvDescriptorSize;
-	}
-
+	// backbuffer取得からRTVの作成
+	if (!CreateBackBufferView()) return;
 	// 深度バッファの作成
-	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc{};
-	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV; // 深度バッファなのでDSV指定
-	dsvHeapDesc.NumDescriptors = 1; // dsv数。独自に作るのは一つなので1
-	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // GPU非可視
-
-	result = device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&dsvHeap));
-	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
-	if (FAILED(result)) return;
-	
-	D3D12_HEAP_PROPERTIES dsvHeapProperties{}; // 頂点ヒープの設定
-	dsvHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT; // デフォルトヒープに設定
-	dsvHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // ページング
-
-	// 深度バッファのリソース設定
-	D3D12_RESOURCE_DESC dsvResourceDesc{};
-	dsvResourceDesc.Width = _width;
-	dsvResourceDesc.Height = _height;
-	dsvResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	dsvResourceDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT; // 深度24bitステンシル8bit
-	dsvResourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL; // 深度バッファとして使う
-	dsvResourceDesc.DepthOrArraySize = 1;
-	dsvResourceDesc.MipLevels = 1;
-	dsvResourceDesc.SampleDesc = { 1, 0 };
-
-	// 深度クリアのための設定
-	D3D12_CLEAR_VALUE dsvClearValue{};
-	dsvClearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	dsvClearValue.DepthStencil.Depth = 1.0f;
-	dsvClearValue.DepthStencil.Stencil = 0;
-
-	result = device->CreateCommittedResource(&dsvHeapProperties, D3D12_HEAP_FLAG_NONE, &dsvResourceDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &dsvClearValue, IID_PPV_ARGS(&dsvResource)); // 書き込みかつ深度クリアを入れる
-	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
-	if (FAILED(result)) return;
-
-	// 深度バッファ用ヒープの先頭ハンドルを取得
-	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle{ dsvHeap->GetCPUDescriptorHandleForHeapStart() };
-	device->CreateDepthStencilView(dsvResource.Get(), nullptr, dsvHandle);
+	if (!CreateDepthStencilBuffer(static_cast<UINT>(_width), static_cast<UINT>(_height))) return;
 
 	// コマンドアロケーターとコマンドリストを作る
 	for (int i = 0; i < FRAME_BUFFER_COUNT; i++)
@@ -366,9 +289,36 @@ bool GraphicsDevice::EndFrame()
 		return false;
 	}
 
-
 	// 現在のframeIndexを更新
 	currentFrameIndex = swapChain->GetCurrentBackBufferIndex();
+	return true;
+}
+
+bool GraphicsDevice::Resize(UINT _width, UINT _height)
+{
+	// 最小化時には0x0がくるため受け入れない
+	if (_width == 0 || _height == 0) return false;
+	if (!swapChain || !device) return false;
+
+	// GPUが古いBackBufferを使い終わるまで待つ
+	if (!WaitForGPU()) return false;
+
+	// Resize前にSwapChainから取得した参照を解放する
+	for (auto& backBuffer : backBuffers)
+	{
+		backBuffer.Reset();
+	}
+	dsvResource.Reset();
+	const HRESULT result{ swapChain->ResizeBuffers(FRAME_BUFFER_COUNT, _width, _height,  DXGI_FORMAT_R8G8B8A8_UNORM, 0) };
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("SwapChainのResizeBuffersに失敗しました HRESULT=0x{:08X}\n", static_cast<unsigned int>(result));
+		return false;
+	}
+
+	currentFrameIndex = swapChain->GetCurrentBackBufferIndex();
+	if (!CreateBackBufferView()) return false; // BackBufferViewの作成
+	if (!CreateDepthStencilBuffer(_width, _height)) return false; // 深度バッファの作成
 	return true;
 }
 
@@ -501,4 +451,103 @@ UINT64 GraphicsDevice::GetLastSubmittedFenceValue() const
 {
 	// CPU側が最後にSignalへ使用したフェンス値
 	return fenceValueCounter;
+}
+
+bool GraphicsDevice::CreateBackBufferView()
+{
+	HRESULT result{};
+
+	// RTV用ディスクリプタヒープを作成しバックバッファにRTVを作成
+	if (!rtvHeap) // Resize時に作り直さなくていいようにする
+	{
+		// 現在のバッファ番号を取得
+		currentFrameIndex = swapChain->GetCurrentBackBufferIndex();
+
+		// ディスクリプタヒープを作成
+		D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc{}; // 設定用構造体
+		rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV; // RTVを指定
+		rtvHeapDesc.NumDescriptors = FRAME_BUFFER_COUNT; // バッファ数分
+		rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // RTVがCPUonlyのため(GPU非可視)
+
+		// ディスクリプタヒープの実際の作成
+		result = device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap));
+		DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
+		if (FAILED(result)) return false;
+
+		// ディスクリプタ一つ分のサイズを取得
+		rtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV); // RTVなのでそれを指定
+	}
+
+	// Heapの先頭ハンドルを取得
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle{ rtvHeap->GetCPUDescriptorHandleForHeapStart() };
+
+	// RenderTargetViewの設定構造体を用いて設定を行う
+	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
+	rtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+	rtvDesc.Texture2D.MipSlice = 0;
+	rtvDesc.Texture2D.PlaneSlice = 0;
+
+	for (int i = 0; i < FRAME_BUFFER_COUNT; i++)
+	{
+		// バックバッファの取得
+		result = swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffers[i]));
+		DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
+		if (FAILED(result)) return false;
+
+		// RTVの作成
+		device->CreateRenderTargetView(backBuffers[i].Get(), &rtvDesc, rtvHandle);
+
+		// スロット一つ分ずらす
+		rtvHandle.ptr += rtvDescriptorSize;
+	}
+	return true;
+}
+
+bool GraphicsDevice::CreateDepthStencilBuffer(UINT _width, UINT _height)
+{
+	HRESULT result{};
+	if (!dsvHeap) // Resize時に作り直さなくていいようにする
+	{
+		// 深度バッファの作成
+		D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc{};
+		dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV; // 深度バッファなのでDSV指定
+		dsvHeapDesc.NumDescriptors = 1; // dsv数。独自に作るのは一つなので1
+		dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // GPU非可視
+
+		result = device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&dsvHeap));
+		DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
+		if (FAILED(result)) return false;
+	}
+
+	D3D12_HEAP_PROPERTIES dsvHeapProperties{}; // 頂点ヒープの設定
+	dsvHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT; // デフォルトヒープに設定
+	dsvHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // ページング
+
+	// 深度バッファのリソース設定
+	D3D12_RESOURCE_DESC dsvResourceDesc{};
+	dsvResourceDesc.Width = _width;
+	dsvResourceDesc.Height = _height;
+	dsvResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	dsvResourceDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT; // 深度24bitステンシル8bit
+	dsvResourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL; // 深度バッファとして使う
+	dsvResourceDesc.DepthOrArraySize = 1;
+	dsvResourceDesc.MipLevels = 1;
+	dsvResourceDesc.SampleDesc = { 1, 0 };
+
+	// 深度クリアのための設定
+	D3D12_CLEAR_VALUE dsvClearValue{};
+	dsvClearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	dsvClearValue.DepthStencil.Depth = 1.0f;
+	dsvClearValue.DepthStencil.Stencil = 0;
+
+	result = device->CreateCommittedResource(&dsvHeapProperties, D3D12_HEAP_FLAG_NONE, &dsvResourceDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &dsvClearValue, IID_PPV_ARGS(&dsvResource)); // 書き込みかつ深度クリアを入れる
+	DEBUG_ASSERT(SUCCEEDED(result)); // デバッグ時失敗したら場所を知らせる
+	if (FAILED(result)) return false;
+
+	// 深度バッファ用ヒープの先頭ハンドルを取得
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle{ dsvHeap->GetCPUDescriptorHandleForHeapStart() };
+	device->CreateDepthStencilView(dsvResource.Get(), nullptr, dsvHandle);
+
+	return true;
 }
