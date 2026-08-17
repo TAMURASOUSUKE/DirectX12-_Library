@@ -42,7 +42,8 @@ bool TSLib::Initialize(const wchar_t* _title, int _virtualWidth, int _virtualHei
 	if (!result) return result;
 
 	// コールバックの配線接続 : ラムダで渡す
-	SystemInternal::SetOnWheel([](short _d) { InputInternal::AddMouseWheelDelta(_d); });
+	SystemInternal::SetOnWheel([](short _delta) { InputInternal::AddMouseWheelDelta(_delta); });
+	SystemInternal::SetOnResize([](int _width, int _height) { GfxInternal::RequestResize(_width, _height); });
 
 	return result;
 }

@@ -34,7 +34,7 @@ public:
 	// 2D描画で使用する仮想解像度
 	Vector2Int GetVirtualSize() const { return virtualSize; }
 	// Scene全体を描く内部RenderTarget
-	RTHandle GetScreenRenderTarget() const { return sceneRenderTarget; }
+	RTHandle GetSceneRenderTarget() const { return sceneRenderTarget; }
 
 private:
 	// Backbuffer・Depth・SceneRT・Cameraをまとめて変更する

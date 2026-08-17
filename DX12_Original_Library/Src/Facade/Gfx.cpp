@@ -21,12 +21,12 @@
 #include "../Graphics/Primitive3DSystem.h"
 #include "../Graphics/CameraSystem.h"
 #include "../Graphics/LightSystem.h"
+#include "../Graphics/GraphicsSystem.h"
 #include "GfxInternal.h" // 外部公開しないもの
 #include "Gfx.h" // 外部公開するもの
 
 // 無名名前空間で変数を保持する
 namespace {
-	RTHandle sceneRenderTarget{}; // シーン全体を描画する内部用RenderTarget
 	D3D12_CPU_DESCRIPTOR_HANDLE currentRTV{}; // 現在OMSetRenderTargetsで設定しているRTV
 	ShaderSystem shaderSystem; // Shader読み込みなどを管理するファイル
 	ConstantBufferData orthConstantBufferData; // 正射影行列用定数バッファのデータメンバ
@@ -43,12 +43,9 @@ namespace {
 	Primitive3DSystem primitive3DSystem; // 3D基礎図形描画のシステム
 	CameraSystem cameraSystem; // カメラ制御システム
 	LightSystem lightSystem; // ライト管理システム
+	GraphicsSystem graphicsSystem; // Graphics全体のサイズ依存状態を統括
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	ModelRenderer modelRenderer; // モデルを描画するためのデータ処理システム
-	int screenWidth{ 0 }; // 画面の横幅
-	int screenHeight{ 0 }; // 画面の縦幅
-	int virtualWidth{ 0 };  // ゲーム内で使用する基準幅
-	int virtualHeight{ 0 }; // ゲーム内で使用する基準高さ
 	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
 	MaterialHandle currentPostEffectMaterial{}; // 現在画面全体へ適用しているポストエフェクトmaterial(無効ハンドルなら内蔵の素通しPSOを使う)
 
@@ -102,8 +99,6 @@ namespace {
 	};
 
 	namespace {
-
-
 		// Terrainのリソースを初期化する
 		bool InitializeTerrainResources()
 		{
@@ -308,6 +303,7 @@ namespace {
 			terrainVertexBuffer = VertexBuffer{};
 			animSystem.Shutdown();
 			modelRenderer.Shutdown();
+			graphicsSystem.Shutdown();
 			// RingConstantBufferの解放
 			terrainRingCBV.Shutdown();
 			userMaterialParameterRingCBV.Shutdown();
@@ -326,13 +322,6 @@ namespace {
 			}
 
 			orthConstantBufferData = ConstantBufferData{};
-
-			// GraphicsResourceManagerのShutdownで生存中のRTが回収されるが明示しておく
-			if (sceneRenderTarget.IsValid())
-			{
-				GraphicsResourceManager::Instance().Unload(sceneRenderTarget);
-				sceneRenderTarget = RTHandle{};
-			}
 			currentRTV = {};
 			currentPostEffectMaterial = {};
 		}
@@ -347,11 +336,6 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 		DEBUG_LOG_ERROR("ウィンドウサイズと仮想解像度には0より大きい値を指定してください\n");
 		return false;
 	}
-
-	screenWidth = _clientWidth;
-	screenHeight = _clientHeight;
-	virtualWidth = _virtualWidth;
-	virtualHeight = _virtualHeight;
 	// 前回の初期化状態を引き継がない
 	currentPostEffectMaterial = {};
 
@@ -388,22 +372,6 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	}
 
 	GraphicsResourceManager::Instance().Setup(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
-	
-	// 画面と同じサイズの内部描画先を作成
-	sceneRenderTarget = GraphicsResourceManager::Instance().CreateRenderTarget(static_cast<UINT>(_clientWidth), static_cast<UINT>(_clientHeight));
-	if (!sceneRenderTarget.IsValid())
-	{
-		DEBUG_LOG_ERROR("シーン描画用RenderTargetの作成に失敗しました\n");
-		return false;
-	}
-	// Lookup確認
-	RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) };
-	if (!sceneRT)
-	{
-		DEBUG_LOG_ERROR("シーン描画用RenderTargetの取得に失敗しました\n");
-		return false;
-	}
-	currentRTV = sceneRT->rtvHandle.cpu; // 初期状態として内部RTを現在の描画先とする
 
 	// グリッドとCBの作成
 	if (!InitializeTerrainResources()) return false;
@@ -420,6 +388,13 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	if (!cameraSystem.Setup(defaultCamera, aspectRatio))
 	{
 		DEBUG_LOG_ERROR("CameraSystemの初期化に失敗しました\n");
+		return false;
+	}
+
+	// GraphicsSystemへGraphics全体で共有する依存先とサイズを登録する
+	if (!graphicsSystem.Setup(&GraphicsDevice::Instance(), &GraphicsResourceManager::Instance(), &cameraSystem, _clientWidth, _clientHeight, _virtualWidth, _virtualHeight))
+	{
+		DEBUG_LOG_ERROR("GraphicsSystemの初期化に失敗しました\n");
 		return false;
 	}
 	
@@ -473,6 +448,9 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 // フレーム開始処理
 void GfxInternal::BeginFrame()
 {
+	// cmdを開く前の安全なタイミングでサイズ依存リソースを更新
+	if (!graphicsSystem.ApplyPendingResize()) DEBUG_LOG_ERROR("予約された画面リサイズ適用に失敗しました\n");
+
 	GraphicsDevice::Instance().BeginFrame(); // フレームの最初の処理
 
 	// GPUが使用し終えた遅延開放リソースを回収する
@@ -491,7 +469,7 @@ void GfxInternal::BeginFrame()
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto dsv{ GraphicsDevice::Instance().GetDSV() };
-	RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) }; // 内部ハンドルを分解した時のデータ
+	RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(graphicsSystem.GetSceneRenderTarget()) }; // 内部ハンドルを分解した時のデータ
 	isSceneRenderTargetActive = false; // BeginFrameごとに使用状態を決め直す
 	if (sceneRT)
 	{
@@ -519,11 +497,12 @@ void GfxInternal::BeginFrame()
 	cmdList->OMSetRenderTargets(1, &currentRTV, false, &dsv);
 
 	// ビューポート
+	Vector2Int screenSize{ graphicsSystem.GetScreenSize() };
 	D3D12_VIEWPORT viewPort{};
 	viewPort.TopLeftX = 0.0f;
 	viewPort.TopLeftY = 0.0f;
-	viewPort.Width = static_cast<float>(screenWidth);
-	viewPort.Height = static_cast<float>(screenHeight);
+	viewPort.Width = static_cast<float>(screenSize.x);
+	viewPort.Height = static_cast<float>(screenSize.y);
 	viewPort.MinDepth = 0.0f;
 	viewPort.MaxDepth = 1.0f;
 	cmdList->RSSetViewports(1, &viewPort);
@@ -532,10 +511,9 @@ void GfxInternal::BeginFrame()
 	D3D12_RECT scissorRect{};
 	scissorRect.left = 0;
 	scissorRect.top = 0;
-	scissorRect.right = screenWidth;
-	scissorRect.bottom = screenHeight;
+	scissorRect.right = screenSize.x;
+	scissorRect.bottom = screenSize.y;
 	cmdList->RSSetScissorRects(1, &scissorRect);
-
 }
 
 // フレーム終了処理
@@ -567,7 +545,7 @@ void GfxInternal::EndFrame()
 	// このフレームでオフスクリーンが使われていたら
 	if (isSceneRenderTargetActive)
 	{
-		RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) };
+		RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(graphicsSystem.GetSceneRenderTarget()) };
 		if (sceneRT)
 		{
 			// バリアを使ってシーンRTを書き込み先からシェーダーで読む画像へ遷移させる
@@ -708,6 +686,11 @@ void GfxInternal::Finish()
 	GraphicsDevice::Instance().Shutdown(); // Deviceの解放
 }
 
+void GfxInternal::RequestResize(int _width, int _height)
+{
+	graphicsSystem.RequestResize(_width, _height);
+}
+
 bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _slot, const void* _data, size_t _dataSize)
 {
 	GraphicsResourceManager& resourceManager{ GraphicsResourceManager::Instance() };
@@ -736,8 +719,7 @@ bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _s
 
 Vector2Int Gfx::GetVirtualSize()
 {
-	// GfxInternal::Initializeで保存した仮想解像度を返す
-	return { virtualWidth, virtualHeight };
+	return graphicsSystem.GetVirtualSize();
 }
 
 bool Gfx::SetCamera(const Camera& _camera)

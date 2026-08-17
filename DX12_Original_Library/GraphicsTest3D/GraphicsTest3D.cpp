@@ -67,6 +67,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	sceneLight.ambient.color = { 1.0f, 1.0f, 1.0f };
 	sceneLight.ambient.intensity = 0.15f;
 
+	bool isFullscreen{ false }; // 実行中のWindowSize変更チェック
+
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
 	{
@@ -145,10 +147,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		std::string deltaTime{ std::format("CurrentDeltaTime : {:.3f}", Time::DeltaTime()) };
 		std::string timeScale{ std::format("CurrentTimeScale : {:.2f}", Time::GetTimeScale()) };
 
+		// ウィンドウモード変更チェック
+		if (Input::IsKeyPushed(KeyCode::Button::RETURN)) isFullscreen = !isFullscreen;
+		if (isFullscreen) System::SetWindowMode(System::WindowMode::BorderlessFullscreen);
+		else  System::SetWindowMode(System::WindowMode::Windowed);
 
 		Gfx::SetCamera(camera); // 3D描画前に呼ぶ
 		Gfx::SetSceneLight(sceneLight);
-		Gfx::ClearScreen(0.11f, 0.13f, 0.12f); // 画面クリア
+		Gfx::ClearScreen(); // 画面クリア
 
 
 		// 3Dモデルアニメーション

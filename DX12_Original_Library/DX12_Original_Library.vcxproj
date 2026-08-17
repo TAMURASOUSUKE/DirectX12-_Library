@@ -202,6 +202,7 @@
     <ClInclude Include="Src\Graphics\GraphicsDevice.h" />
     <ClInclude Include="Src\Graphics\GraphicsType.h" />
     <ClInclude Include="Src\Graphics\GraphicsResourceManager.h" />
+    <ClInclude Include="Src\Graphics\GraphicsSystem.h" />
     <ClInclude Include="Src\Graphics\InternalResource\DefaultFontData.h" />
     <ClInclude Include="Src\Graphics\LightSystem.h" />
     <ClInclude Include="Src\Graphics\ModelRenderer.h" />
@@ -264,6 +265,7 @@
     <ClCompile Include="Src\Graphics\GPUMarker.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsResourceManager.cpp" />
+    <ClCompile Include="Src\Graphics\GraphicsSystem.cpp" />
     <ClCompile Include="Src\Graphics\InternalResource\DefaultFontData.cpp" />
     <ClCompile Include="Src\Graphics\LightSystem.cpp" />
     <ClCompile Include="Src\Graphics\ModelRenderer.cpp" />

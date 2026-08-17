@@ -1,11 +1,27 @@
 #include "../Debug/DebugLogs.h"
 #include "Window.h"
 
-namespace
-{
+namespace {
 	// OSへ登録するWindowClassの識別名
 	// 表示タイトルとは別物なので固定
 	constexpr wchar_t WINDOW_CLASS_NAME[]{ L"TSGameLibWindowClass" };
+}
+
+namespace {
+	// WindowSytleの変更を行う
+	bool TrySetWindowStyle(HWND _hwnd, LONG_PTR _style)
+	{
+		SetLastError(ERROR_SUCCESS);
+		const LONG_PTR prevStyle{ SetWindowLongPtrW(_hwnd, GWL_STYLE, _style) };
+
+		// 戻り値	0は正常の場合もあるためGetLastErrorも確認する
+		if (prevStyle == 0 && GetLastError() != ERROR_SUCCESS)
+		{
+			DEBUG_LOG_ERROR("WindowStyleの変更に失敗しました ErrorCode : {}\n", GetLastError());
+			return false;
+		}
+		return true;
+	}
 }
 
 bool Window::GenerateWindow(int _clientWidth, int _clientHeight)
@@ -15,6 +31,8 @@ bool Window::GenerateWindow(int _clientWidth, int _clientHeight)
 		DEBUG_LOG_ERROR("ウィンドウのサイズには0より大きい値を渡してください\n");
 		return false;
 	}
+	// 情報の保存
+	preferredWindowedClientSize = { _clientWidth, _clientHeight };
 
 	if (hwnd != nullptr)
 	{
@@ -22,7 +40,7 @@ bool Window::GenerateWindow(int _clientWidth, int _clientHeight)
 		return false;
 	}
 
-	// 現在はスワップチェーンなどのリサイズ処理を持っていないため最大化とドラッグによるサイズ変更を禁止する
+	// ドラッグリサイズと最大化を許可しない
 	constexpr DWORD WINDOW_STYLE{ WS_OVERLAPPEDWINDOW & ~(WS_THICKFRAME | WS_MAXIMIZEBOX) };
 
 	// タイトルバーとウィンドウの枠分外側サイズを大きくする
@@ -35,11 +53,23 @@ bool Window::GenerateWindow(int _clientWidth, int _clientHeight)
 	const int windowWidth{ windowRect.right - windowRect.left };
 	const int windowHeight{ windowRect.bottom - windowRect.top };
 
-	return GenerateNativeWindow(WINDOW_STYLE, CW_USEDEFAULT, CW_USEDEFAULT, windowWidth, windowHeight);
-}
+	if (!GenerateNativeWindow(WINDOW_STYLE, CW_USEDEFAULT, CW_USEDEFAULT, windowWidth, windowHeight)) return false;
 
-bool Window::GenerateBorderlessFullscreen()
+	// 成功後に状態を設定
+	isBorderlessFullscreen = false;
+	hasWindowedPlacement = false;
+	return true;
+}
+bool Window::GenerateBorderlessFullscreen(int _windowedClientWidth, int _windowedClientHeight)
 {
+	// 情報を保存
+	if (_windowedClientWidth <= 0 || _windowedClientHeight <= 0)
+	{
+		DEBUG_LOG_ERROR("Window復元用サイズが不正です\n");
+		return false;
+	}
+	preferredWindowedClientSize = { _windowedClientWidth, _windowedClientHeight };
+
 	// 現在はプライマリモニターを使用する
 	const POINT primaryMonitorPoint{ 0, 0 };
 	const HMONITOR monitor{ MonitorFromPoint(primaryMonitorPoint, MONITOR_DEFAULTTOPRIMARY) };
@@ -67,13 +97,19 @@ bool Window::GenerateBorderlessFullscreen()
 	// WS_POPUPにはタイトルバーや外枠がない
 	constexpr DWORD BORDERLESS_STYLE{ WS_POPUP };
 
-	return GenerateNativeWindow(BORDERLESS_STYLE, monitorRect.left, monitorRect.top, monitorWidth, monitorHeight);
+	if (!GenerateNativeWindow(BORDERLESS_STYLE, monitorRect.left, monitorRect.top, monitorWidth, monitorHeight)) return false;
+
+	// 成功後に状態を設定
+	isBorderlessFullscreen = true;
+	hasWindowedPlacement = false;
+	return true;
 }
 
 void Window::Shutdown()
 {
 	// Inputへのコールバック参照を先に切る
 	onWheel = {};
+	onResize = {};
 	if (hwnd && IsWindow(hwnd)) DestroyWindow(hwnd);
 	hwnd = nullptr;
 	// このライブラリが登録したWindowClassを解除する
@@ -131,6 +167,141 @@ bool Window::IsFocused() const
 	return GetForegroundWindow() == hwnd;
 }
 
+bool Window::SetBorderlessFullscreen(bool _enabled)
+{
+	if (!hwnd || !IsWindow(hwnd))
+	{
+		DEBUG_LOG_ERROR("ウィンドウが生成されていないためモードを変更できません\n");
+		return false;
+	}
+	// すでに目的のモードなら正常終了
+	if (_enabled == isBorderlessFullscreen) return true;
+
+	// Windowed->BorderlessFullscreenの場合
+	if (_enabled)
+	{
+		WINDOWPLACEMENT temporaryPlacement{};
+		temporaryPlacement.length = sizeof(WINDOWPLACEMENT);
+
+		if (!GetWindowPlacement(hwnd, &temporaryPlacement))
+		{
+			DEBUG_LOG_ERROR("Windowed時の位置とサイズを取得できませんでした\n");
+			return false;
+		}
+		SetLastError(ERROR_SUCCESS);
+
+		const LONG_PTR temporaryWindowedStyle{ GetWindowLongPtrW(hwnd, GWL_STYLE) };
+		if (temporaryWindowedStyle == 0 && GetLastError() != ERROR_SUCCESS)
+		{
+			DEBUG_LOG_ERROR("Windowed時のStyleを取得できませんでした\n");
+			return false;
+		}
+
+		// 現在Windowが存在するモニターを対象にする
+		const HMONITOR monitor{ MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
+		if (!monitor)
+		{
+			DEBUG_LOG_ERROR("Windowが存在するモニターを取得できませんでした\n");
+			return false;
+		}
+
+		MONITORINFO monitorInfo{};
+		monitorInfo.cbSize = sizeof(MONITORINFO);
+		if (!GetMonitorInfoW(monitor, &monitorInfo))
+		{
+			DEBUG_LOG_ERROR("モニター情報を取得できませんでした\n");
+			return false;
+		}
+
+		// WS_VISIBLE等はお残してWindowed特有の枠だけ外す
+		const LONG_PTR borderlessStyle{ (temporaryWindowedStyle & ~static_cast<LONG_PTR>(WS_OVERLAPPEDWINDOW)) | static_cast<LONG_PTR>(WS_POPUP) };
+		if (!TrySetWindowStyle(hwnd, borderlessStyle)) return false; // ログは関数内で出す
+
+		const RECT& monitorRect{ monitorInfo.rcMonitor };
+		const int monitorWidth{ monitorRect.right - monitorRect.left };
+		const int monitorHeight{ monitorRect.bottom - monitorRect.top };
+
+		if (!SetWindowPos(hwnd, HWND_TOP, monitorRect.left, monitorRect.top, monitorWidth, monitorHeight, SWP_NOOWNERZORDER | SWP_FRAMECHANGED))
+		{
+			DEBUG_LOG_ERROR("BorderlessFullscreenへの変更に失敗しました\n");
+			// Styleだけ変更された中途半端な状態を戻す
+			TrySetWindowStyle(hwnd, temporaryWindowedStyle);
+			return false;
+		}
+		// 全成功後に保存状態を確定する
+		windowedPlacement = temporaryPlacement;
+		windowedStyle = temporaryWindowedStyle;
+		hasWindowedPlacement = true;
+		isBorderlessFullscreen = true;
+		return true;
+	}
+
+	// BorderlessFullscreen->Windowedにする
+	WINDOWPLACEMENT targetPlacement{};
+	if (hasWindowedPlacement)
+	{
+		// Windowedから切り替えた場合はもとの位置へ戻す
+		targetPlacement = windowedPlacement;
+	}
+	else
+	{
+		// 最初からborderlessだった場合は基準サイズから作る
+		if (preferredWindowedClientSize.x <= 0 || preferredWindowedClientSize.y <= 0)
+		{
+			DEBUG_LOG_ERROR("Windowed復元用サイズが保存されていません\n");
+			return false;
+		}
+		RECT windowRect{ 0,0, preferredWindowedClientSize.x, preferredWindowedClientSize.y };
+		const DWORD targetStyle{ static_cast<DWORD>(windowedStyle) };
+		if (!AdjustWindowRectEx(&windowRect, targetStyle, false, 0))
+		{
+			DEBUG_LOG_ERROR("Windowed復元サイズの計算に失敗しました\n");
+			return false;
+		}
+		const int windowWidth{ windowRect.right - windowRect.left };
+		const int windowHeight{ windowRect.bottom - windowRect.top };
+		const HMONITOR monitor{ MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
+		MONITORINFO monitorInfo{};
+		monitorInfo.cbSize = sizeof(MONITORINFO);
+		if (!monitor || !GetMonitorInfoW(monitor, &monitorInfo))
+		{
+			DEBUG_LOG_ERROR("Windowed復元先のモニター情報を取得できませんでした\n");
+			return false;
+		}
+		const RECT& workRect{ monitorInfo.rcWork };
+		// モニターの作業領域中央へ配置
+		const int x{ workRect.left + ((workRect.right - workRect.left) - windowWidth) / 2 };
+		const int y{ workRect.top + ((workRect.bottom - workRect.top) - windowHeight) / 2 };
+
+		targetPlacement.length = sizeof(WINDOWPLACEMENT);
+		targetPlacement.showCmd = SW_SHOWNORMAL;
+		targetPlacement.rcNormalPosition = { x, y , x + windowWidth, y + windowHeight };
+	}
+
+	// 初回Borderless軌道では保存StyleにWS_VISIBLEがないため補う
+	LONG_PTR targetWindowedStyle{ windowedStyle };
+	if (IsWindowVisible(hwnd)) targetWindowedStyle |= WS_VISIBLE;
+
+	// スタイルの設定
+	if (!TrySetWindowStyle(hwnd, targetWindowedStyle)) return false;
+
+	// 位置とサイズの復元
+	if (!SetWindowPlacement(hwnd, &targetPlacement))
+	{
+		DEBUG_LOG_ERROR("Windowed時の位置とサイズを復元できませんでした\n");
+		return false;
+	}
+
+	// 非クライアント領域を再計算
+	if (!SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED))
+	{
+		DEBUG_LOG_ERROR("Windowed時のフレーム再計算に失敗しました\n");
+		return false;
+	}
+	isBorderlessFullscreen = false;
+	return true;
+}
+
 void Window::RequestQuit()
 {
 	if (hwnd == nullptr || !IsWindow(hwnd)) return;
@@ -175,7 +346,7 @@ bool Window::GenerateNativeWindow(DWORD _windowStyle, int _x, int _y, int _width
 		_width, _height, // サイズ
 		nullptr, nullptr,
 		windowClass.hInstance,
-		this // マウス回転を積むためにプロシージャに自身のポインタを渡す
+		this // ウィンドウの機能を自分で設定するためにプロシージャに自身のポインタを渡す
 	);
 
 	if (!hwnd)
@@ -198,7 +369,7 @@ LRESULT CALLBACK Window::WindowProc(HWND _hwnd, UINT _msg, WPARAM _wp, LPARAM _l
 	{
 		CREATESTRUCT* createData{ reinterpret_cast<CREATESTRUCT*>(_lp) };
 		Window* window{ reinterpret_cast<Window*>(createData->lpCreateParams) };
-		SetWindowLongPtr(_hwnd, GWLP_USERDATA ,reinterpret_cast<LONG_PTR>(window));
+		SetWindowLongPtr(_hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(window));
 		window->hwnd = _hwnd; // CreateWindowExW完了前から正しいHWNDを保持
 	}
 
@@ -215,6 +386,18 @@ LRESULT CALLBACK Window::WindowProc(HWND _hwnd, UINT _msg, WPARAM _wp, LPARAM _l
 			{
 				windowThisPtr->onWheel(GET_WHEEL_DELTA_WPARAM(_wp));
 			}
+			return 0;
+		}
+		// ウィンドウサイズ変更処理
+		if (_msg == WM_SIZE)
+		{
+			// 最小化中はクライアント領域が0x0になるためGPUリソースを作り直さない
+			if (_wp == SIZE_MINIMIZED) return 0;
+
+			const int width{ static_cast<int>(LOWORD(_lp)) };
+			const int height{ static_cast<int>(HIWORD(_lp)) };
+
+			if (width > 0 && height > 0 && windowThisPtr->onResize) windowThisPtr->onResize(width, height);
 			return 0;
 		}
 	}
