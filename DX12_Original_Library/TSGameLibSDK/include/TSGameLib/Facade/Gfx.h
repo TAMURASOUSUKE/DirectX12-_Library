@@ -9,6 +9,7 @@
 #include "../Graphics/GfxType.h"
 #include "../Component/Transform.h"
 #include "../Component/Camera.h"
+#include "../Component/Light.h"
 #include "../Math/TSMath.h"
 
 struct AABB; // 描画側が判定側に依存しない
@@ -124,8 +125,14 @@ namespace Gfx
 		DebugLine, // あたり判定可視化などデバッグ途用として余計な線を描画しないワイヤー表示
 	};
 
+	// 2D描画で使用している仮想解像度を取得する
+	Vector2Int GetVirtualSize();
+
 	// 現在使用する3Dカメラを設定する(呼ぶ場合は必ず3D描画前に呼んでください)
 	bool SetCamera(const Camera& _camera);
+
+	// シーン全体で使用するライトを設定する
+	bool SetSceneLight(const SceneLight& _sceneLight);
 
 	// 画面のクリア(引数で色を設定できるデフォルトは黒)
 	void ClearScreen(float _r = 0.0f, float _g = 0.0f, float _b = 0.0f, float _a = 1.0f);

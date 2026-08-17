@@ -18,12 +18,13 @@ struct PBRGeometry
 float3 SafeNormalize(float3 _value, float3 _fallback)
 {
 	const float lengthSquared = dot(_value, _value);
+	float3 normalizedValue = _fallback;
 	// rsqrtは1 / sqrtを求める
 	if (lengthSquared > 1.0e-6f)
 	{
-		return _value * rsqrt(lengthSquared);
+		normalizedValue = _value * rsqrt(lengthSquared);
 	}
-	return _fallback;
+	return normalizedValue;
 }
 
 // PBRで共通する方向と内積を作る
@@ -108,7 +109,7 @@ float3 CalculateCookTorranceDirectLight(PBRGeometry _geometry, float3 _baseColor
 	const float roughness = max(saturate(_roughness), 0.045f);
 	
 	// 非金属は4％金属はBaseColorを正反射率として使う
-	const float nonMetallicF0 = float3(0.04f, 0.04f, 0.04f);
+	const float3 nonMetallicF0 = float3(0.04f, 0.04f, 0.04f);
 	float3 f0 = lerp(nonMetallicF0, _baseColor, metallic);
 	
 	// Cook-Torranceの3要素
@@ -120,9 +121,9 @@ float3 CalculateCookTorranceDirectLight(PBRGeometry _geometry, float3 _baseColor
 	const float3 specularNumrator = fresnel * distribution * geometry;
 	
 	// 4(N・V)(N・L)
-	const float specularDenominator = max(4.0f * _geometry.NdotV * _geometry.NdotV, 1.0e-6f); // 正面から外れたときの0除算防止
+	const float specularDenominator = max(4.0f * _geometry.NdotV * _geometry.NdotL, 1.0e-6f); // 正面から外れたときの0除算防止
 	
-	const float specular = specularNumrator / specularDenominator;
+	const float3 specular = specularNumrator / specularDenominator;
 	
 	// フレネルで反射しなかった分だけ拡散へ回す
 	const float3 specularRatio = fresnel;

@@ -62,7 +62,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	SceneLight sceneLight{};
 	sceneLight.directional.direction = { 1.0f, -1.0f, 1.0f };
 	sceneLight.directional.color = { 1.0f, 1.0f, 1.0f };
-	sceneLight.directional.intensity = 1.0f;
+	sceneLight.directional.intensity = 4.0f;
 
 	sceneLight.ambient.color = { 1.0f, 1.0f, 1.0f };
 	sceneLight.ambient.intensity = 0.15f;
