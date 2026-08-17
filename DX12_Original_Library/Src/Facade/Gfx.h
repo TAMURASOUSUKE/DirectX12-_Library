@@ -125,6 +125,9 @@ namespace Gfx
 		DebugLine, // あたり判定可視化などデバッグ途用として余計な線を描画しないワイヤー表示
 	};
 
+	// 2D描画で使用している仮想解像度を取得する
+	Vector2Int GetVirtualSize();
+
 	// 現在使用する3Dカメラを設定する(呼ぶ場合は必ず3D描画前に呼んでください)
 	bool SetCamera(const Camera& _camera);
 

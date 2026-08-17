@@ -16,25 +16,21 @@
 #include "../Graphics/GraphicsConstant.h"
 #include "../Graphics/GraphicsType.h"
 #include "../Graphics/InternalResource/DefaultFontData.h"
+#include "../Graphics/ModelRenderer.h"
 #include "../Animation/AnimationSystem.h"
 #include "../Graphics/Primitive3DSystem.h"
 #include "../Graphics/CameraSystem.h"
 #include "../Graphics/LightSystem.h"
+#include "../Graphics/GraphicsSystem.h"
 #include "GfxInternal.h" // 外部公開しないもの
 #include "Gfx.h" // 外部公開するもの
 
 // 無名名前空間で変数を保持する
 namespace {
-	RTHandle sceneRenderTarget{}; // シーン全体を描画する内部用RenderTarget
 	D3D12_CPU_DESCRIPTOR_HANDLE currentRTV{}; // 現在OMSetRenderTargetsで設定しているRTV
 	ShaderSystem shaderSystem; // Shader読み込みなどを管理するファイル
 	ConstantBufferData orthConstantBufferData; // 正射影行列用定数バッファのデータメンバ
 	DynamicBuffer zeroMaterialParameterBuffer{}; // パラメータ未設定スロットへバインドするゼロ埋めCB 全スロットで同じGPUアドレス
-	RingConstantBuffer sceneFrameRingCBV; // 1フレーム共通
-	RingConstantBuffer modelObjectRingCBV{}; //モデル個体ごと
-	D3D12_GPU_VIRTUAL_ADDRESS sceneFrameGPUAddress{ 0 }; // 同じフレーム中にSceneFrameCBを再転送しないためのキャッシュ
-	RingConstantBuffer materialRingCBV; // material用定数バッファのデータメンバ
-	RingConstantBuffer skinningRingCBV; // スキニング行列定数バッファのデータメンバ
 	RingConstantBuffer userMaterialParameterRingCBV{}; // 外部MaterialのユーザーパラメータをGPUへ送るRing, PostEffectとSpriteで将来共有する
 	RingConstantBuffer terrainRingCBV{}; // Terrain用RingConstantBuffer
 	// 全Terrain描画で共有するグリッド
@@ -47,11 +43,9 @@ namespace {
 	Primitive3DSystem primitive3DSystem; // 3D基礎図形描画のシステム
 	CameraSystem cameraSystem; // カメラ制御システム
 	LightSystem lightSystem; // ライト管理システム
+	GraphicsSystem graphicsSystem; // Graphics全体のサイズ依存状態を統括
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
-	int screenWidth{ 0 }; // 画面の横幅
-	int screenHeight{ 0 }; // 画面の縦幅
-	int virtualWidth{ 0 };  // ゲーム内で使用する基準幅
-	int virtualHeight{ 0 }; // ゲーム内で使用する基準高さ
+	ModelRenderer modelRenderer; // モデルを描画するためのデータ処理システム
 	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
 	MaterialHandle currentPostEffectMaterial{}; // 現在画面全体へ適用しているポストエフェクトmaterial(無効ハンドルなら内蔵の素通しPSOを使う)
 
@@ -84,493 +78,253 @@ namespace {
 		 .vs = BuiltinShaderID::PostEffectVS, .ps = BuiltinShaderID::PostEffectPS,
 		 .layout = InputLayout::None, .blend = BlendMode::Opaque, // レイアウトはSV_VertexIDから直接作るので頂点入力はない、Blendも完全に画面を置き換えるのでブレンド無し
 		 .depth = DepthParam::None, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE}, // 2D画像を画面へ貼るだけなので深度は使わない
-		// 3DPrimitiveFill
-		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DFill,
-		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DLitPS,
-		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
-		 .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
-		 .fillMode = D3D12_FILL_MODE_SOLID},
-		 // 3DPrimitiveMeshWire
-		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DMeshWire,
-		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DLitPS, // テスト用に光を受ける
-		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
-		 .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
-		 .fillMode = D3D12_FILL_MODE_WIREFRAME},
-		 // 3DPrimitiveDebugLine
-		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DDebugLine,
-		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DUnlitPS,
-		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
-		 .depth = DepthParam::ReadOnly, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
-		 .fillMode = D3D12_FILL_MODE_SOLID}
+		 // 3DPrimitiveFill
+		 {.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DFill,
+		  .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DLitPS,
+		  .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
+		  .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+		  .fillMode = D3D12_FILL_MODE_SOLID},
+		  // 3DPrimitiveMeshWire
+		 {.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DMeshWire,
+		  .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DLitPS, // テスト用に光を受ける
+		  .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
+		  .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+		  .fillMode = D3D12_FILL_MODE_WIREFRAME},
+		  // 3DPrimitiveDebugLine
+		 {.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DDebugLine,
+		  .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DUnlitPS,
+		  .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
+		  .depth = DepthParam::ReadOnly, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
+		  .fillMode = D3D12_FILL_MODE_SOLID}
 	};
 
-	// モデルVSと同じ配置だがWorldの逆転置行列を作ることで非均一スケールでも正しく法線を取れるようにする
-	struct ModelTransformCB
-	{
-		Mat4x4 mvp{ Mat4x4::Identity };
-		Mat4x4 worldInverseTranspose{ Mat4x4::Identity }; // 逆転置行列
-	};
-
-	// 1フレーム内のモデル描画で共有するデータ
-	struct SceneFrameCB
-	{
-		Mat4x4 viewProjection{ Mat4x4::Identity };
-		Vector4 cameraPosition{}; // wは未使用
-	};
-	// モデル個体ごとに異なるデータ
-	struct ModelObjectCB
-	{
-		Mat4x4 world{ Mat4x4::Identity };
-		Mat4x4 worldInverseTranspose{ Mat4x4::Identity }; // 逆転置行列
-	};
-	static_assert(sizeof(SceneFrameCB) == 80, "SceneFrameCBのサイズがHLSLと一致しません");
-	static_assert(sizeof(ModelObjectCB) == 128, "ModelObjectCBのサイズがHLSLと一致しません");
-}
-
-namespace {
-	// フレームデータを1度だけ転送するヘルパー
-	D3D12_GPU_VIRTUAL_ADDRESS GetSceneFrameGPUAddress()
-	{
-		// 現在フレームですでに転送していれば再利用
-		if (sceneFrameGPUAddress != 0) return sceneFrameGPUAddress;
-
-		const Vector3 cameraPosition{ cameraSystem.GetCameraPosition() };
-		SceneFrameCB frameData{};
-		frameData.viewProjection = cameraSystem.GetViewProjectionMatrix();
-		frameData.cameraPosition = { cameraPosition.x, cameraPosition.y, cameraPosition.z, 0.0f };
-
-		sceneFrameGPUAddress = sceneFrameRingCBV.Update(&frameData, static_cast<UINT>(sizeof(frameData)));
-		if (sceneFrameGPUAddress == 0) DEBUG_LOG_ERROR("SceneFrameCBのGPU転送に失敗しました\n");
-		return sceneFrameGPUAddress;
-	}
-
-	// 静的モデルとアニメーションモデルで個体それぞれのCBを組み立てるヘルパー
-	bool TryMakeModelObjectCB(const Transform& _transform, ModelObjectCB& _outCB)
-	{
-		const Vector3 scale{ _transform.GetScale() };
-
-		// 逆数を計算するため0スケールは受け入れない
-		if (std::abs(scale.x) <= Math::EPSILON || std::abs(scale.y) <= Math::EPSILON || std::abs(scale.z) <= Math::EPSILON)
+	namespace {
+		// Terrainのリソースを初期化する
+		bool InitializeTerrainResources()
 		{
-			DEBUG_LOG_ERROR("ModelのScaleに0へ近い値が指定されました Scale : ({}, {}, {})", scale.x, scale.y, scale.z);
-			return false;
-		}
-		const Vector3 inverseScale{ 1.0f / scale.x, 1.0f / scale.y, 1.0f / scale.z };
-		_outCB.world = _transform.GetWorldMatrix();
+			constexpr UINT GRID_SIZE{ 8 };
+			std::vector<TexVertex> vertices{};
+			std::vector<uint32_t> indices{};
+			vertices.reserve(GRID_SIZE * GRID_SIZE); // 正方形
+			indices.reserve((GRID_SIZE - 1) * (GRID_SIZE - 1) * 6);
 
-		// TransformをSRT構成にしたので逆行列計算を使わずに逆スケールと回転行列を使って法線行列を作る
-		_outCB.worldInverseTranspose = Mat4x4::MakeScaling(inverseScale) * _transform.GetRotation().ToMat4x4();
-		return true;
-	}
-
-	// スキンメッシュ付き
-	void DrawSkinnedModel(const AnimInstanceData& _anim, Transform _transform)
-	{
-		// skinningRingCBVはMAX_BONE_NUM個分しか確保していないため GPUへ送る前に上限を確認する
-		if (_anim.skinningMatrices.size() > MAX_BONE_NUM)
-		{
-			DEBUG_LOG_ERROR("モデルのボーン数が上限を超えています ""boneCount:{} max:{}\n", _anim.skinningMatrices.size(), MAX_BONE_NUM);
-			return;
-		}
-
-		ModelData* model{ GraphicsResourceManager::Instance().Lookup(_anim.modelHandle) }; // ハンドル分解
-		if (!model) return;
-
-		auto cmd{ GraphicsDevice::Instance().GetCommandList() };
-		ModelObjectCB objectData{};
-		if (!TryMakeModelObjectCB(_transform, objectData)) return;
-
-		cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Model));
-		cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::Model));
-
-		DescriptorManager::Instance().SetDiscriptor(cmd);
-		const D3D12_GPU_VIRTUAL_ADDRESS frameDataAddress{GetSceneFrameGPUAddress()};
-		const D3D12_GPU_VIRTUAL_ADDRESS objectAddress{ modelObjectRingCBV.Update(&objectData, static_cast<UINT>(sizeof(objectData))) };
-		const D3D12_GPU_VIRTUAL_ADDRESS skinningAddress{ skinningRingCBV.Update(_anim.skinningMatrices.data(), sizeof(Mat4x4) * static_cast<UINT>(_anim.skinningMatrices.size())) };
-		const D3D12_GPU_VIRTUAL_ADDRESS lightAddress{ lightSystem.GetFrameGPUAddress() };
-		if ((frameDataAddress <= 0) || (objectAddress <= 0))
-		{
-			DEBUG_LOG_ERROR("モデル変換データのGPU転送に失敗しました\n");
-			return;
-		}
-		if (skinningAddress <= 0)
-		{
-			DEBUG_LOG_ERROR("スキンのUpdateで失敗しました\n");
-			return;
-		}
-		if (lightAddress <= 0)
-		{
-			DEBUG_LOG_ERROR("モデル用SceneLightの取得に失敗しました\n");
-			return;
-		}
-		cmd->SetGraphicsRootConstantBufferView(0, frameDataAddress); // フレーム共通
-		cmd->SetGraphicsRootConstantBufferView(2, skinningAddress); // ボーンを更新
-		cmd->SetGraphicsRootConstantBufferView(4, lightAddress); // ライトの更新
-		cmd->SetGraphicsRootConstantBufferView(5, objectAddress); // モデル個体データ
-		cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		// サブメッシュ分回す
-		for (const SubMesh& sub : model->subMeshes)
-		{
-			// material類の更新
-			MaterialCB matCB{};
-			matCB.baseColorFactor = sub.material.baseColorFactor;
-			matCB.metallic = sub.material.metallic;
-			matCB.roughness = sub.material.roughness;
-			matCB.emissiveFactor = sub.material.emissiveFactor;
-			const D3D12_GPU_VIRTUAL_ADDRESS materialAddress{ materialRingCBV.Update(&matCB, sizeof(MaterialCB)) };
-			if (materialAddress <= 0)
+			for (UINT z = 0; z < GRID_SIZE; z++)
 			{
-				DEBUG_LOG_ERROR("マテリアルringbufferのUpateで失敗しました\n");
-				return; // materialのUpdateで失敗したらモデルをあきらめる
-			}
-			cmd->SetGraphicsRootConstantBufferView(1, materialAddress);
-
-			TextureData* tex{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
-			if (tex)
-			{
-				cmd->SetGraphicsRootDescriptorTable(3, tex->srvHandle.gpu);
-			}
-			else
-			{
-				DEBUG_LOG_ERROR("モデルのLookUpに失敗しました\n");
-				TextureData* error{ GraphicsResourceManager::Instance().Lookup(GraphicsResourceManager::Instance().GetErrorTexture()) }; // エラーハンドルを分解
-				if (!error)
+				for (UINT x = 0; x < GRID_SIZE; x++)
 				{
-					DEBUG_LOG_ERROR("モデルLookup失敗時にエラー用テクスチャのLookUpに失敗しました\n");
-					return;
+					const float u{ static_cast<float>(x) / static_cast<float>(GRID_SIZE - 1) };
+					const float v{ static_cast<float>(z) / static_cast<float>(GRID_SIZE - 1) };
+					TexVertex vertex{};
+
+					// 1x1のサイズで中心が原点のXZ平面を作る(実際の大きさはWorld行列で変更)
+					vertex.position[0] = u - 0.5f;
+					vertex.position[1] = 0.0f;
+					vertex.position[2] = v - 0.5f;
+					vertex.uv[0] = u;
+					vertex.uv[1] = v;
+					vertices.push_back(vertex);
 				}
-				cmd->SetGraphicsRootDescriptorTable(3, error->srvHandle.gpu);
 			}
 
-			cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
-			cmd->IASetIndexBuffer(&sub.indexBuffer.indexView);
-			cmd->DrawIndexedInstanced(sub.indexBuffer.indexCount, 1, 0, 0, 0);
-		}
-	}
-	// スキンメッシュなし
-	void DrawStaticModel(ModelHandle _model, const Transform _transform)
-	{
-		ModelData* model{ GraphicsResourceManager::Instance().Lookup(_model) };
-		if (!model) return; // 無効ハンドルガード
-		auto cmd{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリストのキャッシュ
-		ModelObjectCB objectData{};
-		if (!TryMakeModelObjectCB(_transform, objectData)) return;
-
-		// パイプライン設定
-		cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Model));
-		cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::Model));
-
-		DescriptorManager::Instance().SetDiscriptor(cmd); // Flushと同じ考え方
-
-		const D3D12_GPU_VIRTUAL_ADDRESS frameDataAddress{ GetSceneFrameGPUAddress() };
-		const D3D12_GPU_VIRTUAL_ADDRESS objectAddress{ modelObjectRingCBV.Update(&objectData, static_cast<UINT>(sizeof(objectData))) };
-		const D3D12_GPU_VIRTUAL_ADDRESS skinningAddress{ skinningRingCBV.Update(&Mat4x4::Identity, sizeof(Mat4x4)) };
-		const D3D12_GPU_VIRTUAL_ADDRESS lightAddress{ lightSystem.GetFrameGPUAddress() };
-		if ((frameDataAddress <= 0) || (objectAddress <= 0))
-		{
-			DEBUG_LOG_ERROR("モデル変換データのGPU転送に失敗しました\n");
-			return;
-		}
-		if (skinningAddress <= 0)
-		{
-			DEBUG_LOG_ERROR("スキンのUpdateで失敗しました\n");
-			return;
-		}
-		if (lightAddress <= 0)
-		{
-			DEBUG_LOG_ERROR("モデル用SceneLightの取得に失敗しました\n");
-			return;
-		}
-
-		cmd->SetGraphicsRootConstantBufferView(0, frameDataAddress);
-		// 静的描画の場合は単位行列を送る
-		cmd->SetGraphicsRootConstantBufferView(2, skinningAddress);
-		cmd->SetGraphicsRootConstantBufferView(4, lightAddress);
-		cmd->SetGraphicsRootConstantBufferView(5, objectAddress); // モデル個体データ
-		cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-
-
-		// submeshループ
-		for (const SubMesh& sub : model->subMeshes)
-		{
-			// material値をCBにつめる
-			MaterialCB matCB{};
-			matCB.baseColorFactor = sub.material.baseColorFactor;
-			matCB.metallic = sub.material.metallic;
-			matCB.roughness = sub.material.roughness;
-			matCB.emissiveFactor = sub.material.emissiveFactor;
-			const D3D12_GPU_VIRTUAL_ADDRESS materialUpdate{ materialRingCBV.Update(&matCB, sizeof(MaterialCB)) };
-			if (materialUpdate <= 0)
+			for (UINT z = 0; z < GRID_SIZE - 1; z++)
 			{
-				DEBUG_LOG_ERROR("マテリアルringbufferのUpateで失敗しました\n");
-				return; // materialのUpdateで失敗したらモデルをあきらめる
-			}
-			// Ringで送ってb1にバインドする
-			cmd->SetGraphicsRootConstantBufferView(1, materialUpdate);
-
-			// テクスチャをバインド
-			TextureData* tex{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
-			if (tex)
-			{
-				cmd->SetGraphicsRootDescriptorTable(3, tex->srvHandle.gpu);
-			}
-			else
-			{
-				DEBUG_LOG_ERROR("モデルのLookUpに失敗しました\n");
-				TextureData* error{ GraphicsResourceManager::Instance().Lookup(GraphicsResourceManager::Instance().GetErrorTexture()) }; // エラーハンドルを分解
-				if (!error)
+				for (UINT x = 0; x < GRID_SIZE - 1; x++)
 				{
-					DEBUG_LOG_ERROR("モデルLookup失敗時にエラー用テクスチャのLookUpに失敗しました\n");
-					return;
+					const uint32_t i0{ z * GRID_SIZE + x };
+					const uint32_t i1{ i0 + 1 };
+					const uint32_t i2{ i0 + GRID_SIZE };
+					const uint32_t i3{ i2 + 1 };
+
+					// 1マス目の三角形
+					indices.push_back(i0);
+					indices.push_back(i2);
+					indices.push_back(i1);
+
+					// 2枚目の三角形
+					indices.push_back(i1);
+					indices.push_back(i2);
+					indices.push_back(i3);
 				}
-				cmd->SetGraphicsRootDescriptorTable(3, error->srvHandle.gpu);
 			}
 
-			// 頂点インデックスをバインド
-			cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
-			cmd->IASetIndexBuffer(&sub.indexBuffer.indexView);
-
-			cmd->DrawIndexedInstanced(sub.indexBuffer.indexCount, 1, 0, 0, 0);
-		}
-	}
-
-	// Terrainのリソースを初期化する
-	bool InitializeTerrainResources()
-	{
-		constexpr UINT GRID_SIZE{ 8 };
-		std::vector<TexVertex> vertices{};
-		std::vector<uint32_t> indices{};
-		vertices.reserve(GRID_SIZE * GRID_SIZE); // 正方形
-		indices.reserve((GRID_SIZE - 1) * (GRID_SIZE - 1) * 6);
-
-		for (UINT z = 0; z < GRID_SIZE; z++)
-		{
-			for (UINT x = 0; x < GRID_SIZE; x++)
+			terrainVertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(vertices.data(), static_cast<UINT>(vertices.size() * sizeof(TexVertex)), sizeof(TexVertex));
+			terrainIndexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(indices.data(), static_cast<UINT>(indices.size() * sizeof(uint32_t)), static_cast<UINT>(indices.size()));
+			if (!terrainIndexBuffer.resource || !terrainVertexBuffer.resource)
 			{
-				const float u{ static_cast<float>(x) / static_cast<float>(GRID_SIZE - 1) };
-				const float v{ static_cast<float>(z) / static_cast<float>(GRID_SIZE - 1) };
-				TexVertex vertex{};
-
-				// 1x1のサイズで中心が原点のXZ平面を作る(実際の大きさはWorld行列で変更)
-				vertex.position[0] = u - 0.5f;
-				vertex.position[1] = 0.0f;
-				vertex.position[2] = v - 0.5f;
-				vertex.uv[0] = u;
-				vertex.uv[1] = v;
-				vertices.push_back(vertex);
+				DEBUG_LOG_ERROR("Terrainグリッドの作成に失敗しました\n");
+				return false;
 			}
+			terrainRingCBV.Setup(sizeof(TerrainCB));
+			return true;
 		}
 
-		for (UINT z = 0; z < GRID_SIZE - 1; z++)
+		// Terrain描画の内部処理
+		void DrawTerrainInternal(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap)
 		{
-			for (UINT x = 0; x < GRID_SIZE - 1; x++)
+			if (_scale <= 0.0f)
 			{
-				const uint32_t i0{ z * GRID_SIZE + x };
-				const uint32_t i1{ i0 + 1 };
-				const uint32_t i2{ i0 + GRID_SIZE };
-				const uint32_t i3{ i2 + 1 };
+				DEBUG_LOG_WARNING("Terrainのスケールは0より大きくしてください\n");
+				return;
+			}
+			ID3D12GraphicsCommandList* cmd{ GraphicsDevice::Instance().GetCommandList() };
+			if (!cmd || !terrainVertexBuffer.resource || !terrainIndexBuffer.resource) return;
 
-				// 1マス目の三角形
-				indices.push_back(i0);
-				indices.push_back(i2);
-				indices.push_back(i1);
+			// 指定されたHeightMapの実データ取得
+			TextureData* heightMap{ GraphicsResourceManager::Instance().Lookup(_heightMap) };
+			float effectiveHeightScale{ _heightScale }; // 高さのキャッシュ
+			if (!heightMap) // heightMapがないとき
+			{
+				const TexHandle fallback{ GraphicsResourceManager::Instance().GetDefaultTexture() };
+				heightMap = GraphicsResourceManager::Instance().Lookup(fallback); // 白テクスチャを使う
+				effectiveHeightScale = 0.0f; // ハイトマップがないときは高さ0にする
+			}
+			if (!heightMap)
+			{
+				DEBUG_LOG_ERROR("heighMapがデフォルトを含め失敗しました\n");
+				return;
+			}
 
-				// 2枚目の三角形
-				indices.push_back(i1);
-				indices.push_back(i2);
-				indices.push_back(i3);
+			// Terrain用RootSigとPSO
+			cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Terrain));
+			cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::TerrainWire));
+			DescriptorManager::Instance().SetDiscriptor(cmd); // SRVを使うのでDescriptorHeapをセット
+			//XZ方向に拡大
+			const Mat4x4 scaleMat{ Mat4x4::MakeScaling(Vector3{_scale, 1.0f, _scale}) };
+			const Mat4x4 translationMat{ Mat4x4::MakeTranslation(_position) };
+			const Mat4x4 worldMat{ scaleMat * translationMat }; // 行優先なのでS->T
+			TerrainCB cb{};
+			cb.mvp = worldMat * cameraSystem.GetViewProjectionMatrix();
+			cb.color = _color;
+			cb.heightScale = effectiveHeightScale;
+			cb.tessFactor = std::clamp(_tessFactor, 1.0f, 64.0f); // HSの分割係数の有効範囲内(1-64)にClamp
+			// 同じCBをHSとDSへ渡す
+			const D3D12_GPU_VIRTUAL_ADDRESS cbAddress{ terrainRingCBV.Update(&cb, sizeof(TerrainCB)) };
+			if (cbAddress <= 0)
+			{
+				DEBUG_LOG_ERROR("terrainのリングバッファUpdateに失敗しました\n");
+				return;
+			}
+			// RootParam[0] : HS b0
+			cmd->SetGraphicsRootConstantBufferView(0, cbAddress);
+			// RootParam[1] : DS b0
+			cmd->SetGraphicsRootConstantBufferView(1, cbAddress);
+			// RootParam[2] : DS t0
+			cmd->SetGraphicsRootDescriptorTable(2, heightMap->srvHandle.gpu);
+			cmd->IASetVertexBuffers(0, 1, &terrainVertexBuffer.vertexView);
+			cmd->IASetIndexBuffer(&terrainIndexBuffer.indexView);
+			// 3インデックスで1つの三角形パッチとして渡す
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
+			cmd->DrawIndexedInstanced(terrainIndexBuffer.indexCount, 1, 0, 0, 0);
+		}
+
+		// 指定したアトラスのセル番号からUV範囲を計算する
+		bool TryCalculateAtlasUV(const Gfx::TextureAtlas& _atlas, int _frameIndex, Vector2& _outUVMin, Vector2& _outUVMax)
+		{
+			// 失敗時に以前の結果が残らないように初期化
+			_outUVMax = Vector2::Zero;
+			_outUVMin = Vector2::Zero;
+			// 無効データなら計算しない
+			if (!_atlas.IsValid())
+			{
+				DEBUG_LOG_ERROR("無効なTextureAtlasが指定されました\n");
+				return false;
+			}
+
+			// IsValidを通っているのでframeCountは実際に使用できる数
+			if (_frameIndex < 0 || _frameIndex >= _atlas.frameCount)
+			{
+				DEBUG_LOG_ERROR("アトラスのframeIndexは0以上frameCount未満にしてください\n");
+				return false;
+			}
+
+			// 1次元のセル番号を列と行に変換
+			const int column{ _frameIndex % _atlas.columns };
+			const int row{ _frameIndex / _atlas.columns };
+
+			// セル一つがテクスチャの何割を占めるか
+			const float cellUVWidth{ 1.0f / static_cast<float>(_atlas.columns) };
+			const float cellUVHeight{ 1.0f / static_cast<float>(_atlas.rows) };
+
+			// セル左上
+			_outUVMin = { column * cellUVWidth, row * cellUVHeight };
+
+			// セル右下
+			_outUVMax = { (column + 1) * cellUVWidth, (row + 1) * cellUVHeight };
+			return true;
+		}
+
+		// UV計算をおこない指定フラグから画像を反転させるなどする
+		void ApplySpriteFlip(Gfx::SpriteFlip _flip, Vector2& _uvMin, Vector2& _uvMax)
+		{
+			switch (_flip)
+			{
+			case Gfx::SpriteFlip::None:
+				// そのまま反転なし
+				break;
+			case Gfx::SpriteFlip::Horizontal:
+				// 水平反転
+				std::swap(_uvMin.x, _uvMax.x);
+				break;
+			case Gfx::SpriteFlip::Vertical:
+				// 垂直反転
+				std::swap(_uvMin.y, _uvMax.y);
+				break;
+			case Gfx::SpriteFlip::Both:
+				// 両方
+				std::swap(_uvMin.x, _uvMax.x);
+				std::swap(_uvMin.y, _uvMax.y);
+				break;
+			default:
+				break;
 			}
 		}
 
-		terrainVertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(vertices.data(), static_cast<UINT>(vertices.size() * sizeof(TexVertex)), sizeof(TexVertex));
-		terrainIndexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(indices.data(), static_cast<UINT>(indices.size() * sizeof(uint32_t)), static_cast<UINT>(indices.size()));
-		if (!terrainIndexBuffer.resource || !terrainVertexBuffer.resource)
+		// 3D基礎図形の描画方法を内部の型に変換するヘルパー
+		Primitive3DDrawMode ConvertPrimitive3DStyle(Gfx::Primitive3DStyle _style)
 		{
-			DEBUG_LOG_ERROR("Terrainグリッドの作成に失敗しました\n");
-			return false;
-		}
-		terrainRingCBV.Setup(sizeof(TerrainCB));
-		return true;
-	}
-
-	// Terrain描画の内部処理
-	void DrawTerrainInternal(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap)
-	{
-		if (_scale <= 0.0f)
-		{
-			DEBUG_LOG_WARNING("Terrainのスケールは0より大きくしてください\n");
-			return;
-		}
-		ID3D12GraphicsCommandList* cmd{ GraphicsDevice::Instance().GetCommandList() };
-		if (!cmd || !terrainVertexBuffer.resource || !terrainIndexBuffer.resource) return;
-
-		// 指定されたHeightMapの実データ取得
-		TextureData* heightMap{ GraphicsResourceManager::Instance().Lookup(_heightMap) };
-		float effectiveHeightScale{ _heightScale }; // 高さのキャッシュ
-		if (!heightMap) // heightMapがないとき
-		{
-			const TexHandle fallback{ GraphicsResourceManager::Instance().GetDefaultTexture() };
-			heightMap = GraphicsResourceManager::Instance().Lookup(fallback); // 白テクスチャを使う
-			effectiveHeightScale = 0.0f; // ハイトマップがないときは高さ0にする
-		}
-		if (!heightMap)
-		{
-			DEBUG_LOG_ERROR("heighMapがデフォルトを含め失敗しました\n");
-			return;
+			switch (_style)
+			{
+			case Gfx::Primitive3DStyle::Fill:
+				return Primitive3DDrawMode::Fill;
+			case Gfx::Primitive3DStyle::MeshWireframe:
+				return Primitive3DDrawMode::MeshWireframe;
+			case Gfx::Primitive3DStyle::DebugLine:
+				return Primitive3DDrawMode::DebugLine;
+			default:
+				return Primitive3DDrawMode::Fill;
+			}
 		}
 
-		// Terrain用RootSigとPSO
-		cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Terrain));
-		cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::TerrainWire));
-		DescriptorManager::Instance().SetDiscriptor(cmd); // SRVを使うのでDescriptorHeapをセット
-		//XZ方向に拡大
-		const Mat4x4 scaleMat{ Mat4x4::MakeScaling(Vector3{_scale, 1.0f, _scale}) };
-		const Mat4x4 translationMat{ Mat4x4::MakeTranslation(_position) };
-		const Mat4x4 worldMat{ scaleMat * translationMat }; // 行優先なのでS->T
-		TerrainCB cb{};
-		cb.mvp = worldMat * cameraSystem.GetViewProjectionMatrix();
-		cb.color = _color;
-		cb.heightScale = effectiveHeightScale;
-		cb.tessFactor = std::clamp(_tessFactor, 1.0f, 64.0f); // HSの分割係数の有効範囲内(1-64)にClamp
-		// 同じCBをHSとDSへ渡す
-		const D3D12_GPU_VIRTUAL_ADDRESS cbAddress{ terrainRingCBV.Update(&cb, sizeof(TerrainCB)) };
-		if (cbAddress <= 0)
+		// Gfx内のメンバの掃除
+		void ShutdownGfxOwnedResources()
 		{
-			DEBUG_LOG_ERROR("terrainのリングバッファUpdateに失敗しました\n");
-			return;
+			// 仮で作っているTerrainのVB.IBを解放する(これは一時的な物なので3Dの基本図形描画時になくなる予定)
+			terrainIndexBuffer = IndexBuffer{};
+			terrainVertexBuffer = VertexBuffer{};
+			animSystem.Shutdown();
+			modelRenderer.Shutdown();
+			graphicsSystem.Shutdown();
+			// RingConstantBufferの解放
+			terrainRingCBV.Shutdown();
+			userMaterialParameterRingCBV.Shutdown();
+			zeroMaterialParameterBuffer = DynamicBuffer{}; // 解放
+			// Batchが所有するVB,IBを解放
+			fgBatch.Shutdown();
+			bgBatch.Shutdown();
+			shapeBatch.Shutdown();
+			primitive3DSystem.Shutdown();
+			lightSystem.Shutdown();
+
+			// 正射影CBを解放する
+			if (orthConstantBufferData.cbvHandle.IsValid())
+			{
+				DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, orthConstantBufferData.cbvHandle);
+			}
+
+			orthConstantBufferData = ConstantBufferData{};
+			currentRTV = {};
+			currentPostEffectMaterial = {};
 		}
-		// RootParam[0] : HS b0
-		cmd->SetGraphicsRootConstantBufferView(0, cbAddress);
-		// RootParam[1] : DS b0
-		cmd->SetGraphicsRootConstantBufferView(1, cbAddress);
-		// RootParam[2] : DS t0
-		cmd->SetGraphicsRootDescriptorTable(2, heightMap->srvHandle.gpu);
-		cmd->IASetVertexBuffers(0, 1, &terrainVertexBuffer.vertexView);
-		cmd->IASetIndexBuffer(&terrainIndexBuffer.indexView);
-		// 3インデックスで1つの三角形パッチとして渡す
-		cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
-		cmd->DrawIndexedInstanced(terrainIndexBuffer.indexCount, 1, 0, 0, 0);
-	}
-
-	// 指定したアトラスのセル番号からUV範囲を計算する
-	bool TryCalculateAtlasUV(const Gfx::TextureAtlas& _atlas, int _frameIndex, Vector2& _outUVMin, Vector2& _outUVMax)
-	{
-		// 失敗時に以前の結果が残らないように初期化
-		_outUVMax = Vector2::Zero;
-		_outUVMin = Vector2::Zero;
-		// 無効データなら計算しない
-		if (!_atlas.IsValid())
-		{
-			DEBUG_LOG_ERROR("無効なTextureAtlasが指定されました\n");
-			return false;
-		}
-
-		// IsValidを通っているのでframeCountは実際に使用できる数
-		if (_frameIndex < 0 || _frameIndex >= _atlas.frameCount)
-		{
-			DEBUG_LOG_ERROR("アトラスのframeIndexは0以上frameCount未満にしてください\n");
-			return false;
-		}
-
-		// 1次元のセル番号を列と行に変換
-		const int column{ _frameIndex % _atlas.columns };
-		const int row{ _frameIndex / _atlas.columns };
-
-		// セル一つがテクスチャの何割を占めるか
-		const float cellUVWidth{ 1.0f / static_cast<float>(_atlas.columns) };
-		const float cellUVHeight{ 1.0f / static_cast<float>(_atlas.rows) };
-
-		// セル左上
-		_outUVMin = {column * cellUVWidth, row * cellUVHeight};
-
-		// セル右下
-		_outUVMax = {(column + 1) * cellUVWidth, (row + 1) * cellUVHeight};
-		return true;
-	}
-
-	// UV計算をおこない指定フラグから画像を反転させるなどする
-	void ApplySpriteFlip(Gfx::SpriteFlip _flip, Vector2& _uvMin, Vector2& _uvMax)
-	{
-		switch (_flip)
-		{
-		case Gfx::SpriteFlip::None:
-			// そのまま反転なし
-			break;
-		case Gfx::SpriteFlip::Horizontal:
-			// 水平反転
-			std::swap(_uvMin.x, _uvMax.x);
-			break;
-		case Gfx::SpriteFlip::Vertical:
-			// 垂直反転
-			std::swap(_uvMin.y, _uvMax.y);
-			break;
-		case Gfx::SpriteFlip::Both:
-			// 両方
-			std::swap(_uvMin.x, _uvMax.x);
-			std::swap(_uvMin.y, _uvMax.y);
-			break;
-		default:
-			break;
-		}
-	}
-
-	// 3D基礎図形の描画方法を内部の型に変換するヘルパー
-	Primitive3DDrawMode ConvertPrimitive3DStyle(Gfx::Primitive3DStyle _style)
-	{
-		switch (_style)
-		{
-		case Gfx::Primitive3DStyle::Fill:
-			return Primitive3DDrawMode::Fill;
-		case Gfx::Primitive3DStyle::MeshWireframe:
-			return Primitive3DDrawMode::MeshWireframe;
-		case Gfx::Primitive3DStyle::DebugLine:
-			return Primitive3DDrawMode::DebugLine;
-		default:
-			return Primitive3DDrawMode::Fill;
-		}
-	}
-
-	// Gfx内のメンバの掃除
-	void ShutdownGfxOwnedResources()
-	{
-		// 仮で作っているTerrainのVB.IBを解放する(これは一時的な物なので3Dの基本図形描画時になくなる予定)
-		terrainIndexBuffer = IndexBuffer{};
-		terrainVertexBuffer = VertexBuffer{};
-		animSystem.Shutdown();
-		// RingConstantBufferの解放
-		sceneFrameRingCBV.Shutdown();
-		modelObjectRingCBV.Shutdown();
-		materialRingCBV.Shutdown();
-		skinningRingCBV.Shutdown();
-		terrainRingCBV.Shutdown();
-		userMaterialParameterRingCBV.Shutdown();
-		zeroMaterialParameterBuffer = DynamicBuffer{}; // 解放
-		sceneFrameGPUAddress = 0;
-		// Batchが所有するVB,IBを解放
-		fgBatch.Shutdown();
-		bgBatch.Shutdown();
-		shapeBatch.Shutdown();
-		primitive3DSystem.Shutdown();
-		lightSystem.Shutdown();
-
-		// 正射影CBを解放する
-		if (orthConstantBufferData.cbvHandle.IsValid())
-		{
-			DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV,orthConstantBufferData.cbvHandle);
-		}
-
-		orthConstantBufferData = ConstantBufferData{};
-
-		// GraphicsResourceManagerのShutdownで生存中のRTが回収されるが明示しておく
-		if (sceneRenderTarget.IsValid())
-		{
-			GraphicsResourceManager::Instance().Unload(sceneRenderTarget);
-			sceneRenderTarget = RTHandle{};
-		}
-		currentRTV = {};
-		currentPostEffectMaterial = {};
 	}
 }
 
@@ -582,11 +336,6 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 		DEBUG_LOG_ERROR("ウィンドウサイズと仮想解像度には0より大きい値を指定してください\n");
 		return false;
 	}
-
-	screenWidth = _clientWidth;
-	screenHeight = _clientHeight;
-	virtualWidth = _virtualWidth;
-	virtualHeight = _virtualHeight;
 	// 前回の初期化状態を引き継がない
 	currentPostEffectMaterial = {};
 
@@ -623,22 +372,6 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	}
 
 	GraphicsResourceManager::Instance().Setup(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
-	
-	// 画面と同じサイズの内部描画先を作成
-	sceneRenderTarget = GraphicsResourceManager::Instance().CreateRenderTarget(static_cast<UINT>(_clientWidth), static_cast<UINT>(_clientHeight));
-	if (!sceneRenderTarget.IsValid())
-	{
-		DEBUG_LOG_ERROR("シーン描画用RenderTargetの作成に失敗しました\n");
-		return false;
-	}
-	// Lookup確認
-	RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) };
-	if (!sceneRT)
-	{
-		DEBUG_LOG_ERROR("シーン描画用RenderTargetの取得に失敗しました\n");
-		return false;
-	}
-	currentRTV = sceneRT->rtvHandle.cpu; // 初期状態として内部RTを現在の描画先とする
 
 	// グリッドとCBの作成
 	if (!InitializeTerrainResources()) return false;
@@ -657,11 +390,14 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 		DEBUG_LOG_ERROR("CameraSystemの初期化に失敗しました\n");
 		return false;
 	}
+
+	// GraphicsSystemへGraphics全体で共有する依存先とサイズを登録する
+	if (!graphicsSystem.Setup(&GraphicsDevice::Instance(), &GraphicsResourceManager::Instance(), &cameraSystem, _clientWidth, _clientHeight, _virtualWidth, _virtualHeight))
+	{
+		DEBUG_LOG_ERROR("GraphicsSystemの初期化に失敗しました\n");
+		return false;
+	}
 	
-	sceneFrameRingCBV.Setup(static_cast<UINT>(sizeof(SceneFrameCB)), 1); 
-	modelObjectRingCBV.Setup(static_cast<UINT>(sizeof(ModelObjectCB)));
-	materialRingCBV.Setup(sizeof(MaterialCB));  // materialのリング定数バッファを初期化
-	skinningRingCBV.Setup(sizeof(Mat4x4) * MAX_BONE_NUM); // ボーン用の定数バッファを更新
 	userMaterialParameterRingCBV.Setup(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE), static_cast<UINT>(MAX_MATERIAL_PARAMETER_UPDATE_PER_FRAME));
 
 	// ゼロダミーCBの作成(未設定のMaterialパラメータを安全に0として読ませる)
@@ -679,6 +415,11 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 		return false;
 	}
 	animSystem.Setup(); // アニメーションシステムのセットアップ
+	if (!modelRenderer.Setup(&shaderSystem, &cameraSystem, &lightSystem))
+	{
+		DEBUG_LOG_ERROR("モデル描画のシステム初期化子に失敗しました\n");
+		return false;
+	}
 	// スプライトバッチ処理初期化
 	fgBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
 	bgBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
@@ -707,6 +448,9 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 // フレーム開始処理
 void GfxInternal::BeginFrame()
 {
+	// cmdを開く前の安全なタイミングでサイズ依存リソースを更新
+	if (!graphicsSystem.ApplyPendingResize()) DEBUG_LOG_ERROR("予約された画面リサイズ適用に失敗しました\n");
+
 	GraphicsDevice::Instance().BeginFrame(); // フレームの最初の処理
 
 	// GPUが使用し終えた遅延開放リソースを回収する
@@ -718,18 +462,14 @@ void GfxInternal::BeginFrame()
 	shapeBatch.Reset();
 	primitive3DSystem.Reset();
 	// 定数バッファのカウンターリセット
-	sceneFrameRingCBV.Reset();
-	modelObjectRingCBV.Reset();
-	sceneFrameGPUAddress = 0;
-	materialRingCBV.Reset();
-	skinningRingCBV.Reset();
 	terrainRingCBV.Reset();
 	userMaterialParameterRingCBV.Reset();
 	lightSystem.BeginFrame();
+	modelRenderer.BeginFrame();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto dsv{ GraphicsDevice::Instance().GetDSV() };
-	RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) }; // 内部ハンドルを分解した時のデータ
+	RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(graphicsSystem.GetSceneRenderTarget()) }; // 内部ハンドルを分解した時のデータ
 	isSceneRenderTargetActive = false; // BeginFrameごとに使用状態を決め直す
 	if (sceneRT)
 	{
@@ -757,11 +497,12 @@ void GfxInternal::BeginFrame()
 	cmdList->OMSetRenderTargets(1, &currentRTV, false, &dsv);
 
 	// ビューポート
+	Vector2Int screenSize{ graphicsSystem.GetScreenSize() };
 	D3D12_VIEWPORT viewPort{};
 	viewPort.TopLeftX = 0.0f;
 	viewPort.TopLeftY = 0.0f;
-	viewPort.Width = static_cast<float>(screenWidth);
-	viewPort.Height = static_cast<float>(screenHeight);
+	viewPort.Width = static_cast<float>(screenSize.x);
+	viewPort.Height = static_cast<float>(screenSize.y);
 	viewPort.MinDepth = 0.0f;
 	viewPort.MaxDepth = 1.0f;
 	cmdList->RSSetViewports(1, &viewPort);
@@ -770,10 +511,9 @@ void GfxInternal::BeginFrame()
 	D3D12_RECT scissorRect{};
 	scissorRect.left = 0;
 	scissorRect.top = 0;
-	scissorRect.right = screenWidth;
-	scissorRect.bottom = screenHeight;
+	scissorRect.right = screenSize.x;
+	scissorRect.bottom = screenSize.y;
 	cmdList->RSSetScissorRects(1, &scissorRect);
-
 }
 
 // フレーム終了処理
@@ -805,7 +545,7 @@ void GfxInternal::EndFrame()
 	// このフレームでオフスクリーンが使われていたら
 	if (isSceneRenderTargetActive)
 	{
-		RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(sceneRenderTarget) };
+		RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(graphicsSystem.GetSceneRenderTarget()) };
 		if (sceneRT)
 		{
 			// バリアを使ってシーンRTを書き込み先からシェーダーで読む画像へ遷移させる
@@ -946,6 +686,11 @@ void GfxInternal::Finish()
 	GraphicsDevice::Instance().Shutdown(); // Deviceの解放
 }
 
+void GfxInternal::RequestResize(int _width, int _height)
+{
+	graphicsSystem.RequestResize(_width, _height);
+}
+
 bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _slot, const void* _data, size_t _dataSize)
 {
 	GraphicsResourceManager& resourceManager{ GraphicsResourceManager::Instance() };
@@ -970,6 +715,11 @@ bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _s
 	}
 
 	return resourceManager.SetMaterialParameter(_handle, _slot, _data, _dataSize);
+}
+
+Vector2Int Gfx::GetVirtualSize()
+{
+	return graphicsSystem.GetVirtualSize();
 }
 
 bool Gfx::SetCamera(const Camera& _camera)
@@ -1496,7 +1246,7 @@ void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 	}
 
 	// 今の状態では静的モデルだけ
-	DrawStaticModel(_model, _transform);
+	modelRenderer.DrawStaticModel(_model, _transform);
 }
 
 void Gfx::DrawAnimatedModel(AnimInstanceHandle _handle, Transform _transform)
@@ -1508,7 +1258,7 @@ void Gfx::DrawAnimatedModel(AnimInstanceHandle _handle, Transform _transform)
 		GPU_MARKER("backGround");
 		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get()); // 背景の上に来るように3D描画前には背景batchをFlushする
 	}
-	DrawSkinnedModel(*instance, _transform);
+	modelRenderer.DrawSkinnedModel(*instance, _transform);
 }
 
 bool Gfx::UpdateAnim(AnimInstanceHandle _handle, float _deltaTime)

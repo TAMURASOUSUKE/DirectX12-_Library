@@ -21,7 +21,8 @@ cbuffer MaterialCB : register(b1)
     float pad2; // パディング
 };
 
-Texture2D tex : register(t0);
+Texture2D baseTex : register(t0);
+Texture2D metallicRoughnessTex : register(t1);
 SamplerState smp : register(s0);
 
 struct PS_INPUT
@@ -35,15 +36,18 @@ struct PS_INPUT
 float4 main(PS_INPUT _input) : SV_Target
 {
 	// sRGBテクスチャはSRVで線形色へ変換された状態で取得される
-	float debugMetallic = 1.0f;
-	float debugRoughness = 0.8f;
-	const float4 baseColor = tex.Sample(smp, _input.uv) * baseColorFactor;
+	const float4 baseColor = baseTex.Sample(smp, _input.uv) * baseColorFactor;
+	const float4 metallicRoughnessSample = metallicRoughnessTex.Sample(smp, _input.uv);
+	 
+	// glTFではG = Rougness, B = Metallicが格納されている
+	const float materialRoughness = roughness * metallicRoughnessSample.g;
+	const float materialMetallic = metallic * metallicRoughnessSample.b;
+	
 	const PBRGeometry geometry = MakePBRGeometry(_input.worldNormal, _input.worldPosition, cameraPosition.xyz, directionalDirectionAndIntensity.xyz);
-	const float3 directLight = CalculateCookTorranceDirectLight(geometry, baseColor.rgb, debugMetallic, debugRoughness, directionalColor.rgb, directionalDirectionAndIntensity.w);
+	const float3 directLight = CalculateCookTorranceDirectLight(geometry, baseColor.rgb, materialMetallic, materialRoughness, directionalColor.rgb, directionalDirectionAndIntensity.w);
 
 	// IBL実装前の暫定的な環境光(本来のPBRであれば環境光も拡散IBLと鏡面IBLに分ける)
 	const float3 ambientLight = baseColor.rgb * ambientColorAndIntensity.rgb * ambientColorAndIntensity.w;
 	const float3 finalColor = directLight + ambientLight;
 	return float4(finalColor, baseColor.a);
-
 }

@@ -32,6 +32,10 @@ public:
 
 	// 垂直同期の有効状態を設定する
 	void SetVSync(bool _isEnabled) { isVSyncEnabled = _isEnabled; }
+
+	// GPUの描画先を指定サイズで作り直す
+	bool Resize(UINT _width, UINT _height);
+
 	// デバイスのGetter
 	ID3D12Device* GetDevice() const;
 	// コマンドリストのGetter
@@ -58,6 +62,11 @@ private:
 	// コピーの禁止
 	GraphicsDevice(const GraphicsDevice&) = delete;
 	GraphicsDevice& operator=(const GraphicsDevice&) = delete;
+
+	// SwapChainからBackBufferを取得してRTVを作成する
+	bool CreateBackBufferView();
+	//　指定サイズの深度バッファを作る
+	bool CreateDepthStencilBuffer(UINT _width, UINT _height);
 
 private:
 	bool isVSyncEnabled{ true }; // デフォルトは垂直同期を有効にする

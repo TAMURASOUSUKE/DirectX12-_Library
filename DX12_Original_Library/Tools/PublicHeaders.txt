@@ -5,6 +5,7 @@
 Collision/Collider.h
 Component/Transform.h
 Component/Camera.h
+Component/Light.h
 
 Core/Handle/HandlePassKey.h
 Core/Handle/MaterialHandle.h

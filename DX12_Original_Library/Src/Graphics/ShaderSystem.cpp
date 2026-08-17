@@ -970,6 +970,7 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	model.parameters.push_back(MakeRootCBV(3, D3D12_SHADER_VISIBILITY_PIXEL)); // ライティング(b3)
 	model.parameters.push_back(MakeRootCBV(4, D3D12_SHADER_VISIBILITY_VERTEX)); // モデル個体ごとのデータ(b4)
 	model.staticSamplers.push_back(MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL)); // サンプラー設定(s0)
+	model.parameters.push_back(MakeSRVTable(1, D3D12_SHADER_VISIBILITY_PIXEL)); // MetallicRoughnessテクスチャ(t1)
 	descs.push_back(std::move(model)); // model変数は使わないのでmoveして空にする(コピーの必要性なし)
 	// Shape用
 	RootSignatureDesc shape{};

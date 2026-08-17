@@ -8,6 +8,8 @@
 #include <deque>
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
+#include "../Core/Handle/ShaderHandle.h"
+#include "../Core/Handle/MaterialHandle.h"
 #include "../Core/Handle/RTHandle.h"
 #include "GraphicsType.h"
 using Microsoft::WRL::ComPtr;

@@ -16,6 +16,10 @@ namespace System
 	void SetWindowTitle(const wchar_t* _title);
 	// ウィンドウが現在操作対象になっているか
 	bool IsWindowFocused();
+	// 実行中にWindowModeを変更する
+	bool SetWindowMode(WindowMode _mode);
+	// 現在のWindowModeを取得する
+	WindowMode GetWindowMode();
 	// ゲームの終了を要求する
 	void RequestQuit();
 }

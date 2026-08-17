@@ -12,4 +12,7 @@ namespace GfxInternal
 	void EndFrame();
 	// 終了処理
 	void Finish();
+
+	// 次フレームの開始前に適用する画面サイズを予約する
+	void RequestResize(int _width, int _height);
 }

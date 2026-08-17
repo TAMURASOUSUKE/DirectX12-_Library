@@ -8,8 +8,6 @@
 #include "../Math/TSMath.h"
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
-#include "../Core/Handle/ShaderHandle.h"
-#include "../Core/Handle/MaterialHandle.h"
 #include "GraphicsConstant.h"
 using Microsoft::WRL::ComPtr;
 
