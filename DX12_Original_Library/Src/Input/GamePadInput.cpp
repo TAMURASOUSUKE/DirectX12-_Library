@@ -94,6 +94,31 @@ bool GamePadInput::IsReleased(PadCode::Trigger _trigger)
 	return !current && prev;
 }
 
+bool GamePadInput::IsInputActiveThisFrame()
+{
+	// ボタンが一つでも入力されているか、トリガーが入力されているか、スティックが倒されているか
+	bool isButtonPushed{ false }; // ボタンが押されているか
+	bool isTriggerPushed{ false }; // トリガーが押されているか
+	bool isStickMoved{ false }; // スティックを動かしたか
+
+	// ボタンが押されているか
+	isButtonPushed = currentPad.wButtons & ~prevPad.wButtons; // 0以外なら押されていると判断できる
+
+	// スティックチェック
+	Vector2 leftStickValue{ GetStickValue(PadCode::Stick::LEFT, false) };
+	Vector2 rightStickValue{ GetStickValue(PadCode::Stick::RIGHT, false) };
+	// 左右どちらかのスティックが閾値より大きく動いていれば操作している
+	if (leftStickValue.LengthSquared() > LEFT_STICK_DEADZONE * LEFT_STICK_DEADZONE ||
+		rightStickValue.LengthSquared() > RIGHT_STICK_DEADZONE * RIGHT_STICK_DEADZONE)  isStickMoved = true;
+
+	// トリガーチェック
+	float leftTriggerValue{ GetTriggerValue(PadCode::Trigger::LEFT) };
+	float rightTriggerValue{ GetTriggerValue(PadCode::Trigger::RIGHT) };
+	if (leftTriggerValue > TRIGGER_RELEASE_THRESHOLD || rightTriggerValue > TRIGGER_RELEASE_THRESHOLD) isTriggerPushed = true;
+
+	return isButtonPushed || isStickMoved || isTriggerPushed;
+}
+
 float GamePadInput::GetTriggerValue(PadCode::Trigger _trigger)
 {
 	float result{ (_trigger == PadCode::Trigger::LEFT) ? static_cast<float>(currentPad.bLeftTrigger) : static_cast<float>(currentPad.bRightTrigger) };

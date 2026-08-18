@@ -195,7 +195,7 @@
     <ClInclude Include="Src\Input\MouseInput.h">
       <Filter>Src\Input</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Input\ActionSystem.h">
+    <ClInclude Include="Src\Input\ActionInput.h">
       <Filter>Src\Input</Filter>
     </ClInclude>
     <ClInclude Include="Src\Facade\Sound.h">
@@ -386,7 +386,7 @@
     <ClCompile Include="Src\Input\MouseInput.cpp">
       <Filter>Src\Input</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Input\ActionSystem.cpp">
+    <ClCompile Include="Src\Input\ActionInput.cpp">
       <Filter>Src\Input</Filter>
     </ClCompile>
     <ClCompile Include="Src\Facade\Sound.cpp">

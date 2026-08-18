@@ -19,6 +19,9 @@ public:
 	bool IsReleased(int _key) override; // 離した瞬間
 	bool IsReleased(PadCode::Trigger _trigger); // トリガー用
 
+	// このフレーム操作が発生したか
+	bool IsInputActiveThisFrame();
+
 	// 選択したトリガーがどれだけ押されているかを0-1で返す(完全に押されていれば1)
 	float GetTriggerValue(PadCode::Trigger _trigger);
 	

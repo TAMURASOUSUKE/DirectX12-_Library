@@ -46,3 +46,15 @@ bool KeyboardInput::IsReleased(int _key)
 {
 	 return!(currentKeys[_key] & MOST_SIGNIFICANT_BIT) && (prevKeys[_key] & MOST_SIGNIFICANT_BIT);
 }
+
+// このフレーム操作が発生したか
+bool KeyboardInput::IsInputActiveThisFrame()
+{
+	// 今のフレームで一つでも押されているかをチェックするのでcurrentKey
+	for (const BYTE& key : currentKeys)
+	{
+		// 押し続けているか判定すると入力方法の切り替えが曖昧になるので瞬間で判定する
+		if (IsPushed(static_cast<int>(key))) return true;
+	}
+	return false;
+}

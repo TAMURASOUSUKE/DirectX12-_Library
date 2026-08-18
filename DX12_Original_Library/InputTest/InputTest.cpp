@@ -12,12 +12,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	enum class ActionMap { Jump, Dash, Count }; // 抽象化テスト用アクション
 	Input::SetupActions(ActionMap::Count); // 初期化
-	Input::SetAction(ActionMap::Jump, KeyCode::Button::SPACE);
-	Input::SetAction(ActionMap::Jump, PadCode::Button::A);
-	Input::SetAction(ActionMap::Jump, MouseCode::Click::LEFT);
-	Input::SetAction(ActionMap::Dash, KeyCode::Button::LSHIFT);
-	Input::SetAction(ActionMap::Dash, PadCode::Trigger::RIGHT);
-	Input::SetAction(ActionMap::Dash, MouseCode::Click::RIGHT);
+	Input::AddActionBinding(ActionMap::Jump, KeyCode::Button::SPACE);
+	Input::AddActionBinding(ActionMap::Jump, PadCode::Button::A);
+	Input::AddActionBinding(ActionMap::Jump, MouseCode::Click::LEFT);
+	Input::AddActionBinding(ActionMap::Dash, KeyCode::Button::LSHIFT);
+	Input::AddActionBinding(ActionMap::Dash, PadCode::Trigger::RIGHT);
+	Input::AddActionBinding(ActionMap::Dash, MouseCode::Click::RIGHT);
 
 	int wheelValue{ 0 }; // マウスホイールを動かしたときに生値
 	int testWheelNotch{ 0 }; // マウスホイールを動かした回数

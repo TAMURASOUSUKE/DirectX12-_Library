@@ -11,6 +11,10 @@ public:
 	bool IsPress(int _key) override; // 押している間
 	bool IsPushed(int _key) override; // 押した瞬間
 	bool IsReleased(int _key) override; // 離した瞬間
+
+	// このフレーム操作が発生したか
+	bool IsInputActiveThisFrame();
+
 private:
 	BYTE currentKeys[256]{};
 	BYTE prevKeys[256]{};

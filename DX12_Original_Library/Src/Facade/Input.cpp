@@ -2,7 +2,7 @@
 #include "../Input/KeyboardInput.h"
 #include "../Input/MouseInput.h"
 #include "../Input/GamePadInput.h"
-#include "../Input/ActionSystem.h"
+#include "../Input/ActionInput.h"
 #include "InputInternal.h"
 #include "Input.h"
 
@@ -11,7 +11,7 @@ namespace
 	KeyboardInput keyboard{}; // キーボード入力クラス
 	MouseInput mouse{}; // マウス入力クラス
 	GamePadInput gamePad{}; // ゲームパッド入力クラス
-	ActionSystem actionSystem{}; // 抽象化入力クラス
+	ActionInput actionSystem{}; // 抽象化入力クラス
 }
 
 bool InputInternal::Initialize(HWND _hwnd)
@@ -19,7 +19,7 @@ bool InputInternal::Initialize(HWND _hwnd)
 	DEBUG_ASSERT(_hwnd != nullptr && "InputInternalでnull状態のHWNDが渡されました\n");
 	if (_hwnd != nullptr)
 	{
-		mouse.Initialize(_hwnd);
+		mouse.Setup(_hwnd);
 		return true;
 	}
 	return false;
@@ -47,12 +47,12 @@ void InputInternal::EndFrame()
 // 抽象化
 void Input::Detail::SetupActionImpl(int _count)
 {
-	actionSystem.Setup(_count);
+	actionSystem.SetupActionCount(_count);
 }
 
-void Input::Detail::SetActionImpl(int _action, Binding _binding)
+void Input::Detail::AddActionBindingImpl(int _action, Binding _binding)
 {
-	actionSystem.SetAction(_action, _binding);
+	actionSystem.AddActionBinding(_action, _binding);
 }
 
 bool Input::Detail::IsActionPressImpl(int _action)

@@ -7,13 +7,16 @@
 class MouseInput : public InputBase
 {
 public:
-	void Initialize(HWND _hwnd);  // 初期化
+	void Setup(HWND _hwnd);  // 初期化
 
 	void Update() override; // 入力更新
 
 	bool IsPress(int _click) override; // 押している間
 	bool IsPushed(int _click) override; // 押した瞬間
 	bool IsReleased(int _click) override; // 離した瞬間
+
+	// このフレーム操作が発生したか
+	bool IsInputActiveThisFrame();
 
 	/// <summary>
 	/// そのフレーム中のホイール回転量を基準値を含めて計算し、加算した値を返す

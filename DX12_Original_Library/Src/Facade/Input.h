@@ -11,7 +11,7 @@ namespace Input
 	namespace Detail
 	{
 		void SetupActionImpl(int _count); // アクション数だけ内部配列を確保する
-		void SetActionImpl(int _action, Binding _binding); // アクションと設定したい物理キーを入れる
+		void AddActionBindingImpl(int _action, Binding _binding); // アクションと設定したい物理キーを入れる
 		bool IsActionPressImpl(int _action); // Pressの内部実装
 		bool IsActionPushedImpl(int _action); // Pushedの内部実装
 		bool IsActionReleasedImpl(int _action); // Releasedの内部実装
@@ -39,10 +39,10 @@ namespace Input
 	/// <param name="_action">自作したenum classの指定アクション</param>
 	/// <param name="_binding">設定したい物理操作</param>
 	template<typename TAction>
-	void SetAction(TAction _action, Binding _binding)
+	void AddActionBinding(TAction _action, Binding _binding)
 	{
 		static_assert(std::is_enum_v<TAction>, "Actionはenum classで定義してください\n");
-		Detail::SetActionImpl(static_cast<int>(_action), _binding);
+		Detail::AddActionBindingImpl(static_cast<int>(_action), _binding);
 	}
 
 	// 抽象化 : 押している間
