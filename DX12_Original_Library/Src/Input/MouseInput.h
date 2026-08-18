@@ -36,6 +36,9 @@ public:
 	// 前のフレームからのマウスの移動量を返す
 	Vector2Int GetCursorDelta();
 
+	// カーソルを強制移動した後追跡基準を現在位置に合わせる
+	bool ResetCursorTracking();
+
 	// wheelが回された分だけ加算して積む。
 	void AddWheelDelta(short _delta);
 private:
@@ -44,6 +47,7 @@ private:
 	BYTE prevClicks[256]{};
 	POINT currentClientCursorPos{}; // 現在のマウスカーソル位置
 	POINT prevClientCursorPos{}; // 前フレームのマウスカーソル位置
+	Vector2Int cursorDelta{ Vector2Int::Zero }; // カーソル移動量
 	short accumWheel{ 0 }; // wheelを動作したときに得られる値の加算器 
 	int currentWheel{ 0 }; // 最終的なユーザー側に出力するwheel稼働の値(ノッチ数)
 };

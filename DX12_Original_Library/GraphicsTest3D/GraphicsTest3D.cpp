@@ -11,6 +11,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	if (!TSLib::Initialize(L"GraphicsTest3D", static_cast<int>(windowSize.x), static_cast<int>(windowSize.y)))return -1;
 	Time::SetTargetFPS(0);
 
+	// マウスカーソルの状態を設定
+	bool isLocked{ true }; // Initialize直後にLockedにした状態と合わせる
+	if (System::SetCursorMode(System::CursorMode::Locked)) DEBUG_LOG_ERROR("マウスカーソルの状態設定にしっぱしました\n");
+
 	TexHandle heightMap{ Gfx::LoadTexture("Res/TestVolume.png") }; // ハイトマップ取得
 
 	// Model
@@ -68,12 +72,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	sceneLight.ambient.intensity = 0.15f;
 
 	bool isFullscreen{ false }; // 実行中のWindowSize変更チェック
-
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 		time += Time::DeltaTime();
+
+		if (Input::IsKeyPushed(KeyCode::Button::TAB))
+		{
+			isLocked = !isLocked;
+
+			const System::CursorMode mode{ isLocked ? System::CursorMode::Locked : System::CursorMode::Normal };
+
+			if (!System::SetCursorMode(mode)) DEBUG_LOG_ERROR("マウスカーソルの状態変更に失敗しました\n");
+		}
+
 		// ライト回転をして影響を確認
 		sceneLight.directional.direction = { std::cos(time), -0.6f, std::sin(time) };
 

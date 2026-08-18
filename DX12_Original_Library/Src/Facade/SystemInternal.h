@@ -12,10 +12,15 @@ namespace SystemInternal
 	// Windowを破棄する
 	void Finish();
 
+	// カーソルを中央固定し続ける
+	void UpdateCursorLock();
+
 	// マウスホイール入力の通知先を登録する
 	void SetOnWheel(std::function<void(short)> _func);
 	// クライアント領域のサイズ変更通知先を登録する
 	void SetOnResize(std::function<void(int, int)> _func);
+	// カーソル中央移動の通知先の登録
+	void SetOnCursorWarp(std::function<void()> _func);
 	// GfxとInputへ渡す内部用Windowハンドル
 	HWND GetHWND();
 	// 実際のクライアント領域を取得する

@@ -22,6 +22,14 @@ namespace {
 		}
 		return true;
 	}
+
+	// カーソルの表示状態を設定する補助関数
+	void ForceCursorVisible(bool _visible)
+	{
+		// ShowCursorはbool設定ではなく内部カウンター方式なので複数回呼ばれても任意の設定にできるように指定した状態になるまでwhileを回す
+		if (_visible) while (ShowCursor(true) < 0); // trueの場合(表示)はカウンターがインクリメントされるので正になるまで
+		else while (ShowCursor(false) >= 0); // falseの場合(非表示)はカウンターがデクリメントされるので負になるまで
+	}
 }
 
 bool Window::GenerateWindow(int _clientWidth, int _clientHeight)
@@ -107,9 +115,12 @@ bool Window::GenerateBorderlessFullscreen(int _windowedClientWidth, int _windowe
 
 void Window::Shutdown()
 {
+	ClipCursor(nullptr);
+	ForceCursorVisible(true);
 	// Inputへのコールバック参照を先に切る
 	onWheel = {};
 	onResize = {};
+	onCursorWarp = {};
 	if (hwnd && IsWindow(hwnd)) DestroyWindow(hwnd);
 	hwnd = nullptr;
 	// このライブラリが登録したWindowClassを解除する
@@ -120,6 +131,39 @@ void Window::Shutdown()
 		// すでに解除済みなら異常扱いにしない
 		if (error != ERROR_CLASS_DOES_NOT_EXIST) DEBUG_LOG_ERROR("ウィンドウクラスの登録解除に失敗しました\n");
 	}
+}
+
+bool Window::SetCursorState(bool _visible, bool _locked)
+{
+	if (!hwnd) return false;
+	if (_locked) _visible = false; // 固定されている時は必ず非表示
+
+	// 失敗した時用に保存
+	const bool prevVisible{ cursorVisible };
+	const bool prevLocked{ cursorLocked };
+
+	// 状態の適用
+	cursorVisible = _visible;
+	cursorLocked = _locked;
+
+	// 状態の確定
+	if (!ApplyCursorState(IsFocused()))
+	{
+		// もとの状態に戻す
+		cursorVisible = prevVisible;
+		cursorLocked = prevLocked;
+		ApplyCursorState(IsFocused()); //前と同じ状態なので成功する前提
+		return false;
+	}
+	// 固定の場合は中央にする
+	if (cursorLocked && IsFocused()) CenterCursor();
+	return true;
+}
+
+void Window::UpdateCursorLock()
+{
+	// 固定の場合は中央にし続ける
+	if (cursorLocked && IsFocused()) CenterCursor();
 }
 
 bool Window::SetWindowTitle(const wchar_t* _title)
@@ -400,6 +444,14 @@ LRESULT CALLBACK Window::WindowProc(HWND _hwnd, UINT _msg, WPARAM _wp, LPARAM _l
 			if (width > 0 && height > 0 && windowThisPtr->onResize) windowThisPtr->onResize(width, height);
 			return 0;
 		}
+		// マウスカーソル表示対応処理
+		if (_msg == WM_SETFOCUS)
+		{
+			windowThisPtr->ApplyCursorState(true);
+			if (windowThisPtr->cursorLocked) windowThisPtr->CenterCursor(); // ロック状態なら中央固定
+		}
+		// フォーカス解除処理
+		if (_msg == WM_KILLFOCUS) windowThisPtr->ApplyCursorState(false);
 	}
 
 	// 終了処理
@@ -411,4 +463,74 @@ LRESULT CALLBACK Window::WindowProc(HWND _hwnd, UINT _msg, WPARAM _wp, LPARAM _l
 	}
 
 	return DefWindowProc(_hwnd, _msg, _wp, _lp);
+}
+
+bool Window::ApplyCursorState(bool _isFocused)
+{
+	// フォーカスを失った場合はゲーム外へカーソルを返す
+	if (!_isFocused)
+	{
+		ClipCursor(nullptr); // 画面全体へ
+		ForceCursorVisible(true); // 表示
+		return true;
+	}
+	if (!cursorLocked)
+	{
+		// NormalとHiddenでは閉じ込めない
+		ClipCursor(nullptr); // 画面全体へ
+		ForceCursorVisible(cursorVisible);
+		return true;
+	}
+
+	// Lockedではクライアント領域内に閉じ込める
+	RECT clientRect{};
+	if (!GetClientRect(hwnd, &clientRect))
+	{
+		DEBUG_LOG_ERROR("カーソル固定用ClientRectを取得できませんでした\n");
+		return false;
+	}
+
+	POINT leftTop{ clientRect.left, clientRect.top };
+	POINT rightBottom{ clientRect.right, clientRect.bottom };
+	if (!ClientToScreen(hwnd, &leftTop) || !ClientToScreen(hwnd, &rightBottom))
+	{
+		DEBUG_LOG_ERROR("カーソル固定領域の座標変換に失敗しました\n");
+		return false;
+	}
+
+	const RECT clipRect{ leftTop.x, leftTop.y, rightBottom.x, rightBottom.y };
+	if (!ClipCursor(&clipRect))
+	{
+		DEBUG_LOG_ERROR("カーソル固定領域を設定できませんでした\n");
+		return false;
+	}
+	ForceCursorVisible(false);
+	return true;
+}
+
+bool Window::CenterCursor()
+{
+	if (!hwnd || !cursorLocked || !IsFocused()) return false;
+
+	RECT clientRect{};
+	if (!GetClientRect(hwnd, &clientRect))
+	{
+		DEBUG_LOG_ERROR("クライアント領域の取得に失敗しました\n");
+		return false;
+	}
+	POINT center{ (clientRect.right - clientRect.left) / 2, (clientRect.bottom - clientRect.top) / 2 };
+	if (!ClientToScreen(hwnd, &center))
+	{
+		DEBUG_LOG_ERROR("カーソル固定領域の座標変換に失敗しました\n");
+		return false;
+	}
+	if (!SetCursorPos(center.x, center.y))
+	{
+		DEBUG_LOG_ERROR("カーソルを中央へ移動できませんでした\n");
+		return false;
+	}
+
+	// Input側に追跡意図を合わせてもらう
+	if (onCursorWarp) onCursorWarp();
+	return true;
 }

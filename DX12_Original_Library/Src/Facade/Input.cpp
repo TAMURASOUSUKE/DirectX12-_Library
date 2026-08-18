@@ -128,6 +128,11 @@ void InputInternal::AddMouseWheelDelta(short _delta)
 	mouse.AddWheelDelta(_delta);
 }
 
+bool InputInternal::ResetMouseCursorTracking()
+{
+	return mouse.ResetCursorTracking();
+}
+
 // パッド限定
 
 bool Input::IsPadPress(PadCode::Button _key)

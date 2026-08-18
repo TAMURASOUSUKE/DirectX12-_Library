@@ -44,7 +44,7 @@ bool TSLib::Initialize(const wchar_t* _title, int _virtualWidth, int _virtualHei
 	// コールバックの配線接続 : ラムダで渡す
 	SystemInternal::SetOnWheel([](short _delta) { InputInternal::AddMouseWheelDelta(_delta); });
 	SystemInternal::SetOnResize([](int _width, int _height) { GfxInternal::RequestResize(_width, _height); });
-
+	SystemInternal::SetOnCursorWarp([]() { InputInternal::ResetMouseCursorTracking(); });
 	return result;
 }
 
@@ -64,6 +64,7 @@ void TSLib::BeginFrame()
 {
 	TimeInternal::BeginFrame(); // 時間関連のフレーム最初の処理
 	InputInternal::BeginFrame(); // 入力の最初の処理
+	SystemInternal::UpdateCursorLock(); // マウス移動量を取得した後に中央へ
 	GfxInternal::BeginFrame(); // グラフィックのフレーム最初の処理
 	SoundInternal::BeginFrame(Time::UnscaledDeltaTime()); // 音関連のフレーム最初の処理
 }

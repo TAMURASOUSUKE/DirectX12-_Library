@@ -20,6 +20,10 @@ void MouseInput::Initialize(HWND _hwnd)
 void MouseInput::Update()
 {
 	prevClientCursorPos = currentClientCursorPos; // 保存
+
+	// 取得失敗時に前フレームの移動量を残さない
+	cursorDelta = Vector2Int::Zero;
+
 	memcpy(prevClicks, currentClicks, 256);
 	BOOL result{ GetKeyboardState(currentClicks) };
 	if (!result) memset(currentClicks, 0, 256); // 0リセットで入力を残さない
@@ -29,13 +33,13 @@ void MouseInput::Update()
 	result = GetCursorPos(&clientPos);
 	if (result)
 	{
-		// 位置取得に成功した場合のみ変換を行おうとする
-		// 失敗したらスキップする
-		BOOL clientResult{ false };
-		clientResult = ScreenToClient(hwnd, &clientPos);
-		if (clientResult)
+		// 位置取得に成功した場合のみ変換を行おうとし、失敗したらスキップする
+		if (ScreenToClient(hwnd, &clientPos))
 		{
 			currentClientCursorPos = clientPos; // 変換後の座標を保存
+
+			// この時の実際のマウス移動量を確定して保存
+			cursorDelta = { currentClientCursorPos.x - prevClientCursorPos.x, currentClientCursorPos.y - prevClientCursorPos.y };
 		}
 		else
 		{
@@ -51,7 +55,6 @@ void MouseInput::Update()
 
 	currentWheel = static_cast<int>(accumWheel); // 加算された値を保存
 	accumWheel = 0; // 次のフレームようにリセット
-
 }
 
 bool MouseInput::IsPress(int _click)
@@ -86,7 +89,30 @@ Vector2Int MouseInput::GetCursorPoint()
 
 Vector2Int MouseInput::GetCursorDelta()
 {
-	return Vector2Int{ currentClientCursorPos.x - prevClientCursorPos.x, currentClientCursorPos.y - prevClientCursorPos.y };
+	return cursorDelta;
+}
+
+bool MouseInput::ResetCursorTracking()
+{
+	if (!hwnd) return false;
+
+	POINT clientPosition{};
+	if (!GetCursorPos(&clientPosition))
+	{
+		DEBUG_LOG_ERROR("追跡リセット用カーソル位置を取得できませんでした\n");
+		return false;
+	}
+	if (!ScreenToClient(hwnd, &clientPosition))
+	{
+		DEBUG_LOG_ERROR("追跡リセット用座標を変換できませんでした\n");
+		return false;
+	}
+
+	// ライブラリ側でカーソルを動かした分を次フレームに持ち越さない
+	currentClientCursorPos = clientPosition;
+	prevClientCursorPos = clientPosition;
+	
+	return true;
 }
 
 void MouseInput::AddWheelDelta(short _delta)
