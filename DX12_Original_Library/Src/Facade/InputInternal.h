@@ -10,4 +10,6 @@ namespace InputInternal
 
 	// wheelが回された分だけ加算して積む : コールバック用関数
 	void AddMouseWheelDelta(short _delta);
+	// ライブラリによるカーソル移動後に追跡基準を合わせる
+	bool ResetMouseCursorTracking();
 }

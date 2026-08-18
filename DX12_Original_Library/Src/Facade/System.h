@@ -10,8 +10,19 @@ namespace System
 		BorderlessFullscreen // ボーダーレスフルスクリーン
 	};
 
+	enum class CursorMode
+	{
+		Normal, // 表示・自由移動
+		Hidden, // 非表示・自由移動
+		Locked  // 非表示・ウィンドウ中央へ固定
+	};
+
 	// タイトルバーを除いた、実際に描画できる領域を取得する
 	Vector2Int GetClientSize();
+	// カーソルモードの変更
+	bool SetCursorMode(CursorMode _mode);
+	// カーソルモードの取得
+	CursorMode GetCursorMode();
 	// ウィンドウタイトルを変更する
 	void SetWindowTitle(const wchar_t* _title);
 	// ウィンドウが現在操作対象になっているか
