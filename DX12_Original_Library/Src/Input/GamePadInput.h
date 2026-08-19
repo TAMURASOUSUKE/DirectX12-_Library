@@ -26,12 +26,16 @@ public:
 	float GetTriggerValue(PadCode::Trigger _trigger);
 	
 	// 引数に入れた方のスティックの値を取得する(boolでY軸反転を行うか判断する)
-	Vector2 GetStickValue(PadCode::Stick _stick, bool _isInverseY);
+	Vector2 GetStickValue(PadCode::Stick _stick, bool _isYInverted);
 private:
 	// スティックから出力された値デッドゾーンを適用して-1～1に正規化する関数(boolはY軸反転を行うかどうか)
-	Vector2 ApplyNormalizeAndDeadZone(short _x, short _y, float _deadZone, bool _isInverseY);
+	Vector2 ApplyNormalizeAndDeadZone(short _x, short _y, float _deadZone, bool _isYInverted);
 	// 上記関数のtrigger版オーバーロード
 	float ApplyNormalizeAndDeadZone(float _value, float _threshold);
+	// 指定されたXINPUT_GAMEPADから、指定されたStick値を取り出す
+	Vector2 GetStickValueFromState(const XINPUT_GAMEPAD& _state, PadCode::Stick _stick, bool _isYInverted);
+	// 指定スティックが今のフレームで動いたか
+	bool IsStickMovedThisFrame(PadCode::Stick _stick);
 private:
 	XINPUT_GAMEPAD currentPad{}; // 現在の入力
 	XINPUT_GAMEPAD prevPad{}; // 1フレーム前の入力

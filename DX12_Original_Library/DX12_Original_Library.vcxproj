@@ -213,9 +213,11 @@
     <ClInclude Include="Src\Graphics\ShapeBatch.h" />
     <ClInclude Include="Src\Graphics\SpriteBatch.h" />
     <ClInclude Include="Src\Input\ActionInput.h" />
+    <ClInclude Include="Src\Input\AxisType.h" />
     <ClInclude Include="Src\Input\InputBase.h" />
     <ClInclude Include="Src\Input\InputConstant.h" />
     <ClInclude Include="Src\Input\GamePadInput.h" />
+    <ClInclude Include="Src\Input\InputMethodTracker.h" />
     <ClInclude Include="Src\Input\InputName.h" />
     <ClInclude Include="Src\Input\KeyboardInput.h" />
     <ClInclude Include="Src\Input\MouseInput.h" />
@@ -278,6 +280,7 @@
     <ClCompile Include="Src\Graphics\SpriteBatch.cpp" />
     <ClCompile Include="Src\Input\ActionInput.cpp" />
     <ClCompile Include="Src\Input\GamePadInput.cpp" />
+    <ClCompile Include="Src\Input\InputMethodTracker.cpp" />
     <ClCompile Include="Src\Input\KeyboardInput.cpp" />
     <ClCompile Include="Src\Input\MouseInput.cpp" />
     <ClCompile Include="Src\Input\AxisInput.cpp" />

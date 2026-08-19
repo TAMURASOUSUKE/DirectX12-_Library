@@ -2,6 +2,7 @@
 #include <vector>
 #include <cstddef>
 #include "../Math/Vector/Vector2.h"
+#include "InputName.h"
 #include "AxisType.h"
 // 参照引数に完全な型は必要ないので前方宣言で済ませる
 class KeyboardInput;
@@ -22,7 +23,7 @@ public:
 	bool AddAxisBinding(int _axis, AxisBinding _binding);
 	
 	// 各物理入力を読み全Axisの現在値を計算する Delta型ではStickなどの継続入力を1フレーム分にするのでUnscaledDeltaTimeを受け取る
-	void Update(KeyboardInput& _keyboard, MouseInput& _mouse, GamePadInput& _pad, float _unscaledDeltaTime);
+	void Update(KeyboardInput& _keyboard, MouseInput& _mouse, GamePadInput& _pad, InputMethod _method, float _unscaledDeltaTime);
 
 	// 計算済みのAxis値を取得する
 	Vector2 GetValue(int  _axis) const;

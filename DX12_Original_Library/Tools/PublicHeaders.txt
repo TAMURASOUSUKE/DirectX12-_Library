@@ -30,6 +30,7 @@ Graphics/GfxType.h
 File/CSVTable.h
 
 Input/InputName.h
+Input/AxisType.h
 
 Math/MathConstant.h
 Math/TSMath.h

@@ -63,7 +63,7 @@ bool TSLib::ProcessMessage()
 void TSLib::BeginFrame()
 {
 	TimeInternal::BeginFrame(); // 時間関連のフレーム最初の処理
-	InputInternal::BeginFrame(); // 入力の最初の処理
+	InputInternal::BeginFrame(Time::UnscaledDeltaTime()); // 入力の最初の処理
 	SystemInternal::UpdateCursorLock(); // マウス移動量を取得した後に中央へ
 	GfxInternal::BeginFrame(); // グラフィックのフレーム最初の処理
 	SoundInternal::BeginFrame(Time::UnscaledDeltaTime()); // 音関連のフレーム最初の処理

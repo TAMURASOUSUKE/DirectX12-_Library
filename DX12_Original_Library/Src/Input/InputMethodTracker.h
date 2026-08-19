@@ -11,7 +11,7 @@ public:
 	InputMethodTracker& operator=(const InputMethodTracker& _other) = delete;
 
 	// このフレームで各デバイスの操作があったかを受け取りその状況を読み取ってInputMethodを変更する
-	void Update(bool _isKeyboradMouse, bool _isGamePads);
+	void Update(bool _isKeyboardMouse, bool _isGamePad);
 
 	// 今の入力方法を返す
 	InputMethod GetCurrentInputMethod() const { return inputMethod; }

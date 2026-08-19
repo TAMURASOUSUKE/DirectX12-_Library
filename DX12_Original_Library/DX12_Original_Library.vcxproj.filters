@@ -312,6 +312,15 @@
     <ClInclude Include="Src\Graphics\GraphicsSystem.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Input\AxisInput.h">
+      <Filter>Src\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Input\AxisType.h">
+      <Filter>Src\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Input\InputMethodTracker.h">
+      <Filter>Src\Input</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -454,6 +463,12 @@
     </ClCompile>
     <ClCompile Include="Src\Graphics\GraphicsSystem.cpp">
       <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Input\AxisInput.cpp">
+      <Filter>Src\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Input\InputMethodTracker.cpp">
+      <Filter>Src\Input</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

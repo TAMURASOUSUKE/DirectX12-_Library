@@ -50,11 +50,11 @@ bool KeyboardInput::IsReleased(int _key)
 // このフレーム操作が発生したか
 bool KeyboardInput::IsInputActiveThisFrame()
 {
-	// 今のフレームで一つでも押されているかをチェックするのでcurrentKey
-	for (const BYTE& key : currentKeys)
+	// 今のフレームで一つでも押されているかをチェック
+	for (int keyIndex = 0; keyIndex < 256; keyIndex++)
 	{
 		// 押し続けているか判定すると入力方法の切り替えが曖昧になるので瞬間で判定する
-		if (IsPushed(static_cast<int>(key))) return true;
+		if (IsPushed(keyIndex)) return true;
 	}
 	return false;
 }

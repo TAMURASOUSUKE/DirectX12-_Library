@@ -80,8 +80,12 @@ bool MouseInput::IsInputActiveThisFrame()
 	bool isCursorMoved{ false }; // マウスが動いたか
 	bool isWheelMoved{ false }; // ホイールを動かしたか
 
-	// 今のフレームで一つでも押されているかをチェックするのでcurrentKey
-	for (const BYTE& click : currentClicks)
+	// クリック用の配列
+	const int mouseClicks[]{ static_cast<int>(MouseCode::Click::LEFT),  static_cast<int>(MouseCode::Click::RIGHT),  static_cast<int>(MouseCode::Click::MIDDLE),
+								static_cast<int>(MouseCode::Click::SIDE01),  static_cast<int>(MouseCode::Click::SIDE02) };
+	
+	// 今のフレームで一つでも押されているか
+	for (int click : mouseClicks)
 	{
 		// 押し続けているか判定すると入力方法の切り替えが曖昧になるので瞬間で判定する
 		if (IsPushed(static_cast<int>(click)))

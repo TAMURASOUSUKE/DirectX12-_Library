@@ -35,12 +35,13 @@ void ActionInput::SetupActionCount(int _actionCount)
 	actions.resize(static_cast<std::size_t>(_actionCount));
 }
 // 該当アクション,設定したいキーで抽象化を行う
-void ActionInput::AddActionBinding(int _action, Binding _binding)
+bool ActionInput::AddActionBinding(int _action, Binding _binding)
 {
 	// サイズチェック
 	std::size_t index{ static_cast<std::size_t>(_action) };
-	if (!IsInSizeLimit(index)) return;
+	if (!IsInSizeLimit(index)) return false;
 	actions[index].bindings.push_back(std::move(_binding));
+	return true;
 }
 
 // 各状態を更新

@@ -17,9 +17,14 @@ namespace
 		MouseInput& ms;
 		GamePadInput& pad;
 
-		bool operator()(KeyCode::Button _key) const { return kb.IsPress(static_cast<int>(_key)); }
-		bool operator()(MouseCode::Click _click) const { return ms.IsPress(static_cast<int>(_click)); }
-		bool operator()(PadCode::Button _button) const { return pad.IsPress(static_cast<int>(_button)); }
+		InputMethod method{ InputMethod::KeyboardMouse };
+
+		// KeyboardMouse-> KeyCodeとClickが有効
+		// GamePad-> Padが有効
+
+		bool operator()(KeyCode::Button _key) const { return method == InputMethod::KeyboardMouse ? kb.IsPress(static_cast<int>(_key)) : false; }
+		bool operator()(MouseCode::Click _click) const { return method == InputMethod::KeyboardMouse ? ms.IsPress(static_cast<int>(_click)) : false; }
+		bool operator()(PadCode::Button _button) const { return method == InputMethod::GamePad ? pad.IsPress(static_cast<int>(_button)) : false; }
 	};
 	// 各Bindingを出すためのvisitor
 	struct AxisBindingVisitor
@@ -30,13 +35,17 @@ namespace
 		GamePadInput& pad;
 
 		AxisMode mode{AxisMode::Value};
+		InputMethod method{ InputMethod::KeyboardMouse };
 		float unscaledDeltaTime{0.0f};
+
+		// KeyboardMouse-> MouseDeltaが有効
+		// GamePad-> StickとTriggerが有効
 
 		// 各Bindingが選択されたときの挙動を整理する
 		Vector2 operator()(const DigitalAxisBinding& _binding) const
 		{
 			// DigitalAxisBindingの中にvariantがあるのでさらにvisitで取り出す必要がある
-			DigitalSourceVisitor visitor{ kb, ms, pad };
+			DigitalSourceVisitor visitor{ kb, ms, pad, method };
 			bool isPress{ false }; // 結果判定
 			isPress = std::visit(visitor, _binding.source); // DigitalAxisBindingの中のvariantから取り出す
 			if (isPress)
@@ -53,16 +62,22 @@ namespace
 		}
 		Vector2 operator()(const StickAxisBinding& _binding) const
 		{
+			if (method != InputMethod::GamePad) return Vector2::Zero; // GamePadでないなら0を返す
+
 			float actualDeltaTime{ mode == AxisMode::Delta ? unscaledDeltaTime : 1.0f }; // モードがDeltaTimeなら値が入る
 			return pad.GetStickValue(_binding.stick, _binding.isYInverted) * _binding.scale * actualDeltaTime;
 		}
 		Vector2 operator()(const TriggerAxisBinding& _binding) const
 		{
+			if (method != InputMethod::GamePad) return Vector2::Zero; // GamePadでないなら0を返す
+
 			float actualDeltaTime{ mode == AxisMode::Delta ? unscaledDeltaTime : 1.0f }; // モードがDeltaTimeなら値が入る
 			return _binding.direction *  pad.GetTriggerValue(_binding.trigger) * _binding.scale * actualDeltaTime;
 		}
 		Vector2 operator()(const MouseDeltaAxisBinding& _binding) const
 		{
+			if (method != InputMethod::KeyboardMouse) return Vector2::Zero; // KeyboardMouseでないなら0を返す
+
 			// MouseのDeltaは１ピクセルあたりの変化量 すでに1フレーム分なのでDeltaTimeを掛けない
 			// マウス以外のDeltaは1秒あたりの変化量
 			Vector2Int actualCursorDelta{ ms.GetCursorDelta()};
@@ -108,12 +123,12 @@ bool AxisInput::AddAxisBinding(int _axis, AxisBinding _binding)
 	return true;
 }
 
-void AxisInput::Update(KeyboardInput& _keyboard, MouseInput& _mouse, GamePadInput& _pad, float _unscaledDeltaTime)
+void AxisInput::Update(KeyboardInput& _keyboard, MouseInput& _mouse, GamePadInput& _pad, InputMethod _method, float _unscaledDeltaTime)
 {
 	for (auto& axis : axes)
 	{
 		axis.calculatedValue = Vector2::Zero; // 最初に戻す
-		AxisBindingVisitor visitor{ _keyboard, _mouse, _pad, axis.calculationMode, _unscaledDeltaTime }; // 各状態をvisitorに渡す
+		AxisBindingVisitor visitor{ _keyboard, _mouse, _pad, axis.calculationMode, _method, _unscaledDeltaTime }; // 各状態をvisitorに渡す
 		for (const auto& axisBinding : axis.bindings)
 		{
 			axis.calculatedValue +=  std::visit(visitor, axisBinding); // 寄与値を加算

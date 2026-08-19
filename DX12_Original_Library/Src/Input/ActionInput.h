@@ -14,7 +14,7 @@ public:
 	// ユーザーが定義したアクション分のvectorを確保する
 	void SetupActionCount(int _actionCount); 
 	// 該当アクション,設定したいキーで抽象化を行う
-	void AddActionBinding(int _action, Binding _binding);
+	 bool AddActionBinding(int _action, Binding _binding);
 	// 各状態を更新
 	void Update(KeyboardInput& _kb, MouseInput& _ms, GamePadInput& _pad);
 

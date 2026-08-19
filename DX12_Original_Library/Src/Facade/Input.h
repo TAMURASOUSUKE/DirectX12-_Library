@@ -1,6 +1,8 @@
 #pragma once
 #include  <type_traits>
+#include <utility>
 #include "../Math/TSMath.h"
+#include "../Input/AxisType.h"
 #include "../Input/InputName.h"
 
 // 入力に関する機能をユーザーに提供する
@@ -11,14 +13,18 @@ namespace Input
 	namespace Detail
 	{
 		void SetupActionImpl(int _count); // アクション数だけ内部配列を確保する
-		void AddActionBindingImpl(int _action, Binding _binding); // アクションと設定したい物理キーを入れる
+		bool AddActionBindingImpl(int _action, Binding _binding); // アクションと設定したい物理キーを入れる
 		bool IsActionPressImpl(int _action); // Pressの内部実装
 		bool IsActionPushedImpl(int _action); // Pushedの内部実装
 		bool IsActionReleasedImpl(int _action); // Releasedの内部実装
+		void SetupAxesImpl(int _count); // Axis数の初期化
+		void SetAxisModeImpl(int  _axis, AxisMode _mode); // Axisが最終的に返す値の性質を決める
+		bool AddAxisBindingImpl(int _axis, AxisBinding _binding); // Bindの追加
+		Vector2 GetAxisValueImpl(int  _axis); //  計算された値を取得する
 	}
 
 	/// <summary>
-	/// 物理入力を抽象化するアクションシステムを初期化する関数
+	/// 物理入力のボタンを抽象化する入力システムを初期化する関数
 	/// 各アクションの定義はenum classを自作してください
 	/// その際に最後尾にはそのenum classの要素数を表すCountなどの要素を入れてください
 	/// </summary>
@@ -39,10 +45,10 @@ namespace Input
 	/// <param name="_action">自作したenum classの指定アクション</param>
 	/// <param name="_binding">設定したい物理操作</param>
 	template<typename TAction>
-	void AddActionBinding(TAction _action, Binding _binding)
+	bool AddActionBinding(TAction _action, Binding _binding)
 	{
 		static_assert(std::is_enum_v<TAction>, "Actionはenum classで定義してください\n");
-		Detail::AddActionBindingImpl(static_cast<int>(_action), _binding);
+		return Detail::AddActionBindingImpl(static_cast<int>(_action), std::move(_binding));
 	}
 
 	// 抽象化 : 押している間
@@ -66,6 +72,67 @@ namespace Input
 		static_assert(std::is_enum_v<TAction>, "Actionはenum classで定義してください\n");
 		return Detail::IsActionReleasedImpl(static_cast<int>(_action));
 	}
+
+	/// <summary>
+	/// 物理入力のAxisを抽象化する入力システムを初期化する関数
+	/// 各Axisの定義はenum classを自作してください
+	/// その際に最後尾にはそのenum classの要素数を表すCountなどの要素を入れてください
+	/// </summary>
+	/// <typeparam name="TAxis">自作enum class</typeparam>
+	/// <param name="_count">自作enumの要素数</param>
+	template<typename TAxis>
+	void SetupAxes(TAxis _count)
+	{
+		static_assert(std::is_enum_v<TAxis>, "Axisはenum classで定義してください\n");
+		Detail::SetupAxesImpl(static_cast<int>(_count));
+	}
+
+	/// <summary>
+	/// 自作したAxisの性質を設定する関数
+	/// Value =押している量や倒し具合など
+	/// Delta = 1フレームの間の変化量
+	/// </summary>
+	/// <typeparam name="TAxis">自作したenum class</typeparam>
+	/// <param name="_axis">自作したenum classの指定Axis</param>
+	/// <param name="_mode">設定したいモード</param>
+	template<typename TAxis>
+	void SetAxisMode(TAxis _axis, AxisMode _mode)
+	{
+		static_assert(std::is_enum_v<TAxis>, "Axisはenum classで定義してください\n");
+		Detail::SetAxisModeImpl(static_cast<int>(_axis), _mode);
+	}
+
+	/// <summary>
+	/// 指定したAxisに物理操作を紐づける関数
+	/// 自作したenum classに指定したい操作を入れてください
+	/// 設定するBindはDigitalAxisBinding、StickAxisBinding、TriggerAxisBinding、MouseDeltaAxisBindingから適切なものを選んでください
+	/// </summary>
+	/// <typeparam name="TAxis">自作したenum class</typeparam>
+	/// <param name="_axis">自作したenum classの指定Axis</param>
+	/// <param name="_binding">設定したいBind構造体</param>
+	/// <returns>追加に成功したか</returns>
+	template<typename TAxis>
+	bool AddAxisBinding(TAxis _axis, AxisBinding _binding)
+	{
+		static_assert(std::is_enum_v<TAxis>, "Axisはenum classで定義してください\n");
+		return Detail::AddAxisBindingImpl(static_cast<int>(_axis), std::move(_binding));
+	}
+
+	/// <summary>
+	/// 計算されたAxisの値を取得する
+	/// </summary>
+	/// <typeparam name="TAxis">自作したenum class</typeparam>
+	/// <param name="_axis">自作したenum classの指定Axis</param>
+	/// <returns>指定モードで計算した後のAxis値</returns>
+	template<typename TAxis>
+	Vector2 GetAxisValue(TAxis _axis)
+	{
+		static_assert(std::is_enum_v<TAxis>, "Axisはenum classで定義してください\n");
+		return Detail::GetAxisValueImpl(static_cast<int>(_axis));
+	}
+
+	// 現在の入力方式(キーボード&マウスかゲームパッドか)を取得する
+	InputMethod GetInputMethod();
 
 	 // キーボード : 押している間
 	bool IsKeyPress(KeyCode::Button _key);
