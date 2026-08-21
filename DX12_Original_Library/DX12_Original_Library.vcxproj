@@ -173,6 +173,7 @@
     <ClInclude Include="Src\Core\Handle\ShaderHandle.h" />
     <ClInclude Include="Src\Core\Handle\SoundHandle.h" />
     <ClInclude Include="Src\Core\Handle\TexHandle.h" />
+    <ClInclude Include="Src\Core\Handle\UIButtonHandle.h" />
     <ClInclude Include="Src\Core\TextEncoding.h" />
     <ClInclude Include="Src\Debug\DebugLogs.h" />
     <ClInclude Include="Src\External\cgltf.h" />
@@ -189,6 +190,7 @@
     <ClInclude Include="Src\Facade\TSTime.h" />
     <ClInclude Include="Src\Facade\TimeInternal.h" />
     <ClInclude Include="Src\Facade\TSLib.h" />
+    <ClInclude Include="Src\Facade\UI.h" />
     <ClInclude Include="Src\File\CSVTable.h" />
     <ClInclude Include="Src\FPS\FPSConstant.h" />
     <ClInclude Include="Src\FPS\FPSLimiter.h" />
@@ -242,6 +244,11 @@
     <ClInclude Include="Src\Sound\SoundResourceManager.h" />
     <ClInclude Include="Src\Sound\SoundSystem.h" />
     <ClInclude Include="Src\Sound\SoundType.h" />
+    <ClInclude Include="Src\UI\UIButton.h" />
+    <ClInclude Include="Src\UI\UIButtonInputSource.h" />
+    <ClInclude Include="Src\UI\UIButtonSystem.h" />
+    <ClInclude Include="Src\UI\UIButtonType.h" />
+    <ClInclude Include="Src\UI\UIConstant.h" />
     <ClInclude Include="Src\Window\Window.h" />
   </ItemGroup>
   <ItemGroup>
@@ -259,6 +266,7 @@
     <ClCompile Include="Src\Facade\System.cpp" />
     <ClCompile Include="Src\Facade\TSTime.cpp" />
     <ClCompile Include="Src\Facade\TSLib.cpp" />
+    <ClCompile Include="Src\Facade\UI.cpp" />
     <ClCompile Include="Src\File\CSVTable.cpp" />
     <ClCompile Include="Src\FPS\FPSCounter.cpp" />
     <ClCompile Include="Src\FPS\FPSLimiter.cpp" />
@@ -293,6 +301,9 @@
     <ClCompile Include="Src\Math\Vector\Vector4.cpp" />
     <ClCompile Include="Src\Sound\SoundResourceManager.cpp" />
     <ClCompile Include="Src\Sound\SoundSystem.cpp" />
+    <ClCompile Include="Src\UI\UIButton.cpp" />
+    <ClCompile Include="Src\UI\UIButtonInputSource.cpp" />
+    <ClCompile Include="Src\UI\UIButtonSystem.cpp" />
     <ClCompile Include="Src\Window\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
