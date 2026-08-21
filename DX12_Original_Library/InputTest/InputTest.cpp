@@ -40,6 +40,50 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	int wheelValue{ 0 }; // マウスホイールを動かしたときに生値
 	int testWheelNotch{ 0 }; // マウスホイールを動かした回数
 
+	int selectedButton{ 0 };
+	int firstActivatedCount{ 0 };
+	int secondActivatedCount{ 0 };
+	std::string lastActivated{ "None" };
+
+	// 1番目のボタンはselectedButtonが0のときだけ操作対象
+	UIButtonHandle firstButton{UI::Create(KeyCode::Button::RETURN,
+			[&selectedButton]()
+			{
+				return selectedButton == 0;
+			})
+	};
+
+	// 2番目のボタンはselectedButtonが1のときだけ操作対象
+	UIButtonHandle secondButton{UI::Create(KeyCode::Button::RETURN,
+			[&selectedButton]()
+			{
+				return selectedButton == 1;
+			})
+	};
+
+	if (!firstButton.IsValid() || !secondButton.IsValid())
+	{
+		DEBUG_LOG_ERROR("UIButtonの作成に失敗しました\n");
+		TSLib::Finish();
+		return -1;
+	}
+
+	UI::SetOnActivated(firstButton,
+		[&firstActivatedCount, &lastActivated]()
+		{
+			firstActivatedCount++;
+			lastActivated = "First Button";
+		}
+	);
+
+	UI::SetOnActivated(secondButton,
+		[&secondActivatedCount, &lastActivated]()
+		{
+			secondActivatedCount++;
+			lastActivated = "Second Button";
+		}
+	);
+
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
@@ -84,6 +128,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		const std::string lookAxisStr{ std::format("LookAxis x : {:.3f}, y : {:.3f}", lookAxis.x, lookAxis.y) };
 		const std::string inputMethodStr{ currentInputMethod == InputMethod::KeyboardMouse ? "InputMethod : KeyboardMouse" : "InputMethod : GamePad" };
 
+		// UIButtonの選択対象を変更する
+		if (Input::IsKeyPushed(KeyCode::Button::UP)) selectedButton = 0;
+		if (Input::IsKeyPushed(KeyCode::Button::DOWN)) selectedButton = 1;
+
+		constexpr float buttonLeft{ 760.0f };
+		constexpr float buttonRight{ 1180.0f };
+
+		const Vector4 normalColor{ 0.20f, 0.20f, 0.25f, 1.0f }; // 通常色
+		const Vector4 selectedColor{ 0.15f, 0.45f, 0.85f, 1.0f }; // 選択時
+		const Vector4 firstColor{ selectedButton == 0 ? selectedColor : normalColor }; // 一つ目の色
+		const Vector4 secondColor{ selectedButton == 1 ? selectedColor : normalColor }; // 二つ目の色
+		const std::string firstCountText{ std::format("First Activated : {}", firstActivatedCount) };
+		const std::string secondCountText{ std::format("Second Activated : {}", secondActivatedCount) };
+		const std::string lastActivatedText{ std::format("Last : {}", lastActivated) };
+
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		Gfx::DrawString(cursorStr.c_str(), { 0.0f, 0.0f });
@@ -103,9 +162,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawString(moveAxisStr.c_str(), { 0.0f, 420.0f });
 		Gfx::DrawString(lookAxisStr.c_str(), { 0.0f, 450.0f });
 		Gfx::DrawString(inputMethodStr.c_str(), { 0.0f, 480.0f });
+		Gfx::DrawString("UIButton Test", { buttonLeft, 80.0f }, 1.0f, Vector4::One); 	// 見出し
+		Gfx::DrawBox({ buttonLeft, 140.0f }, { buttonRight, 240.0f }, 0.0f, firstColor); // 1番目のボタン
+		Gfx::DrawString("First Button", { buttonLeft + 30.0f, 170.0f }, 1.0f, Vector4::One);
+		Gfx::DrawBox({ buttonLeft, 280.0f }, { buttonRight, 380.0f }, 0.0f, secondColor); // 2番目のボタン
+		Gfx::DrawString("Second Button", { buttonLeft + 30.0f, 310.0f }, 1.0f, Vector4::One);
+		Gfx::DrawString("UP / DOWN : Select", { buttonLeft, 430.0f }); // 操作説明
+		Gfx::DrawString("ENTER : Activate", { buttonLeft, 460.0f }); // 結果
+		Gfx::DrawString(firstCountText.c_str(), { buttonLeft, 520.0f });
+		Gfx::DrawString(secondCountText.c_str(), { buttonLeft, 550.0f });
+		Gfx::DrawString(lastActivatedText.c_str(), { buttonLeft, 580.0f });
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}
+
+	UI::DestroyButton(firstButton);
+	UI::DestroyButton(secondButton);
 
 	TSLib::Finish(); // 終了
 	return 0;

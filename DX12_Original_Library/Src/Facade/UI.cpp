@@ -20,6 +20,14 @@ namespace
 		auto released = [_key]() { return Input::IsKeyReleased(_key); }; // 離した瞬間
 		return UIButtonInputSource(pushed, held, released);
 	}
+	// 指定されたパッド入力から状態を調べてboolにまとめるクラスに渡して返す
+	UIButtonInputSource MakeButtonInputSource(PadCode::Button _key)
+	{
+		//auto pushed = [_key]() { return Input::IsKeyPushed(_key); }; // 押した瞬間
+		//auto held = [_key]() { return Input::IsKeyPress(_key); }; // 押している間
+		//auto released = [_key]() { return Input::IsKeyReleased(_key); }; // 離した瞬間
+		//return UIButtonInputSource(pushed, held, released);
+	}
 }
 
 void UIInternal::Initialize()
@@ -45,7 +53,7 @@ UIButtonHandle UI::Create(KeyCode::Button _key, ButtonTargetQuery _targetQuery)
 
 bool UI::SetOnActivated(UIButtonHandle _handle, ButtonEventCallback _callback)
 {
-	return false;
+	return buttonSystem.SetOnActivated(_handle, _callback);
 }
 
 bool UI::DestroyButton(UIButtonHandle _handle)
