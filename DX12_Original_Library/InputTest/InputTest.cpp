@@ -58,7 +58,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		const Vector2 moveAxis{ Input::GetAxisValue(AxisMap::Move) };  // Axis抽象化のMove値
 		const Vector2 lookAxis{ Input::GetAxisValue(AxisMap::Look) }; // Axis抽象化のLook値
 		const InputMethod currentInputMethod{ Input::GetInputMethod() }; // 現在の操作方式
-		const float inputTrigger{ Input::GetPadTriggerValue(PadCode::Trigger::RIGHT) }; // 右トリガーの値
+		const float inputTrigger{ Input::GetPadTriggerValue(PadCode::Trigger::LEFT) }; // 左トリガーの値
 		wheelValue += Input::GetMouseWheelValue(); // マウスの回転量
 		testWheelNotch += Input::GetMouseWheelNotchValue(); // マウスの回転回数
 

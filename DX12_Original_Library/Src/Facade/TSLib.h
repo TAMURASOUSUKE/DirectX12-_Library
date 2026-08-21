@@ -21,6 +21,7 @@
 #include "Sound.h"
 #include "System.h"
 #include "File.h"
+#include "UI.h"
 
 
 // 初期化などlibrary全体の機能をまとめてユーザーに提供する

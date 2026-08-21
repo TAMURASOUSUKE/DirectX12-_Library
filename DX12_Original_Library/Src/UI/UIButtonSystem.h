@@ -2,6 +2,7 @@
 #include <vector>
 #include <stack>
 #include <cstdint>
+#include <functional>
 #include "UIButton.h"
 #include "../Core/Handle/UIButtonHandle.h"
 
@@ -9,6 +10,8 @@
 class UIButtonSystem
 {
 public:
+	// 各ボタンが自身が操作対象になっているかを返す関数
+	using TargetQuery = std::function<bool()>;
 	UIButtonSystem() = default; 
 	~UIButtonSystem() = default;
 
@@ -20,11 +23,14 @@ public:
 	// 終了処理
 	void Shutdown();
 
-	// ボタンの更新
-	bool Update(UIButtonHandle _handle, bool _isTarget);
+	// 登録されている全ての有効なボタンを更新する
+	void UpdateAll();
+
+	// ボタン操作成立時のイベントを登録する
+	bool SetOnActivated(UIButtonHandle _handle, UIButton::EventCallback _callback);
 
 	// 指定入力からボタンハンドルを作成
-	UIButtonHandle Create(UIButtonInputSource _inputSource);
+	UIButtonHandle Create(UIButtonInputSource _inputSource, TargetQuery _targetQuery);
 
 	// 指定ハンドルの削除
 	bool Destroy(UIButtonHandle _handle);
@@ -38,6 +44,8 @@ private:
 	{
 		UIButton data{}; // 実データ
 		std::uint32_t generation{ 0 }; // 世代
+		TargetQuery targetQuery{}; // 自身が操作対象か
+		bool isAlive{ false }; // 生存フラグ
 	};
 
 private:

@@ -345,6 +345,9 @@
     <ClInclude Include="Src\UI\UIConstant.h">
       <Filter>Src\UI</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Facade\UIInternal.h">
+      <Filter>Src\Facade</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">

@@ -1,6 +1,14 @@
+#include <utility>
 #include "Input.h" // UIはInputとGfxを組み合わせて成り立つものなのでこの依存は許容
 #include "../UI/UIButtonInputSource.h"
+#include "../UI/UIButtonSystem.h"
+#include "UIInternal.h"
 #include "UI.h"
+
+namespace
+{
+	UIButtonSystem buttonSystem{};
+}
 
 namespace 
 {
@@ -12,4 +20,35 @@ namespace
 		auto released = [_key]() { return Input::IsKeyReleased(_key); }; // 離した瞬間
 		return UIButtonInputSource(pushed, held, released);
 	}
+}
+
+void UIInternal::Initialize()
+{
+	buttonSystem.Setup();
+}
+
+void UIInternal::Finish()
+{
+	buttonSystem.Shutdown();
+}
+
+void UIInternal::BeginFrame()
+{
+	buttonSystem.UpdateAll();
+}
+
+UIButtonHandle UI::Create(KeyCode::Button _key, ButtonTargetQuery _targetQuery)
+{
+	const UIButtonInputSource inputSource{ MakeButtonInputSource(_key) }; // 指定キーをそれぞれの状態に適用してboolにまとめる
+	return buttonSystem.Create(inputSource, std::move(_targetQuery));
+}
+
+bool UI::SetOnActivated(UIButtonHandle _handle, ButtonEventCallback _callback)
+{
+	return false;
+}
+
+bool UI::DestroyButton(UIButtonHandle _handle)
+{
+	return buttonSystem.Destroy(_handle);
 }

@@ -191,6 +191,7 @@
     <ClInclude Include="Src\Facade\TimeInternal.h" />
     <ClInclude Include="Src\Facade\TSLib.h" />
     <ClInclude Include="Src\Facade\UI.h" />
+    <ClInclude Include="Src\Facade\UIInternal.h" />
     <ClInclude Include="Src\File\CSVTable.h" />
     <ClInclude Include="Src\FPS\FPSConstant.h" />
     <ClInclude Include="Src\FPS\FPSLimiter.h" />
