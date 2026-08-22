@@ -24,7 +24,8 @@ public:
 	void Shutdown();
 
 	// 登録されている全ての有効なボタンを更新する
-	void UpdateAll();
+	// ナビゲーション操作中ならNavigationTargetだけを操作対象にするそれ以外はTargetQueryを使用する
+	void UpdateAll(UIButtonHandle _navigationTarget, bool _useNavigationTarget);
 
 	// ボタン操作成立時のイベントを登録する
 	bool SetOnActivated(UIButtonHandle _handle, UIButton::EventCallback _callback);
@@ -34,6 +35,9 @@ public:
 
 	// 指定ハンドルの削除
 	bool Destroy(UIButtonHandle _handle);
+
+	// 指定ボタンの表示状態を取得する
+	UIButtonVisualState GetVisualState(UIButtonHandle _handle);
 
 private:
 	// ハンドルの分解(ボタンにはリソースという概念がないためSystem側でlookupするがユーザーに漏れないようにprivate)

@@ -348,6 +348,15 @@
     <ClInclude Include="Src\Facade\UIInternal.h">
       <Filter>Src\Facade</Filter>
     </ClInclude>
+    <ClInclude Include="Src\UI\UIButtonNavigation.h">
+      <Filter>Src\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\UI\UINavigationType.h">
+      <Filter>Src\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\UI\UINavigationRepeater.h">
+      <Filter>Src\UI</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -507,6 +516,12 @@
       <Filter>Src\UI</Filter>
     </ClCompile>
     <ClCompile Include="Src\UI\UIButtonSystem.cpp">
+      <Filter>Src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\UI\UIButtonNavigation.cpp">
+      <Filter>Src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\UI\UINavigationRepeater.cpp">
       <Filter>Src\UI</Filter>
     </ClCompile>
   </ItemGroup>

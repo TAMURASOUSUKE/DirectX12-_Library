@@ -65,7 +65,7 @@ void TSLib::BeginFrame()
 {
 	TimeInternal::BeginFrame(); // 時間関連のフレーム最初の処理
 	InputInternal::BeginFrame(Time::UnscaledDeltaTime()); // 入力の最初の処理
-	UIInternal::BeginFrame(); // 入力の更新後にUIの更新
+	UIInternal::BeginFrame({Time::UnscaledDeltaTime(), System::GetClientSize(), Gfx::GetVirtualSize()}); // 入力の更新後にUIの更新
 	SystemInternal::UpdateCursorLock(); // マウス移動量を取得した後に中央へ
 	GfxInternal::BeginFrame(); // グラフィックのフレーム最初の処理
 	SoundInternal::BeginFrame(Time::UnscaledDeltaTime()); // 音関連のフレーム最初の処理

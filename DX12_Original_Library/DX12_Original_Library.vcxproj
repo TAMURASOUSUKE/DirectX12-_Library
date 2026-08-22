@@ -247,9 +247,12 @@
     <ClInclude Include="Src\Sound\SoundType.h" />
     <ClInclude Include="Src\UI\UIButton.h" />
     <ClInclude Include="Src\UI\UIButtonInputSource.h" />
+    <ClInclude Include="Src\UI\UIButtonNavigation.h" />
     <ClInclude Include="Src\UI\UIButtonSystem.h" />
     <ClInclude Include="Src\UI\UIButtonType.h" />
     <ClInclude Include="Src\UI\UIConstant.h" />
+    <ClInclude Include="Src\UI\UINavigationRepeater.h" />
+    <ClInclude Include="Src\UI\UINavigationType.h" />
     <ClInclude Include="Src\Window\Window.h" />
   </ItemGroup>
   <ItemGroup>
@@ -304,7 +307,9 @@
     <ClCompile Include="Src\Sound\SoundSystem.cpp" />
     <ClCompile Include="Src\UI\UIButton.cpp" />
     <ClCompile Include="Src\UI\UIButtonInputSource.cpp" />
+    <ClCompile Include="Src\UI\UIButtonNavigation.cpp" />
     <ClCompile Include="Src\UI\UIButtonSystem.cpp" />
+    <ClCompile Include="Src\UI\UINavigationRepeater.cpp" />
     <ClCompile Include="Src\Window\Window.cpp" />
   </ItemGroup>
   <ItemGroup>

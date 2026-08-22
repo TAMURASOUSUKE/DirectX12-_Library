@@ -20,13 +20,29 @@ void UIButtonSystem::Shutdown()
 	}
 }
 
-void UIButtonSystem::UpdateAll()
+void UIButtonSystem::UpdateAll(UIButtonHandle _navigationTarget, bool _useNavigationTarget)
 {
-	for (auto& slot : slots)
+	for (std::size_t i = 0; i < slots.size(); i++)
 	{
-		if (!slot.isAlive) continue;
-		const bool isTarget{ slot.targetQuery ? slot.targetQuery() : false }; // そのボタンが操作対象かを取り出す
-		slot.data.Update(isTarget);
+		UIButtonSlot& slot{ slots[i] };
+		if (!slot.isAlive) continue; // ボタンが生きてい無ければスキップ
+
+		bool isTarget{ false };
+
+		if (_useNavigationTarget)
+		{
+			// 現在のスロットから有効なUIButtonHandleを再構築する
+			const int packed{ Pack(static_cast<int>(i), static_cast<int>(slot.generation)) };
+			const UIButtonHandle currentHandle{ PassKey{}, packed };
+			// ナビゲーションが選択しているボタンだけを対象にする
+			isTarget = currentHandle == _navigationTarget;
+		}
+		else
+		{
+			// マウスなどの外部判定を使用する
+			isTarget = slot.targetQuery ? slot.targetQuery() : false;
+ 		}
+		slot.data.Update(isTarget); // スロットが操作対象かをisTargetで判断して更新する
 	}
 }
 
@@ -98,6 +114,13 @@ bool UIButtonSystem::Destroy(UIButtonHandle _handle)
 	slots[index].isAlive = false;
 	freeList.push(index); // この位置を使えるようにする
 	return true;
+}
+
+UIButtonVisualState UIButtonSystem::GetVisualState(UIButtonHandle _handle)
+{
+	UIButton* data{ Lookup(_handle) };
+	if (!data) return UIButtonVisualState::Normal; // Lookup失敗は内部で警告を出して通常表示
+	return data->GetVisualState();
 }
 
 UIButton* UIButtonSystem::Lookup(UIButtonHandle _handle)
