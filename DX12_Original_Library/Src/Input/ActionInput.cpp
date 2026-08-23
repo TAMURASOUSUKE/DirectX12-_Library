@@ -1,9 +1,10 @@
 #include <variant>
+#include <utility>
 #include "../Debug/DebugLogs.h"
 #include "GamePadInput.h"
 #include "KeyboardInput.h"
 #include "MouseInput.h"
-#include "ActionSystem.h"
+#include "ActionInput.h"
 
 namespace
 {
@@ -22,26 +23,29 @@ namespace
 }
 
 // ユーザーが定義したアクション分のvectorを確保する
-void ActionSystem::Setup(int _actionCount)
+void ActionInput::SetupActionCount(int _actionCount)
 {
 	DEBUG_ASSERT((_actionCount > 0) && "抽象化入力初期化に0値が渡されています\n");
 	if (_actionCount <= 0)
 	{
-		// 0以下ならクリアする
 		actions.clear();
 		return;
 	}
-	actions.resize(_actionCount);
+	actions.clear(); // 古い物を消してから確保する
+	actions.resize(static_cast<std::size_t>(_actionCount));
 }
 // 該当アクション,設定したいキーで抽象化を行う
-void ActionSystem::SetAction(int _action, Binding _binding)
+bool ActionInput::AddActionBinding(int _action, Binding _binding)
 {
 	// サイズチェック
-	if (!IsInSizeLimit(_action)) return;
-	actions[_action].bindings.push_back(_binding);
+	std::size_t index{ static_cast<std::size_t>(_action) };
+	if (!IsInSizeLimit(index)) return false;
+	actions[index].bindings.push_back(std::move(_binding));
+	return true;
 }
+
 // 各状態を更新
-void ActionSystem::Update(KeyboardInput& _kb, MouseInput& _ms, GamePadInput& _pad)
+void ActionInput::Update(KeyboardInput& _kb, MouseInput& _ms, GamePadInput& _pad)
 {
 	BindingVisitor visitor{_kb, _ms, _pad};
 	for (auto& action : actions)
@@ -57,29 +61,34 @@ void ActionSystem::Update(KeyboardInput& _kb, MouseInput& _ms, GamePadInput& _pa
 	}
 }
 
-bool ActionSystem::IsPress(int _action)
+bool ActionInput::IsPress(int _action)
 {
 	// サイズチェック
-	if (!IsInSizeLimit(_action)) return false;
-	return actions[_action].current;
-}
-bool ActionSystem::IsPushed(int _action)
-{
-	// サイズチェック
-	if (!IsInSizeLimit(_action)) return false;
-	return (actions[_action].current) && (!actions[_action].prev);
-}
-bool ActionSystem::IsReleased(int _action)
-{
-	// サイズチェック
-	if (!IsInSizeLimit(_action)) return false;
-	return (!actions[_action].current) && (actions[_action].prev);
+	std::size_t index{ static_cast<std::size_t>(_action) };
+	if (!IsInSizeLimit(index)) return false;
+	return actions[index].current;
 }
 
-bool ActionSystem::IsInSizeLimit(int _value) const
+bool ActionInput::IsPushed(int _action)
 {
-	DEBUG_ASSERT((_value >= 0 && _value < static_cast<int>(actions.size())) && "サイズをオーバーしました");
-	if (_value < 0 || _value >= static_cast<int>(actions.size()))
+	// サイズチェック
+	std::size_t index{ static_cast<std::size_t>(_action) };
+	if (!IsInSizeLimit(index)) return false;
+	return (actions[index].current) && (!actions[index].prev);
+}
+
+bool ActionInput::IsReleased(int _action)
+{
+	// サイズチェック
+	std::size_t index{ static_cast<std::size_t>(_action) };
+	if (!IsInSizeLimit(index)) return false;
+	return (!actions[index].current) && (actions[index].prev);
+}
+
+bool ActionInput::IsInSizeLimit(std::size_t _value) const
+{
+	DEBUG_ASSERT(_value < static_cast<int>(actions.size()) && "サイズをオーバーしました");
+	if (_value >= actions.size())
 	{
 		return false;
 	}

@@ -4,7 +4,7 @@
 namespace InputInternal
 {
 	bool Initialize(HWND _hwnd); // 初期化
-	void BeginFrame(); // フレーム開始処理
+	void BeginFrame(float _unscaledDeltaTime); // フレーム開始処理(抽象化処理のためunscaledDeltaTimeを受け取る)
 	void EndFrame(); // フレーム終了処理
 	void Finish(); // 終了処理
 

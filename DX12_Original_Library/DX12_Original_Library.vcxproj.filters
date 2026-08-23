@@ -64,6 +64,9 @@
     <Filter Include="Src\Animation">
       <UniqueIdentifier>{9c6fa169-2baf-422d-816d-33a8138bd95c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\UI">
+      <UniqueIdentifier>{8bd858e3-3833-4414-a466-8db3be64ee8a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Math\MathConstant.h">
@@ -195,7 +198,7 @@
     <ClInclude Include="Src\Input\MouseInput.h">
       <Filter>Src\Input</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Input\ActionSystem.h">
+    <ClInclude Include="Src\Input\ActionInput.h">
       <Filter>Src\Input</Filter>
     </ClInclude>
     <ClInclude Include="Src\Facade\Sound.h">
@@ -312,6 +315,48 @@
     <ClInclude Include="Src\Graphics\GraphicsSystem.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Input\AxisInput.h">
+      <Filter>Src\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Input\AxisType.h">
+      <Filter>Src\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Input\InputMethodTracker.h">
+      <Filter>Src\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Facade\UI.h">
+      <Filter>Src\Facade</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\UI\UIButtonInputSource.h">
+      <Filter>Src\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\UI\UIButtonType.h">
+      <Filter>Src\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\UI\UIButton.h">
+      <Filter>Src\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Handle\UIButtonHandle.h">
+      <Filter>Src\Core\Handle</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\UI\UIButtonSystem.h">
+      <Filter>Src\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\UI\UIConstant.h">
+      <Filter>Src\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Facade\UIInternal.h">
+      <Filter>Src\Facade</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\UI\UIButtonNavigation.h">
+      <Filter>Src\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\UI\UINavigationType.h">
+      <Filter>Src\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\UI\UINavigationRepeater.h">
+      <Filter>Src\UI</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -386,7 +431,7 @@
     <ClCompile Include="Src\Input\MouseInput.cpp">
       <Filter>Src\Input</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Input\ActionSystem.cpp">
+    <ClCompile Include="Src\Input\ActionInput.cpp">
       <Filter>Src\Input</Filter>
     </ClCompile>
     <ClCompile Include="Src\Facade\Sound.cpp">
@@ -454,6 +499,30 @@
     </ClCompile>
     <ClCompile Include="Src\Graphics\GraphicsSystem.cpp">
       <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Input\AxisInput.cpp">
+      <Filter>Src\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Input\InputMethodTracker.cpp">
+      <Filter>Src\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Facade\UI.cpp">
+      <Filter>Src\Facade</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\UI\UIButtonInputSource.cpp">
+      <Filter>Src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\UI\UIButton.cpp">
+      <Filter>Src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\UI\UIButtonSystem.cpp">
+      <Filter>Src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\UI\UIButtonNavigation.cpp">
+      <Filter>Src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\UI\UINavigationRepeater.cpp">
+      <Filter>Src\UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

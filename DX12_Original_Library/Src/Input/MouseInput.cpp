@@ -1,3 +1,4 @@
+#include <cmath>
 #include "InputName.h"
 #include "../Debug/DebugLogs.h"
 #include "InputConstant.h"
@@ -10,7 +11,7 @@ static_assert(static_cast<int>(MouseCode::Click::MIDDLE) == VK_MBUTTON, "MouseCo
 static_assert(static_cast<int>(MouseCode::Click::SIDE01) == VK_XBUTTON1, "MouseCode::Click::SIDE01がVirtualKeyCodeと不一致\n");
 static_assert(static_cast<int>(MouseCode::Click::SIDE02) == VK_XBUTTON2, "MouseCode::Click::SIDE02がVirtualKeyCodeと不一致\n");
 
-void MouseInput::Initialize(HWND _hwnd)
+void MouseInput::Setup(HWND _hwnd)
 {
 	DEBUG_ASSERT(_hwnd != nullptr && "MouseInputにnullのHWNDが渡されました\n");
 	if (_hwnd == nullptr) return;
@@ -70,6 +71,40 @@ bool MouseInput::IsPushed(int _click)
 bool MouseInput::IsReleased(int _click)
 {
 	return!(currentClicks[_click] & MOST_SIGNIFICANT_BIT) && (prevClicks[_click] & MOST_SIGNIFICANT_BIT);
+}
+
+bool MouseInput::IsInputActiveThisFrame()
+{
+	// マウスでは何か一つ押されているもしくはある程度カーソルを動かしているかホイールを動かしていた場合は操作しているとみなす
+	bool isClicked{ false };  // 一つでも押されているか
+	bool isCursorMoved{ false }; // マウスが動いたか
+	bool isWheelMoved{ false }; // ホイールを動かしたか
+
+	// クリック用の配列
+	const int mouseClicks[]{ static_cast<int>(MouseCode::Click::LEFT),  static_cast<int>(MouseCode::Click::RIGHT),  static_cast<int>(MouseCode::Click::MIDDLE),
+								static_cast<int>(MouseCode::Click::SIDE01),  static_cast<int>(MouseCode::Click::SIDE02) };
+	
+	// 今のフレームで一つでも押されているか
+	for (int click : mouseClicks)
+	{
+		// 押し続けているか判定すると入力方法の切り替えが曖昧になるので瞬間で判定する
+		if (IsPushed(static_cast<int>(click)))
+		{
+			isClicked = true;
+			break; // 一つでも押していたら抜ける
+		}
+	}
+
+	// カーソルチェック
+	Vector2Int currentDelta{ GetCursorDelta() }; // キャッシュでコールを1回にする
+	// 指定量以上マウスカーソルが移動していたら操作しているとみなす
+	if (currentDelta.LengthSquared() > MOUSE_MOVE_THRESHOLD_PER_FRAME * MOUSE_MOVE_THRESHOLD_PER_FRAME) isCursorMoved = true;
+
+	// ホイールチェック
+	int currentWheelNotchValue{ GetWheelNotchValue() };
+	if (std::abs(currentWheelNotchValue) >= 1) isWheelMoved = true;
+	
+	return isClicked || isCursorMoved || isWheelMoved;
 }
 
 int MouseInput::GetWheelValue()

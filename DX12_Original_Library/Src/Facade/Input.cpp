@@ -2,7 +2,9 @@
 #include "../Input/KeyboardInput.h"
 #include "../Input/MouseInput.h"
 #include "../Input/GamePadInput.h"
-#include "../Input/ActionSystem.h"
+#include "../Input/ActionInput.h"
+#include "../Input/AxisInput.h"
+#include "../Input/InputMethodTracker.h"
 #include "InputInternal.h"
 #include "Input.h"
 
@@ -11,7 +13,9 @@ namespace
 	KeyboardInput keyboard{}; // キーボード入力クラス
 	MouseInput mouse{}; // マウス入力クラス
 	GamePadInput gamePad{}; // ゲームパッド入力クラス
-	ActionSystem actionSystem{}; // 抽象化入力クラス
+	AxisInput axisInput{}; // 抽象化Axis入力クラス
+	ActionInput actionInput{}; // 抽象化ボタン入力クラス
+	InputMethodTracker inputMethodTracker{}; // 入力状態追跡クラス
 }
 
 bool InputInternal::Initialize(HWND _hwnd)
@@ -19,7 +23,7 @@ bool InputInternal::Initialize(HWND _hwnd)
 	DEBUG_ASSERT(_hwnd != nullptr && "InputInternalでnull状態のHWNDが渡されました\n");
 	if (_hwnd != nullptr)
 	{
-		mouse.Initialize(_hwnd);
+		mouse.Setup(_hwnd);
 		return true;
 	}
 	return false;
@@ -30,12 +34,16 @@ void InputInternal::Finish()
 
 }
 
-void InputInternal::BeginFrame()
+void InputInternal::BeginFrame(float _unscaledDeltaTime)
 {
 	keyboard.Update(); // キーボードの入力更新
 	mouse.Update(); // マウスの更新
 	gamePad.Update(); // ゲームパッドの入力更新
-	actionSystem.Update(keyboard, mouse, gamePad); // 抽象化の入力更新
+	bool isKeyboardMouse{ keyboard.IsInputActiveThisFrame() || mouse.IsInputActiveThisFrame() }; // マウス若しくはキーボードが押されているか
+	inputMethodTracker.Update(isKeyboardMouse, gamePad.IsInputActiveThisFrame()); // 状態追跡
+
+	actionInput.Update(keyboard, mouse, gamePad); // 抽象化の入力更新
+	axisInput.Update(keyboard, mouse, gamePad, inputMethodTracker.GetCurrentInputMethod(), _unscaledDeltaTime); // Axisの更新 タイムスケールに依存しない入力であるべきなためUnscaled
 }
 
 void InputInternal::EndFrame()
@@ -47,28 +55,54 @@ void InputInternal::EndFrame()
 // 抽象化
 void Input::Detail::SetupActionImpl(int _count)
 {
-	actionSystem.Setup(_count);
+	actionInput.SetupActionCount(_count);
 }
 
-void Input::Detail::SetActionImpl(int _action, Binding _binding)
+bool Input::Detail::AddActionBindingImpl(int _action, Binding _binding)
 {
-	actionSystem.SetAction(_action, _binding);
+	return actionInput.AddActionBinding(_action, _binding);
 }
 
 bool Input::Detail::IsActionPressImpl(int _action)
 {
-	return actionSystem.IsPress(_action);
+	return actionInput.IsPress(_action);
 }
 
 bool Input::Detail::IsActionPushedImpl(int _action)
 {
-	return actionSystem.IsPushed(_action);
+	return actionInput.IsPushed(_action);
 }
 
 bool Input::Detail::IsActionReleasedImpl(int _action)
 {
-	return actionSystem.IsReleased(_action);
+	return actionInput.IsReleased(_action);
 }
+
+void Input::Detail::SetupAxesImpl(int _count)
+{
+	axisInput.SetupAxisCount(_count);
+}
+
+void Input::Detail::SetAxisModeImpl(int  _axis, AxisMode _mode)
+{
+	axisInput.SetAxisMode(_axis, _mode);
+}
+
+bool Input::Detail::AddAxisBindingImpl(int _axis, AxisBinding _binding)
+{
+	return axisInput.AddAxisBinding(_axis, _binding);
+}
+
+Vector2 Input::Detail::GetAxisValueImpl(int  _axis)
+{
+	return axisInput.GetValue(_axis);
+}
+
+InputMethod Input::GetInputMethod()
+{
+	return inputMethodTracker.GetCurrentInputMethod();
+}
+
 // キーボード限定
 
 bool Input::IsKeyPress(KeyCode::Button _key)

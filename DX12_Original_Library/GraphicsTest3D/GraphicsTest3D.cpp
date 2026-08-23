@@ -13,7 +13,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	// マウスカーソルの状態を設定
 	bool isLocked{ true }; // Initialize直後にLockedにした状態と合わせる
-	if (System::SetCursorMode(System::CursorMode::Locked)) DEBUG_LOG_ERROR("マウスカーソルの状態設定にしっぱしました\n");
+	if (!System::SetCursorMode(System::CursorMode::Normal)) DEBUG_LOG_ERROR("マウスカーソルの状態設定に失敗しました\n");
 
 	TexHandle heightMap{ Gfx::LoadTexture("Res/TestVolume.png") }; // ハイトマップ取得
 

@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <vector>
 #include "InputName.h"
 // 参照引数に完全な型は必要ないので前方宣言で済ませる
@@ -7,13 +8,13 @@ class MouseInput;
 class GamePadInput;
 
 // 物理デバイスを抽象化し、入力を扱えるようにするクラス
-class ActionSystem
+class ActionInput
 {
 public:
 	// ユーザーが定義したアクション分のvectorを確保する
-	void Setup(int _actionCount); 
+	void SetupActionCount(int _actionCount); 
 	// 該当アクション,設定したいキーで抽象化を行う
-	void SetAction(int _action, Binding _binding);
+	 bool AddActionBinding(int _action, Binding _binding);
 	// 各状態を更新
 	void Update(KeyboardInput& _kb, MouseInput& _ms, GamePadInput& _pad);
 
@@ -31,7 +32,7 @@ private:
 	};
 
 	// サイズチェック用ヘルパー
-	bool IsInSizeLimit(int _value) const;
+	bool IsInSizeLimit(std::size_t _value) const;
 
 private:
 

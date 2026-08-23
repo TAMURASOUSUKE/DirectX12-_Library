@@ -94,22 +94,35 @@ bool GamePadInput::IsReleased(PadCode::Trigger _trigger)
 	return !current && prev;
 }
 
+bool GamePadInput::IsInputActiveThisFrame()
+{
+	// ボタンが一つでも入力されているか、トリガーが入力されているか、スティックが倒されているか
+	bool isButtonPushed{ false }; // ボタンが押されているか
+	bool isTriggerPushed{ false }; // トリガーが押されているか
+	bool isStickMoved{ false }; // スティックを動かしたか
+
+	// ボタンが押されているか
+	isButtonPushed = (currentPad.wButtons & ~prevPad.wButtons) !=  0; // 0以外なら押されていると判断できる
+	// スティックチェック
+	if(IsStickMovedThisFrame(PadCode::Stick::LEFT) || IsStickMovedThisFrame(PadCode::Stick::RIGHT)) isStickMoved = true;
+	// トリガーチェック
+	if (IsPushed(PadCode::Trigger::LEFT) || IsPushed(PadCode::Trigger::RIGHT)) isTriggerPushed = true;
+
+	return isButtonPushed || isStickMoved || isTriggerPushed;
+}
+
 float GamePadInput::GetTriggerValue(PadCode::Trigger _trigger)
 {
 	float result{ (_trigger == PadCode::Trigger::LEFT) ? static_cast<float>(currentPad.bLeftTrigger) : static_cast<float>(currentPad.bRightTrigger) };
 	return ApplyNormalizeAndDeadZone(result, TRIGGER_THRESHOLD);
 }
 
-Vector2 GamePadInput::GetStickValue(PadCode::Stick _stick, bool _isInverseY)
+Vector2 GamePadInput::GetStickValue(PadCode::Stick _stick, bool _isYInverted)
 {
-	// 必要なパラメータ
-	short x{ (_stick == PadCode::Stick::LEFT) ? currentPad.sThumbLX : currentPad.sThumbRX };
-	short y{ (_stick == PadCode::Stick::LEFT) ? currentPad.sThumbLY : currentPad.sThumbRY };
-	float deadZone{ (_stick == PadCode::Stick::LEFT) ? LEFT_STICK_DEADZONE : RIGHT_STICK_DEADZONE };
-	return Vector2{ ApplyNormalizeAndDeadZone(x, y, deadZone, _isInverseY) };
+	return GetStickValueFromState(currentPad, _stick, _isYInverted);
 }
 
-Vector2 GamePadInput::ApplyNormalizeAndDeadZone(short _x, short _y, float _deadZone ,bool _isInverseY)
+Vector2 GamePadInput::ApplyNormalizeAndDeadZone(short _x, short _y, float _deadZone ,bool _isYInverted)
 {
 	// 入力された値でベクトルを作る
 	Vector2 raw{ static_cast<float>(_x), static_cast<float>(_y) };
@@ -121,7 +134,7 @@ Vector2 GamePadInput::ApplyNormalizeAndDeadZone(short _x, short _y, float _deadZ
 		// MaxStickValueはスティックを倒したときの軸の最大値のため、角に倒すと長さは最大値を超えるためclampする必要がある
 		rate = std::clamp(rate, 0.0f, 1.0f); // 0-1の範囲に収まるようにする
 		raw.Normalize();
-		return Vector2{raw.x, (_isInverseY) ? raw.y : -raw.y} * rate;
+		return Vector2{raw.x, (_isYInverted) ? raw.y : -raw.y} * rate;
 	}
 	return Vector2::Zero; // 長さがデッドゾーンを超えていなかったら0
 }
@@ -135,4 +148,25 @@ float GamePadInput::ApplyNormalizeAndDeadZone(float _value, float _threshold)
 		return (Math::InverseLerp(_threshold, MAX_TRIGGER_VALUE, _value)); 
 	}
 	return 0.0f;
+}
+
+Vector2 GamePadInput::GetStickValueFromState(const XINPUT_GAMEPAD& _state, PadCode::Stick _stick, bool _isYInverted)
+{
+	// 必要なパラメータ
+	short x{ (_stick == PadCode::Stick::LEFT) ? _state.sThumbLX : _state.sThumbRX };
+	short y{ (_stick == PadCode::Stick::LEFT) ? _state.sThumbLY : _state.sThumbRY };
+	float deadZone{ (_stick == PadCode::Stick::LEFT) ? LEFT_STICK_DEADZONE : RIGHT_STICK_DEADZONE };
+	return ApplyNormalizeAndDeadZone(x, y, deadZone, _isYInverted);
+}
+
+bool GamePadInput::IsStickMovedThisFrame(PadCode::Stick _stick)
+{
+	// 今のフレームと前フレームの正規化したスティックの値を取得する
+	Vector2 currentStickValue{ GetStickValueFromState(currentPad , _stick, false) };
+	Vector2 prevStickValue{ GetStickValueFromState(prevPad , _stick, false) };
+	// 変化量
+	Vector2 stickDelta{ currentStickValue - prevStickValue };
+
+	// ゼロではないかつ正規化後の閾値以上動かしているなら動いているとする
+	return currentStickValue != Vector2::Zero && stickDelta.LengthSquared() > STICK_NORMALIZED_ACTIVITY_THRESHOLD * STICK_NORMALIZED_ACTIVITY_THRESHOLD;
 }

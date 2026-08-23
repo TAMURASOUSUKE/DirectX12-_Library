@@ -173,6 +173,7 @@
     <ClInclude Include="Src\Core\Handle\ShaderHandle.h" />
     <ClInclude Include="Src\Core\Handle\SoundHandle.h" />
     <ClInclude Include="Src\Core\Handle\TexHandle.h" />
+    <ClInclude Include="Src\Core\Handle\UIButtonHandle.h" />
     <ClInclude Include="Src\Core\TextEncoding.h" />
     <ClInclude Include="Src\Debug\DebugLogs.h" />
     <ClInclude Include="Src\External\cgltf.h" />
@@ -189,6 +190,8 @@
     <ClInclude Include="Src\Facade\TSTime.h" />
     <ClInclude Include="Src\Facade\TimeInternal.h" />
     <ClInclude Include="Src\Facade\TSLib.h" />
+    <ClInclude Include="Src\Facade\UI.h" />
+    <ClInclude Include="Src\Facade\UIInternal.h" />
     <ClInclude Include="Src\File\CSVTable.h" />
     <ClInclude Include="Src\FPS\FPSConstant.h" />
     <ClInclude Include="Src\FPS\FPSLimiter.h" />
@@ -212,13 +215,16 @@
     <ClInclude Include="Src\Graphics\ShaderSystem.h" />
     <ClInclude Include="Src\Graphics\ShapeBatch.h" />
     <ClInclude Include="Src\Graphics\SpriteBatch.h" />
-    <ClInclude Include="Src\Input\ActionSystem.h" />
+    <ClInclude Include="Src\Input\ActionInput.h" />
+    <ClInclude Include="Src\Input\AxisType.h" />
     <ClInclude Include="Src\Input\InputBase.h" />
     <ClInclude Include="Src\Input\InputConstant.h" />
     <ClInclude Include="Src\Input\GamePadInput.h" />
+    <ClInclude Include="Src\Input\InputMethodTracker.h" />
     <ClInclude Include="Src\Input\InputName.h" />
     <ClInclude Include="Src\Input\KeyboardInput.h" />
     <ClInclude Include="Src\Input\MouseInput.h" />
+    <ClInclude Include="Src\Input\AxisInput.h" />
     <ClInclude Include="Src\Math\MathConstant.h" />
     <ClInclude Include="Src\Math\Matrix\Mat4x4.h" />
     <ClInclude Include="Src\Math\Matrix\Mat4x4Format.h" />
@@ -239,6 +245,14 @@
     <ClInclude Include="Src\Sound\SoundResourceManager.h" />
     <ClInclude Include="Src\Sound\SoundSystem.h" />
     <ClInclude Include="Src\Sound\SoundType.h" />
+    <ClInclude Include="Src\UI\UIButton.h" />
+    <ClInclude Include="Src\UI\UIButtonInputSource.h" />
+    <ClInclude Include="Src\UI\UIButtonNavigation.h" />
+    <ClInclude Include="Src\UI\UIButtonSystem.h" />
+    <ClInclude Include="Src\UI\UIButtonType.h" />
+    <ClInclude Include="Src\UI\UIConstant.h" />
+    <ClInclude Include="Src\UI\UINavigationRepeater.h" />
+    <ClInclude Include="Src\UI\UINavigationType.h" />
     <ClInclude Include="Src\Window\Window.h" />
   </ItemGroup>
   <ItemGroup>
@@ -256,6 +270,7 @@
     <ClCompile Include="Src\Facade\System.cpp" />
     <ClCompile Include="Src\Facade\TSTime.cpp" />
     <ClCompile Include="Src\Facade\TSLib.cpp" />
+    <ClCompile Include="Src\Facade\UI.cpp" />
     <ClCompile Include="Src\File\CSVTable.cpp" />
     <ClCompile Include="Src\FPS\FPSCounter.cpp" />
     <ClCompile Include="Src\FPS\FPSLimiter.cpp" />
@@ -275,10 +290,12 @@
     <ClCompile Include="Src\Graphics\ShaderSystem.cpp" />
     <ClCompile Include="Src\Graphics\ShapeBatch.cpp" />
     <ClCompile Include="Src\Graphics\SpriteBatch.cpp" />
-    <ClCompile Include="Src\Input\ActionSystem.cpp" />
+    <ClCompile Include="Src\Input\ActionInput.cpp" />
     <ClCompile Include="Src\Input\GamePadInput.cpp" />
+    <ClCompile Include="Src\Input\InputMethodTracker.cpp" />
     <ClCompile Include="Src\Input\KeyboardInput.cpp" />
     <ClCompile Include="Src\Input\MouseInput.cpp" />
+    <ClCompile Include="Src\Input\AxisInput.cpp" />
     <ClCompile Include="Src\Math\Matrix\Mat4x4.cpp" />
     <ClCompile Include="Src\Math\Quaternion\Quaternion.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector2.cpp" />
@@ -288,6 +305,11 @@
     <ClCompile Include="Src\Math\Vector\Vector4.cpp" />
     <ClCompile Include="Src\Sound\SoundResourceManager.cpp" />
     <ClCompile Include="Src\Sound\SoundSystem.cpp" />
+    <ClCompile Include="Src\UI\UIButton.cpp" />
+    <ClCompile Include="Src\UI\UIButtonInputSource.cpp" />
+    <ClCompile Include="Src\UI\UIButtonNavigation.cpp" />
+    <ClCompile Include="Src\UI\UIButtonSystem.cpp" />
+    <ClCompile Include="Src\UI\UINavigationRepeater.cpp" />
     <ClCompile Include="Src\Window\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
