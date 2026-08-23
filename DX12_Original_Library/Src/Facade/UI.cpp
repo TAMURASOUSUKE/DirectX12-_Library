@@ -153,6 +153,8 @@ void UIInternal::Finish()
 
 void UIInternal::BeginFrame(const FrameContext& _context)
 {
+	frameContext = _context;
+
 	if (!isNavigationReady)
 	{
 		// ナビゲーション未使用なら従来のTargetQueryだけで更新
@@ -233,9 +235,34 @@ UIButtonHandle UI::Create(Rect _hitRect)
 	return buttonSystem.Create(MakeDefaultButtonInputSource(), MakeRectTargetQuery(_hitRect));
 }
 
+bool UI::SetOnTarget(UIButtonHandle _handle, ButtonEventCallback _callback)
+{
+	return buttonSystem.SetOnTarget(_handle, _callback);
+}
+
+bool UI::SetOnPushed(UIButtonHandle _handle, ButtonEventCallback _callback)
+{
+	return buttonSystem.SetOnPushed(_handle, _callback);
+}
+
+bool UI::SetOnHeld(UIButtonHandle _handle, ButtonEventCallback _callback)
+{
+	return buttonSystem.SetOnHeld(_handle, _callback);
+}
+
+bool UI::SetOnReleased(UIButtonHandle _handle, ButtonEventCallback _callback)
+{
+	return buttonSystem.SetOnReleased(_handle, _callback);
+}
+
 bool UI::SetOnActivated(UIButtonHandle _handle, ButtonEventCallback _callback)
 {
 	return buttonSystem.SetOnActivated(_handle, _callback);
+}
+
+bool UI::SetOnCanceled(UIButtonHandle _handle, ButtonEventCallback _callback)
+{
+	return buttonSystem.SetOnCanceled(_handle, _callback);
 }
 
 bool UI::DestroyButton(UIButtonHandle _handle)
@@ -297,7 +324,7 @@ void UI::ResetNavigationSelection()
 
 UIButtonHandle UI::GetSelectedButton()
 {
-	if (!isNavigationReady) return;
+	if (!isNavigationReady) return UIButtonHandle{};
 
 	return buttonNavigation.GetSelected();
 }

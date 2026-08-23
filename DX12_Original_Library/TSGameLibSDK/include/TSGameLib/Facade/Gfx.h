@@ -77,17 +77,8 @@ namespace Gfx
 		SpriteAnimationState() = default;
 
 		// 必要な設定を引数だけで指定する
-		SpriteAnimationState(
-			int _firstFrame,
-			int _lastFrame,
-			float _secondsPerFrame,
-			bool _isLoop = true)
-			: firstFrame{ _firstFrame }
-			, lastFrame{ _lastFrame }
-			, currentFrame{ _firstFrame }
-			, secondsPerFrame{ _secondsPerFrame }
-			, isLoop{ _isLoop }
-		{}
+		SpriteAnimationState(int _firstFrame, int _lastFrame, float _secondsPerFrame, bool _isLoop = true) :
+			firstFrame{ _firstFrame }, lastFrame{ _lastFrame }, currentFrame{ _firstFrame }, secondsPerFrame{ _secondsPerFrame }, isLoop{ _isLoop } {}
 
 		bool IsValid(const TextureAtlas& _atlas) const
 		{

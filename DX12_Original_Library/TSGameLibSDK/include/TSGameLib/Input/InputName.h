@@ -131,3 +131,10 @@ namespace MouseCode
 }
 
 using Binding = std::variant<KeyCode::Button, PadCode::Button, PadCode::Trigger, MouseCode::Click>; // ボタン系の抽象化に使う種類をまとめる
+
+// 操作方式を表す
+enum class InputMethod
+{
+	KeyboardMouse,
+	GamePad,
+};

@@ -27,8 +27,18 @@ public:
 	// ナビゲーション操作中ならNavigationTargetだけを操作対象にするそれ以外はTargetQueryを使用する
 	void UpdateAll(UIButtonHandle _navigationTarget, bool _useNavigationTarget);
 
+	// ボタンが指定状態の時のイベント登録
+	bool SetOnTarget(UIButtonHandle _handle, UIButton::EventCallback _callback);
+	// ボタンプッシュ時のイベント登録
+	bool SetOnPushed(UIButtonHandle _handle, UIButton::EventCallback _callback);
+	// ボタンプレス時のイベント登録
+	bool SetOnHeld(UIButtonHandle _handle, UIButton::EventCallback _callback);
+	// ボタンリリース時のイベント登録
+	bool SetOnReleased(UIButtonHandle _handle, UIButton::EventCallback _callback);
 	// ボタン操作成立時のイベントを登録する
 	bool SetOnActivated(UIButtonHandle _handle, UIButton::EventCallback _callback);
+	// ボタン操作キャンセル時のイベント登録
+	bool SetOnCanceled(UIButtonHandle _handle, UIButton::EventCallback _callback);
 
 	// 指定入力からボタンハンドルを作成
 	UIButtonHandle Create(UIButtonInputSource _inputSource, TargetQuery _targetQuery);

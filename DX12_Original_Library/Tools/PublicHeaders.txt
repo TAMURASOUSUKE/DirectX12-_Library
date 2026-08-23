@@ -14,6 +14,7 @@ Core/Handle/ShaderHandle.h
 Core/Handle/SoundHandle.h
 Core/Handle/TexHandle.h
 Core/Handle/AnimInstanceHandle.h
+Core/Handle/UIButtonHandle.h
 
 Debug/DebugLogs.h
 
@@ -25,12 +26,16 @@ Facade/TSLib.h
 Facade/TSTime.h
 Facade/System.h
 Facade/File.h
+Facade/UI.h
 
 Graphics/GfxType.h
 File/CSVTable.h
 
 Input/InputName.h
 Input/AxisType.h
+
+UI/UINavigationType.h
+UI/UIButtonType.h
 
 Math/MathConstant.h
 Math/TSMath.h

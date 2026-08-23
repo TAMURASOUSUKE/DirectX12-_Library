@@ -46,6 +46,54 @@ void UIButtonSystem::UpdateAll(UIButtonHandle _navigationTarget, bool _useNaviga
 	}
 }
 
+bool UIButtonSystem::SetOnTarget(UIButtonHandle _handle, UIButton::EventCallback _callback)
+{
+	UIButton* data{ Lookup(_handle) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("無効なハンドルが渡されました\n");
+		return false;
+	}
+	data->SetOnTarget(std::move(_callback));
+	return true;
+}
+
+bool UIButtonSystem::SetOnPushed(UIButtonHandle _handle, UIButton::EventCallback _callback)
+{
+	UIButton* data{ Lookup(_handle) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("無効なハンドルが渡されました\n");
+		return false;
+	}
+	data->SetOnPushed(std::move(_callback));
+	return true;
+}
+
+bool UIButtonSystem::SetOnHeld(UIButtonHandle _handle, UIButton::EventCallback _callback)
+{
+	UIButton* data{ Lookup(_handle) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("無効なハンドルが渡されました\n");
+		return false;
+	}
+	data->SetOnHeld(std::move(_callback));
+	return true;
+}
+
+bool UIButtonSystem::SetOnReleased(UIButtonHandle _handle, UIButton::EventCallback _callback)
+{
+	UIButton* data{ Lookup(_handle) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("無効なハンドルが渡されました\n");
+		return false;
+	}
+	data->SetOnReleased(std::move(_callback));
+	return true;
+}
+
 bool UIButtonSystem::SetOnActivated(UIButtonHandle _handle, UIButton::EventCallback _callback)
 {
 	UIButton* data{ Lookup(_handle) };
@@ -55,6 +103,18 @@ bool UIButtonSystem::SetOnActivated(UIButtonHandle _handle, UIButton::EventCallb
 		return false;
 	}
 	data->SetOnActivated(std::move(_callback));
+	return true;
+}
+
+bool UIButtonSystem::SetOnCanceled(UIButtonHandle _handle, UIButton::EventCallback _callback)
+{
+	UIButton* data{ Lookup(_handle) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("無効なハンドルが渡されました\n");
+		return false;
+	}
+	data->SetOnCanceled(std::move(_callback));
 	return true;
 }
 
