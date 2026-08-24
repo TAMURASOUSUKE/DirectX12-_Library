@@ -31,8 +31,30 @@ void GamePadInput::Update()
 	isLeftTriggerPrevPressed = isLeftTriggerPressed;
 	isRightTriggerPrevPressed = isRightTriggerPressed;
 
+	DWORD controllerIndex{ XUSER_MAX_COUNT };
 	XINPUT_STATE state{};
-	DWORD result{ XInputGetState(0, &state) };
+	DWORD result{ ERROR_DEVICE_NOT_CONNECTED };
+
+	// 前回見つけたコントローラーを優先
+	if (controllerIndex < XUSER_MAX_COUNT) result = XInputGetState(controllerIndex, &state);
+
+	// 未発見、または切断された場合は0-3番を探す
+	if (result != ERROR_SUCCESS)
+	{
+		controllerIndex = XUSER_MAX_COUNT;
+		for (DWORD index = 0; index < XUSER_MAX_COUNT; index++)
+		{
+			XINPUT_STATE candidate{};
+			if (XInputGetState(index, &candidate) == ERROR_SUCCESS)
+			{
+				controllerIndex = index;
+				state = candidate;
+				result = ERROR_SUCCESS;
+				break;
+			}
+		}
+	}
+
 	if (ERROR_SUCCESS == result)
 	{
 		currentPad = state.Gamepad;
