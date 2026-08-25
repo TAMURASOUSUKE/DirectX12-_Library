@@ -37,6 +37,7 @@ private:
 	// 指定スティックが今のフレームで動いたか
 	bool IsStickMovedThisFrame(PadCode::Stick _stick);
 private:
+	DWORD controllerIndex{ XUSER_MAX_COUNT };
 	XINPUT_GAMEPAD currentPad{}; // 現在の入力
 	XINPUT_GAMEPAD prevPad{}; // 1フレーム前の入力
 
