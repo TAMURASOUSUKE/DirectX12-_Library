@@ -1,4 +1,5 @@
 #include "Input.h" // inputはボタンを組み立てる上で必要な下位部品なので依存する
+#include "../Input/InputConstant.h"
 #include "../Debug/DebugLogs.h"
 #include "../UI/UIButtonInputSource.h"
 #include "../UI/UIButtonSystem.h"
@@ -92,7 +93,10 @@ namespace
 	{
 		const Vector2Int delta{ Input::GetMouseDelta() };
 
-		return delta.x != 0 || delta.y != 0 || Input::IsMousePushed(MouseCode::Click::LEFT);
+		// マウスセンサーの微小な揺れを操作扱いしないようにする
+		const bool isMoved{ delta.LengthSquared() > MOUSE_MOVE_THRESHOLD_PER_FRAME * MOUSE_MOVE_THRESHOLD_PER_FRAME };
+
+		return isMoved || Input::IsMousePushed(MouseCode::Click::LEFT);
 	}
 
 	// 仮想マウス座標を取得する
@@ -167,6 +171,10 @@ void UIInternal::BeginFrame(const FrameContext& _context)
 	{
 		useNavigationTarget = false;
 		navigationRepeater.Reset();
+
+		// このフレームはマウスだけでボタンを更新する
+		buttonSystem.UpdateAll(UIButtonHandle{}, false);
+		return;
 	}
 
 	// 時間と入力から方向を出す

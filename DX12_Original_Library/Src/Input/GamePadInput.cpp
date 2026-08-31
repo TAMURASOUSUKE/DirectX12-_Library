@@ -1,4 +1,5 @@
 #include "GamePadInput.h"
+#include "../Debug/DebugLogs.h"
 #include <windows.h>
 #include <algorithm>
 #include "InputConstant.h"
@@ -32,7 +33,50 @@ void GamePadInput::Update()
 	isRightTriggerPrevPressed = isRightTriggerPressed;
 
 	XINPUT_STATE state{};
-	DWORD result{ XInputGetState(0, &state) };
+	DWORD result{ ERROR_DEVICE_NOT_CONNECTED };
+
+	// 前回見つけたコントローラーを優先
+	if (controllerIndex < XUSER_MAX_COUNT) result = XInputGetState(controllerIndex, &state);
+
+	// 未発見、または切断された場合は0-3番を探す
+	if (result != ERROR_SUCCESS)
+	{
+		controllerIndex = XUSER_MAX_COUNT;
+		for (DWORD index = 0; index < XUSER_MAX_COUNT; index++)
+		{
+			XINPUT_STATE candidate{};
+			if (XInputGetState(index, &candidate) == ERROR_SUCCESS)
+			{
+				controllerIndex = index;
+				state = candidate;
+				result = ERROR_SUCCESS;
+				break;
+			}
+		}
+	}
+
+#ifdef _DEBUG
+	static bool connectionLogged{ false };
+	if (result == ERROR_SUCCESS)
+	{
+		if (!connectionLogged)
+		{
+			DEBUG_LOG("XInputコントローラーを検出しました Index : {}\n", controllerIndex);
+			connectionLogged = true;
+		}
+		const DWORD pushed{ static_cast<DWORD>(state.Gamepad.wButtons & ~prevPad.wButtons) };
+		if (pushed != 0)
+		{
+			DEBUG_LOG("Pad入力を検知しました Buttons : 0x{:04X}\n", pushed);
+		}
+	}
+	else if (!connectionLogged)
+	{
+		DEBUG_LOG_WARNING("XInputコントローラーを0-3から検出できません\n");
+	}
+#endif // _DEBUG
+
+
 	if (ERROR_SUCCESS == result)
 	{
 		currentPad = state.Gamepad;
