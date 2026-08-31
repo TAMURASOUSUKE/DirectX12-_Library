@@ -16,10 +16,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	Time::SetTargetFPS(60);
 
 	// 各ハンドルのロード
-	SoundHandle testSound{ Sound::LoadSound("Res/Test.wav") };
-	SoundHandle testSound02{ Sound::LoadSound("Res/Phuniaya_2.wav") };
-	SoundHandle testSound03{ Sound::LoadSound("Res/Better_Days.wav") };
-	SoundHandle mizushimaVoice{ Sound::LoadSound("Res/User.wav") };
+	SoundHandle testSound{ Sound::LoadSound("Res/TestSE.wav") };
+	SoundHandle testSound02{ Sound::LoadSound("Res/TestBGM_CalmLoop.wav") };
+	SoundHandle testSound03{ Sound::LoadSound("Res/TestBGM_BrightLoop.wav") };
 	float testVolume{ 0.8f }; // テスト用音量
 	float crossFadeTime{ 0.0f };
 	bool isSetVolume{ false };
@@ -55,7 +54,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPushed(KeyCode::Button::D3)) crossFadeTime -= 0.5f;
 		crossFadeTime = std::clamp(crossFadeTime, 0.0f, 15.0f);
 		if (Input::IsKeyPushed(KeyCode::Button::F)) Sound::CrossfadeBGM(testSound02, false, crossFadeTime);
-		if (Input::IsKeyPushed(KeyCode::Button::M)) Sound::CrossfadeBGM(mizushimaVoice, false, crossFadeTime);
 
 		if (isSetVolume)
 		{
@@ -63,23 +61,23 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		}
 
 		std::string playSE{ "G : PlaySE" };
-		std::string playPhuniaya{ "1 : PlayBGM(Phuniaya_2)" };
-		std::string playBetterDays{ "2 : PlayBGM(BetterDays)" };
+		std::string playCalm{ "1 : PlayBGM(TestBGM_CalmLoop)" };
+		std::string playBright{ "2 : PlayBGM(TestBGM_BrightLoop)" };
 		std::string stopBGM{ "S : StopBGM" };
 		std::string endBGM{ "Return : EndBGM" };
-		std::string upVolume{ "Right : VolumeUp(Phuniaya_2)" };
-		std::string downVolume{ "Left : VolumeDown(Phuniaya_2)" };
-		std::string currentVolume{ std::format("CurrentVolume(Phuniaya_2) : {:.1f}", testVolume) };
+		std::string upVolume{ "Right : VolumeUp(TestBGM_CalmLoop)" };
+		std::string downVolume{ "Left : VolumeDown(TestBGM_CalmLoop)" };
+		std::string currentVolume{ std::format("CurrentVolume(TestBGM_CalmLoop) : {:.1f}", testVolume) };
 		std::string crossFadeTimePlusGuide{ "4 : CrossFadeTime +0.5" };
 		std::string crossFadeTimeMinusGuide{ "3 : CrossFadeTime -0.5" };
 		std::string currentCrossFadeTime{ std::format("CrossFadeTime : {:.1f}", crossFadeTime)};
-		std::string crossFade{ "F : CrossFade(ToPhuniaya_2)" };
+		std::string crossFade{ "F : CrossFade(TestBGM_CalmLoop)" };
 
 		Gfx::ClearScreen();
 
 		Gfx::DrawString(playSE.c_str(), { 0.0f, 0.0f });
-		Gfx::DrawString(playPhuniaya.c_str(), { 0.0f, 30.0f });
-		Gfx::DrawString(playBetterDays.c_str(), { 0.0f, 60.0f });
+		Gfx::DrawString(playCalm.c_str(), { 0.0f, 30.0f });
+		Gfx::DrawString(playBright.c_str(), { 0.0f, 60.0f });
 		Gfx::DrawString(stopBGM.c_str(), { 0.0f, 90.0f });
 		Gfx::DrawString(endBGM.c_str(), { 0.0f, 120.0f });
 		Gfx::DrawString(upVolume.c_str(), { 0.0f, 150.0f });

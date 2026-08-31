@@ -169,7 +169,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::SetSceneLight(sceneLight);
 		Gfx::ClearScreen(); // 画面クリア
 
-
 		// 3Dモデルアニメーション
 		Gfx::DrawAnimatedModel(testModelAnim01, objectPosition);
 
@@ -183,8 +182,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		// Gfx::DrawGrid3D({ 0.0f, -1.0f, 5.0f }, Quaternion::FromEuler(-45.0f * Math::DEG_TO_RAD, 0.0f, 0.0f), 10, 1.0f, {0.4f, 0.4f, 0.4f, 1.0f});
 		// Gfx::DrawWorldAxisGrid3D({ 0.0f, -1.0f, 5.0f }, 10, 1.0f,{1.0f, 1.0f, 1.0f, 1.0}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f});
 		Gfx::DrawAxis3D(objectPosition.GetPosition(), objectPosition.GetRotation());
-		// Gfx::DrawAABB3D(playerAABB,hitColor);
-		// Gfx::DrawAABB3D(debugCube,{ 0.0f, 0.0f, 1.0f, 1.0f });
+		 //Gfx::DrawAABB3D(playerAABB,hitColor);
+		 //Gfx::DrawAABB3D(debugCube,{ 0.0f, 0.0f, 1.0f, 1.0f });
+		Gfx::DrawTerrain({ 0.0f, 0.0f, 3.0f }, 10.0f, tessFactor, heightFactor, {1.0f, 0.0f, 0.0f, 1.0f}, heightMap);
 
 
 		Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });
