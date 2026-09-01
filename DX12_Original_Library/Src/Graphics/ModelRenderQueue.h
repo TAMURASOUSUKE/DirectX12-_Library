@@ -2,7 +2,6 @@
 #include <vector>
 #include <span>
 #include <variant>
-#include "GraphicsConstant.h"
 #include "../Core/Handle/ModelHandle.h"
 #include "../Component/Transform.h"
 #include "../Core/Handle/AnimInstanceHandle.h"
@@ -47,6 +46,9 @@ public:
 	bool Register(ModelHandle _model, const Transform& _transform);
 	// スキニングモデルの描画依頼登録
 	bool Register(AnimInstanceHandle _animInstance, const Transform& _transform);
+
+	// 溜まった命令を実行する
+	bool Execute();
 
 	// 登録された描画依頼をコピーせず参照する
 	std::span<const ModelRenderCommand> GetCommands() const { return commands; }
