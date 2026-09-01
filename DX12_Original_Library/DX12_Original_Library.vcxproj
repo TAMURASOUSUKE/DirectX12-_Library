@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -209,6 +209,8 @@
     <ClInclude Include="Src\Graphics\InternalResource\DefaultFontData.h" />
     <ClInclude Include="Src\Graphics\LightSystem.h" />
     <ClInclude Include="Src\Graphics\ModelRenderer.h" />
+    <ClInclude Include="Src\Graphics\ModelRenderQueue.h" />
+    <ClInclude Include="Src\Graphics\ModelRenderSystem.h" />
     <ClInclude Include="Src\Graphics\Primitive3DBatch.h" />
     <ClInclude Include="Src\Graphics\Primitive3DSystem.h" />
     <ClInclude Include="Src\Graphics\RingConstantBuffer.h" />
@@ -284,6 +286,8 @@
     <ClCompile Include="Src\Graphics\InternalResource\DefaultFontData.cpp" />
     <ClCompile Include="Src\Graphics\LightSystem.cpp" />
     <ClCompile Include="Src\Graphics\ModelRenderer.cpp" />
+    <ClCompile Include="Src\Graphics\ModelRenderQueue.cpp" />
+    <ClCompile Include="Src\Graphics\ModelRenderSystem.cpp" />
     <ClCompile Include="Src\Graphics\Primitive3DBatch.cpp" />
     <ClCompile Include="Src\Graphics\Primitive3DSystem.cpp" />
     <ClCompile Include="Src\Graphics\RingConstantBuffer.cpp" />

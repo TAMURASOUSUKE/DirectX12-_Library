@@ -61,8 +61,3 @@ bool ModelRenderQueue::Register(AnimInstanceHandle _animInstance, const Transfor
 	// Transformは現在地のスナップショットとしてコピーする
 	commands.emplace_back(SkinningModelRenderCommand{ _animInstance, _transform });
 }
-
-bool ModelRenderQueue::Execute()
-{
-
-}

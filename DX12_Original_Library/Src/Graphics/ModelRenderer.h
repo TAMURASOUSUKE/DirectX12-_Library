@@ -10,7 +10,7 @@ class CameraSystem;
 class LightSystem;
 struct AnimInstanceData;
 
-// 3Dモデルを描画する機能を提供するクラス
+// 3DモデルのGPU描画命令を送るクラス
 class ModelRenderer
 {
 public:
