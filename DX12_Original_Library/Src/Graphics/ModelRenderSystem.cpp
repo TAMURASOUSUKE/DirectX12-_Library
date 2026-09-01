@@ -4,8 +4,9 @@
 bool ModelRenderSystem::Setup(ShaderSystem* _shaderSystem, CameraSystem* _cameraSystem, LightSystem* _lightSystem, AnimationSystem* _animationSystem)
 {
 	if (!_shaderSystem || !_cameraSystem || !_lightSystem || !_animationSystem) return false;
-	animationSysmtem = _animationSystem;
-	renderer.Setup( _shaderSystem, _cameraSystem, _lightSystem);
+	if (!renderer.Setup(_shaderSystem, _cameraSystem, _lightSystem)) return false;
+	renderQueue.Setup();
+	animationSystem = _animationSystem;
 	return true;
 }
 
@@ -13,6 +14,7 @@ void ModelRenderSystem::Shutdown()
 {
 	renderer.Shutdown();
 	renderQueue.Shutdown();
+	animationSystem = nullptr;
 }
 
 void ModelRenderSystem::BeginFrame()
@@ -29,7 +31,8 @@ void ModelRenderSystem::Flush()
 		std::visit(
 			[this](const auto& _command)
 			{
-				using CommandType = std::decay_t<decltype(_command)>; // constと参照を外すdecay_tでconstと参照を外してdecltypeでconstと参照を抜きにして読み込む
+				// decltypeで型を取得し、decay_tでconstと参照を外す
+				using CommandType = std::decay_t<decltype(_command)>;
 
 				// constexprを使うことでコンパイル時に分岐させる
 				if constexpr (std::is_same_v<CommandType, StaticModelRenderCommand>)
@@ -38,7 +41,7 @@ void ModelRenderSystem::Flush()
 				}
 				else if constexpr (std::is_same_v<CommandType, SkinningModelRenderCommand>)
 				{
-					AnimInstanceData* instance{ animationSysmtem->Lookup(_command.animInstanceHandle) };
+					AnimInstanceData* instance{ animationSystem->Lookup(_command.animInstanceHandle) };
 
 					if (!instance) return;
 

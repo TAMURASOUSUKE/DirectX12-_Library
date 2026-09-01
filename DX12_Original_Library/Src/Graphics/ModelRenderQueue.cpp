@@ -43,13 +43,14 @@ bool ModelRenderQueue::Register(ModelHandle _model, const Transform& _transform)
 
 	// Transformは現在地のスナップショットとしてコピーする
 	commands.emplace_back(StaticModelRenderCommand{_model, _transform});
+	return true;
 }
 
 bool ModelRenderQueue::Register(AnimInstanceHandle _animInstance, const Transform& _transform)
 {
 	if (!_animInstance.IsValid())
 	{
-		DEBUG_LOG_ERROR("モデル描画命令に無効なModelHandleが渡されました\n");
+		DEBUG_LOG_ERROR("モデル描画命令に無効なAnimInstanceHandleが渡されました\n");
 		return false;
 	}
 	if (commands.size() >= MAX_MODEL_RENDER_COMMAND_COUNT)
@@ -60,4 +61,5 @@ bool ModelRenderQueue::Register(AnimInstanceHandle _animInstance, const Transfor
 
 	// Transformは現在地のスナップショットとしてコピーする
 	commands.emplace_back(SkinningModelRenderCommand{ _animInstance, _transform });
+	return true;
 }

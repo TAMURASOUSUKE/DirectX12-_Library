@@ -12,11 +12,11 @@
 #include "../Graphics/ShapeBatch.h"
 #include "../Graphics/RingConstantBuffer.h"
 #include "../Graphics/GPUMarker.h"
+#include "../Graphics/ModelRenderSystem.h"
 #include "../Math/TSMath.h"
 #include "../Graphics/GraphicsConstant.h"
 #include "../Graphics/GraphicsType.h"
 #include "../Graphics/InternalResource/DefaultFontData.h"
-#include "../Graphics/ModelRenderer.h"
 #include "../Animation/AnimationSystem.h"
 #include "../Graphics/Primitive3DSystem.h"
 #include "../Graphics/CameraSystem.h"
@@ -44,8 +44,8 @@ namespace {
 	CameraSystem cameraSystem; // カメラ制御システム
 	LightSystem lightSystem; // ライト管理システム
 	GraphicsSystem graphicsSystem; // Graphics全体のサイズ依存状態を統括
+	ModelRenderSystem modelRenderSystem{}; // モデルを描画するためのシステム
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
-	ModelRenderer modelRenderer; // モデルを描画するためのデータ処理システム
 	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
 	MaterialHandle currentPostEffectMaterial{}; // 現在画面全体へ適用しているポストエフェクトmaterial(無効ハンドルなら内蔵の素通しPSOを使う)
 
@@ -302,7 +302,7 @@ namespace {
 			terrainIndexBuffer = IndexBuffer{};
 			terrainVertexBuffer = VertexBuffer{};
 			animSystem.Shutdown();
-			modelRenderer.Shutdown();
+			modelRenderSystem.Shutdown();
 			graphicsSystem.Shutdown();
 			// RingConstantBufferの解放
 			terrainRingCBV.Shutdown();
@@ -415,7 +415,7 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 		return false;
 	}
 	animSystem.Setup(); // アニメーションシステムのセットアップ
-	if (!modelRenderer.Setup(&shaderSystem, &cameraSystem, &lightSystem))
+	if (!modelRenderSystem.Setup(&shaderSystem, &cameraSystem, &lightSystem, &animSystem))
 	{
 		DEBUG_LOG_ERROR("モデル描画のシステム初期化子に失敗しました\n");
 		return false;
@@ -465,7 +465,7 @@ void GfxInternal::BeginFrame()
 	terrainRingCBV.Reset();
 	userMaterialParameterRingCBV.Reset();
 	lightSystem.BeginFrame();
-	modelRenderer.BeginFrame();
+	modelRenderSystem.BeginFrame();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto dsv{ GraphicsDevice::Instance().GetDSV() };
@@ -523,6 +523,10 @@ void GfxInternal::EndFrame()
 	{
 		GPU_MARKER("backGround");
 		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
+	}
+	{
+		GPU_MARKER("Model");
+		modelRenderSystem.Flush();
 	}
 	// 3D基礎図形
 	{
@@ -1239,26 +1243,12 @@ void Gfx::DrawAABB3D(const AABB& _aabb, Vector4 _color)
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 {
-	{
-		// マクロがスコープを抜けるとEndEventするので囲う
-		GPU_MARKER("backGround");
-		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get()); // 背景の上に来るように3D描画前には背景batchをFlushする
-	}
-
-	// 今の状態では静的モデルだけ
-	modelRenderer.DrawStaticModel(_model, _transform);
+	modelRenderSystem.Register(_model, _transform);
 }
 
 void Gfx::DrawAnimatedModel(AnimInstanceHandle _handle, Transform _transform)
 {
-	AnimInstanceData* instance{ animSystem.Lookup(_handle) };
-	if (!instance) return;
-	{
-		// マクロがスコープを抜けるとEndEventするので囲う
-		GPU_MARKER("backGround");
-		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get()); // 背景の上に来るように3D描画前には背景batchをFlushする
-	}
-	modelRenderer.DrawSkinnedModel(*instance, _transform);
+	modelRenderSystem.Register(_handle, _transform);
 }
 
 bool Gfx::UpdateAnim(AnimInstanceHandle _handle, float _deltaTime)

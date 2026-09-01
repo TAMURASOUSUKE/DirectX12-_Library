@@ -27,5 +27,5 @@ private:
 	ModelRenderer renderer{};
 
 	// アニメーションシステム自体は所有せずにアニメーション個体の解決に使用する
-	AnimationSystem* animationSysmtem{ nullptr };
+	AnimationSystem* animationSystem{ nullptr };
 };
