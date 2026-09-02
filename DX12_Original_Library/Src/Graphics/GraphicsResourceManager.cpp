@@ -1005,10 +1005,27 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 
 			}
 
-			for (cgltf_size k = 0; k < indexCount; k++)
+			// Triangleか
+			if (prim.type != cgltf_primitive_type_triangles)
+			{
+				DEBUG_LOG_WARNING("Triangle以外のPrimitiveは現在対応していません\n");
+				continue;
+			}
+			// 三角形情報の確認
+			if (!prim.indices || indexCount % 3 != 0)
+			{
+				DEBUG_LOG_WARNING("モデルのIndex情報が三角形として不正です\n");
+				continue;
+			}
+
+			for (cgltf_size k = 0; k < indexCount; k += 3)
 			{
 				// indexも読む
 				indicesData[k] = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, k));
+
+				// 右手系->左手系に合わせてインデックス順を逆にするため2番目を3番に3番目を2番目にする
+				indicesData[k + 1] = static_cast<std::uint32_t>(cgltf_accessor_read_index(prim.indices, k + 2));
+				indicesData[k + 2] = static_cast<std::uint32_t>(cgltf_accessor_read_index(prim.indices, k + 1));
 			}
 
 			// 静的なGPUバッファ作成

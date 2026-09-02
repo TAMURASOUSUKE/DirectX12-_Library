@@ -62,7 +62,8 @@ namespace {
 		  // 3Dモデル
 		{.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::Model,
 		 .vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
-		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite},
+		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite,
+		 .cullMode = D3D12_CULL_MODE_BACK},
 		 // テクスチャ 
 		 {.rootSignatureID = RootSigID::Texture, .pipelineID = PipelineID::Sprite,
 		  .vs = BuiltinShaderID::TextureVS, .ps = BuiltinShaderID::TexturePS,

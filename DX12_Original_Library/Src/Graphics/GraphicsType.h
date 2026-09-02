@@ -157,8 +157,10 @@ struct GraphicsPipelineDesc
 	BlendMode blend{BlendMode::Opaque}; // ブレンドモード
 	DepthParam depth{DepthParam::None
 	}; // 深度設定
+	D3D12_CULL_MODE cullMode{ D3D12_CULL_MODE_NONE }; // カリング
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE topology{ D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE }; // 形状
-	D3D12_FILL_MODE fillMode{ D3D12_FILL_MODE_SOLID };
+	D3D12_FILL_MODE fillMode{ D3D12_FILL_MODE_SOLID }; // fillモード
+	bool frontCounterClockwise{ false };  // どちらを表にするかtrue = 反時計回り
 };
 
 // Compute用PSO生成時に使う設定構造体
