@@ -19,6 +19,10 @@ cbuffer MaterialCB : register(b1)
     float pad1;  // パディング
     float3 emissiveColorFactor; // 自己発光色
     float pad2; // パディング
+	uint alphaMode; // αモード
+	float alphaCutoff; // ピクセル切り捨ての基準
+	float pad3;
+	float pad4;
 };
 
 Texture2D baseTex : register(t0);
@@ -37,6 +41,14 @@ float4 main(PS_INPUT _input) : SV_Target
 {
 	// sRGBテクスチャはSRVで線形色へ変換された状態で取得される
 	const float4 baseColor = baseTex.Sample(smp, _input.uv) * baseColorFactor;
+	
+	// Mask判定
+	static const uint materialAlphaModeMask = 1;
+	if (alphaMode == materialAlphaModeMask)
+	{
+		clip(baseColor.a - alphaCutoff); // 指定値で引き算を行い0未満になれば破棄する
+	}
+	
 	const float4 metallicRoughnessSample = metallicRoughnessTex.Sample(smp, _input.uv);
 	 
 	// glTFではG = Rougness, B = Metallicが格納されている

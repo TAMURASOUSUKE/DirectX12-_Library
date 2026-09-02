@@ -65,10 +65,21 @@ namespace {
 		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite,
 		 .cullMode = D3D12_CULL_MODE_BACK},
 		 // 両面描画モデル
-		{
-		 .rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::ModelDoubleSided,
+		{.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::ModelDoubleSided,
 		 .vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
 		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite,
+		 .cullMode = D3D12_CULL_MODE_NONE // 両面なのでNONE
+		},
+		// ブレンド状態のモデル
+		{.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::ModelBlend,
+		 .vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
+		 .layout = InputLayout::Model, .blend = BlendMode::Alpha, .depth = DepthParam::ReadOnly, // 読むだけ
+		 .cullMode = D3D12_CULL_MODE_BACK
+		},
+		// ブレンド状態のモデルの両面描画
+		{.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::ModelBlendDoubleSided,
+		 .vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
+		 .layout = InputLayout::Model, .blend = BlendMode::Alpha, .depth = DepthParam::ReadOnly,
 		 .cullMode = D3D12_CULL_MODE_NONE // 両面なのでNONE
 		},
 		 // テクスチャ 

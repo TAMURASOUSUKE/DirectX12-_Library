@@ -47,9 +47,6 @@ public:
 	// スキニングモデルの描画依頼登録
 	bool Register(AnimInstanceHandle _animInstance, const Transform& _transform);
 
-	// 溜まった命令を実行する
-	bool Execute();
-
 	// 登録された描画依頼をコピーせず参照する
 	std::span<const ModelRenderCommand> GetCommands() const { return commands; }
 	

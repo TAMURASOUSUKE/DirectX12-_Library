@@ -1063,6 +1063,22 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 				sub.material.roughness = prim.material->pbr_metallic_roughness.roughness_factor;
 				sub.material.emissiveFactor = ToVec3(prim.material->emissive_factor);
 				sub.material.doubleSided = prim.material->double_sided != 0;	// cgltf_boolをboolへ明示的な変換
+
+				// AlphaModeの変換
+				switch (prim.material->alpha_mode)
+				{
+				case cgltf_alpha_mode_mask:
+					sub.material.alphaMode = MaterialAlphaMode::Mask;
+					break;
+				case cgltf_alpha_mode_blend:
+					sub.material.alphaMode = MaterialAlphaMode::Blend;
+					break;
+				case cgltf_alpha_mode_opaque:
+				default:
+					sub.material.alphaMode = MaterialAlphaMode::Opaque;
+					break;
+				}
+				sub.material.alphaCutoff = prim.material->alpha_cutoff;
 			}
 
 			// BaseColorハンドルが無効なら白にする

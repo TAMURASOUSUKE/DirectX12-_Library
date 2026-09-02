@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include "GfxType.h"
 #include "../Math/TSMath.h"
 #include "../Core/Handle/TexHandle.h"
@@ -57,6 +58,8 @@ enum class PipelineID
 	Sprite, // 画像
 	Model, // 3Dモデル	
 	ModelDoubleSided, // モデルの両面描画 
+	ModelBlend, // ブレンド状態のモデル描画
+	ModelBlendDoubleSided, // ブレンド状態のモデルの両面描画
 	ShapeFill, //  2D基本図形塗りつぶし
 	ShapeWire, // 2D基本図形ワイヤー
 	Primitive3DFill, // 3D基礎図形塗りつぶし
@@ -312,6 +315,21 @@ struct MaterialCB
 	float pad1{ 0.0f };
 	Vector3 emissiveFactor{ 0.0f, 0.0f, 0.0f }; // 自己発光色
 	float pad2{ 0.0f }; 
+	std::uint32_t alphaMode{ 0 }; // αモード設定
+	float alphaCutoff{ 0.5f }; // Maskにおいてどの値から切り捨てるか
+	float pad3{ 0.0f };
+	float pad4{ 0.0f };
+};
+
+// materialCB検査
+static_assert(sizeof(MaterialCB) % 16 == 0, "MaterialCBは16byte境界に合わせる必要があります");
+
+// cgltfのデータを読み込み時にこのライブラリのMaterialAlphaモードへ変える
+enum class MaterialAlphaMode : std::uint32_t
+{
+	Opaque = 0,
+	Mask = 1,
+	Blend = 2,
 };
 
 // material本体
@@ -323,6 +341,8 @@ struct Material
 	float roughness{ 1.0f }; // 粗さ
 	Vector3 emissiveFactor{ 0.0f, 0.0f, 0.0f }; // 自己発光色
 	bool doubleSided{ false }; // 両面描画を行うか
+	MaterialAlphaMode alphaMode{ MaterialAlphaMode::Opaque }; // Alphaモード
+	float alphaCutoff{ 0.5f }; // AlphaModeのMaskにおいてα値がどこ未満なら捨てるかの値
 };
 
 // サブメッシュ単位の構造体

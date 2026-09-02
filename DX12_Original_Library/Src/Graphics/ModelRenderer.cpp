@@ -145,6 +145,8 @@ void ModelRenderer::DrawSkinnedModel(const AnimInstanceData& _anim, const Transf
 		matCB.metallic = sub.material.metallic;
 		matCB.roughness = sub.material.roughness;
 		matCB.emissiveFactor = sub.material.emissiveFactor;
+		matCB.alphaMode = static_cast<std::uint32_t>(sub.material.alphaMode); // enumをuint32に
+		matCB.alphaCutoff = sub.material.alphaCutoff;
 		const D3D12_GPU_VIRTUAL_ADDRESS materialAddress{ materialRingCBV.Update(&matCB, sizeof(MaterialCB)) };
 		if (materialAddress <= 0)
 		{
@@ -248,6 +250,8 @@ void ModelRenderer::DrawStaticModel(ModelHandle _model, const Transform& _transf
 		matCB.metallic = sub.material.metallic;
 		matCB.roughness = sub.material.roughness;
 		matCB.emissiveFactor = sub.material.emissiveFactor;
+		matCB.alphaMode = static_cast<std::uint32_t>(sub.material.alphaMode); // enumをuint32に
+		matCB.alphaCutoff = sub.material.alphaCutoff;
 		const D3D12_GPU_VIRTUAL_ADDRESS materialUpdate{ materialRingCBV.Update(&matCB, sizeof(MaterialCB)) };
 		if (materialUpdate <= 0)
 		{
