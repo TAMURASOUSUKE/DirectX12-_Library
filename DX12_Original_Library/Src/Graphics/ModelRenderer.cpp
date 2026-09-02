@@ -105,7 +105,6 @@ void ModelRenderer::DrawSkinnedModel(const AnimInstanceData& _anim, const Transf
 	if (!TryMakeModelObjectCB(_transform, objectData)) return;
 
 	cmd->SetGraphicsRootSignature(shaderSystem->GetRootSignature(RootSigID::Model));
-	cmd->SetPipelineState(shaderSystem->GetPipeline(PipelineID::Model));
 
 	DescriptorManager::Instance().SetDiscriptor(cmd);
 	const D3D12_GPU_VIRTUAL_ADDRESS frameDataAddress{ GetSceneFrameGPUAddress() };
@@ -136,6 +135,10 @@ void ModelRenderer::DrawSkinnedModel(const AnimInstanceData& _anim, const Transf
 	// サブメッシュ分回す
 	for (const SubMesh& sub : model->subMeshes)
 	{
+		// 描画方法によって設定するIDを分ける
+		const PipelineID pilelineID{sub.material.doubleSided ? PipelineID::ModelDoubleSided : PipelineID::Model};
+		cmd->SetPipelineState(shaderSystem->GetPipeline(pilelineID));
+
 		// material類の更新
 		MaterialCB matCB{};
 		matCB.baseColorFactor = sub.material.baseColorFactor;
@@ -201,7 +204,6 @@ void ModelRenderer::DrawStaticModel(ModelHandle _model, const Transform& _transf
 
 	// パイプライン設定
 	cmd->SetGraphicsRootSignature(shaderSystem->GetRootSignature(RootSigID::Model));
-	cmd->SetPipelineState(shaderSystem->GetPipeline(PipelineID::Model));
 
 	DescriptorManager::Instance().SetDiscriptor(cmd); // Flushと同じ考え方
 
@@ -236,6 +238,10 @@ void ModelRenderer::DrawStaticModel(ModelHandle _model, const Transform& _transf
 	// submeshループ
 	for (const SubMesh& sub : model->subMeshes)
 	{
+		// 描画方法によって設定するIDを分ける
+		const PipelineID pilelineID{ sub.material.doubleSided ? PipelineID::ModelDoubleSided : PipelineID::Model };
+		cmd->SetPipelineState(shaderSystem->GetPipeline(pilelineID));
+
 		// material値をCBにつめる
 		MaterialCB matCB{};
 		matCB.baseColorFactor = sub.material.baseColorFactor;

@@ -1062,6 +1062,7 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 				sub.material.metallic = prim.material->pbr_metallic_roughness.metallic_factor;
 				sub.material.roughness = prim.material->pbr_metallic_roughness.roughness_factor;
 				sub.material.emissiveFactor = ToVec3(prim.material->emissive_factor);
+				sub.material.doubleSided = prim.material->double_sided != 0;	// cgltf_boolをboolへ明示的な変換
 			}
 
 			// BaseColorハンドルが無効なら白にする

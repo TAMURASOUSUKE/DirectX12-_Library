@@ -55,7 +55,8 @@ enum class HeapType
 enum class PipelineID
 {
 	Sprite, // 画像
-	Model, // 3Dモデル
+	Model, // 3Dモデル	
+	ModelDoubleSided, // モデルの両面描画 
 	ShapeFill, //  2D基本図形塗りつぶし
 	ShapeWire, // 2D基本図形ワイヤー
 	Primitive3DFill, // 3D基礎図形塗りつぶし
@@ -321,6 +322,7 @@ struct Material
 	float metallic{ 1.0f }; //　金属度
 	float roughness{ 1.0f }; // 粗さ
 	Vector3 emissiveFactor{ 0.0f, 0.0f, 0.0f }; // 自己発光色
+	bool doubleSided{ false }; // 両面描画を行うか
 };
 
 // サブメッシュ単位の構造体

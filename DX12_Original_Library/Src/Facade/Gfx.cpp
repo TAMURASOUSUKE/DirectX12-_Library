@@ -64,6 +64,13 @@ namespace {
 		 .vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
 		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite,
 		 .cullMode = D3D12_CULL_MODE_BACK},
+		 // 両面描画モデル
+		{
+		 .rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::ModelDoubleSided,
+		 .vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
+		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite,
+		 .cullMode = D3D12_CULL_MODE_NONE // 両面なのでNONE
+		},
 		 // テクスチャ 
 		 {.rootSignatureID = RootSigID::Texture, .pipelineID = PipelineID::Sprite,
 		  .vs = BuiltinShaderID::TextureVS, .ps = BuiltinShaderID::TexturePS,
@@ -302,8 +309,8 @@ namespace {
 			// 仮で作っているTerrainのVB.IBを解放する(これは一時的な物なので3Dの基本図形描画時になくなる予定)
 			terrainIndexBuffer = IndexBuffer{};
 			terrainVertexBuffer = VertexBuffer{};
-			animSystem.Shutdown();
 			modelRenderSystem.Shutdown();
+			animSystem.Shutdown();
 			graphicsSystem.Shutdown();
 			// RingConstantBufferの解放
 			terrainRingCBV.Shutdown();
