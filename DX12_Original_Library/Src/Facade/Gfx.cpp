@@ -543,22 +543,33 @@ void GfxInternal::EndFrame()
 		GPU_MARKER("backGround");
 		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
 	}
+
+	modelRenderSystem.BuildDrawPackets(); // Packet展開
+	// 不透明モデル描画
+	{
+		GPU_MARKER("Opaque・MaskModel");
+		modelRenderSystem.FlushOpaque();
+	}
+
 	// 3D基礎図形
 	{
 		const D3D12_GPU_VIRTUAL_ADDRESS lightAddress{ lightSystem.GetFrameGPUAddress() };
 		GPU_MARKER("Primitive3D");
 		if (!primitive3DSystem.Flush(cameraSystem.GetViewProjectionMatrix(), lightAddress)) DEBUG_LOG_ERROR("Primitive3Dの更新に失敗しました\n");
 	}
+
 	// モデル描画
 	{
-		GPU_MARKER("Model");
-		modelRenderSystem.Flush();
+		GPU_MARKER("BlendModel");
+		modelRenderSystem.FlushBlend();
 	}
+
 	// 前面2DSprite
 	{
 		GPU_MARKER("foreGround");
 		fgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
 	}
+
 	// ShapeBatch描画
 	{
 		GPU_MARKER("ShapeDraw");

@@ -171,8 +171,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::SetCamera(camera); // 3D描画前に呼ぶ
 		Gfx::SetSceneLight(sceneLight);
-		Gfx::ClearScreen(); // 画面クリア
-
+		Gfx::ClearScreen(1.0f, 1.0f, 1.0f, 1.0f); // 画面クリア
+		
 		// 3Dモデルアニメーション
 		Gfx::DrawAnimatedModel(testModelAnim01, objectPosition);
 		// 静的モデル
