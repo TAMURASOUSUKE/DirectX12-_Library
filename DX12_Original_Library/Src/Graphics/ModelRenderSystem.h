@@ -18,8 +18,13 @@ public:
 	void Shutdown();
 	// フレームの最初の処理
 	void BeginFrame();
-	// 描画命令実行
-	void Flush();
+
+	// 登録された描画命令をサブメッシュ単位のPacketへ展開して描画順に並べる
+	void BuildDrawPackets();
+	// 不透明・マスクモデルを描画する
+	void FlushOpaque();
+	// 半透明モデルを奥から手前に描画する
+	void FlushBlend();
 
 	// 静的モデルの描画依頼登録
 	bool Register(ModelHandle _model, const Transform& _transform);

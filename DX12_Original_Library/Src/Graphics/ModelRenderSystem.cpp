@@ -52,7 +52,7 @@ void ModelRenderSystem::BeginFrame()
 	renderer.BeginFrame(); // 各CBVのリセットなど
 }
 
-void ModelRenderSystem::Flush()
+void ModelRenderSystem::BuildDrawPackets()
 {
 	for (const ModelRenderCommand& renderCommand : renderQueue.GetCommands())
 	{
@@ -86,20 +86,23 @@ void ModelRenderSystem::Flush()
 	std::sort(opaqueModels.begin(), opaqueModels.end(), [](const ModelDrawPacket& _left, const ModelDrawPacket& _right) { return _left.sortDepth < _right.sortDepth; }); // 不透明は手前から奥に
 	std::sort(blendModels.begin(), blendModels.end(), [](const ModelDrawPacket& _left, const ModelDrawPacket& _right) { return _left.sortDepth > _right.sortDepth; }); // 半透明は奥から手前
 
-	// パケットチェック
-	if (opaqueModels.empty() && blendModels.empty()) return;
-	// 全モデルで共通するGPU状態を設定
-	if (!renderer.BeginModelDraw()) return;
-	
-	// 不透明から半透明の順で描画する
+}
 
-	// 不透明若しくは切り抜きモデルを手前から奥に描く
+void ModelRenderSystem::FlushOpaque()
+{
+	if (opaqueModels.empty()) return;
+	if (!renderer.BeginModelDraw()) return; // Model用共通データを設定する(RootSigやCBV,Topology)
 	for (const ModelDrawPacket& packet : opaqueModels)
 	{
 		renderer.DrawSubMesh(packet);
 	}
+}
 
-	// 半透明を奥から手前に描画する
+void ModelRenderSystem::FlushBlend()
+{
+	if (blendModels.empty()) return;
+	// Primtive3Dの後に描画するのでGPU状態が変更されていることを考慮したてBlend描画前にModelの状態をもう一度設定
+	if (!renderer.BeginModelDraw()) return; // Model用共通データを設定する(RootSigやCBV,Topology)
 	for (const ModelDrawPacket& packet : blendModels)
 	{
 		renderer.DrawSubMesh(packet);
