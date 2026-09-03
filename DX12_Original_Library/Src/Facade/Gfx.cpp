@@ -543,16 +543,18 @@ void GfxInternal::EndFrame()
 		GPU_MARKER("backGround");
 		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
 	}
-	{
-		GPU_MARKER("Model");
-		modelRenderSystem.Flush();
-	}
 	// 3D基礎図形
 	{
 		const D3D12_GPU_VIRTUAL_ADDRESS lightAddress{ lightSystem.GetFrameGPUAddress() };
 		GPU_MARKER("Primitive3D");
 		if (!primitive3DSystem.Flush(cameraSystem.GetViewProjectionMatrix(), lightAddress)) DEBUG_LOG_ERROR("Primitive3Dの更新に失敗しました\n");
 	}
+	// モデル描画
+	{
+		GPU_MARKER("Model");
+		modelRenderSystem.Flush();
+	}
+	// 前面2DSprite
 	{
 		GPU_MARKER("foreGround");
 		fgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
@@ -1333,6 +1335,7 @@ void Gfx::SetBaseColor(ModelHandle _model, int _submeshIndex, Vector4 _color)
 	if (_submeshIndex < 0 || _submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
 	data->subMeshes[_submeshIndex].material.baseColorFactor = _color;
 }
+
 void Gfx::SetTexture(ModelHandle _model, int _submeshIndex, TexHandle _texture)
 {
 	ModelData* data{ GraphicsResourceManager::Instance().Lookup(_model) };
@@ -1340,6 +1343,7 @@ void Gfx::SetTexture(ModelHandle _model, int _submeshIndex, TexHandle _texture)
 	if (_submeshIndex < 0 || _submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
 	data->subMeshes[_submeshIndex].material.textures[MaterialTex::BaseColor] = _texture; // 外部テクスチャなのでownerTextureには追加しない
 }
+
 void Gfx::SetPostEffect(MaterialHandle _material)
 {
 	// 空ハンドルは素通しへ
@@ -1370,6 +1374,48 @@ void Gfx::SetPostEffect(MaterialHandle _material)
 	}
 	currentPostEffectMaterial = _material;
 }
+
+bool Gfx::SetModelAlphaMode(ModelHandle _model, int _subMeshIndex, ModelAlphaMode _alphaMode, float _alphaCutoff)
+{
+	ModelData* data{ GraphicsResourceManager::Instance().Lookup(_model) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("モデルの読み込みに失敗しました\n");
+		return false;
+	}
+	if (_subMeshIndex < 0 || static_cast<std::size_t>(_subMeshIndex) >= data->subMeshes.size())
+	{
+		DEBUG_LOG_ERROR("サブメッシュ番号に不正な値が渡されました\n");
+		return false;
+	}
+	if (_alphaCutoff < 0.0f || _alphaCutoff > 1.0f)
+	{
+		DEBUG_LOG_ERROR("AlphaCutoffは0.0 ~ 1.0の間で指定してください\n");
+		return false;
+	}
+
+	Material& material{ data->subMeshes[static_cast<std::size_t>(_subMeshIndex)].material }; // 指定サブメッシュのマテリアルを取り出す
+
+	// 公開型と内部型で対応させる
+	switch (_alphaMode)
+	{
+	case ModelAlphaMode::Opaque:
+		material.alphaMode = MaterialAlphaMode::Opaque;
+		break;
+	case ModelAlphaMode::Mask:
+		material.alphaMode = MaterialAlphaMode::Mask;
+		break;
+	case ModelAlphaMode::Blend:
+		material.alphaMode = MaterialAlphaMode::Blend;
+		break;
+	default:
+		DEBUG_LOG_ERROR("不正なAlphaModeが渡されました AlphaMode : {}\n", static_cast<std::size_t>(_alphaMode));
+		return false;
+	}
+	material.alphaCutoff = _alphaCutoff;
+	return true;
+}
+
 // 解放
 void Gfx::Unload(TexHandle _handle)
 {

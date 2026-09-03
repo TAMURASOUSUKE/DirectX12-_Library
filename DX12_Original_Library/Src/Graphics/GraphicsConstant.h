@@ -18,7 +18,8 @@ constexpr size_t MAX_CB_PER_FRAME{ 256 }; // フレーム内で使える定数�
 constexpr size_t MAX_BONE_NUM{ 256 }; // 最大ボーン数
 constexpr size_t MAX_TEXTURE_COUNT{ 1024 }; // 最大画像ロード数
 constexpr size_t MAX_MODEL_COUNT{ 2048 }; // 最大モデルロード数
-constexpr size_t MAX_MODEL_RENDER_COMMAND_COUNT{ 256 };
+constexpr size_t MAX_MODEL_RENDER_COMMAND_COUNT{ 256 }; // 1フレーム内で可能な描画命令登録数
+constexpr std::size_t MAX_MODEL_DRAW_PACKET_COUNT{ 2048 }; // 全サブメッシュの上限
 constexpr UINT INVALID_INDEX{ UINT_MAX }; // Descriptorハンドルのindex無効値
 constexpr size_t MAX_RENDER_TARGET_COUNT{ 16 }; // 登録できるRenderTargetの最大数
 constexpr size_t MAX_CUSTOM_SHADER_COUNT{ 64 }; // 登録できるShaderの最大数

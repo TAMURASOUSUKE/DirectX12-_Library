@@ -19,6 +19,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	// Model
 	ModelHandle player{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Playerモデルのロード
+	Gfx::SetModelAlphaMode(player, 0, ModelAlphaMode::Blend); // 半透明チェック
+	Gfx::SetModelAlphaMode(player, 1, ModelAlphaMode::Blend); // 半透明チェック
+	Gfx::SetBaseColor(player, 0, { 1.0f, 1.0f, 1.0f, 0.35f }); 
+	Gfx::SetBaseColor(player, 1, { 1.0f, 1.0f, 1.0f, 0.35f }); 
 	ModelHandle toon{ Gfx::LoadModel("Res/TestPlayer.glb") }; // Toon用モデルのロード
 	Transform objectPosition{};
 	Transform toonTransform{};
@@ -171,6 +175,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// 3Dモデルアニメーション
 		Gfx::DrawAnimatedModel(testModelAnim01, objectPosition);
+		// 静的モデル
+		Gfx::DrawModel(toon, toonTransform);
 
 		// 3D基礎図形
 		Gfx::DrawCube3D(cube, { 1.0f, 0.0f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
@@ -178,13 +184,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawCylinder3D(cylinder, { 0.0f, 1.0f, 0.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
 		Gfx::DrawCapsule3D({ 0.0f, -2.0f, 5.0f }, { 0.0f,  0.0f, 5.0f }, 0.5f, { 0.2f, 1.0f, 0.3f }, Gfx::Primitive3DStyle::Fill);
 		Gfx::DrawPlane3D(plane, { 0.0f, 0.3f, 0.4f }, Gfx::Primitive3DStyle::Fill);
-		Gfx::DrawLine3D({ 2.0f, 1.0f, 6.0f }, {-1.0f, -3.0f, 6.0f});
-		 Gfx::DrawGrid3D({ 0.0f, -1.0f, 5.0f }, Quaternion::FromEuler(-45.0f * Math::DEG_TO_RAD, 0.0f, 0.0f), 10, 1.0f, {0.4f, 0.4f, 0.4f, 1.0f});
-		 Gfx::DrawWorldAxisGrid3D({ 0.0f, -1.0f, 5.0f }, 10, 1.0f,{1.0f, 1.0f, 1.0f, 1.0}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f});
+		//Gfx::DrawLine3D({ 2.0f, 1.0f, 6.0f }, {-1.0f, -3.0f, 6.0f});
+		// Gfx::DrawGrid3D({ 0.0f, -1.0f, 5.0f }, Quaternion::FromEuler(-45.0f * Math::DEG_TO_RAD, 0.0f, 0.0f), 10, 1.0f, {0.4f, 0.4f, 0.4f, 1.0f});
+		/* Gfx::DrawWorldAxisGrid3D({ 0.0f, -1.0f, 5.0f }, 10, 1.0f,{1.0f, 1.0f, 1.0f, 1.0}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f});*/
 		Gfx::DrawAxis3D(objectPosition.GetPosition(), objectPosition.GetRotation());
-		 Gfx::DrawAABB3D(playerAABB,hitColor);
-		 Gfx::DrawAABB3D(debugCube,{ 0.0f, 0.0f, 1.0f, 1.0f });
-		Gfx::DrawTerrain({ 0.0f, 0.0f, 3.0f }, 10.0f, tessFactor, heightFactor, {1.0f, 0.0f, 0.0f, 1.0f}, heightMap);
+		 //Gfx::DrawAABB3D(playerAABB,hitColor);
+		 //Gfx::DrawAABB3D(debugCube,{ 0.0f, 0.0f, 1.0f, 1.0f });
+		// Gfx::DrawTerrain({ 0.0f, 0.0f, 3.0f }, 10.0f, tessFactor, heightFactor, {1.0f, 0.0f, 0.0f, 1.0f}, heightMap);
 
 
 		Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });
