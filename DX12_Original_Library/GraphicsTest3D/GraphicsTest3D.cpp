@@ -20,10 +20,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// Model
 	ModelHandle player{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Playerモデルのロード
 	ModelHandle toon{ Gfx::LoadModel("Res/player_01_01.glb") }; // Toon用モデルのロード
-	Gfx::SetModelAlphaMode(toon, 0, ModelAlphaMode::Blend); // 半透明チェック
-	//Gfx::SetModelAlphaMode(toon, 1, ModelAlphaMode::Blend); // 半透明チェック
-	Gfx::SetBaseColor(toon, 0, { 1.0f, 1.0f, 1.0f, 0.35f });
-	//Gfx::SetBaseColor(toon, 1, { 1.0f, 1.0f, 1.0f, 0.35f });
+	Gfx::SetModelAlphaMode(player, 0, ModelAlphaMode::Blend); // 半透明チェック
+	Gfx::SetModelAlphaMode(player, 1, ModelAlphaMode::Blend); // 半透明チェック
+	Gfx::SetBaseColor(player, 0, { 1.0f, 1.0f, 1.0f, 0.75f });
+	Gfx::SetBaseColor(player, 1, { 1.0f, 1.0f, 1.0f, 0.75f });
 	Transform objectPosition{};
 	Transform toonTransform{};
 	objectPosition.SetPosition({ -1.0f, 0.0f, 0.0f });

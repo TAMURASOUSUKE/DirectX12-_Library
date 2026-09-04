@@ -135,11 +135,55 @@ bool ModelRenderSystem::RegisterLOD(std::span<const ModelLODLevel> _levels, cons
 		return false;
 	}
 
-	return true;
+	float prevDistance{ -1.0f }; // 前の距離
+
+	// Handleと距離設定を事前検証
+	for (const ModelLODLevel& level : _levels)
+	{
+		if (!level.model.IsValid())
+		{
+			DEBUG_LOG_ERROR("ModelLODLevelに無効なModelHandleがあります\n");
+			return false;
+		}
+		if (level.minDistance < 0.0f)
+		{
+			DEBUG_LOG_ERROR("LOD切り替え距離には0以上を指定してください\n");
+			return false;
+		}
+		// 距離は近いLODから遠いLODの順である必要がある
+		if (level.minDistance <= prevDistance)
+		{
+			DEBUG_LOG_ERROR("ModelLODLevelの距離が昇順ではありません\n");
+			return false;
+		}
+		prevDistance = level.minDistance;
+	}
+
+	const float distanceSqueared{ Vector3::DistanceSquared(cameraSystem->GetCameraPosition(), _transform.GetPosition()) }; // モデル位置からカメラ距離の二乗
+	// 最初は最も近いLOD
+	ModelHandle selectedModel{ _levels.front().model };
+	// 距離条件を満たす度より遠距離用モデルへ更新
+	for (const ModelLODLevel& level : _levels)
+	{
+		// 閾値を動的に変更するヒステリシス動作はあとで実装
+		const float thresholdSquared{ level.minDistance * level.minDistance }; // 二乗で比較するのでここも二乗にする
+		if (distanceSqueared < distanceSqueared) break; // 昇順なのでこれ以降のLODも条件を満たさない
+
+		selectedModel = level.model;
+	}
+	return renderQueue.Register(selectedModel, _transform); // 一旦静的
+
 }
 
 bool ModelRenderSystem::AppendDrawPackets(const ModelData& _model, const AnimInstanceData* _animation, const Transform& _transform)
 {
+	// Boneを持つモデルにはBone数分のスキニング行列が必要なのでDrawModelだと単位行列を一つしか渡さないのでSkin付モデルを描画すると頂点が壊れる
+	if (!_animation && !_model.bones.empty())
+	{
+		DEBUG_LOG_ERROR("SkinつきモデルはDrawModelでは描画できません CreateAnimInstaceとDrawAnimatedModelを使用してください\n");
+		return false;
+	}
+
 	const std::size_t currentCount{ opaqueModels.size() + blendModels.size() }; // 現在の描画が行われる数
 	if (currentCount > MAX_MODEL_DRAW_PACKET_COUNT)
 	{
