@@ -33,6 +33,9 @@ public:
 	// 通常の×ボタンと同じ終了経路を要求する
 	void RequestQuit();
 
+	// EXEへ埋め込まれたアイコンを実行中のウィンドウへ適用する
+	bool SetWindowIcon(int _resourceID);
+
 	// オブザーバーパターンの監視者される側として値を伝えるためのコールバック
 	void SetOnWheel(std::function<void(short)> _func) { onWheel = std::move( _func); }
 	// クライアント領域のサイズ変更通知先を登録する
@@ -76,4 +79,8 @@ private:
 	 bool isBorderlessFullscreen{ false }; // 現在のモード
 	 bool cursorVisible{ true }; // カーソルの可視状態
 	 bool cursorLocked{ false }; // カーソルの固定状態
+
+	 // LoadImageWで生成したアイコンを所有する
+	 HICON largeIcon{ nullptr };
+	 HICON smallIcon{ nullptr };
 };

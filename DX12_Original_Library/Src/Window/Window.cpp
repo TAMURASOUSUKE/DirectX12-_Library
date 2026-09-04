@@ -122,6 +122,16 @@ void Window::Shutdown()
 	onResize = {};
 	onCursorWarp = {};
 	if (hwnd && IsWindow(hwnd)) DestroyWindow(hwnd);
+	if (largeIcon)
+	{
+		DestroyIcon(largeIcon);
+		largeIcon = nullptr;
+	}
+	if (smallIcon)
+	{
+		DestroyIcon(smallIcon);
+		smallIcon = nullptr;
+	}
 	hwnd = nullptr;
 	// このライブラリが登録したWindowClassを解除する
 	const HINSTANCE instance{ GetModuleHandleW(nullptr) };
@@ -354,6 +364,45 @@ void Window::RequestQuit()
 	{
 		DEBUG_LOG_ERROR("ウィンドウ終了要求の送信に失敗しました\n");
 	}
+}
+
+bool Window::SetWindowIcon(int _resourceID)
+{
+	if (!hwnd)
+	{
+		DEBUG_LOG_ERROR("Window生成前にアイコンを設定することはできません\n");
+		return false;
+	}
+
+	const HINSTANCE instance{ GetModuleHandleW(nullptr) };
+
+	// タスクバー等で使われる通常サイズ
+	HICON nextLargeIcon{ reinterpret_cast<HICON>(LoadImageW(instance, MAKEINTRESOURCEW(_resourceID), IMAGE_ICON, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CXICON), LR_DEFAULTCOLOR)) };
+	// タイトルバーなどで使われる通常サイズ
+	HICON nextSmallIcon{ reinterpret_cast<HICON>(LoadImageW(instance, MAKEINTRESOURCEW(_resourceID), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CXSMICON), LR_DEFAULTCOLOR)) };
+
+	if (!nextLargeIcon || !nextSmallIcon)
+	{
+		// 残っている方を消す
+		if (nextLargeIcon) DestroyIcon(nextLargeIcon);
+		if (nextSmallIcon) DestroyIcon(nextSmallIcon);
+
+		DEBUG_LOG_ERROR("WindowIconの読み込みに失敗しました ResourceID : {} ErrorCode : {}\n", _resourceID, GetLastError());
+		return false;
+	}
+
+	// 実行中のWindowへ大小のアイコンを適用する
+	SendMessageW(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(nextLargeIcon));
+	SendMessageW(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(nextSmallIcon));
+
+	// 再設定された場合に、前のアイコンを破棄する
+	if (largeIcon) DestroyIcon(largeIcon);
+	if (smallIcon) DestroyIcon(smallIcon);
+
+	largeIcon = nextLargeIcon;
+	smallIcon = nextSmallIcon;
+
+	return true;
 }
 
 bool Window::GenerateNativeWindow(DWORD _windowStyle, int _x, int _y, int _width, int _height)
