@@ -906,15 +906,13 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 		cgltf_node_transform_world(node, nodeColMajor); // 列優先の16要素で親をたどり最終的なワールド行列を計算する(列優先 + 16要素は下で解決)
 
 		// 列優先　-> 行優先に変更
-		Mat4x4 tmp
+		Mat4x4 nodeMat
 		{
 			Vector4{ nodeColMajor[0],  nodeColMajor[1],  nodeColMajor[2],  nodeColMajor[3]  },
 			Vector4{ nodeColMajor[4],  nodeColMajor[5],  nodeColMajor[6],  nodeColMajor[7]  },
 			Vector4{ nodeColMajor[8],  nodeColMajor[9],  nodeColMajor[10], nodeColMajor[11] },
 			Vector4{ nodeColMajor[12], nodeColMajor[13], nodeColMajor[14], nodeColMajor[15] },
 		};
-		// 転置して正しい行優先に直す
-		Mat4x4 nodeMat{ Mat4x4::MakeTransposed(tmp) };
 		//　右手系から左手系に
 		Mat4x4 zFlip{ Mat4x4::MakeScaling(Vector3{1.0f, 1.0f, -1.0f}) };
 		Mat4x4 filnalMat{ nodeMat * zFlip };

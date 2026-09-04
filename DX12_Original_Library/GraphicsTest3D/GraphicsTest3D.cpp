@@ -31,6 +31,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	AnimInstanceHandle alienModelAnim{ Gfx::CreateAnimInstance(player) }; // testModelからAnimationのInstanceを作る
 	AnimInstanceHandle toonModelAnim{ Gfx::CreateAnimInstance(toon) }; // toonModelからAnimationのInstanceを作る
 
+	// LODテスト用フィールドモデル
+	ModelHandle heighField{ Gfx::LoadModel("Res/japanese_terrain_lod0.glb") };
+	ModelHandle middleField{ Gfx::LoadModel("Res/japanese_terrain_lod1.glb") };
+	ModelHandle lowField{ Gfx::LoadModel("Res/japanese_terrain_lod2.glb") };
+	std::vector<ModelLODLevel> levels
+	{
+		{0.0f, heighField},
+		{100.0f, middleField},
+		{500.0f, lowField}
+	};
+	Transform lodFieldPosition{};
+	lodFieldPosition.SetPosition({0.0f, -1.0f, 2.0f});
+
+
 	float t{ 0.0f }; // 時間
 	float tessFactor{ 4.0f }; // HSでの分割数
 	float heightFactor{ 0.0f }; // Terrainの高さ
@@ -172,7 +186,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::SetCamera(camera); // 3D描画前に呼ぶ
 		Gfx::SetSceneLight(sceneLight);
-		Gfx::ClearScreen(1.0f, 1.0f, 1.0f, 1.0f); // 画面クリア
+		Gfx::ClearScreen(); // 画面クリア
 		
 		// 3Dモデルアニメーション
 		Gfx::DrawAnimatedModel(alienModelAnim, objectPosition);
@@ -193,6 +207,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		 //Gfx::DrawAABB3D(debugCube,{ 0.0f, 0.0f, 1.0f, 1.0f });
 		// Gfx::DrawTerrain({ 0.0f, 0.0f, 3.0f }, 10.0f, tessFactor, heightFactor, {1.0f, 0.0f, 0.0f, 1.0f}, heightMap);
 
+		// LOD描画
+		Gfx::DrawLODModel(levels, lodFieldPosition);
 
 		Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });
 		Gfx::DrawString(targetFPS.c_str(), { 0.0f, 30.0f });

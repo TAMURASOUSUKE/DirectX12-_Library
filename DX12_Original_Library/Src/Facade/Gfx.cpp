@@ -1427,6 +1427,11 @@ bool Gfx::SetModelAlphaMode(ModelHandle _model, int _subMeshIndex, ModelAlphaMod
 	return true;
 }
 
+void Gfx::DrawLODModel(std::span<const ModelLODLevel> _levels, const Transform& _transform)
+{
+	if (!modelRenderSystem.RegisterLOD(_levels, _transform)) return;
+}
+
 // 解放
 void Gfx::Unload(TexHandle _handle)
 {

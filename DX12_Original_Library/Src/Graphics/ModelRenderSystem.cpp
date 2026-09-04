@@ -167,10 +167,11 @@ bool ModelRenderSystem::RegisterLOD(std::span<const ModelLODLevel> _levels, cons
 	{
 		// 閾値を動的に変更するヒステリシス動作はあとで実装
 		const float thresholdSquared{ level.minDistance * level.minDistance }; // 二乗で比較するのでここも二乗にする
-		if (distanceSqueared < distanceSqueared) break; // 昇順なのでこれ以降のLODも条件を満たさない
+		if (distanceSqueared < thresholdSquared) break; // 昇順なのでこれ以降のLODも条件を満たさない
 
 		selectedModel = level.model;
 	}
+	// 選択された1モデルだけを既存RenderQueueへ登録する
 	return renderQueue.Register(selectedModel, _transform); // 一旦静的
 
 }
