@@ -38,6 +38,14 @@ enum class ShaderStage
 	Compute,
 };
 
+// 1段階分のLOD設定
+struct ModelLODLevel
+{
+	float minDistance{ 0.0f };
+	// この段階で描画するモデル
+	ModelHandle model{};
+};
+
 // MaterialParameterの1スロットへ保存できる最大サイズ
 inline constexpr std::size_t MAX_MATERIAL_PARAMETER_SIZE{ 256 };
 
