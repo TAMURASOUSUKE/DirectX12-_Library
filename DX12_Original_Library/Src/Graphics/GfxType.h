@@ -1,7 +1,6 @@
 #pragma once
 #include <cstddef>
-// ユーザーに公開可能な構造体や型を作る
-
+#include "../Core/Handle/ModelHandle.h"
 
 // 描画するスプライトのレイヤー
 enum class RenderLayer

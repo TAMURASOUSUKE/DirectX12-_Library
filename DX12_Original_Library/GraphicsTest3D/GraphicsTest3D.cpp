@@ -19,16 +19,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	// Model
 	ModelHandle player{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Playerモデルのロード
-	Gfx::SetModelAlphaMode(player, 0, ModelAlphaMode::Blend); // 半透明チェック
-	Gfx::SetModelAlphaMode(player, 1, ModelAlphaMode::Blend); // 半透明チェック
-	Gfx::SetBaseColor(player, 0, { 1.0f, 1.0f, 1.0f, 0.35f }); 
-	Gfx::SetBaseColor(player, 1, { 1.0f, 1.0f, 1.0f, 0.35f }); 
-	ModelHandle toon{ Gfx::LoadModel("Res/TestPlayer.glb") }; // Toon用モデルのロード
+	ModelHandle toon{ Gfx::LoadModel("Res/player_01_01.glb") }; // Toon用モデルのロード
+	Gfx::SetModelAlphaMode(toon, 0, ModelAlphaMode::Blend); // 半透明チェック
+	//Gfx::SetModelAlphaMode(toon, 1, ModelAlphaMode::Blend); // 半透明チェック
+	Gfx::SetBaseColor(toon, 0, { 1.0f, 1.0f, 1.0f, 0.35f });
+	//Gfx::SetBaseColor(toon, 1, { 1.0f, 1.0f, 1.0f, 0.35f });
 	Transform objectPosition{};
 	Transform toonTransform{};
 	objectPosition.SetPosition({ -1.0f, 0.0f, 0.0f });
 	toonTransform.SetPosition({ 1.0f, 0.0f, 0.0f });
-	AnimInstanceHandle testModelAnim01{ Gfx::CreateAnimInstance(player) }; // testModelからAnimationのInstanceを作る
+	AnimInstanceHandle alienModelAnim{ Gfx::CreateAnimInstance(player) }; // testModelからAnimationのInstanceを作る
+	AnimInstanceHandle toonModelAnim{ Gfx::CreateAnimInstance(toon) }; // toonModelからAnimationのInstanceを作る
 
 	float t{ 0.0f }; // 時間
 	float tessFactor{ 4.0f }; // HSでの分割数
@@ -147,16 +148,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// 3Dモデルアニメーション
 		// 通常ループ再生
-		if (Input::IsKeyPushed(KeyCode::Button::SPACE)) Gfx::PlayAnim(testModelAnim01, 0, true, 1.0f);
+		if (Input::IsKeyPushed(KeyCode::Button::SPACE)) Gfx::PlayAnim(alienModelAnim, 0, true, 1.0f);
 		// 逆方向ループ再生
-		if (Input::IsKeyPushed(KeyCode::Button::R)) Gfx::PlayAnim(testModelAnim01, 0, true, -1.0f);
+		if (Input::IsKeyPushed(KeyCode::Button::R)) Gfx::PlayAnim(alienModelAnim, 0, true, -1.0f);
 		// 現在の姿勢で一時停止
-		if (Input::IsKeyPushed(KeyCode::Button::P)) Gfx::PauseAnim(testModelAnim01);
+		if (Input::IsKeyPushed(KeyCode::Button::P)) Gfx::PauseAnim(alienModelAnim);
 		// 一時停止した位置から再開
-		if (Input::IsKeyPushed(KeyCode::Button::O)) Gfx::ResumeAnim(testModelAnim01);
+		if (Input::IsKeyPushed(KeyCode::Button::O)) Gfx::ResumeAnim(alienModelAnim);
 		// 再生方向に応じた開始位置へ戻して停止
-		if (Input::IsKeyPushed(KeyCode::Button::B)) Gfx::StopAnim(testModelAnim01);
-		Gfx::UpdateAnim(testModelAnim01, Time::DeltaTime());
+		if (Input::IsKeyPushed(KeyCode::Button::B)) Gfx::StopAnim(alienModelAnim);
+		Gfx::UpdateAnim(alienModelAnim, Time::DeltaTime());
 
 		std::string fpsValue{ std::format("CurrentMeasuredFPS : {:.1f}", Time::FPS()) };
 		std::string targetFPS{ std::format("CurrentSettingFPS : {}", Time::GetTargetFPS()) };
@@ -174,9 +175,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::ClearScreen(1.0f, 1.0f, 1.0f, 1.0f); // 画面クリア
 		
 		// 3Dモデルアニメーション
-		Gfx::DrawAnimatedModel(testModelAnim01, objectPosition);
+		Gfx::DrawAnimatedModel(alienModelAnim, objectPosition);
 		// 静的モデル
-		Gfx::DrawModel(toon, toonTransform);
+		Gfx::DrawAnimatedModel(toonModelAnim, toonTransform);
 
 		// 3D基礎図形
 		Gfx::DrawCube3D(cube, { 1.0f, 0.0f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);

@@ -1,5 +1,7 @@
 #pragma once
 #include <vector>
+#include <span>
+#include "GfxType.h"
 #include "../Animation/AnimationSystem.h"
 #include "CameraSystem.h"
 #include "../Component/Transform.h"
@@ -30,6 +32,9 @@ public:
 	bool Register(ModelHandle _model, const Transform& _transform);
 	// スキニングモデルの描画依頼登録
 	bool Register(AnimInstanceHandle _animInstance, const Transform& _transform);
+
+	// カメラ距離に応じたモデルを一つ選び描画依頼として登録する
+	bool RegisterLOD(std::span<const ModelLODLevel> _levels, const Transform& _transform);
 
 private:
 	// 渡されたデータから静的かスキニングかを判断してサブメッシュへ展開する

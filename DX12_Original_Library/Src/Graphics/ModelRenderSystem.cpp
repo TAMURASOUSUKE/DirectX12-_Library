@@ -119,6 +119,25 @@ bool ModelRenderSystem::Register(AnimInstanceHandle _animInstance, const Transfo
 	return renderQueue.Register(_animInstance, _transform);
 }
 
+bool ModelRenderSystem::RegisterLOD(std::span<const ModelLODLevel> _levels, const Transform& _transform)
+{
+	// LOD設定がなければ描画するモデルを選べないのでfalse
+	if (_levels.empty())
+	{
+		DEBUG_LOG_ERROR("ModelLevelが一つも設定されていません\n");
+		return false;
+	}
+
+	// 最初のLODは0mから使用できる必要がある
+	if (_levels.front().minDistance != 0.0f) // frontで先頭参照を取ってくる
+	{
+		DEBUG_LOG_ERROR("最初のLODのMinDistanceは0.0fにしてください\n");
+		return false;
+	}
+
+	return true;
+}
+
 bool ModelRenderSystem::AppendDrawPackets(const ModelData& _model, const AnimInstanceData* _animation, const Transform& _transform)
 {
 	const std::size_t currentCount{ opaqueModels.size() + blendModels.size() }; // 現在の描画が行われる数

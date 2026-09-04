@@ -233,6 +233,8 @@ namespace Gfx
 	void SetTexture(ModelHandle _model, int _submeshIndex, TexHandle _texture);
 	// 画面全体へ適用するポストエフェクトmaterialを設定する(無効ハンドルを渡した場合は内蔵の素通し描画へ戻します)
 	void SetPostEffect(MaterialHandle _material);
+	// モデルのサブメッシュが使用するAlphaModeを変更するMaskの場合はalphaCutoff未満のピクセルを破棄する
+	bool SetModelAlphaMode(ModelHandle _model, int _subMeshIndex, ModelAlphaMode _alphaMode, float _alphaCutoff = 0.5f);
 	
 	
 	// テクスチャリソースの解放
