@@ -36,6 +36,8 @@ public:
 	void EndFrameCleanup();
 	// 全てのSEが再生終了しているか
 	bool IsStopAllSE();
+	// 全てのBGM・SEを現在の再生位置で一時停止または再開する
+	bool SetAllPaused(bool _paused);
 	// 解放処理
 	void Cleanup();
 
@@ -48,6 +50,7 @@ private:
 	SoundPair currentBGM{}; // 現在のBGM
 	SoundPair prevBGM{}; // 前のBGM
 	bool isCrossfading{ false }; // クロスフェード中かどうか
+	bool isAllPaused{ false }; 	// XAudio2全体が一時停止中か
 	float crossfadeElapsedTime{ 0.0f }; // クロスフェード中の経過時間
 	float crossfadeTotalTime{ 0.0f }; // クロスフェードの総時間
 	float prevFadeStartVolume{ 0.0f }; // フェード中にさらに切り替えられたときの音量

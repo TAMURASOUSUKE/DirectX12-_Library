@@ -84,3 +84,8 @@ bool Sound::IsStopAllSE()
 {
 	return soundSystem.IsStopAllSE();
 }
+
+bool Sound::SetAllPaused(bool _paused)
+{
+	return soundSystem.SetAllPaused(_paused);
+}

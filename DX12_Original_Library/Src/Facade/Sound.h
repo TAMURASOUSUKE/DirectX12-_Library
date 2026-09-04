@@ -31,4 +31,6 @@ namespace Sound
 	void SetAllBGMVolume(float _volume);
 	// 全てのSEが再生終了しているか
 	bool IsStopAllSE();
+	// 全てのBGM・SEを現在位置で一時停止または再開する
+	bool SetAllPaused(bool _paused);
 }
