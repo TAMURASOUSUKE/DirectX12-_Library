@@ -47,12 +47,6 @@ AnimInstanceHandle AnimationSystem::Create(ModelHandle _modelHandle)
 		DEBUG_LOG_ERROR("ボーンを持たないモデルからアニメーション個体は作成できません\n");
 		return AnimInstanceHandle{};
 	}
-	// クリップ再生用のシステムなのでアニメーションを持たないモデルは対象外
-	if (model->animations.empty())
-	{
-		DEBUG_LOG_ERROR("アニメーションを持たないモデルが渡されました\n");
-		return AnimInstanceHandle{};
-	}
 	// スキニング行列の最大数チェック
 	if (model->bones.size() > MAX_BONE_NUM)
 	{

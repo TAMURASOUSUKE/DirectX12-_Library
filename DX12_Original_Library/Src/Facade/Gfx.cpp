@@ -12,11 +12,11 @@
 #include "../Graphics/ShapeBatch.h"
 #include "../Graphics/RingConstantBuffer.h"
 #include "../Graphics/GPUMarker.h"
+#include "../Graphics/ModelRenderSystem.h"
 #include "../Math/TSMath.h"
 #include "../Graphics/GraphicsConstant.h"
 #include "../Graphics/GraphicsType.h"
 #include "../Graphics/InternalResource/DefaultFontData.h"
-#include "../Graphics/ModelRenderer.h"
 #include "../Animation/AnimationSystem.h"
 #include "../Graphics/Primitive3DSystem.h"
 #include "../Graphics/CameraSystem.h"
@@ -44,8 +44,8 @@ namespace {
 	CameraSystem cameraSystem; // カメラ制御システム
 	LightSystem lightSystem; // ライト管理システム
 	GraphicsSystem graphicsSystem; // Graphics全体のサイズ依存状態を統括
+	ModelRenderSystem modelRenderSystem{}; // モデルを描画するためのシステム
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
-	ModelRenderer modelRenderer; // モデルを描画するためのデータ処理システム
 	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
 	MaterialHandle currentPostEffectMaterial{}; // 現在画面全体へ適用しているポストエフェクトmaterial(無効ハンドルなら内蔵の素通しPSOを使う)
 
@@ -62,7 +62,26 @@ namespace {
 		  // 3Dモデル
 		{.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::Model,
 		 .vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
-		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite},
+		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite,
+		 .cullMode = D3D12_CULL_MODE_BACK},
+		 // 両面描画モデル
+		{.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::ModelDoubleSided,
+		 .vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
+		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite,
+		 .cullMode = D3D12_CULL_MODE_NONE // 両面なのでNONE
+		},
+		// ブレンド状態のモデル
+		{.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::ModelBlend,
+		 .vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
+		 .layout = InputLayout::Model, .blend = BlendMode::Alpha, .depth = DepthParam::ReadOnly, // 読むだけ
+		 .cullMode = D3D12_CULL_MODE_BACK
+		},
+		// ブレンド状態のモデルの両面描画
+		{.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::ModelBlendDoubleSided,
+		 .vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
+		 .layout = InputLayout::Model, .blend = BlendMode::Alpha, .depth = DepthParam::ReadOnly,
+		 .cullMode = D3D12_CULL_MODE_NONE // 両面なのでNONE
+		},
 		 // テクスチャ 
 		 {.rootSignatureID = RootSigID::Texture, .pipelineID = PipelineID::Sprite,
 		  .vs = BuiltinShaderID::TextureVS, .ps = BuiltinShaderID::TexturePS,
@@ -301,8 +320,8 @@ namespace {
 			// 仮で作っているTerrainのVB.IBを解放する(これは一時的な物なので3Dの基本図形描画時になくなる予定)
 			terrainIndexBuffer = IndexBuffer{};
 			terrainVertexBuffer = VertexBuffer{};
+			modelRenderSystem.Shutdown();
 			animSystem.Shutdown();
-			modelRenderer.Shutdown();
 			graphicsSystem.Shutdown();
 			// RingConstantBufferの解放
 			terrainRingCBV.Shutdown();
@@ -415,7 +434,7 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 		return false;
 	}
 	animSystem.Setup(); // アニメーションシステムのセットアップ
-	if (!modelRenderer.Setup(&shaderSystem, &cameraSystem, &lightSystem))
+	if (!modelRenderSystem.Setup(&shaderSystem, &cameraSystem, &lightSystem, &animSystem))
 	{
 		DEBUG_LOG_ERROR("モデル描画のシステム初期化子に失敗しました\n");
 		return false;
@@ -465,7 +484,7 @@ void GfxInternal::BeginFrame()
 	terrainRingCBV.Reset();
 	userMaterialParameterRingCBV.Reset();
 	lightSystem.BeginFrame();
-	modelRenderer.BeginFrame();
+	modelRenderSystem.BeginFrame();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto dsv{ GraphicsDevice::Instance().GetDSV() };
@@ -524,16 +543,33 @@ void GfxInternal::EndFrame()
 		GPU_MARKER("backGround");
 		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
 	}
+
+	modelRenderSystem.BuildDrawPackets(); // Packet展開
+	// 不透明モデル描画
+	{
+		GPU_MARKER("Opaque・MaskModel");
+		modelRenderSystem.FlushOpaque();
+	}
+
 	// 3D基礎図形
 	{
 		const D3D12_GPU_VIRTUAL_ADDRESS lightAddress{ lightSystem.GetFrameGPUAddress() };
 		GPU_MARKER("Primitive3D");
 		if (!primitive3DSystem.Flush(cameraSystem.GetViewProjectionMatrix(), lightAddress)) DEBUG_LOG_ERROR("Primitive3Dの更新に失敗しました\n");
 	}
+
+	// モデル描画
+	{
+		GPU_MARKER("BlendModel");
+		modelRenderSystem.FlushBlend();
+	}
+
+	// 前面2DSprite
 	{
 		GPU_MARKER("foreGround");
 		fgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
 	}
+
 	// ShapeBatch描画
 	{
 		GPU_MARKER("ShapeDraw");
@@ -1239,26 +1275,12 @@ void Gfx::DrawAABB3D(const AABB& _aabb, Vector4 _color)
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 {
-	{
-		// マクロがスコープを抜けるとEndEventするので囲う
-		GPU_MARKER("backGround");
-		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get()); // 背景の上に来るように3D描画前には背景batchをFlushする
-	}
-
-	// 今の状態では静的モデルだけ
-	modelRenderer.DrawStaticModel(_model, _transform);
+	modelRenderSystem.Register(_model, _transform);
 }
 
 void Gfx::DrawAnimatedModel(AnimInstanceHandle _handle, Transform _transform)
 {
-	AnimInstanceData* instance{ animSystem.Lookup(_handle) };
-	if (!instance) return;
-	{
-		// マクロがスコープを抜けるとEndEventするので囲う
-		GPU_MARKER("backGround");
-		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get()); // 背景の上に来るように3D描画前には背景batchをFlushする
-	}
-	modelRenderer.DrawSkinnedModel(*instance, _transform);
+	modelRenderSystem.Register(_handle, _transform);
 }
 
 bool Gfx::UpdateAnim(AnimInstanceHandle _handle, float _deltaTime)
@@ -1324,6 +1346,7 @@ void Gfx::SetBaseColor(ModelHandle _model, int _submeshIndex, Vector4 _color)
 	if (_submeshIndex < 0 || _submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
 	data->subMeshes[_submeshIndex].material.baseColorFactor = _color;
 }
+
 void Gfx::SetTexture(ModelHandle _model, int _submeshIndex, TexHandle _texture)
 {
 	ModelData* data{ GraphicsResourceManager::Instance().Lookup(_model) };
@@ -1331,6 +1354,7 @@ void Gfx::SetTexture(ModelHandle _model, int _submeshIndex, TexHandle _texture)
 	if (_submeshIndex < 0 || _submeshIndex >= data->subMeshes.size()) return;  // 範囲チェック
 	data->subMeshes[_submeshIndex].material.textures[MaterialTex::BaseColor] = _texture; // 外部テクスチャなのでownerTextureには追加しない
 }
+
 void Gfx::SetPostEffect(MaterialHandle _material)
 {
 	// 空ハンドルは素通しへ
@@ -1361,6 +1385,53 @@ void Gfx::SetPostEffect(MaterialHandle _material)
 	}
 	currentPostEffectMaterial = _material;
 }
+
+bool Gfx::SetModelAlphaMode(ModelHandle _model, int _subMeshIndex, ModelAlphaMode _alphaMode, float _alphaCutoff)
+{
+	ModelData* data{ GraphicsResourceManager::Instance().Lookup(_model) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("モデルの読み込みに失敗しました\n");
+		return false;
+	}
+	if (_subMeshIndex < 0 || static_cast<std::size_t>(_subMeshIndex) >= data->subMeshes.size())
+	{
+		DEBUG_LOG_ERROR("サブメッシュ番号に不正な値が渡されました\n");
+		return false;
+	}
+	if (_alphaCutoff < 0.0f || _alphaCutoff > 1.0f)
+	{
+		DEBUG_LOG_ERROR("AlphaCutoffは0.0 ~ 1.0の間で指定してください\n");
+		return false;
+	}
+
+	Material& material{ data->subMeshes[static_cast<std::size_t>(_subMeshIndex)].material }; // 指定サブメッシュのマテリアルを取り出す
+
+	// 公開型と内部型で対応させる
+	switch (_alphaMode)
+	{
+	case ModelAlphaMode::Opaque:
+		material.alphaMode = MaterialAlphaMode::Opaque;
+		break;
+	case ModelAlphaMode::Mask:
+		material.alphaMode = MaterialAlphaMode::Mask;
+		break;
+	case ModelAlphaMode::Blend:
+		material.alphaMode = MaterialAlphaMode::Blend;
+		break;
+	default:
+		DEBUG_LOG_ERROR("不正なAlphaModeが渡されました AlphaMode : {}\n", static_cast<std::size_t>(_alphaMode));
+		return false;
+	}
+	material.alphaCutoff = _alphaCutoff;
+	return true;
+}
+
+void Gfx::DrawLODModel(std::span<const ModelLODLevel> _levels, ModelLODState& _state, const Transform& _transform, float _hysteresisDistance)
+{
+	if (!modelRenderSystem.RegisterLOD(_levels, _state, _transform, _hysteresisDistance)) return;
+}
+
 // 解放
 void Gfx::Unload(TexHandle _handle)
 {

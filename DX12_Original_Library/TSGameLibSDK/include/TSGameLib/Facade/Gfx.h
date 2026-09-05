@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <type_traits>
+#include <span>
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
 #include "../Core/Handle/ShaderHandle.h"
@@ -233,8 +234,12 @@ namespace Gfx
 	void SetTexture(ModelHandle _model, int _submeshIndex, TexHandle _texture);
 	// 画面全体へ適用するポストエフェクトmaterialを設定する(無効ハンドルを渡した場合は内蔵の素通し描画へ戻します)
 	void SetPostEffect(MaterialHandle _material);
+	// モデルのサブメッシュが使用するAlphaModeを変更するMaskの場合はalphaCutoff未満のピクセルを破棄する
+	bool SetModelAlphaMode(ModelHandle _model, int _subMeshIndex, ModelAlphaMode _alphaMode, float _alphaCutoff = 0.5f);
 	
-	
+	// ModelLODLevelを使って作成した配列を受け取って設定した距離によってモデルを変えるLOD関数(静的モデルのみ対応)
+	void DrawLODModel(std::span<const ModelLODLevel> _levels, const Transform& _transform);
+
 	// テクスチャリソースの解放
 	void Unload(TexHandle _handle);
 	// モデルリソースの開放

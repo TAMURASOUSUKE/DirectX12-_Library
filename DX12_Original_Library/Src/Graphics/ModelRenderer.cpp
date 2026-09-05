@@ -88,209 +88,146 @@ void ModelRenderer::BeginFrame()
 	sceneFrameGPUAddress = 0; // 更新するため0
 }
 
-void ModelRenderer::DrawSkinnedModel(const AnimInstanceData& _anim, const Transform& _transform)
+bool ModelRenderer::PrepareModelData(const Transform& _transform, const AnimInstanceData* _animation, PreparedModelDrawData& _outData)
 {
-	// skinningRingCBVはMAX_BONE_NUM個分しか確保していないため GPUへ送る前に上限を確認する
-	if (_anim.skinningMatrices.size() > MAX_BONE_NUM)
-	{
-		DEBUG_LOG_ERROR("モデルのボーン数が上限を超えています ""boneCount:{} max:{}\n", _anim.skinningMatrices.size(), MAX_BONE_NUM);
-		return;
-	}
-
-	ModelData* model{ GraphicsResourceManager::Instance().Lookup(_anim.modelHandle) }; // ハンドル分解
-	if (!model) return;
-
-	auto cmd{ GraphicsDevice::Instance().GetCommandList() };
+	// まず結果を返す構造体を空にする
+	_outData = {};
 	ModelObjectCB objectData{};
-	if (!TryMakeModelObjectCB(_transform, objectData)) return;
+	if (!TryMakeModelObjectCB(_transform, objectData)) return false;
 
-	cmd->SetGraphicsRootSignature(shaderSystem->GetRootSignature(RootSigID::Model));
-	cmd->SetPipelineState(shaderSystem->GetPipeline(PipelineID::Model));
-
-	DescriptorManager::Instance().SetDiscriptor(cmd);
-	const D3D12_GPU_VIRTUAL_ADDRESS frameDataAddress{ GetSceneFrameGPUAddress() };
-	const D3D12_GPU_VIRTUAL_ADDRESS objectAddress{ modelObjectRingCBV.Update(&objectData, static_cast<UINT>(sizeof(objectData))) };
-	const D3D12_GPU_VIRTUAL_ADDRESS skinningAddress{ skinningRingCBV.Update(_anim.skinningMatrices.data(), sizeof(Mat4x4) * static_cast<UINT>(_anim.skinningMatrices.size())) };
-	const D3D12_GPU_VIRTUAL_ADDRESS lightAddress{ lightSystem->GetFrameGPUAddress() };
-	if ((frameDataAddress <= 0) || (objectAddress <= 0))
+	// モデル個体のGPUAddressの取得
+	const D3D12_GPU_VIRTUAL_ADDRESS objectAdress{ modelObjectRingCBV.Update(&objectData, static_cast<UINT>(sizeof(objectData))) };
+	//スキニングのアドレス
+	D3D12_GPU_VIRTUAL_ADDRESS skinningAddress{ 0 };
+	if (_animation)
 	{
-		DEBUG_LOG_ERROR("モデル変換データのGPU転送に失敗しました\n");
-		return;
+		// サイズと空確認
+		if (_animation->skinningMatrices.empty() || _animation->skinningMatrices.size() > MAX_BONE_NUM)
+		{
+			DEBUG_LOG_ERROR("スキニング行列が不正です Count : {}\n", _animation->skinningMatrices.size());
+			return false;
+		}
+		skinningAddress = skinningRingCBV.Update(_animation->skinningMatrices.data(), static_cast<UINT>(sizeof(Mat4x4) * _animation->skinningMatrices.size()));
 	}
-	if (skinningAddress <= 0)
+	else
 	{
-		DEBUG_LOG_ERROR("スキンのUpdateで失敗しました\n");
-		return;
+		// アニメーションがない場合(静的モデル)
+		skinningAddress = skinningRingCBV.Update(&Mat4x4::Identity, static_cast<UINT>(sizeof(Mat4x4)));
 	}
-	if (lightAddress <= 0)
+
+	if (objectAdress == 0 || skinningAddress == 0)
 	{
-		DEBUG_LOG_ERROR("モデル用SceneLightの取得に失敗しました\n");
-		return;
+		DEBUG_LOG_ERROR("モデル個体データのGPU転送に失敗しました\n");
+		return false;
 	}
-	cmd->SetGraphicsRootConstantBufferView(0, frameDataAddress); // フレーム共通
-	cmd->SetGraphicsRootConstantBufferView(2, skinningAddress); // ボーンを更新
-	cmd->SetGraphicsRootConstantBufferView(4, lightAddress); // ライトの更新
-	cmd->SetGraphicsRootConstantBufferView(5, objectAddress); // モデル個体データ
-	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	_outData.objectAddress = objectAdress;
+	_outData.skinningAddress = skinningAddress;
 
-	// サブメッシュ分回す
-	for (const SubMesh& sub : model->subMeshes)
-	{
-		// material類の更新
-		MaterialCB matCB{};
-		matCB.baseColorFactor = sub.material.baseColorFactor;
-		matCB.metallic = sub.material.metallic;
-		matCB.roughness = sub.material.roughness;
-		matCB.emissiveFactor = sub.material.emissiveFactor;
-		const D3D12_GPU_VIRTUAL_ADDRESS materialAddress{ materialRingCBV.Update(&matCB, sizeof(MaterialCB)) };
-		if (materialAddress <= 0)
-		{
-			DEBUG_LOG_ERROR("マテリアルringbufferのUpateで失敗しました\n");
-			return; // materialのUpdateで失敗したらモデルをあきらめる
-		}
-		cmd->SetGraphicsRootConstantBufferView(1, materialAddress);
-
-		TextureData* tex{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) }; // ベースカラー
-		TextureData* metalllicRoughness{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::MetallicRoughness]) };
-		if (tex)
-		{
-			cmd->SetGraphicsRootDescriptorTable(3, tex->srvHandle.gpu);
-		}
-		else
-		{
-			DEBUG_LOG_ERROR("モデルのLookUpに失敗しました\n");
-			TextureData* error{ GraphicsResourceManager::Instance().Lookup(GraphicsResourceManager::Instance().GetErrorTexture()) }; // エラーハンドルを分解
-			if (!error)
-			{
-				DEBUG_LOG_ERROR("モデルLookup失敗時にエラー用テクスチャのLookUpに失敗しました\n");
-				return;
-			}
-			cmd->SetGraphicsRootDescriptorTable(3, error->srvHandle.gpu);
-		}
-		// メタリックラフネスだけバインドする
-		if (metalllicRoughness)
-		{
-			cmd->SetGraphicsRootDescriptorTable(6, metalllicRoughness->srvHandle.gpu);
-		}
-		else
-		{
-			DEBUG_LOG_ERROR("ラフネスに失敗しました\n");
-			// ラフネスは白色にする(GとBを1にするため。pinkだとBだけ1になってつるつるになる)
-			TextureData* error{ GraphicsResourceManager::Instance().Lookup(GraphicsResourceManager::Instance().GetDefaultTexture()) }; // エラーハンドルを分解
-			if (!error)
-			{
-				DEBUG_LOG_ERROR("ラフネスLookup失敗時にエラー用テクスチャのLookUpに失敗しました\n");
-				return;
-			}
-			cmd->SetGraphicsRootDescriptorTable(6, error->srvHandle.gpu);
-		}
-
-		cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
-		cmd->IASetIndexBuffer(&sub.indexBuffer.indexView);
-		cmd->DrawIndexedInstanced(sub.indexBuffer.indexCount, 1, 0, 0, 0);
-	}
+	return true;
 }
 
-void ModelRenderer::DrawStaticModel(ModelHandle _model, const Transform& _transform)
+bool ModelRenderer::BeginModelDraw()
 {
-	ModelData* model{ GraphicsResourceManager::Instance().Lookup(_model) };
-	if (!model) return; // 無効ハンドルガード
-	auto cmd{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリストのキャッシュ
-	ModelObjectCB objectData{};
-	if (!TryMakeModelObjectCB(_transform, objectData)) return;
+	auto cmd{ GraphicsDevice::Instance().GetCommandList() };
 
-	// パイプライン設定
-	cmd->SetGraphicsRootSignature(shaderSystem->GetRootSignature(RootSigID::Model));
-	cmd->SetPipelineState(shaderSystem->GetPipeline(PipelineID::Model));
+	// VPとカメラ位置をGPUへ転送したアドレスの取得
+	const D3D12_GPU_VIRTUAL_ADDRESS frameAddress{ GetSceneFrameGPUAddress() };
 
-	DescriptorManager::Instance().SetDiscriptor(cmd); // Flushと同じ考え方
-
-	const D3D12_GPU_VIRTUAL_ADDRESS frameDataAddress{ GetSceneFrameGPUAddress() };
-	const D3D12_GPU_VIRTUAL_ADDRESS objectAddress{ modelObjectRingCBV.Update(&objectData, static_cast<UINT>(sizeof(objectData))) };
-	const D3D12_GPU_VIRTUAL_ADDRESS skinningAddress{ skinningRingCBV.Update(&Mat4x4::Identity, sizeof(Mat4x4)) }; // 静的描画なので単位行列
+	// 平行光源と環境光は全モデルで共通するのでLightSystemが用意した今のフレームのアドレスを使う
 	const D3D12_GPU_VIRTUAL_ADDRESS lightAddress{ lightSystem->GetFrameGPUAddress() };
-	if ((frameDataAddress <= 0) || (objectAddress <= 0))
+	if (frameAddress == 0 || lightAddress == 0)
 	{
-		DEBUG_LOG_ERROR("モデル変換データのGPU転送に失敗しました\n");
-		return;
-	}
-	if (skinningAddress <= 0)
-	{
-		DEBUG_LOG_ERROR("スキンのUpdateで失敗しました\n");
-		return;
-	}
-	if (lightAddress <= 0)
-	{
-		DEBUG_LOG_ERROR("モデル用SceneLightの取得に失敗しました\n");
-		return;
+		DEBUG_LOG_ERROR("モデル描画の共通データ取得に失敗しました\n");
+		return false;
 	}
 
-	cmd->SetGraphicsRootConstantBufferView(0, frameDataAddress);
-	cmd->SetGraphicsRootConstantBufferView(2, skinningAddress);
-	cmd->SetGraphicsRootConstantBufferView(4, lightAddress);
-	cmd->SetGraphicsRootConstantBufferView(5, objectAddress); // モデル個体データ
-	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	// RootParamの構成をGPUへ指定
+	cmd->SetGraphicsRootSignature(shaderSystem->GetRootSignature(RootSigID::Model));
+	DescriptorManager::Instance().SetDiscriptor(cmd); // DescriptorHealをCommandListへ設定
+	cmd->SetGraphicsRootConstantBufferView(0, frameAddress); // カメラ位置やVP(b0)
+	cmd->SetGraphicsRootConstantBufferView(4, lightAddress); // ライティング計算(b3)
 
+	// gltfモデルのIndexBufferは3頂点ごとの三角形として扱う。
+	cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	return true;
 
+}
 
-	// submeshループ
-	for (const SubMesh& sub : model->subMeshes)
+bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet)
+{
+	if (!_packet.subMesh || _packet.pipelineID == PipelineID::Count || _packet.preparedData.objectAddress == 0 || _packet.preparedData.skinningAddress == 0)
 	{
-		// material値をCBにつめる
-		MaterialCB matCB{};
-		matCB.baseColorFactor = sub.material.baseColorFactor;
-		matCB.metallic = sub.material.metallic;
-		matCB.roughness = sub.material.roughness;
-		matCB.emissiveFactor = sub.material.emissiveFactor;
-		const D3D12_GPU_VIRTUAL_ADDRESS materialUpdate{ materialRingCBV.Update(&matCB, sizeof(MaterialCB)) };
-		if (materialUpdate <= 0)
-		{
-			DEBUG_LOG_ERROR("マテリアルringbufferのUpateで失敗しました\n");
-			return; // materialのUpdateで失敗したらモデルをあきらめる
-		}
-		// Ringで送ってb1にバインドする
-		cmd->SetGraphicsRootConstantBufferView(1, materialUpdate);
-
-		// テクスチャをバインド
-		TextureData* tex{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::BaseColor]) };
-		TextureData* metalllicRoughness{ GraphicsResourceManager::Instance().Lookup(sub.material.textures[MaterialTex::MetallicRoughness]) };
-		if (tex)
-		{
-			cmd->SetGraphicsRootDescriptorTable(3, tex->srvHandle.gpu);
-		}
-		else
-		{
-			DEBUG_LOG_ERROR("モデルのLookUpに失敗しました\n");
-			TextureData* error{ GraphicsResourceManager::Instance().Lookup(GraphicsResourceManager::Instance().GetDefaultTexture()) }; // エラーハンドルを分解
-			if (!error)
-			{
-				DEBUG_LOG_ERROR("モデルLookup失敗時にエラー用テクスチャのLookUpに失敗しました\n");
-				return;
-			}
-			cmd->SetGraphicsRootDescriptorTable(3, error->srvHandle.gpu);
-		}
-		// メタリックラフネスだけバインドする
-		if (metalllicRoughness)
-		{
-			cmd->SetGraphicsRootDescriptorTable(6, metalllicRoughness->srvHandle.gpu);
-		}
-		else
-		{
-			DEBUG_LOG_ERROR("ラフネスに失敗しました\n");
-			TextureData* error{ GraphicsResourceManager::Instance().Lookup(GraphicsResourceManager::Instance().GetErrorTexture()) }; // エラーハンドルを分解
-			if (!error)
-			{
-				DEBUG_LOG_ERROR("ラフネスLookup失敗時にエラー用テクスチャのLookUpに失敗しました\n");
-				return;
-			}
-			cmd->SetGraphicsRootDescriptorTable(6, error->srvHandle.gpu);
-		}
-
-		// 頂点インデックスをバインド
-		cmd->IASetVertexBuffers(0, 1, &sub.vertexBuffer.vertexView);
-		cmd->IASetIndexBuffer(&sub.indexBuffer.indexView);
-		cmd->DrawIndexedInstanced(sub.indexBuffer.indexCount, 1, 0, 0, 0);
+		DEBUG_LOG_ERROR("ModelDrawPacketの内容が不正です\n");
+		return false;
 	}
+	auto cmd{ GraphicsDevice::Instance().GetCommandList() };
+
+	// 名前を読みやすくするための参照
+	const SubMesh& subMesh{ *_packet.subMesh };
+	ID3D12PipelineState* pipeline{ shaderSystem->GetPipeline(_packet.pipelineID) };
+	if (!pipeline)
+	{
+		DEBUG_LOG_ERROR("モデル用Pipelineの取得に失敗しました\n");
+		return false;
+	}
+	cmd->SetPipelineState(pipeline);
+
+	// 静的モデルの場合は単位行列1個
+	cmd->SetGraphicsRootConstantBufferView(2, _packet.preparedData.skinningAddress); // (b2)
+	// World行列と法線用の逆転置行列
+	cmd->SetGraphicsRootConstantBufferView(5, _packet.preparedData.objectAddress); // (b5) 
+
+	// materialはサブメッシュごとに転送
+	MaterialCB materialCB{};
+	materialCB.baseColorFactor = subMesh.material.baseColorFactor;
+	materialCB.metallic = subMesh.material.metallic;
+	materialCB.roughness = subMesh.material.roughness;
+	materialCB.alphaMode = static_cast<std::uint32_t>(subMesh.material.alphaMode); // 32bit値へ変換を掛ける
+	materialCB.alphaCutoff = subMesh.material.alphaCutoff;
+
+	// 現在フレームから未使用スライスの取得->MaterialCBのコピー
+	const D3D12_GPU_VIRTUAL_ADDRESS materialAddress{ materialRingCBV.Update(&materialCB, static_cast<UINT>(sizeof(materialCB))) };
+	if (materialAddress == 0)
+	{
+		DEBUG_LOG_ERROR("materialCBのGPU転送に失敗しました\n");
+		return false;
+	}
+
+	cmd->SetGraphicsRootConstantBufferView(1, materialAddress); // (b1)
+
+	// BaseColor
+	TextureData* baseColorTexture{ GraphicsResourceManager::Instance().Lookup(subMesh.material.textures[MaterialTex::BaseColor])}; // (t0)
+	if (!baseColorTexture)
+	{
+		// 欠落等が起こった場合にはエラーテクスチャ
+		baseColorTexture = GraphicsResourceManager::Instance().Lookup(GraphicsResourceManager::Instance().GetErrorTexture());
+	}
+	if (!baseColorTexture)
+	{
+		// エラーテクスチャも失敗したらログ
+		DEBUG_LOG_ERROR("BaseColorとErrorTextureの取得に失敗しました\n");
+		return false;
+	}
+	cmd->SetGraphicsRootDescriptorTable(3, baseColorTexture->srvHandle.gpu); // (t0)
+
+	// Roughnessはt1 glTFではG = Roughness B = Metallicとして使う
+	const TexHandle metallicRoughnessHandle{ subMesh.material.textures[MaterialTex::MetallicRoughness] };
+	TextureData* metallicRoughnessTexture{ nullptr };
+
+	// ラフネスが有効な場合に読み込む
+	if (metallicRoughnessHandle.IsValid()) metallicRoughnessTexture = GraphicsResourceManager::Instance().Lookup(metallicRoughnessHandle);
+	if (!metallicRoughnessTexture)
+	{
+		// MetallicRoughnessがない場合はデフォルトが読み込まれる MetallicもBaseColor同様エラーテクスチャを使うとわかりにくいのでデフォルトの白色を使う
+		metallicRoughnessTexture = GraphicsResourceManager::Instance().Lookup(GraphicsResourceManager::Instance().GetDefaultTexture());
+	}
+	cmd->SetGraphicsRootDescriptorTable(6, metallicRoughnessTexture->srvHandle.gpu); // (t1)
+
+	cmd->IASetVertexBuffers(0, 1, &subMesh.vertexBuffer.vertexView); // InputAssemblerへ登録
+	cmd->IASetIndexBuffer(&subMesh.indexBuffer.indexView); // 頂点Indexを登録(読み込み時点で右手系から左手系にしている)
+
+	cmd->DrawIndexedInstanced(subMesh.indexBuffer.indexCount, 1, 0, 0, 0); // IndexBufferの要素数分描画
+	return true;
 }
 
 D3D12_GPU_VIRTUAL_ADDRESS ModelRenderer::GetSceneFrameGPUAddress()

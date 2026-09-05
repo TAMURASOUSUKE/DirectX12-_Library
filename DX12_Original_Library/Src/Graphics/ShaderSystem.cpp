@@ -787,7 +787,6 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 		return false;
 	}
 
-
 	// 生成して登録
 	ComPtr<ID3D12PipelineState> pipeline{ BuildGraphicsPipeline(_desc, vs, ps, hs, ds, gs)};
 
@@ -1106,8 +1105,8 @@ ComPtr<ID3D12PipelineState> ShaderSystem::BuildGraphicsPipeline(const GraphicsPi
 
 	// ラスタライザ設定
 	nativeDesc.RasterizerState.FillMode = _desc.fillMode; // 塗るかwireか
-	nativeDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE; // 一旦全てNone(今後モデル等では拡張する可能性あり)
-	nativeDesc.RasterizerState.FrontCounterClockwise = false;
+	nativeDesc.RasterizerState.CullMode = _desc.cullMode;
+	nativeDesc.RasterizerState.FrontCounterClockwise = _desc.frontCounterClockwise; // ポリゴンのどちらを表とするか
 
 	// 深度範囲外の頂点をクリップする
 	nativeDesc.RasterizerState.DepthClipEnable = true;
@@ -1126,6 +1125,7 @@ ComPtr<ID3D12PipelineState> ShaderSystem::BuildGraphicsPipeline(const GraphicsPi
 	// MSAAなし
 	nativeDesc.SampleDesc.Count = 1;
 	nativeDesc.SampleDesc.Quality = 0;
+
 
 	// 生成して登録
 	ComPtr<ID3D12PipelineState> pipeline{};

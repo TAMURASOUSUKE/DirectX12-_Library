@@ -31,6 +31,8 @@ namespace System
 	bool SetWindowMode(WindowMode _mode);
 	// 現在のWindowModeを取得する
 	WindowMode GetWindowMode();
+	// EXEへ埋め込まれたResourceIDのアイコンをWindowへ設定する
+	bool SetWindowIcon(int _resourceID);
 	// ゲームの終了を要求する
 	void RequestQuit();
 }

@@ -1,13 +1,20 @@
 #pragma once
 #include <cstddef>
-// ユーザーに公開可能な構造体や型を作る
-
+#include "../Core/Handle/ModelHandle.h"
 
 // 描画するスプライトのレイヤー
 enum class RenderLayer
 {
 	BackGround, // 3D描画より後ろ
 	ForeGround, // 3D描画より手前
+};
+
+// モデルマテリアルの透明表現
+enum class ModelAlphaMode
+{
+	Opaque, // 完全不透明
+	Mask, // AlphaCutoffを基準に描画するか完全破棄する
+	Blend, // 背景色とAlphaで混ぜる
 };
 
 // シェーダーを適用する描画用途
@@ -30,5 +37,15 @@ enum class ShaderStage
 	Compute,
 };
 
+// 1段階分のLOD設定
+struct ModelLODLevel
+{
+	float minDistance{ 0.0f };
+	// この段階で描画するモデル
+	ModelHandle model{};
+};
+
 // MaterialParameterの1スロットへ保存できる最大サイズ
 inline constexpr std::size_t MAX_MATERIAL_PARAMETER_SIZE{ 256 };
+
+

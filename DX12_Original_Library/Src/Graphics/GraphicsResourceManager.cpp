@@ -906,18 +906,16 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 		cgltf_node_transform_world(node, nodeColMajor); // 列優先の16要素で親をたどり最終的なワールド行列を計算する(列優先 + 16要素は下で解決)
 
 		// 列優先　-> 行優先に変更
-		Mat4x4 tmp
+		Mat4x4 nodeMat
 		{
 			Vector4{ nodeColMajor[0],  nodeColMajor[1],  nodeColMajor[2],  nodeColMajor[3]  },
 			Vector4{ nodeColMajor[4],  nodeColMajor[5],  nodeColMajor[6],  nodeColMajor[7]  },
 			Vector4{ nodeColMajor[8],  nodeColMajor[9],  nodeColMajor[10], nodeColMajor[11] },
 			Vector4{ nodeColMajor[12], nodeColMajor[13], nodeColMajor[14], nodeColMajor[15] },
 		};
-		// 転置して正しい行優先に直す
-		Mat4x4 nodeMat{ Mat4x4::MakeTransposed(tmp) };
 		//　右手系から左手系に
 		Mat4x4 zFlip{ Mat4x4::MakeScaling(Vector3{1.0f, 1.0f, -1.0f}) };
-		Mat4x4 filnalMat{ nodeMat * zFlip };
+		Mat4x4 finalMat{ nodeMat * zFlip };
 
 		// このnodeがさすmeshのprimitiveを処理する
 		const cgltf_mesh& mesh{ *node->mesh };
@@ -964,7 +962,7 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 				{
 					// ノード変換を焼き込む
 					Vector4 p{ localPos[0], localPos[1], localPos[2], 1.0f };
-					worldPos = Mat4x4::Mul(p, filnalMat);
+					worldPos = Mat4x4::Mul(p, finalMat);
 				}
 
 				verticesData[k].position[0] = worldPos.x;
@@ -1005,10 +1003,27 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 
 			}
 
-			for (cgltf_size k = 0; k < indexCount; k++)
+			// Triangleか
+			if (prim.type != cgltf_primitive_type_triangles)
+			{
+				DEBUG_LOG_WARNING("Triangle以外のPrimitiveは現在対応していません\n");
+				continue;
+			}
+			// 三角形情報の確認
+			if (!prim.indices || indexCount % 3 != 0)
+			{
+				DEBUG_LOG_WARNING("モデルのIndex情報が三角形として不正です\n");
+				continue;
+			}
+
+			for (cgltf_size k = 0; k < indexCount; k += 3)
 			{
 				// indexも読む
 				indicesData[k] = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, k));
+
+				// 右手系->左手系に合わせてインデックス順を逆にするため2番目を3番に3番目を2番目にする
+				indicesData[k + 1] = static_cast<std::uint32_t>(cgltf_accessor_read_index(prim.indices, k + 2));
+				indicesData[k + 2] = static_cast<std::uint32_t>(cgltf_accessor_read_index(prim.indices, k + 1));
 			}
 
 			// 静的なGPUバッファ作成
@@ -1045,6 +1060,23 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 				sub.material.metallic = prim.material->pbr_metallic_roughness.metallic_factor;
 				sub.material.roughness = prim.material->pbr_metallic_roughness.roughness_factor;
 				sub.material.emissiveFactor = ToVec3(prim.material->emissive_factor);
+				sub.material.doubleSided = prim.material->double_sided != 0;	// cgltf_boolをboolへ明示的な変換
+
+				// AlphaModeの変換
+				switch (prim.material->alpha_mode)
+				{
+				case cgltf_alpha_mode_mask:
+					sub.material.alphaMode = MaterialAlphaMode::Mask;
+					break;
+				case cgltf_alpha_mode_blend:
+					sub.material.alphaMode = MaterialAlphaMode::Blend;
+					break;
+				case cgltf_alpha_mode_opaque:
+				default:
+					sub.material.alphaMode = MaterialAlphaMode::Opaque;
+					break;
+				}
+				sub.material.alphaCutoff = prim.material->alpha_cutoff;
 			}
 
 			// BaseColorハンドルが無効なら白にする

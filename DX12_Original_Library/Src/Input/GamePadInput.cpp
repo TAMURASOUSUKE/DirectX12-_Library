@@ -55,27 +55,6 @@ void GamePadInput::Update()
 		}
 	}
 
-#ifdef _DEBUG
-	static bool connectionLogged{ false };
-	if (result == ERROR_SUCCESS)
-	{
-		if (!connectionLogged)
-		{
-			DEBUG_LOG("XInputコントローラーを検出しました Index : {}\n", controllerIndex);
-			connectionLogged = true;
-		}
-		const DWORD pushed{ static_cast<DWORD>(state.Gamepad.wButtons & ~prevPad.wButtons) };
-		if (pushed != 0)
-		{
-			DEBUG_LOG("Pad入力を検知しました Buttons : 0x{:04X}\n", pushed);
-		}
-	}
-	else if (!connectionLogged)
-	{
-		DEBUG_LOG_WARNING("XInputコントローラーを0-3から検出できません\n");
-	}
-#endif // _DEBUG
-
 
 	if (ERROR_SUCCESS == result)
 	{

@@ -132,6 +132,11 @@ bool SystemInternal::Initialize(const wchar_t* _title, int _width, int _height, 
 	 return WindowMode::Windowed;
  }
 
+ bool System::SetWindowIcon(int _resourceID)
+ {
+	 return window.SetWindowIcon(_resourceID);
+ }
+
  void System::RequestQuit()
  {
 	 window.RequestQuit();

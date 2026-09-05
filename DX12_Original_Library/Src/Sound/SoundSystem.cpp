@@ -52,6 +52,7 @@ bool SoundSystem::Setup()
 
 void SoundSystem::Update(float _deltaTime)
 {
+	if (isAllPaused) return; // 音声が停止中ならクロスフェード時間も進めない
 	if (!isCrossfading) return; // フェード中のフラグが立っていないと行わない
 	if (currentBGM.isPaused) return; // 再生停止中なら計算も止める
 
@@ -434,6 +435,35 @@ bool SoundSystem::IsStopAllSE()
 	return result;
 }
 
+bool SoundSystem::SetAllPaused(bool _paused)
+{
+	if (!audioEngine)
+	{
+		DEBUG_LOG_ERROR("SoundSystem初期化前に一時停止状態をへんこうできません\n");
+		return false;
+	}
+	// 同じ状態は拒否
+	if (isAllPaused == _paused) return true;
+
+	if (_paused)
+	{
+		// 全ResourceVoiceを現在の再生位置でまとめて停止(バッファを破棄しないので同じ位置から再開可能)
+		audioEngine->StopEngine();
+		isAllPaused = true;
+		return true;
+	}
+
+	// 同じ位置から再開する
+	const HRESULT result{ audioEngine->StartEngine() };
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("AudioEngineの再開に失敗しました\n HRESULT : {}", static_cast<unsigned long>(result));
+		return false;
+	}
+	isAllPaused = false;
+	return true;
+}
+
 void SoundSystem:: Cleanup()
 {
 	// voiceをクリアする
@@ -460,4 +490,5 @@ void SoundSystem:: Cleanup()
 		// デストラクタではなく明示的にここで廃棄することでCoUnInitializeするより前に破棄できる
 		audioEngine.Reset();
     }
+	isAllPaused = false;
 }
