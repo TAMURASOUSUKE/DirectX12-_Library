@@ -237,7 +237,15 @@ namespace Gfx
 	// モデルのサブメッシュが使用するAlphaModeを変更するMaskの場合はalphaCutoff未満のピクセルを破棄する
 	bool SetModelAlphaMode(ModelHandle _model, int _subMeshIndex, ModelAlphaMode _alphaMode, float _alphaCutoff = 0.5f);
 	
-	// ModelLODLevelを使って作成した配列を受け取って設定した距離によってモデルを変えるLOD関数(静的モデルのみ対応)
+	/// <summary>
+	/// ModelLODLevelを使って作成した配列を受け取って設定した距離によってモデルを変えるLOD関数(静的モデルのみ対応)
+	/// LODModelStateは内部のモデル状態を自動で変更、保持する構造体なので定義してそのまま使って下さい。
+	/// HysteresisDistanceはLOD境界のちらつきを抑えるものです。近づくときは設定閾値 - HysteresisDistance、離れるときは設定閾値 + HysteresisDistanceが自動的に行われ、最終的な閾値が動的に変動します
+	/// </summary>
+	/// <param name="_levels">Level設定構造体の配列</param>
+	/// <param name="_state">内部のLOD状態を保持する構造体</param>
+	/// <param name="_transform">描画位置、回転、サイズ等を保持したTranform</param>
+	/// <param name="_hysteresisDistance">境界の幅(Level構造体により設定された閾値に加えてこの値がデッドゾーン幅になります)</param>
 	void DrawLODModel(std::span<const ModelLODLevel> _levels, ModelLODState& _state, const Transform& _transform, float _hysteresisDistance);
 
 	// テクスチャリソースの解放

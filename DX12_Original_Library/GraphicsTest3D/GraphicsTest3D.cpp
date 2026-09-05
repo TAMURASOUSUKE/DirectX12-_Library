@@ -35,6 +35,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	ModelHandle heighField{ Gfx::LoadModel("Res/japanese_terrain_lod0.glb") };
 	ModelHandle middleField{ Gfx::LoadModel("Res/japanese_terrain_lod1.glb") };
 	ModelHandle lowField{ Gfx::LoadModel("Res/japanese_terrain_lod2.glb") };
+	ModelLODState lodFieldState{}; // LODの状態
+	constexpr float LOD_HYSTERESIS_DISTANCE{ 1.0f }; // 境界の前後1mを切り替え猶予にする
 	std::vector<ModelLODLevel> levels
 	{
 		{0.0f, heighField},
@@ -178,6 +180,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		std::string unscaledDeltaTime{ std::format("CurrentUnscaledDeltaTime: {:.6f}", Time::UnscaledDeltaTime()) };
 		std::string deltaTime{ std::format("CurrentDeltaTime : {:.3f}", Time::DeltaTime()) };
 		std::string timeScale{ std::format("CurrentTimeScale : {:.2f}", Time::GetTimeScale()) };
+		const std::string lodText{ std::format("Current LOD : {}", lodFieldState.currentLevelIndex) };
 
 		// ウィンドウモード変更チェック
 		if (Input::IsKeyPushed(KeyCode::Button::RETURN)) isFullscreen = !isFullscreen;
@@ -208,7 +211,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		// Gfx::DrawTerrain({ 0.0f, 0.0f, 3.0f }, 10.0f, tessFactor, heightFactor, {1.0f, 0.0f, 0.0f, 1.0f}, heightMap);
 
 		// LOD描画
-		// Gfx::DrawLODModel(levels, lodFieldPosition);
+		Gfx::DrawLODModel(levels, lodFieldState,lodFieldPosition, LOD_HYSTERESIS_DISTANCE);
 		Gfx::DrawAxis3D(lodFieldPosition.GetPosition(), lodFieldPosition.GetRotation(), 10.0f);
 
 		Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });
@@ -216,6 +219,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawString(unscaledDeltaTime.c_str(), { 0.0f, 60.0f });
 		Gfx::DrawString(deltaTime.c_str(), { 0.0f, 90.0f });
 		Gfx::DrawString(timeScale.c_str(), { 0.0f, 120.0f });
+		Gfx::DrawString(lodText.c_str(), { 0.0f, 150.0f });
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}
