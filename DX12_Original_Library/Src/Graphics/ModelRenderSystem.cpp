@@ -160,20 +160,55 @@ bool ModelRenderSystem::RegisterLOD(std::span<const ModelLODLevel> _levels, Mode
 	}
 
 	const float distanceSqueared{ Vector3::DistanceSquared(cameraSystem->GetCameraPosition(), _transform.GetPosition()) }; // モデル位置からカメラ距離の二乗
-	// 最初は最も近いLOD
-	ModelHandle selectedModel{ _levels.front().model };
-	// 距離条件を満たす度より遠距離用モデルへ更新
-	for (const ModelLODLevel& level : _levels)
+	
+	// 初回またはLODの設定数の変更によって保存ずみIndexが範囲外になった場合はヒステリシスなしの現在距離参照にする
+	if (!_state.isInitialized || _levels.size() <= _state.currentLevelIndex)
 	{
-		// 閾値を動的に変更するヒステリシス動作はあとで実装
-		const float thresholdSquared{ level.minDistance * level.minDistance }; // 二乗で比較するのでここも二乗にする
-		if (distanceSqueared < thresholdSquared) break; // 昇順なのでこれ以降のLODも条件を満たさない
+		std::size_t selectedIndex{ 0 };
+		// 初回は以前どのLODだったかが存在しないので通常のMindistanceを使う
+		for (std::size_t index = 1; index < _levels.size(); index++)
+		{
+			const float threshold{ _levels[index].minDistance };
+			const float thresholdSquared{ threshold * threshold };
+			// 昇順なのでこれ以降のLODも条件を満たさない
+			if (distanceSqueared < thresholdSquared) break;
 
-		selectedModel = level.model;
+			selectedIndex = index;
+		}
+		_state.currentLevelIndex = selectedIndex;
+		_state.isInitialized = true;
 	}
-	// 選択された1モデルだけを既存RenderQueueへ登録する
-	return renderQueue.Register(selectedModel, _transform); // 一旦静的
+	else
+	{
+		// テレポート等に対応できるようにwhile(1フレームで複数の境界をまたいだ場合にはそのフレーム内で正しい位置に移動できるようにする)
 
+		// カメラから遠ざかる方の判定
+		while (_state.currentLevelIndex + 1 < _levels.size())
+		{
+			// 通常境界よりヒステリシス閾値分だけ遠く進むまで低詳細LODに切り替えない
+			const std::size_t nextIndex{ _state.currentLevelIndex + 1 };
+			const float switchDistance{ _levels[nextIndex].minDistance + _hysteresisDistance }; // 低詳細に設定されている距離 + ヒステリシス
+			const float switchDistanceSquared{ switchDistance * switchDistance };
+
+			if (distanceSqueared < switchDistanceSquared) break; // 昇順のため
+			_state.currentLevelIndex++; // 現在のレベルを移動させる
+		}
+
+		// カメラに近づく方向の設定
+		while (_state.currentLevelIndex > 0)
+		{
+			// 通常境界よりヒステリシス閾値分だけ近づくまで低詳細LODに切り替えない
+			const float switchDistance{ (std::max)(_levels[_state.currentLevelIndex].minDistance - _hysteresisDistance, 0.0f) };
+			const float switchDistanceSquared{ switchDistance * switchDistance };
+
+			// 切り替え距離より遠ければ現在のLODを維持
+			if (distanceSqueared >= switchDistanceSquared) break; // 昇順のため
+			_state.currentLevelIndex--; // 現在のレベルを移動させる
+		}
+	}
+
+	// 状態が選択しているモデルだけ既存のRenderQueueへ登録する
+	return renderQueue.Register(_levels[_state.currentLevelIndex].model, _transform);
 }
 
 bool ModelRenderSystem::AppendDrawPackets(const ModelData& _model, const AnimInstanceData* _animation, const Transform& _transform)

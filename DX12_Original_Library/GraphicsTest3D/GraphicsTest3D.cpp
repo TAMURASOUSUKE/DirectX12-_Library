@@ -208,7 +208,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		// Gfx::DrawTerrain({ 0.0f, 0.0f, 3.0f }, 10.0f, tessFactor, heightFactor, {1.0f, 0.0f, 0.0f, 1.0f}, heightMap);
 
 		// LOD描画
-		Gfx::DrawLODModel(levels, lodFieldPosition);
+		// Gfx::DrawLODModel(levels, lodFieldPosition);
 		Gfx::DrawAxis3D(lodFieldPosition.GetPosition(), lodFieldPosition.GetRotation(), 10.0f);
 
 		Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });
