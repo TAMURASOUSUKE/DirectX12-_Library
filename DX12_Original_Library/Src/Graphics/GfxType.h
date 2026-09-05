@@ -45,6 +45,18 @@ struct ModelLODLevel
 	ModelHandle model{};
 };
 
+// 一つの描画対象が前フレームまで使用していたLODを保持(ヒステリシスを行うための閾値を決定づけるために必要)
+struct ModelLODState
+{
+	std::size_t currentLevelIndex{ 0 }; // 現在選択してるLOD
+	bool isInitialized{ false }; // 初回は過去のLODがないので通常の距離判定を行う
+	void Reset()
+	{
+		currentLevelIndex = 0;
+		isInitialized = false;
+	}
+};
+
 // MaterialParameterの1スロットへ保存できる最大サイズ
 inline constexpr std::size_t MAX_MATERIAL_PARAMETER_SIZE{ 256 };
 

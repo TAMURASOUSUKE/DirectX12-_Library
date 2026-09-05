@@ -34,7 +34,7 @@ public:
 	bool Register(AnimInstanceHandle _animInstance, const Transform& _transform);
 
 	// カメラ距離に応じたモデルを一つ選び描画依頼として登録する
-	bool RegisterLOD(std::span<const ModelLODLevel> _levels, const Transform& _transform);
+	bool RegisterLOD(std::span<const ModelLODLevel> _levels, ModelLODState& _state, const Transform& _transform, float _hysteresisDistance);
 
 private:
 	// 渡されたデータから静的かスキニングかを判断してサブメッシュへ展開する

@@ -38,8 +38,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	std::vector<ModelLODLevel> levels
 	{
 		{0.0f, heighField},
-		{100.0f, middleField},
-		{500.0f, lowField}
+		{10.0f, middleField},
+		{15.0f, lowField}
 	};
 	Transform lodFieldPosition{};
 	lodFieldPosition.SetPosition({0.0f, -1.0f, 2.0f});
@@ -201,7 +201,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawPlane3D(plane, { 0.0f, 0.3f, 0.4f }, Gfx::Primitive3DStyle::Fill);
 		//Gfx::DrawLine3D({ 2.0f, 1.0f, 6.0f }, {-1.0f, -3.0f, 6.0f});
 		// Gfx::DrawGrid3D({ 0.0f, -1.0f, 5.0f }, Quaternion::FromEuler(-45.0f * Math::DEG_TO_RAD, 0.0f, 0.0f), 10, 1.0f, {0.4f, 0.4f, 0.4f, 1.0f});
-		/* Gfx::DrawWorldAxisGrid3D({ 0.0f, -1.0f, 5.0f }, 10, 1.0f,{1.0f, 1.0f, 1.0f, 1.0}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f});*/
+		 Gfx::DrawWorldAxisGrid3D({ 0.0f, -1.0f, 5.0f }, 10, 1.0f,{1.0f, 1.0f, 1.0f, 1.0}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f});
 		Gfx::DrawAxis3D(objectPosition.GetPosition(), objectPosition.GetRotation());
 		 //Gfx::DrawAABB3D(playerAABB,hitColor);
 		 //Gfx::DrawAABB3D(debugCube,{ 0.0f, 0.0f, 1.0f, 1.0f });
@@ -209,6 +209,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// LOD描画
 		Gfx::DrawLODModel(levels, lodFieldPosition);
+		Gfx::DrawAxis3D(lodFieldPosition.GetPosition(), lodFieldPosition.GetRotation(), 10.0f);
 
 		Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });
 		Gfx::DrawString(targetFPS.c_str(), { 0.0f, 30.0f });

@@ -238,7 +238,7 @@ namespace Gfx
 	bool SetModelAlphaMode(ModelHandle _model, int _subMeshIndex, ModelAlphaMode _alphaMode, float _alphaCutoff = 0.5f);
 	
 	// ModelLODLevelを使って作成した配列を受け取って設定した距離によってモデルを変えるLOD関数(静的モデルのみ対応)
-	void DrawLODModel(std::span<const ModelLODLevel> _levels, const Transform& _transform);
+	void DrawLODModel(std::span<const ModelLODLevel> _levels, ModelLODState& _state, const Transform& _transform, float _hysteresisDistance);
 
 	// テクスチャリソースの解放
 	void Unload(TexHandle _handle);

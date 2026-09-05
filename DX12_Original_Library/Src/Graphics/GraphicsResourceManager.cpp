@@ -915,7 +915,7 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 		};
 		//　右手系から左手系に
 		Mat4x4 zFlip{ Mat4x4::MakeScaling(Vector3{1.0f, 1.0f, -1.0f}) };
-		Mat4x4 filnalMat{ nodeMat * zFlip };
+		Mat4x4 finalMat{ nodeMat * zFlip };
 
 		// このnodeがさすmeshのprimitiveを処理する
 		const cgltf_mesh& mesh{ *node->mesh };
@@ -962,7 +962,7 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 				{
 					// ノード変換を焼き込む
 					Vector4 p{ localPos[0], localPos[1], localPos[2], 1.0f };
-					worldPos = Mat4x4::Mul(p, filnalMat);
+					worldPos = Mat4x4::Mul(p, finalMat);
 				}
 
 				verticesData[k].position[0] = worldPos.x;

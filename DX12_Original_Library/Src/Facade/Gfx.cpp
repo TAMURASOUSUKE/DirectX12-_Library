@@ -1427,9 +1427,9 @@ bool Gfx::SetModelAlphaMode(ModelHandle _model, int _subMeshIndex, ModelAlphaMod
 	return true;
 }
 
-void Gfx::DrawLODModel(std::span<const ModelLODLevel> _levels, const Transform& _transform)
+void Gfx::DrawLODModel(std::span<const ModelLODLevel> _levels, ModelLODState& _state, const Transform& _transform, float _hysteresisDistance)
 {
-	if (!modelRenderSystem.RegisterLOD(_levels, _transform)) return;
+	if (!modelRenderSystem.RegisterLOD(_levels, _state, _transform, _hysteresisDistance)) return;
 }
 
 // 解放

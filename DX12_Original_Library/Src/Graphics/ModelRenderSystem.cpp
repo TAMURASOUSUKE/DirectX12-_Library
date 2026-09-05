@@ -119,7 +119,7 @@ bool ModelRenderSystem::Register(AnimInstanceHandle _animInstance, const Transfo
 	return renderQueue.Register(_animInstance, _transform);
 }
 
-bool ModelRenderSystem::RegisterLOD(std::span<const ModelLODLevel> _levels, const Transform& _transform)
+bool ModelRenderSystem::RegisterLOD(std::span<const ModelLODLevel> _levels, ModelLODState& _state, const Transform& _transform, float _hysteresisDistance)
 {
 	// LOD設定がなければ描画するモデルを選べないのでfalse
 	if (_levels.empty())
