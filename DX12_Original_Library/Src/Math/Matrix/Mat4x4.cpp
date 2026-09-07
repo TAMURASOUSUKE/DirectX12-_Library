@@ -158,7 +158,21 @@ Mat4x4 Mat4x4::MakeOrthGraphic(float _width, float _height)
 
 Mat4x4 Mat4x4::MakeOrthGraphic(float _width, float _height, float _nearZ, float _farZ)
 {
+	// NearからFarまでの奥行き幅(Z座標をDirectXの進度範囲の0-1にする)
+	const float depthRange{ _farZ - _nearZ };
 
+	Mat4x4 result
+	{
+		// Xを-width / 2 ~ width / 2から NDCの-1~+1へ
+		Vector4{2.0f / _width, 0.0f, 0.0f, 0.0f},
+		// Yを-height / 2 ~ height / 2から NDCの-1~+1へ(3D空間なのでY反転は行わない)
+		Vector4{0.0f, 2.0f / _height, 0.0f, 0.0f},
+		// ZをNear~Farから0-1へ縮小
+		Vector4{0.0f, 0.0f, 1.0f / depthRange, 0.0f},
+		// Nearの位置が深度0になるように移動する
+		Vector4{0.0f, 0.0f, -_nearZ / depthRange, 1.0f}
+	};
+	return result;
 }
 
 Vector4 Mat4x4::Mul(const Vector4& _vec, const Mat4x4& _mat)
