@@ -156,6 +156,11 @@ Mat4x4 Mat4x4::MakeOrthGraphic(float _width, float _height)
 	return result;
 }
 
+Mat4x4 Mat4x4::MakeOrthGraphic(float _width, float _height, float _nearZ, float _farZ)
+{
+
+}
+
 Vector4 Mat4x4::Mul(const Vector4& _vec, const Mat4x4& _mat)
 {
 	Vector4 result{}; // 結果を返すためのベクトル
