@@ -163,6 +163,7 @@
     <ClInclude Include="Src\Collision\CollisionSystem.h" />
     <ClInclude Include="Src\Component\Camera.h" />
     <ClInclude Include="Src\Component\Light.h" />
+    <ClInclude Include="Src\Component\Shadow.h" />
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\AnimInstanceHandle.h" />
     <ClInclude Include="Src\Core\Handle\HandlePacking.h" />
@@ -216,6 +217,7 @@
     <ClInclude Include="Src\Graphics\Primitive3DSystem.h" />
     <ClInclude Include="Src\Graphics\RingConstantBuffer.h" />
     <ClInclude Include="Src\Graphics\ShaderSystem.h" />
+    <ClInclude Include="Src\Graphics\ShadowSystem.h" />
     <ClInclude Include="Src\Graphics\ShapeBatch.h" />
     <ClInclude Include="Src\Graphics\SpriteBatch.h" />
     <ClInclude Include="Src\Input\ActionInput.h" />
@@ -293,6 +295,7 @@
     <ClCompile Include="Src\Graphics\Primitive3DSystem.cpp" />
     <ClCompile Include="Src\Graphics\RingConstantBuffer.cpp" />
     <ClCompile Include="Src\Graphics\ShaderSystem.cpp" />
+    <ClCompile Include="Src\Graphics\ShadowSystem.cpp" />
     <ClCompile Include="Src\Graphics\ShapeBatch.cpp" />
     <ClCompile Include="Src\Graphics\SpriteBatch.cpp" />
     <ClCompile Include="Src\Input\ActionInput.cpp" />

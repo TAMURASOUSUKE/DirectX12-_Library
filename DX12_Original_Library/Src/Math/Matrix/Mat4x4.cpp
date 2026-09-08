@@ -50,9 +50,9 @@ Mat4x4 Mat4x4::MakeRotationY(float _radians)
 
 	Mat4x4 result
 	{
-		Vector4{cosCache, 0.0f, sinCache, 0.0f},
+		Vector4{cosCache, 0.0f, -sinCache, 0.0f},
 		Vector4{0.0f, 1.0f, 0.0f, 0.0f},
-		Vector4{-sinCache, 0.0f, cosCache, 0.0f},
+		Vector4{sinCache, 0.0f, cosCache, 0.0f},
 		Vector4{ 0.0f, 0.0f, 0.0f, 1.0f}
 	};
 
