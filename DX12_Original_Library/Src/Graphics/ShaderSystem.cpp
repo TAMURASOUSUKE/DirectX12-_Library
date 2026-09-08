@@ -766,7 +766,7 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 	}
 
 	// 指定した任意ステージが取得できなかった場合
-	if (_desc.ps != BuiltinShaderID::None && !ps.pShaderBytecode || ps.BytecodeLength == 0)
+	if (_desc.ps != BuiltinShaderID::None && (!ps.pShaderBytecode || ps.BytecodeLength == 0))
 	{
 		DEBUG_LOG_ERROR("内蔵PSの取得に失敗しました\n");
 		return false;

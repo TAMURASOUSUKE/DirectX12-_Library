@@ -266,7 +266,7 @@ bool ShadowSystem::CreateShadowMap(UINT _resolution)
 
 bool ShadowSystem::TransitionResource(ID3D12GraphicsCommandList* _commandList, D3D12_RESOURCE_STATES _nextState)
 {
-	if (_commandList || !shadowMap)
+	if (!_commandList || shadowMap)
 	{
 		DEBUG_LOG_ERROR("ShadowMapのResourceStateを変更できません CommandListまたはShadowMapが向こうです\n");
 		return false;
@@ -280,7 +280,7 @@ bool ShadowSystem::TransitionResource(ID3D12GraphicsCommandList* _commandList, D
 	barrier.Transition.pResource = shadowMap.Get();
 	barrier.Transition.StateBefore = resourceState; // CPU側で記録している現在のState
 	barrier.Transition.StateAfter = _nextState; // この後の処理で必要になるState
-	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES; // ShadowMapにMipMapを持たせていないためResource全体をまとめて遷移させる
+	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES; // ShadowMapには単純な1枚のテクスチャのため0でも良いが可読性を重視してALL_SUBRESOURCESを使っている
 	_commandList->ResourceBarrier(1, &barrier);
 	resourceState = _nextState;
 	return true;

@@ -111,6 +111,14 @@ enum class DepthParam
 	Count,
 };
 
+// GraphicsPipelineが色を書き込むRenderTargetの設定
+enum class ColorTargetParam
+{
+	SceneColor, // 通常の画面色へ出力する
+	None,       // ShadowPassなど、色を出力せず深度だけ書き込む
+	Count,
+};
+
 // DescriptorTabel内の1レンジ
 struct DescriptorRangeDesc
 {
