@@ -138,16 +138,38 @@ bool ShadowSystem::UpdateDirectionalLightMatrices(const DirectionalLight& _light
 		return false;
 	}
 
+	// 平行光源を単位ベクトルへ
 	const Vector3 lightDirection{ Vector3::Normalized(_light.direction) };
-	// 中心位置からライトの方向へ距離分だけ進む
-	const Vector3 lightPosition{ _settings.focusPosition - lightDirection * _settings.lightDistance };
 
-	Vector3 lightUp{ Vector3::Up };
+	Vector3 temporaryUp{ Vector3::Up };
 	const float upParallel{ std::abs(Vector3::Dot(lightDirection, Vector3::Up)) }; // 並行かをみたいので絶対値
-	if (upParallel >= 0.999f) lightUp = Vector3::Forward; // ほぼ平行ならForwardを仮の上方向として扱う
+	if (upParallel >= 0.999f) temporaryUp = Vector3::Forward; // ほぼ平行ならForwardを仮の上方向として扱う
+
+	// 光源カメラの右方向
+	const Vector3 lightRight{ Vector3::Normalized(Vector3::Cross(temporaryUp, lightDirection)) };
+	// 右方向と前方向から正確に直交する上方向を作り直す
+	const Vector3 lightUp{ Vector3::Cross(lightDirection, lightRight) };
+
+	// ShadowMapの1ピクセルが担当するワールド空間の大きさ
+	const float worldUnitsPerTexelX{ _settings.width / static_cast<float>(resolution) };
+	const float worldUnitsPerTexelY{ _settings.height / static_cast<float>(resolution) };
+
+	// 注視点が光源カメラの軸上でどこにあるか
+	const float focusOnLightX{ Vector3::Dot(_settings.focusPosition, lightRight) }; // 横軸
+	const float focusOnLightY{ Vector3::Dot(_settings.focusPosition, lightUp) }; // 縦軸
+
+	// ShadowMapの1ピクセル単位へまとめる
+	const float snappedFocusX{ std::round(focusOnLightX / worldUnitsPerTexelX) * worldUnitsPerTexelX };
+	const float snappedFocusY{ std::round(focusOnLightY / worldUnitsPerTexelY) * worldUnitsPerTexelY };
+
+	// もとの注視点から丸めによって発生した差だけ移動する
+	const Vector3 snappedFocusPosition{ _settings.focusPosition + lightRight * (snappedFocusX - focusOnLightX) + lightUp * (snappedFocusY - focusOnLightY) };
+
+	// 丸めた注視点から、光の逆方向へカメラを配置する
+	const Vector3 lightPosition{snappedFocusPosition - lightDirection * _settings.lightDistance};
 
 	// 既存のメンバを壊さないようにローカルでいったん作る
-	const Mat4x4 newLightView{ Mat4x4::MakeLookAt(lightPosition, _settings.focusPosition, lightUp) };
+	const Mat4x4 newLightView{ Mat4x4::MakeLookAt(lightPosition, snappedFocusPosition, lightUp) };
 	const Mat4x4 newLightProjection{ Mat4x4::MakeOrthGraphic(_settings.width, _settings.height, _settings.nearClip, _settings.farClip) };
 
 	// 行ベクトル規約なので頂点 * View * Projection
