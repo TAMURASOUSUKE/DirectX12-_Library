@@ -23,10 +23,12 @@ public:
 
 	// 登録された描画命令をサブメッシュ単位のPacketへ展開して描画順に並べる
 	void BuildDrawPackets();
+	// 不透明・MaskモデルをShadowMapへ描画する
+	bool FlushShadow(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress);
 	// 不透明・マスクモデルを描画する
-	void FlushOpaque();
+	void FlushOpaque(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress, D3D12_GPU_DESCRIPTOR_HANDLE _shadowMapSRV);
 	// 半透明モデルを奥から手前に描画する
-	void FlushBlend();
+	void FlushBlend(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress, D3D12_GPU_DESCRIPTOR_HANDLE _shadowMapSRV);
 
 	// 静的モデルの描画依頼登録
 	bool Register(ModelHandle _model, const Transform& _transform);

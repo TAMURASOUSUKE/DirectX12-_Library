@@ -1,6 +1,7 @@
 #pragma once
 #include "../Component/Light.h"
 #include "../Component/Shadow.h"
+#include "RingConstantBuffer.h"
 #include "GraphicsType.h"
 
 // 影描画に必要な行列とGPUリソースを管理
@@ -19,6 +20,9 @@ public:
 	// ShadowSystemが所有するGPUリソースを解放する
 	void Shutdown();
 
+	// フレームごとのShadow用GPU転送状態をリセットする
+	void BeginFrame();
+
 	// 平行光源の方向と影設定から光源視点の行列を更新する
 	bool UpdateDirectionalLightMatrices(const DirectionalLight& _light, const DirectionalShadowSettings& _settings);
 
@@ -27,6 +31,9 @@ public:
 
 	// ShadowMapへの書き込みを終了しPixelShaderから参照できる状態へ変更する
 	bool EndShadowPass(ID3D12GraphicsCommandList* _commandList);
+
+	// 現在のLightViewProjectionをGPUへ転送してCBV用アドレスを返す
+	D3D12_GPU_VIRTUAL_ADDRESS GetFrameGPUAddress();
 
 	// ShadowMapが使用可能な状態か
 	bool IsReady() const { return shadowMap && shadowDSV.IsValid() && shadowSRV.IsValid(); }
@@ -63,10 +70,14 @@ private:
 	DescriptorHandle shadowSRV{}; // Shaderから深度を読み込むためのView
 	UINT resolution{ 0 }; // ShadowMapの縦横ピクセル数
 	D3D12_RESOURCE_STATES resourceState{ D3D12_RESOURCE_STATE_DEPTH_WRITE }; // ResourceBarrierを正しく発行するため、現在のリソース状態を保持する
+	RingConstantBuffer shadowFrameRingCBV{}; 	// 光源ViewProjectionをGPUへ送るためのリング定数バッファ
+	D3D12_GPU_VIRTUAL_ADDRESS frameGPUAddress{ 0 }; 	// 同一フレームで複数回転送しないためのキャッシュ
+
 
 	Mat4x4 lightViewMatrix{ Mat4x4::Identity };
 	Mat4x4 lightProjectionMatrix{ Mat4x4::Identity };
 	Mat4x4 lightViewProjectionMatrix{ Mat4x4::Identity };
 
 	bool isPassActive{ false }; // 深度パスが有効か
+	bool hasValidLightMatrices{ false }; 	// 有効な光源行列が一度でも計算されたか
 };

@@ -22,6 +22,12 @@ cbuffer BoneCB : register(b2)
     float4x4 boneMatrices[256]; // スキニング行列
 }
 
+// 平行光源から見た座標変換行列
+cbuffer ShadowFrameCB : register(b5)
+{
+	float4x4 lightViewProjection;
+}
+
 struct VS_INPUT
 {
     float3 position : POSITION; // 位置
@@ -37,6 +43,7 @@ struct VS_OUTPUT
     float2 uv : TEXCOORD;
 	float3 worldNormal : NORMAL0;
 	float3 worldPosition : POSITION0;
+	float4 shadowPosition : TEXCOORD1;
 };
 
 VS_OUTPUT main(VS_INPUT _input)
@@ -67,6 +74,8 @@ VS_OUTPUT main(VS_INPUT _input)
 	output.position = mul(worldPosition, viewProjection);
 	// PBRで使用するためにワールド座標を残す
 	output.worldPosition = worldPosition.xyz;
+	// 同じ頂点を光源から見た座標へ変換
+	output.shadowPosition = mul(worldPosition, lightViewProjection);
 	// モデルの回転と非均一スケールを法線へ反映
 	output.worldNormal = normalize(mul(float4(skinnedNormal, 0.0f), worldInverseTranspose).xyz);
     output.uv = _input.uv;

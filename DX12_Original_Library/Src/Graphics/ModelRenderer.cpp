@@ -126,7 +126,7 @@ bool ModelRenderer::PrepareModelData(const Transform& _transform, const AnimInst
 	return true;
 }
 
-bool ModelRenderer::BeginModelDraw()
+bool ModelRenderer::BeginModelDraw(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress, D3D12_GPU_DESCRIPTOR_HANDLE _shadowMapSRV)
 {
 	auto cmd{ GraphicsDevice::Instance().GetCommandList() };
 
@@ -135,7 +135,7 @@ bool ModelRenderer::BeginModelDraw()
 
 	// 平行光源と環境光は全モデルで共通するのでLightSystemが用意した今のフレームのアドレスを使う
 	const D3D12_GPU_VIRTUAL_ADDRESS lightAddress{ lightSystem->GetFrameGPUAddress() };
-	if (frameAddress == 0 || lightAddress == 0)
+	if (frameAddress == 0 || lightAddress == 0 || _shadowFrameAddress == 0 || _shadowMapSRV.ptr == 0)
 	{
 		DEBUG_LOG_ERROR("モデル描画の共通データ取得に失敗しました\n");
 		return false;
@@ -146,6 +146,8 @@ bool ModelRenderer::BeginModelDraw()
 	DescriptorManager::Instance().SetDiscriptor(cmd); // DescriptorHealをCommandListへ設定
 	cmd->SetGraphicsRootConstantBufferView(0, frameAddress); // カメラ位置やVP(b0)
 	cmd->SetGraphicsRootConstantBufferView(4, lightAddress); // ライティング計算(b3)
+	cmd->SetGraphicsRootConstantBufferView(7, _shadowFrameAddress); // b5
+	cmd->SetGraphicsRootDescriptorTable(8, _shadowMapSRV); // t2
 
 	// gltfモデルのIndexBufferは3頂点ごとの三角形として扱う。
 	cmd->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -175,7 +177,7 @@ bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet)
 	// 静的モデルの場合は単位行列1個
 	cmd->SetGraphicsRootConstantBufferView(2, _packet.preparedData.skinningAddress); // (b2)
 	// World行列と法線用の逆転置行列
-	cmd->SetGraphicsRootConstantBufferView(5, _packet.preparedData.objectAddress); // (b5) 
+	cmd->SetGraphicsRootConstantBufferView(5, _packet.preparedData.objectAddress); // (b4) 
 
 	// materialはサブメッシュごとに転送
 	MaterialCB materialCB{};
@@ -227,6 +229,65 @@ bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet)
 	cmd->IASetIndexBuffer(&subMesh.indexBuffer.indexView); // 頂点Indexを登録(読み込み時点で右手系から左手系にしている)
 
 	cmd->DrawIndexedInstanced(subMesh.indexBuffer.indexCount, 1, 0, 0, 0); // IndexBufferの要素数分描画
+	return true;
+}
+
+bool ModelRenderer::BeginShadowDraw(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress)
+{
+	if (!shaderSystem || _shadowFrameAddress == 0)
+	{
+		DEBUG_LOG_ERROR("Shadowモデル描画に必要な共通データが不正です\n");
+		return false;
+	}
+	auto cmd{ GraphicsDevice::Instance().GetCommandList() };
+	if (!cmd)
+	{
+		DEBUG_LOG_ERROR("Shadowモデル描画用CommandListを取得できません\n");
+		return false;
+	}
+
+	ID3D12PipelineState* shadowPipeline{ shaderSystem->GetPipeline(PipelineID::ModelShadow) };
+	if (!shadowPipeline)
+	{
+		DEBUG_LOG_ERROR("ModelShadow用Pipelineを取得できません\n");
+		return false;
+	}
+	// ModelShadowVSは通常Modelと同じb0・b2・b4を使用するため現段階では既存のModel用RootSignatureを共有する
+	cmd->SetGraphicsRootSignature(shaderSystem->GetRootSignature(RootSigID::Model));
+
+	// ShadowPass中は全サブメッシュで同じPSOを使用する
+	cmd->SetPipelineState(shadowPipeline);
+
+	// RootParameter[0]にはHLSLのShadowFrameCB、つまりb0を設定する
+	cmd->SetGraphicsRootConstantBufferView(0, _shadowFrameAddress);
+
+	// glTFモデルのIndexBufferは三角形リストとして描画する
+	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	return true;
+}
+
+bool ModelRenderer::DrawShadowSubMesh(const ModelDrawPacket& _packet)
+{
+	if (!_packet.subMesh || _packet.preparedData.objectAddress == 0 || _packet.preparedData.skinningAddress == 0)
+	{
+		DEBUG_LOG_ERROR("Shadow描画用ModelDrawPacketが不正です\n");
+		return false;
+	}
+	auto cmd{ GraphicsDevice::Instance().GetCommandList() };
+	if (!cmd)
+	{
+		DEBUG_LOG_ERROR("Shadowモデル描画用CommandListを取得できません\n");
+		return false;
+	}
+	const SubMesh& subMesh{ *_packet.subMesh };
+	// RootParameter[2]はModelShadowVSのBoneCB : register(b2)
+	cmd->SetGraphicsRootConstantBufferView(2, _packet.preparedData.skinningAddress);
+	// RootParameter[5]はModelObjectCB : register(b4)
+	cmd->SetGraphicsRootConstantBufferView(5, _packet.preparedData.objectAddress);
+	cmd->IASetVertexBuffers(0, 1, &subMesh.vertexBuffer.vertexView);
+	cmd->IASetIndexBuffer(&subMesh.indexBuffer.indexView);
+	cmd->DrawIndexedInstanced(subMesh.indexBuffer.indexCount, 1, 0, 0, 0);
 	return true;
 }
 

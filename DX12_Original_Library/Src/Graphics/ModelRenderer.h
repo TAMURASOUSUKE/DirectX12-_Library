@@ -27,9 +27,15 @@ public:
 	bool PrepareModelData(const Transform& _transform, const AnimInstanceData* _animation, PreparedModelDrawData& _outData);
 
 	// モデル全体で共通する状態を設定する
-	bool BeginModelDraw();
+	bool BeginModelDraw(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress, D3D12_GPU_DESCRIPTOR_HANDLE _shadowMapSRV);
 	// パケット内のサブメッシュを1つ描画する
 	bool DrawSubMesh(const ModelDrawPacket& _packet);
+
+	// ShadowPassで使用する共通状態と光源ViewProjectionを設定する
+	bool BeginShadowDraw(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress);
+
+	// パケット内のサブメッシュをShadowMapへ描画する
+	bool DrawShadowSubMesh(const ModelDrawPacket& _packet);
 
 private:
 	// フレームデータを1度だけ転送するヘルパー

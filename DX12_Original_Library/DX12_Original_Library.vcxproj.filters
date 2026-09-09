@@ -595,6 +595,9 @@
     <FxCompile Include="Src\Shaders\Primitive3DLitPS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="Src\Shaders\ModelShadowVS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Src\Shaders\Terrain.hlsli">

@@ -18,6 +18,14 @@ namespace
 	{
 		return std::isfinite(_value) && _value > Math::EPSILON;
 	}
+
+	// HLSL側のShadowFrameCBと同じメモリ構成にする
+	struct alignas(16) ShadowFrameCB
+	{
+		Mat4x4 lightViewProjection{ Mat4x4::Identity };
+	};
+
+	static_assert(sizeof(ShadowFrameCB) == sizeof(Mat4x4), "ShadowFrameCBのサイズがHLSL側と一致しません");
 }
 
 bool ShadowSystem::Setup(ID3D12Device* _device, UINT _resolution)
@@ -50,6 +58,18 @@ bool ShadowSystem::Setup(ID3D12Device* _device, UINT _resolution)
 		return false;
 	}
 
+	shadowFrameRingCBV.Setup(static_cast<UINT>(sizeof(ShadowFrameCB)), 1); // 平行光源1個文なので1フレームにつき1下位更新でよい
+	if (shadowFrameRingCBV.GetCurrentVirtualAddress() == 0)
+	{
+		DEBUG_LOG_ERROR("Shadow用RingConstantBufferの作成に失敗しました\n");
+		// 先に作ったShadowMapとDescriptorもまとめて戻す
+		Shutdown();
+		return false;
+	}
+
+	frameGPUAddress = 0;
+	hasValidLightMatrices = false;
+
 	return true;
 }
 
@@ -63,6 +83,9 @@ void ShadowSystem::Shutdown()
 	shadowDSV = {};
 
 	shadowMap.Reset();
+	shadowFrameRingCBV.Shutdown();
+	frameGPUAddress = 0;
+	hasValidLightMatrices = false;
 
 	resolution = 0;
 	resourceState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
@@ -73,6 +96,15 @@ void ShadowSystem::Shutdown()
 	isPassActive = false;
 
 	device = nullptr;
+}
+
+void ShadowSystem::BeginFrame()
+{
+	// 現在のバックバッファで使用するスライスを先頭へ戻す
+	shadowFrameRingCBV.Reset();
+
+	// 次に要求されたとき現在フレーム用データを再転送する
+	frameGPUAddress = 0;
 }
 
 bool ShadowSystem::UpdateDirectionalLightMatrices(const DirectionalLight& _light, const DirectionalShadowSettings& _settings)
@@ -125,6 +157,7 @@ bool ShadowSystem::UpdateDirectionalLightMatrices(const DirectionalLight& _light
 	lightViewMatrix = newLightView;
 	lightProjectionMatrix = newLightProjection;
 	lightViewProjectionMatrix = newLightViewProjection;
+	hasValidLightMatrices = true; // GPUへ送ってよい行列が完成したとみる
 	return true;
 }
 
@@ -177,6 +210,23 @@ bool ShadowSystem::EndShadowPass(ID3D12GraphicsCommandList* _commandList)
 
 	isPassActive = false;
 	return true;
+}
+
+D3D12_GPU_VIRTUAL_ADDRESS ShadowSystem::GetFrameGPUAddress()
+{
+	if (!IsReady() || !hasValidLightMatrices)
+	{
+		DEBUG_LOG_ERROR("Shadow用行列をGPUへ転送できません\n");
+		return 0;
+	}
+	// 同一フレームですでに転送済みなら、そのアドレスを再利用する
+	if (frameGPUAddress != 0) 	return frameGPUAddress;
+
+	ShadowFrameCB shadowData{};
+	shadowData.lightViewProjection = lightViewProjectionMatrix;
+	frameGPUAddress = shadowFrameRingCBV.Update(&shadowData, static_cast<UINT>(sizeof(ShadowFrameCB)));
+	if (frameGPUAddress == 0) 		DEBUG_LOG_ERROR("Shadow用定数バッファのGPU転送に失敗しました\n");
+	return frameGPUAddress;
 }
 
 bool ShadowSystem::CreateShadowMap(UINT _resolution)
@@ -266,7 +316,7 @@ bool ShadowSystem::CreateShadowMap(UINT _resolution)
 
 bool ShadowSystem::TransitionResource(ID3D12GraphicsCommandList* _commandList, D3D12_RESOURCE_STATES _nextState)
 {
-	if (!_commandList || shadowMap)
+	if (!_commandList || !shadowMap)
 	{
 		DEBUG_LOG_ERROR("ShadowMapのResourceStateを変更できません CommandListまたはShadowMapが向こうです\n");
 		return false;

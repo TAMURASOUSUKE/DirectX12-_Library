@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -323,6 +323,9 @@
   <ItemGroup>
     <FxCompile Include="Src\Shaders\ModelPS.hlsl">
       <ShaderType>Pixel</ShaderType>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\ModelShadowVS.hlsl">
+    <ShaderType>Vertex</ShaderType>
     </FxCompile>
     <FxCompile Include="Src\Shaders\ModelVS.hlsl">
       <ShaderType>Vertex</ShaderType>
