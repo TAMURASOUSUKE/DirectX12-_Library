@@ -366,6 +366,12 @@
     <ClInclude Include="Src\Graphics\ModelDrawPacket.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Component\Shadow.h">
+      <Filter>Src\Component</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Graphics\ShadowSystem.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -539,6 +545,9 @@
     <ClCompile Include="Src\Graphics\ModelRenderQueue.cpp">
       <Filter>Src\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Graphics\ShadowSystem.cpp">
+      <Filter>Src\Graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Src\Shaders\TexturePS.hlsl">
@@ -584,6 +593,9 @@
       <Filter>Src\Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Src\Shaders\Primitive3DLitPS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Shaders\ModelShadowVS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
   </ItemGroup>

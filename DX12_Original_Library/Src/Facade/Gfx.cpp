@@ -1,6 +1,7 @@
 #include <cmath>
 #include <limits>
 #include <utility>
+#include <algorithm>
 #include "../External/Common/d3dx12.h"
 #include "../External/cgltf.h"
 #include "../Debug/DebugLogs.h"
@@ -13,6 +14,7 @@
 #include "../Graphics/RingConstantBuffer.h"
 #include "../Graphics/GPUMarker.h"
 #include "../Graphics/ModelRenderSystem.h"
+#include "../Graphics/ShadowSystem.h"
 #include "../Math/TSMath.h"
 #include "../Graphics/GraphicsConstant.h"
 #include "../Graphics/GraphicsType.h"
@@ -45,9 +47,11 @@ namespace {
 	LightSystem lightSystem; // ライト管理システム
 	GraphicsSystem graphicsSystem; // Graphics全体のサイズ依存状態を統括
 	ModelRenderSystem modelRenderSystem{}; // モデルを描画するためのシステム
+	ShadowSystem shadowSystem{}; // 平行光源ShadowMapを管理
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
 	MaterialHandle currentPostEffectMaterial{}; // 現在画面全体へ適用しているポストエフェクトmaterial(無効ハンドルなら内蔵の素通しPSOを使う)
+	DirectionalShadowSettings shadowSettings{}; // 最初は固定範囲でShadow Mappingを検証する
 
 	constexpr GraphicsPipelineDesc PIPELINE_TABLE[]{
 		// 図形塗りつぶし
@@ -64,12 +68,21 @@ namespace {
 		 .vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
 		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite,
 		 .cullMode = D3D12_CULL_MODE_BACK},
-		 // 両面描画モデル
-		{.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::ModelDoubleSided,
-		 .vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
-		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite,
-		 .cullMode = D3D12_CULL_MODE_NONE // 両面なのでNONE
+		 // ShadowMapへモデルの深度を書き込む
+		{.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::ModelShadow,
+		 .vs = BuiltinShaderID::ModelShadowVS, .ps = BuiltinShaderID::None, // 深度はラスタライザがSV_POSITIONが生成するので不要
+		 .layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ShadowWrite,
+		 .colorTarget = ColorTargetParam::None, .cullMode = D3D12_CULL_MODE_BACK, // ShadowPassでは色を描画しない
+		 .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, .fillMode = D3D12_FILL_MODE_SOLID,
+		 // ShadowAcneを抑える初期調整値
+		.depthBias = 1000, .depthBiasClamp = 0.0f, .slopeScaledDepthBias = 2.0f
 		},
+		// 両面描画モデル
+	   {.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::ModelDoubleSided,
+		.vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
+		.layout = InputLayout::Model, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite,
+		.cullMode = D3D12_CULL_MODE_NONE // 両面なのでNONE
+	   },
 		// ブレンド状態のモデル
 		{.rootSignatureID = RootSigID::Model, .pipelineID = PipelineID::ModelBlend,
 		 .vs = BuiltinShaderID::ModelVS, .ps = BuiltinShaderID::ModelPS,
@@ -82,40 +95,45 @@ namespace {
 		 .layout = InputLayout::Model, .blend = BlendMode::Alpha, .depth = DepthParam::ReadOnly,
 		 .cullMode = D3D12_CULL_MODE_NONE // 両面なのでNONE
 		},
-		 // テクスチャ 
-		 {.rootSignatureID = RootSigID::Texture, .pipelineID = PipelineID::Sprite,
-		  .vs = BuiltinShaderID::TextureVS, .ps = BuiltinShaderID::TexturePS,
-		  .layout = InputLayout::Sprite, .blend = BlendMode::Alpha, .depth = DepthParam::None},
-		  // Terrain
-		{.rootSignatureID = RootSigID::Terrain, .pipelineID = PipelineID::TerrainWire,
-		.vs = BuiltinShaderID::TerrainVS, .ps = BuiltinShaderID::TerrainPS,
-		.hs = BuiltinShaderID::TerrainHS, .ds = BuiltinShaderID::TerrainDS,
-		.layout = InputLayout::Texture, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite, // textureを流用できる
-		.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH, .fillMode = D3D12_FILL_MODE_WIREFRAME},// hsとdsを使うのでパッチ系のpipelineという大分類にする , 分割された三角形を確認できるようにワイヤー
+		// テクスチャ 
+		{.rootSignatureID = RootSigID::Texture, .pipelineID = PipelineID::Sprite,
+		 .vs = BuiltinShaderID::TextureVS, .ps = BuiltinShaderID::TexturePS,
+		 .layout = InputLayout::Sprite, .blend = BlendMode::Alpha, .depth = DepthParam::None},
+		// Terrain
+	  {.rootSignatureID = RootSigID::Terrain, .pipelineID = PipelineID::TerrainWire,
+	  .vs = BuiltinShaderID::TerrainVS, .ps = BuiltinShaderID::TerrainPS,
+	  .hs = BuiltinShaderID::TerrainHS, .ds = BuiltinShaderID::TerrainDS,
+	  .layout = InputLayout::Texture, .blend = BlendMode::Opaque, .depth = DepthParam::ReadWrite, // textureを流用できる
+	  .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH, .fillMode = D3D12_FILL_MODE_WIREFRAME},// hsとdsを使うのでパッチ系のpipelineという大分類にする , 分割された三角形を確認できるようにワイヤー
 		// PostEffect
 		{.rootSignatureID = RootSigID::PostEffect, .pipelineID = PipelineID::PostEffect,
 		 .vs = BuiltinShaderID::PostEffectVS, .ps = BuiltinShaderID::PostEffectPS,
 		 .layout = InputLayout::None, .blend = BlendMode::Opaque, // レイアウトはSV_VertexIDから直接作るので頂点入力はない、Blendも完全に画面を置き換えるのでブレンド無し
 		 .depth = DepthParam::None, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE}, // 2D画像を画面へ貼るだけなので深度は使わない
-		 // 3DPrimitiveFill
-		 {.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DFill,
-		  .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DLitPS,
-		  .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
-		  .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
-		  .fillMode = D3D12_FILL_MODE_SOLID},
-		  // 3DPrimitiveMeshWire
-		 {.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DMeshWire,
-		  .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DLitPS, // テスト用に光を受ける
-		  .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
-		  .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
-		  .fillMode = D3D12_FILL_MODE_WIREFRAME},
-		  // 3DPrimitiveDebugLine
-		 {.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DDebugLine,
-		  .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DUnlitPS,
-		  .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
-		  .depth = DepthParam::ReadOnly, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
-		  .fillMode = D3D12_FILL_MODE_SOLID}
+		// 3DPrimitiveFill
+		{.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DFill,
+		 .vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DLitPS,
+		 .layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
+		 .depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+		 .fillMode = D3D12_FILL_MODE_SOLID},
+		// 3DPrimitiveMeshWire
+	   {.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DMeshWire,
+		.vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DLitPS, // テスト用に光を受ける
+		.layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
+		.depth = DepthParam::ReadWrite, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+		.fillMode = D3D12_FILL_MODE_WIREFRAME},
+		// 3DPrimitiveDebugLine
+	   {.rootSignatureID = RootSigID::Primitive3D, .pipelineID = PipelineID::Primitive3DDebugLine,
+		.vs = BuiltinShaderID::Primitive3DVS, .ps = BuiltinShaderID::Primitive3DUnlitPS,
+		.layout = InputLayout::Primitive3D, .blend = BlendMode::Opaque,
+		.depth = DepthParam::ReadOnly, .topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE,
+		.fillMode = D3D12_FILL_MODE_SOLID}
 	};
+
+#ifdef _DEBUG
+	// ShadowMapの画面表示を切り替える デバッグ用フラグ
+	constexpr bool ENABLE_SHADOW_MAP_DEBUG_PREVIEW{ false };
+#endif
 
 	namespace {
 		// Terrainのリソースを初期化する
@@ -314,12 +332,86 @@ namespace {
 			}
 		}
 
+		// ShadowPassはViewportとDSVを変更するので終了後通常画面状態へ戻す必要がある
+		bool BindMainRenderState()
+		{
+			auto* cmd{ GraphicsDevice::Instance().GetCommandList() };
+
+			if (!cmd || currentRTV.ptr == 0)
+			{
+				DEBUG_LOG_ERROR("通常描画状態を設定できません\n");
+				return false;
+			}
+
+			const D3D12_CPU_DESCRIPTOR_HANDLE dsv{ GraphicsDevice::Instance().GetDSV() };
+
+			// 通常描画では色と深度の両方を使用する
+			cmd->OMSetRenderTargets(1, &currentRTV, FALSE, &dsv);
+
+			const Vector2Int screenSize{ graphicsSystem.GetScreenSize() };
+
+			const D3D12_VIEWPORT viewport{ 0.0f, 0.0f, static_cast<float>(screenSize.x), static_cast<float>(screenSize.y), 0.0f, 1.0f };
+
+			const D3D12_RECT scissorRect{ 0, 0, screenSize.x, screenSize.y };
+
+			cmd->RSSetViewports(1, &viewport);
+			cmd->RSSetScissorRects(1, &scissorRect);
+
+			return true;
+		}
+
+#ifdef _DEBUG
+
+		// ShadowMapのR成分を画面左上へ表示する確認用描画
+		bool DrawShadowMapDebug()
+		{
+			if (!shadowSystem.IsReady()) return false;
+
+			auto* cmd{ GraphicsDevice::Instance().GetCommandList() };
+			if (!cmd) return false;
+
+			ID3D12PipelineState* pipeline{ shaderSystem.GetPipeline(PipelineID::PostEffect) };
+			ID3D12RootSignature* rootSignature{ shaderSystem.GetRootSignature(RootSigID::PostEffect) };
+
+			if (!pipeline || !rootSignature) return false;
+
+			const Vector2Int screenSize{ graphicsSystem.GetScreenSize() };
+
+			// 画面の約30%を確認領域として使用する
+			const float previewSize{ static_cast<float>((std::min)(screenSize.x, screenSize.y)) * 0.3f };
+			constexpr float PREVIEW_MARGIN{ 16.0f };
+			const D3D12_VIEWPORT viewport{ PREVIEW_MARGIN, PREVIEW_MARGIN, previewSize, previewSize, 0.0f, 1.0f };
+
+			const D3D12_RECT scissorRect{ static_cast<LONG>(PREVIEW_MARGIN), static_cast<LONG>(PREVIEW_MARGIN), static_cast<LONG>(PREVIEW_MARGIN + previewSize), static_cast<LONG>(PREVIEW_MARGIN + previewSize) };
+
+			cmd->RSSetViewports(1, &viewport);
+			cmd->RSSetScissorRects(1, &scissorRect);
+
+			cmd->SetGraphicsRootSignature(rootSignature);
+			cmd->SetPipelineState(pipeline);
+
+			// ShadowMapはSRVなのでGPU可視DescriptorHeapが必要
+			DescriptorManager::Instance().SetDiscriptor(cmd);
+
+			// PostEffectのRootParameter[0]はt0
+			cmd->SetGraphicsRootDescriptorTable(0, shadowSystem.GetSRV());
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			// PostEffectVSがSV_VertexIDからフルスクリーン三角形を作る
+			cmd->DrawInstanced(3, 1, 0, 0);
+
+			// Debug表示で変更したViewportとScissorを通常サイズへ戻す
+			return BindMainRenderState();
+		}
+
+#endif
+
 		// Gfx内のメンバの掃除
 		void ShutdownGfxOwnedResources()
 		{
 			// 仮で作っているTerrainのVB.IBを解放する(これは一時的な物なので3Dの基本図形描画時になくなる予定)
 			terrainIndexBuffer = IndexBuffer{};
 			terrainVertexBuffer = VertexBuffer{};
+			shadowSystem.Shutdown();
 			modelRenderSystem.Shutdown();
 			animSystem.Shutdown();
 			graphicsSystem.Shutdown();
@@ -333,6 +425,7 @@ namespace {
 			shapeBatch.Shutdown();
 			primitive3DSystem.Shutdown();
 			lightSystem.Shutdown();
+
 
 			// 正射影CBを解放する
 			if (orthConstantBufferData.cbvHandle.IsValid())
@@ -392,6 +485,12 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 
 	GraphicsResourceManager::Instance().Setup(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
 
+	if (!shadowSystem.Setup(GraphicsDevice::Instance().GetDevice(), SHADOW_MAP_RESOLUTION))
+	{
+		DEBUG_LOG_ERROR("ShadowSystemの初期化に失敗しました\n");
+		return false;
+	}
+
 	// グリッドとCBの作成
 	if (!InitializeTerrainResources()) return false;
 
@@ -401,8 +500,8 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 
 	// カメラ設定
 	Camera defaultCamera{};
-	defaultCamera.transform.SetPosition({0.0f, 1.0f, -3.0f}); // 初期位置
-	defaultCamera.transform.SetRotation({Quaternion::Identity}); // Identityは+Z方向を見る
+	defaultCamera.transform.SetPosition({ 0.0f, 1.0f, -3.0f }); // 初期位置
+	defaultCamera.transform.SetRotation({ Quaternion::Identity }); // Identityは+Z方向を見る
 	const float aspectRatio{ static_cast<float>(_clientWidth) / static_cast<float>(_clientHeight) };
 	if (!cameraSystem.Setup(defaultCamera, aspectRatio))
 	{
@@ -416,7 +515,7 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 		DEBUG_LOG_ERROR("GraphicsSystemの初期化に失敗しました\n");
 		return false;
 	}
-	
+
 	userMaterialParameterRingCBV.Setup(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE), static_cast<UINT>(MAX_MATERIAL_PARAMETER_UPDATE_PER_FRAME));
 
 	// ゼロダミーCBの作成(未設定のMaterialパラメータを安全に0として読ませる)
@@ -442,7 +541,7 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	// スプライトバッチ処理初期化
 	fgBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
 	bgBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Texture), shaderSystem.GetPipeline(PipelineID::Sprite), orthConstantBufferData.resource.Get());
-	shapeBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Shape),shaderSystem.GetPipeline(PipelineID::ShapeFill), shaderSystem.GetPipeline(PipelineID::ShapeWire), orthConstantBufferData.resource.Get());
+	shapeBatch.Setup(shaderSystem.GetRootSignature(RootSigID::Shape), shaderSystem.GetPipeline(PipelineID::ShapeFill), shaderSystem.GetPipeline(PipelineID::ShapeWire), orthConstantBufferData.resource.Get());
 	if (!primitive3DSystem.Setup(shaderSystem.GetRootSignature(RootSigID::Primitive3D), shaderSystem.GetPipeline(PipelineID::Primitive3DFill), shaderSystem.GetPipeline(PipelineID::Primitive3DMeshWire), shaderSystem.GetPipeline(PipelineID::Primitive3DDebugLine)))
 	{
 		DEBUG_LOG_ERROR("Primitive3DSystemの初期化に失敗しました\n");
@@ -484,6 +583,7 @@ void GfxInternal::BeginFrame()
 	terrainRingCBV.Reset();
 	userMaterialParameterRingCBV.Reset();
 	lightSystem.BeginFrame();
+	shadowSystem.BeginFrame();
 	modelRenderSystem.BeginFrame();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
@@ -512,27 +612,10 @@ void GfxInternal::BeginFrame()
 		nullptr // 全体クリア
 	);
 
-	// レンダーターゲット設定
-	cmdList->OMSetRenderTargets(1, &currentRTV, false, &dsv);
-
-	// ビューポート
-	Vector2Int screenSize{ graphicsSystem.GetScreenSize() };
-	D3D12_VIEWPORT viewPort{};
-	viewPort.TopLeftX = 0.0f;
-	viewPort.TopLeftY = 0.0f;
-	viewPort.Width = static_cast<float>(screenSize.x);
-	viewPort.Height = static_cast<float>(screenSize.y);
-	viewPort.MinDepth = 0.0f;
-	viewPort.MaxDepth = 1.0f;
-	cmdList->RSSetViewports(1, &viewPort);
-
-	// シザー矩形
-	D3D12_RECT scissorRect{};
-	scissorRect.left = 0;
-	scissorRect.top = 0;
-	scissorRect.right = screenSize.x;
-	scissorRect.bottom = screenSize.y;
-	cmdList->RSSetScissorRects(1, &scissorRect);
+	if (!BindMainRenderState())
+	{
+		DEBUG_LOG_ERROR("メイン描画状態の設定に失敗しました\n");
+	}
 }
 
 // フレーム終了処理
@@ -545,10 +628,45 @@ void GfxInternal::EndFrame()
 	}
 
 	modelRenderSystem.BuildDrawPackets(); // Packet展開
+	D3D12_GPU_VIRTUAL_ADDRESS shadowFrameAddress{};
+	const D3D12_GPU_DESCRIPTOR_HANDLE shadowMapSRV{ shadowSystem.GetSRV() };
+	// ShadowPass
+	{
+		GPU_MARKER("Directional Shadow Pass");
+		// 最初はカメラ位置をShadow描画範囲の中心にする後でカメラ前方へずらし、Texel Snappingも追加する
+		DirectionalShadowSettings currentSettings{ shadowSettings };
+
+		currentSettings.focusPosition = cameraSystem.GetCameraPosition();
+		const DirectionalLight& directionalLight{ lightSystem.GetSceneLight().directional };
+		if (!shadowSystem.UpdateDirectionalLightMatrices(directionalLight, currentSettings))
+		{
+			DEBUG_LOG_ERROR("Shadow用光源行列の更新に失敗しました\n");
+		}
+		else
+		{
+			shadowFrameAddress = shadowSystem.GetFrameGPUAddress();
+			auto* cmd{ GraphicsDevice::Instance().GetCommandList() };
+
+			if (shadowFrameAddress == 0)
+			{
+				DEBUG_LOG_ERROR("Shadow用GPUアドレスを取得できません\n");
+			}
+			else if (shadowSystem.BeginShadowPass(cmd))
+			{
+				// 失敗してもEndShadowPassは必ず呼びShadowMapを読み取り状態へ戻す
+				if (!modelRenderSystem.FlushShadow(shadowFrameAddress)) DEBUG_LOG_ERROR("Shadow Casterの描画に失敗しました\n");
+				if (!shadowSystem.EndShadowPass(cmd)) DEBUG_LOG_ERROR("ShadowPassの終了処理に失敗しました\n");
+			}
+		}
+
+		// ShadowPassが変更したRTV・DSV・Viewport・Scissorを戻す
+		if (!BindMainRenderState()) DEBUG_LOG_ERROR("ShadowPass後の通常描画状態の復元に失敗しました\n");
+	}
+
 	// 不透明モデル描画
 	{
 		GPU_MARKER("Opaque・MaskModel");
-		modelRenderSystem.FlushOpaque();
+		modelRenderSystem.FlushOpaque(shadowFrameAddress, shadowMapSRV);
 	}
 
 	// 3D基礎図形
@@ -561,7 +679,7 @@ void GfxInternal::EndFrame()
 	// モデル描画
 	{
 		GPU_MARKER("BlendModel");
-		modelRenderSystem.FlushBlend();
+		modelRenderSystem.FlushBlend(shadowFrameAddress, shadowMapSRV);
 	}
 
 	// 前面2DSprite
@@ -575,6 +693,17 @@ void GfxInternal::EndFrame()
 		GPU_MARKER("ShapeDraw");
 		shapeBatch.Flush();
 	}
+
+#ifdef  _DEBUG
+	{
+		if (ENABLE_SHADOW_MAP_DEBUG_PREVIEW)
+		{
+			GPU_MARKER("ShadowMap Debug Preview");
+			if (!DrawShadowMapDebug()) DEBUG_LOG_ERROR("ShadowMapのDebug表示に失敗しました\n");
+		}
+	}
+#endif //  _DEBUG
+
 
 	auto* cmd{ GraphicsDevice::Instance().GetCommandList() };
 
@@ -621,7 +750,7 @@ void GfxInternal::EndFrame()
 			cmd->SetGraphicsRootDescriptorTable(0, sceneRT->srvHandle.gpu);
 			constexpr UINT POSTEFFECT_MATERIAL_ROOT_PARAM_BASE{ 1 }; // RootParamの0はシーンRTのため1から始まるようにする
 			D3D12_GPU_VIRTUAL_ADDRESS zeroParameterAddress{ zeroMaterialParameterBuffer.resource->GetGPUVirtualAddress() }; // 全ての未設定スロットで共有するGPUアドレス
-			
+
 			// GPUへの送信
 			for (size_t i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
 			{
@@ -635,7 +764,7 @@ void GfxInternal::EndFrame()
 						// materialが設定されていた場合
 						// setup時に0クリアされているので256byte全体を送る
 						const D3D12_GPU_VIRTUAL_ADDRESS updateAddress{ userMaterialParameterRingCBV.Update(parameter.parameterData.data(), static_cast<UINT>(parameter.parameterData.size())) };
-						
+
 						if (updateAddress != 0)
 						{
 							parameterAddress = updateAddress;
@@ -652,7 +781,7 @@ void GfxInternal::EndFrame()
 				// Slot1ならRootParam[2]へ設定してHLSL側でb5
 				cmd->SetGraphicsRootConstantBufferView(POSTEFFECT_MATERIAL_ROOT_PARAM_BASE + static_cast<UINT>(i), parameterAddress);
 			}
-			
+
 			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			cmd->DrawInstanced(3, 1, 0, 0); // 頂点バッファを使わずにSV_VertexIDの0, 1, 2を発生させる
 
@@ -730,7 +859,7 @@ void GfxInternal::RequestResize(int _width, int _height)
 bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _slot, const void* _data, size_t _dataSize)
 {
 	GraphicsResourceManager& resourceManager{ GraphicsResourceManager::Instance() };
-	MaterialData* material { resourceManager.Lookup(_handle) };
+	MaterialData* material{ resourceManager.Lookup(_handle) };
 	if (!material)
 	{
 		DEBUG_LOG_ERROR("SetMaterialParameterに無効なMaterialHandleが渡されました\n");
@@ -915,7 +1044,7 @@ ShaderHandle Gfx::LoadShader(const wchar_t* _filePath, ShaderUsage _usage, Shade
 	}
 
 	// コンパイル済みBlobの所有権をShader台帳へ移す
-	return GraphicsResourceManager::Instance().RegisterShader(_usage, _stage ,std::move(shaderBlob));
+	return GraphicsResourceManager::Instance().RegisterShader(_usage, _stage, std::move(shaderBlob));
 }
 
 MaterialHandle Gfx::CreateMaterial(ShaderHandle _pixelShader)
@@ -943,7 +1072,7 @@ MaterialHandle Gfx::CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pix
 	// VertexShaderが指定されている場合
 	if (_vertexShader.IsValid())
 	{
-		ShaderData* vertexData{ resourceManager.Lookup(_vertexShader)};
+		ShaderData* vertexData{ resourceManager.Lookup(_vertexShader) };
 		if (!vertexData)
 		{
 			DEBUG_LOG_ERROR("VertexShaderHandleが無効です\n");			return MaterialHandle{};
@@ -1097,9 +1226,9 @@ void Gfx::DrawSprite(TexHandle _texture, Vector2 _position, MaterialHandle _mate
 	const float uvHeight{ std::abs(_uvMax.y - _uvMin.y) };
 
 	// 画像原寸 * UV使用範囲 * XY倍率
-	const Vector2 pixelSize{ static_cast<float>(data->width) * uvWidth * _scale.x, static_cast<float>(data->height) * uvHeight * _scale.y};
+	const Vector2 pixelSize{ static_cast<float>(data->width) * uvWidth * _scale.x, static_cast<float>(data->height) * uvHeight * _scale.y };
 	// 計算後は渡す
-	DrawSpriteSized(_texture, _position, pixelSize, _material, _radRotation,  _flip, _color, _uvMin, _uvMax, _layer);
+	DrawSpriteSized(_texture, _position, pixelSize, _material, _radRotation, _flip, _color, _uvMin, _uvMax, _layer);
 }
 
 void Gfx::DrawSprite(const TextureAtlas& _atlas, int _frameIndex, Vector2 _position, MaterialHandle _material, Vector2 _scale, float _radRotation, SpriteFlip _flip, Vector4 _color, RenderLayer _layer)
@@ -1222,7 +1351,7 @@ void Gfx::DrawCube3D(const Transform& _transform, Vector4 _color, Primitive3DSty
 void Gfx::DrawSphere3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
 	// ホットパスなのでログを出さない(溢れないようにする)
-	if (!primitive3DSystem.RegisterSphere(_transform, _color, ConvertPrimitive3DStyle(_style))) return; 
+	if (!primitive3DSystem.RegisterSphere(_transform, _color, ConvertPrimitive3DStyle(_style))) return;
 }
 
 void Gfx::DrawCylinder3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
@@ -1249,7 +1378,7 @@ void Gfx::DrawLine3D(Vector3 _start, Vector3 _end, Vector4 _color)
 	if (!primitive3DSystem.RegisterLine(_start, _end, _color)) return;
 }
 
-void Gfx::DrawGrid3D(Vector3 _center, Quaternion _rotation,unsigned int _halfCellCount, float _cellSize, Vector4 _color)
+void Gfx::DrawGrid3D(Vector3 _center, Quaternion _rotation, unsigned int _halfCellCount, float _cellSize, Vector4 _color)
 {
 	// ホットパスなのでログを出さない(溢れないようにする)
 	if (!primitive3DSystem.RegisterGrid(_center, _rotation, _halfCellCount, _cellSize, _color)) return;

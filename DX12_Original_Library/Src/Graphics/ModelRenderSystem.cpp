@@ -88,21 +88,46 @@ void ModelRenderSystem::BuildDrawPackets()
 
 }
 
-void ModelRenderSystem::FlushOpaque()
+bool ModelRenderSystem::FlushShadow(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress)
+{
+	if (_shadowFrameAddress == 0)
+	{
+		DEBUG_LOG_ERROR("Shadow描画用の光源行列GPUアドレスが不正です\n");
+		return false;
+	}
+
+	// 描画対象がなくても異常ではない
+	if (opaqueModels.empty()) return true;
+
+	// RootSignature・Shadow用PSO・光源VPを設定する
+	if (!renderer.BeginShadowDraw(_shadowFrameAddress)) return false;
+
+	bool succeeded{ true };
+
+	for (const ModelDrawPacket& packet : opaqueModels)
+	{
+		// 1つ失敗しても描画可能な残りのPacketは処理する
+		if (!renderer.DrawShadowSubMesh(packet)) succeeded = false;
+	}
+
+	return succeeded;
+}
+
+void ModelRenderSystem::FlushOpaque(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress, D3D12_GPU_DESCRIPTOR_HANDLE _shadowMapSRV)
 {
 	if (opaqueModels.empty()) return;
-	if (!renderer.BeginModelDraw()) return; // Model用共通データを設定する(RootSigやCBV,Topology)
+	if (!renderer.BeginModelDraw(_shadowFrameAddress, _shadowMapSRV)) return; // Model用共通データを設定する(RootSigやCBV,Topology)
 	for (const ModelDrawPacket& packet : opaqueModels)
 	{
 		renderer.DrawSubMesh(packet);
 	}
 }
 
-void ModelRenderSystem::FlushBlend()
+void ModelRenderSystem::FlushBlend(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress, D3D12_GPU_DESCRIPTOR_HANDLE _shadowMapSRV)
 {
 	if (blendModels.empty()) return;
 	// Primtive3Dの後に描画するのでGPU状態が変更されていることを考慮したてBlend描画前にModelの状態をもう一度設定
-	if (!renderer.BeginModelDraw()) return; // Model用共通データを設定する(RootSigやCBV,Topology)
+	if (!renderer.BeginModelDraw(_shadowFrameAddress, _shadowMapSRV)) return; // Model用共通データを設定する(RootSigやCBV,Topology)
 	for (const ModelDrawPacket& packet : blendModels)
 	{
 		renderer.DrawSubMesh(packet);

@@ -20,10 +20,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// Model
 	ModelHandle player{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Playerモデルのロード
 	ModelHandle toon{ Gfx::LoadModel("Res/player_01_01.glb") }; // Toon用モデルのロード
-	Gfx::SetModelAlphaMode(player, 0, ModelAlphaMode::Blend); // 半透明チェック
-	Gfx::SetModelAlphaMode(player, 1, ModelAlphaMode::Blend); // 半透明チェック
-	Gfx::SetBaseColor(player, 0, { 1.0f, 1.0f, 1.0f, 0.75f });
-	Gfx::SetBaseColor(player, 1, { 1.0f, 1.0f, 1.0f, 0.75f });
+	//Gfx::SetModelAlphaMode(player, 0, ModelAlphaMode::Blend); // 半透明チェック
+	//Gfx::SetModelAlphaMode(player, 1, ModelAlphaMode::Blend); // 半透明チェック
+	//Gfx::SetBaseColor(player, 0, { 1.0f, 1.0f, 1.0f, 0.75f });
+	//Gfx::SetBaseColor(player, 1, { 1.0f, 1.0f, 1.0f, 0.75f });
 	Transform objectPosition{};
 	Transform toonTransform{};
 	objectPosition.SetPosition({ -1.0f, 0.0f, 0.0f });
@@ -109,7 +109,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		}
 
 		// ライト回転をして影響を確認
-		sceneLight.directional.direction = { std::cos(time), -0.6f, std::sin(time) };
+		// sceneLight.directional.direction = { std::cos(time), -0.6f, std::sin(time) };
+		sceneLight.directional.direction = { 1.0f, -1.0f, 1.0f };
 
 		// Terrain操作
 		float heightSpeed{ 3.0f };
@@ -125,8 +126,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPushed(KeyCode::Button::D3)) Time::SetTargetFPS(30); // 30FPS
 		if (Input::IsKeyPushed(KeyCode::Button::D6)) Time::SetTargetFPS(60); // 60FPS
 		if (Input::IsKeyPushed(KeyCode::Button::D0)) Time::SetTargetFPS(120); // 120FPS モニターが120Hz以上である必要あり
-		if (Input::IsKeyPushed(KeyCode::Button::RIGHT)) timeScale += 1.0f;
-		if (Input::IsKeyPushed(KeyCode::Button::LEFT)) timeScale -= 1.0f;
+		if (Input::IsKeyPushed(KeyCode::Button::RIGHT)) timeScale += 0.1f;
+		if (Input::IsKeyPushed(KeyCode::Button::LEFT)) timeScale -= 0.1f;
 		timeScale = std::clamp(timeScale, 0.0f, 10.0f); // 最大でもタイムスケールは10にとどめておく
 		Time::SetTimeScale(timeScale);
 

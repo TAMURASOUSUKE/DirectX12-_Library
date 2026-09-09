@@ -26,6 +26,7 @@ enum class BuiltinShaderID : size_t
 
 	ModelVS,
 	ModelPS,
+	ModelShadowVS,
 
 	TextureVS,
 	TexturePS,
@@ -57,6 +58,7 @@ enum class PipelineID
 {
 	Sprite, // 画像
 	Model, // 3Dモデル	
+	ModelShadow, // 光源視点でモデルの深度だけを描画
 	ModelDoubleSided, // モデルの両面描画 
 	ModelBlend, // ブレンド状態のモデル描画
 	ModelBlendDoubleSided, // ブレンド状態のモデルの両面描画
@@ -102,12 +104,21 @@ enum class InputLayout
 	Count,
 };
 
+// GraphicsPipelineが色を書き込むRenderTargetの設定
+enum class ColorTargetParam
+{
+	SceneColor, // 通常の画面色へ出力する
+	None,       // ShadowPassなど、色を出力せず深度だけ書き込む
+	Count,
+};
+
 // 深度を表す
 enum class DepthParam
 {
 	None, // 深度計算なし
 	ReadWrite, // 読み込み書き込みができる
 	ReadOnly, // 読み込みだけ
+	ShadowWrite, // D32_FLOATのShadowMapへ書き込む
 	Count,
 };
 
@@ -157,14 +168,17 @@ struct GraphicsPipelineDesc
 	BuiltinShaderID hs{ BuiltinShaderID::None }; // ハルシェーダー
 	BuiltinShaderID ds{ BuiltinShaderID::None }; // ドメインシェーダー
 	BuiltinShaderID gs{ BuiltinShaderID::None }; // ジオメトリシェーダー
-	InputLayout layout{InputLayout::None}; // 入力レイアウト
-	BlendMode blend{BlendMode::Opaque}; // ブレンドモード
-	DepthParam depth{DepthParam::None
-	}; // 深度設定
+	InputLayout layout{ InputLayout::None }; // 入力レイアウト
+	BlendMode blend{ BlendMode::Opaque }; // ブレンドモード
+	DepthParam depth{ DepthParam::None }; // 深度設定
+	ColorTargetParam colorTarget{ ColorTargetParam::SceneColor }; // PSOが色用RenderTargetを持つかを指定する
 	D3D12_CULL_MODE cullMode{ D3D12_CULL_MODE_NONE }; // カリング
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE topology{ D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE }; // 形状
 	D3D12_FILL_MODE fillMode{ D3D12_FILL_MODE_SOLID }; // fillモード
 	bool frontCounterClockwise{ false };  // どちらを表にするかtrue = 反時計回り
+	INT depthBias{ D3D12_DEFAULT_DEPTH_BIAS }; // ShadowMapなど進度を書き込む位置を定数分奥へずらす
+	float depthBiasClamp{ D3D12_DEFAULT_DEPTH_BIAS_CLAMP }; // DepthBiasへ設定できる最大値 0は制限なし
+	float slopeScaledDepthBias{ D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS }; // ポリゴンの傾きに応じて深度を追加でずらす
 };
 
 // Compute用PSO生成時に使う設定構造体

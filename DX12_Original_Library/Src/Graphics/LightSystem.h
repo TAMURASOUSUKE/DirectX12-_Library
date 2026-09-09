@@ -16,6 +16,9 @@ public:
 	// 現在使用するライト設定を変更する
 	bool SetSceneLight(const SceneLight& _sceneLight);
 
+	// 現在設定されているシーンライトを読み取り専用で取得する
+	const SceneLight& GetSceneLight() const { return currentLight; }
+
 	// 現在フレーム用のライトCBをGPUへ送りそのアドレスを返す
 	D3D12_GPU_VIRTUAL_ADDRESS GetFrameGPUAddress();
 

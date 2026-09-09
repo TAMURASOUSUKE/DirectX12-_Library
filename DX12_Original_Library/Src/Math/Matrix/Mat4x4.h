@@ -66,8 +66,10 @@ struct Mat4x4
 	// 転置行列を作成
 	static Mat4x4 MakeTransposed(const Mat4x4& _other);
 
-	// 正射影行列を作成する
+	// 2D画面座標用正射影行列を作成する
 	static Mat4x4 MakeOrthGraphic(float _width, float _height);
+	// 3D空間・ShadowMap用正射影行列を作成する
+	static Mat4x4 MakeOrthGraphic(float _width, float _height, float _nearZ, float _farZ);
 
 	// Vector4と4x4行列を乗算する
 	static Vector4 Mul(const Vector4& _vec, const Mat4x4& _mat);

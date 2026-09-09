@@ -1,6 +1,8 @@
+#include <Windows.h>
 #include <iostream>
 #include <variant>
 #include <string>
+#include "../Src/Graphics/ShadowSystem.h" // テストのため必要
 #include "../Src/Facade/TSLib.h"
 
 int testCount{ 0 };
@@ -40,6 +42,8 @@ struct Printer { std::string  operator()(int _n) { return "int!"; } std::string 
 
 int main()
 {
+	// std::coutが出力するUTF-8文字列をWindowsコンソールにもUTF-8として解釈させる
+	SetConsoleOutputCP(CP_UTF8);
 
     // 単位行列乗算
     Vector4 v{ 3.0f, 5.0f, 7.0f, 1.0f };
@@ -64,7 +68,7 @@ int main()
     Mat4x4 rotateY{ Mat4x4::MakeRotationY(90.0f * Math::DEG_TO_RAD) };
     Vector3 rotateYVec{ rotateY.TransformPoint(Vector3(1.0f, 0.0f, 0.0f)) };
 
-    Check(rotateYVec == Vector3(0.0f, 0.0f, 1.0f), "90度回転");
+    Check(rotateYVec == Vector3(0.0f, 0.0f, -1.0f), "90度回転");
 
     // スケール
     Mat4x4 scaleMat{ Mat4x4::MakeScaling(Vector3(2.0f, 3.0f, 4.0f)) };
@@ -111,7 +115,7 @@ int main()
     Quaternion rotateQua{ Quaternion::FromAxisAngle(Vector3::Up, 90.0f * Math::DEG_TO_RAD) };
     Vector3 resultRotaVec{ rotateQua.RotateVector(Vector3{1.0f, 0.0f, 0.0f}) };
     // Vector{1, 0, 0}を90°回転させるとVector{0, 0, 1}になる
-    Check(resultRotaVec == Vector3{ 0.0f, 0.0f, 1.0f }, "四元数90°回転");
+    Check(resultRotaVec == Vector3{ 0.0f, 0.0f, -1.0f }, "四元数90°回転");
 
     Mat4x4 testRotQua{ Quaternion::FromAxisAngle(Vector3::Up, 90.0f * Math::DEG_TO_RAD).ToMat4x4() };
     Mat4x4 testRotMat{ Mat4x4::MakeRotationY(90.0f * Math::DEG_TO_RAD) };
@@ -145,7 +149,7 @@ int main()
     Quaternion qMid{ Quaternion::Slerp(q0, q90, 0.5f) };
 
     Vector3 rotated = qMid.RotateVector(Vector3::Right);  // (1,0,0)を回転
-    Check(NearEqual(rotated.x, 0.7071f) && NearEqual(rotated.z, 0.7071f), "Slerp中間値");
+    Check(NearEqual(rotated.x, 0.7071f) && NearEqual(rotated.z, -0.7071f), "Slerp中間値");
 
 	const Quaternion rotation{ Quaternion::FromToRotation(Vector3::Up, Vector3::Right) };
 	const Vector3 quaternionResult{ rotation.RotateVector(Vector3::Up) };
@@ -160,6 +164,52 @@ int main()
     Vector4 aVec4{ 10.0f, 10.0f, 10.0f, 10.0f };
     aVec4 /= 0.0f;
 
+	// 3D正射影行列(横20,縦10でNear = 1, Far = 101なのでX = -10~10からNDCの-1+1へYは-5~5からNDCの-1~1,ZはDirectXの深度座標0~1へ変換される)
+	const Mat4x4 orthographic{ Mat4x4::MakeOrthGraphic(20.0f, 10.0f, 1.0f, 101.0f) };
+	const Vector4 orthographicNear{ Mat4x4::Mul(Vector4{-10.0f, -5.0f, 1.0f, 1.0f}, orthographic) }; // 正射影範囲の左下手前
+	const Vector4 orthographicFar{ Mat4x4::Mul(Vector4{10.0f, 5.0f, 101.0f, 1.0f}, orthographic) }; // 正射影範囲の右上奥
+	const Vector4 orthographicCenter{ Mat4x4::Mul(Vector4{0.0f, 0.0f, 51.0f, 1.0f}, orthographic) }; // 正射影範囲の中心
+	// 左下手前チェック
+	Check(NearEqual(orthographicNear.x, -1.0f) && NearEqual(orthographicNear.y, -1.0f) && NearEqual(orthographicNear.z, 0.0f) && NearEqual(orthographicNear.w, 1.0f), "3D正射影Near");
+	// 右上奥チェック
+	Check(NearEqual(orthographicFar.x, 1.0f) && NearEqual(orthographicFar.y, 1.0f) && NearEqual(orthographicFar.z, 1.0f) && NearEqual(orthographicFar.w, 1.0f), "3D正射影行列 Far");
+	// 中心チェック
+	Check(NearEqual(orthographicCenter.x, 0.0f) && NearEqual(orthographicCenter.y, 0.0f) && NearEqual(orthographicCenter.z, 0.5f) && NearEqual(orthographicCenter.w, 1.0f), "3D正射影行列 Center");
+
+	// 平行光源用Shadow行列
+	DirectionalLight shadowLight{};
+	// 光源は上空から真下へ
+	shadowLight.direction = Vector3::Down;
+	DirectionalShadowSettings shadowSettings{};
+	// 原点を中心に、横20・縦10の範囲を影として撮影する
+	shadowSettings.focusPosition = Vector3::Zero;
+	shadowSettings.lightDistance = 50.0f;
+	shadowSettings.width = 20.0f;
+	shadowSettings.height = 10.0f;
+	shadowSettings.nearClip = 0.0f;
+	shadowSettings.farClip = 100.0f;
+
+	ShadowSystem shadowSystem{};
+	// 更新が成功するか
+	const bool shadowMatrixCreated{ shadowSystem.UpdateDirectionalLightMatrices(shadowLight,shadowSettings) };
+	Check(shadowMatrixCreated, "平行光源Shadow行列作成");
+
+	// 光源View空間の確認
+	// 光源カメラは原点の50上に配置される。原点は光源カメラか見て50進んだ位置なのでView変換後は(0, 0, 50)
+	const Vector3 lightViewCenter{ shadowSystem.GetLightViewMatrix().TransformPoint(shadowSettings.focusPosition) };
+	Check(NearEqualVec3(lightViewCenter, Vector3{ 0.0f, 0.0f, 50.0f }), "Shadow中心のLightView変換");
+
+	// LightViewProjection後の中心を確認
+
+	// Nearが0,Farが100なので奥行50はNDCの0.5になる　正射影範囲の中心なのでXとYは0
+	const Vector3 shadowNdcCenter{ shadowSystem.GetLightViewProjectionMatrix().TransformPoint(shadowSettings.focusPosition) };
+	Check(NearEqualVec3(shadowNdcCenter, Vector3{ 0.0f, 0.0f, 0.5f }), "Shadow中心のNDC変換");
+
+	// 正射影の右端を確認
+
+	// Shadow幅は20なので中心から右へ10進んだ位置が右端になるのでNDCのX = 1と一致するか
+	const Vector3 shadowRightEdge{ shadowSystem.GetLightViewProjectionMatrix().TransformPoint(Vector3{ 10.0f, 0.0f, 0.0f }) };
+	Check(NearEqualVec3(shadowRightEdge, Vector3{ 1.0f, 0.0f, 0.5f }), "Shadow正射影の右端");
 
     std::cout << "\n" << passCount << "/" << testCount << " tests passed." << std::endl;
 

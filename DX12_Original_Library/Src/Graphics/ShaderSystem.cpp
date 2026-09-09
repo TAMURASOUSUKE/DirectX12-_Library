@@ -12,6 +12,7 @@
 
 #include "ModelVSBytecode.h"
 #include "ModelPSBytecode.h"
+#include "ModelShadowVSBytecode.h"
 
 #include "TextureVSBytecode.h"
 #include "TexturePSBytecode.h"
@@ -322,9 +323,25 @@ namespace {
 		// ReadWrite
 		{DEPTH_READ_WRITE, DXGI_FORMAT_D24_UNORM_S8_UINT},
 		// ReadOnly
-		{DEPTH_READ_ONLY, DXGI_FORMAT_D24_UNORM_S8_UINT}
+		{DEPTH_READ_ONLY, DXGI_FORMAT_D24_UNORM_S8_UINT},
+		// ShadowWrite
+		{DEPTH_READ_WRITE, DXGI_FORMAT_D32_FLOAT}, 
 	};
 	static_assert(_countof(DEPTH_TABLE) == static_cast<size_t>(DepthParam::Count), "DepthParamのID数と実値の総数が合いません\n");
+
+	struct ColorTargetEntry
+	{
+		UINT count;
+		DXGI_FORMAT format;
+	};
+	constexpr ColorTargetEntry COLOR_TARGET_TABLE[]
+	{
+		// SceneColor
+		{ 1, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB },
+		// None
+		{ 0, DXGI_FORMAT_UNKNOWN }, // ShadowPassは色を描画せず、DSVだけを使用する
+	};
+	static_assert(_countof(COLOR_TARGET_TABLE) == static_cast<size_t>(ColorTargetParam::Count), "ColorTargetParamのID数と実値の総数が合いません\n");
 }
 
 namespace {
@@ -422,6 +439,7 @@ namespace {
 
 		MakeShaderBytecode(g_ModelVS, sizeof(g_ModelVS)),
 		MakeShaderBytecode(g_ModelPS, sizeof(g_ModelPS)),
+		MakeShaderBytecode(g_ModelShadowVS, sizeof(g_ModelShadowVS)),
 
 		MakeShaderBytecode(g_TextureVS, sizeof(g_TextureVS)),
 		MakeShaderBytecode(g_TexturePS, sizeof(g_TexturePS)),
@@ -437,6 +455,36 @@ namespace {
 
 	// ID追加時にバイトコード表の追加忘れを検出する
 	static_assert(std::size(BUILTIN_SHADER_BYTECODE_TABLE) == static_cast<size_t>(BuiltinShaderID::Count));
+
+	// ShadowMapの保存深度と現在地点の深度を比較するサンプラー
+	D3D12_STATIC_SAMPLER_DESC MakeShadowComparisonSampler(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+	{
+		D3D12_STATIC_SAMPLER_DESC desc{};
+
+		// 周囲の深度比較結果を線形補完する簡易PCF
+		desc.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+
+		// ShadowMap範囲外は深度1.0として扱い、影にしない
+		desc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+		desc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+		desc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+		desc.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
+
+		desc.MipLODBias = 0.0f;
+		desc.MaxAnisotropy = 1;
+
+		// 現在地点の深度がShadoMap深度以下なら光が届いている
+		desc.ComparisonFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+
+		// ShadowMapはMipMapを持たない
+		desc.MinLOD = 0.0f;
+		desc.MaxLOD = 0.0f;
+
+		desc.ShaderRegister = _shaderRegister;
+		desc.RegisterSpace = 0;
+		desc.ShaderVisibility = _visibility;
+		return desc;
+	}
 }
 
 // 初期化処理
@@ -698,13 +746,15 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 	const size_t layoutID{ static_cast<size_t>(_desc.layout) };
 	const size_t blendID{ static_cast<size_t>(_desc.blend) };
 	const size_t depthID{ static_cast<size_t>(_desc.depth) };
+	const size_t colorTargetID{ static_cast<size_t>(_desc.colorTarget) };
 
 	// 各enumがテーブルの範囲内にあるか確認する
 	if (pipelineID >= static_cast<size_t>(PipelineID::Count) ||
 		rootSignatureID >= static_cast<size_t>(RootSigID::Count) ||
 		layoutID >= static_cast<size_t>(InputLayout::Count) ||
 		blendID >= static_cast<size_t>(BlendMode::Count) ||
-		depthID >= static_cast<size_t>(DepthParam::Count))
+		depthID >= static_cast<size_t>(DepthParam::Count) ||
+		colorTargetID >= static_cast<size_t>(ColorTargetParam::Count))
 	{
 		DEBUG_LOG_ERROR("GraphicsPipelineDescに無効なIDが指定されています\n");
 		return false;
@@ -766,7 +816,7 @@ bool ShaderSystem::CreateGraphicsPipeline(const GraphicsPipelineDesc& _desc)
 	}
 
 	// 指定した任意ステージが取得できなかった場合
-	if (_desc.ps != BuiltinShaderID::None && !ps.pShaderBytecode || ps.BytecodeLength == 0)
+	if (_desc.ps != BuiltinShaderID::None && (!ps.pShaderBytecode || ps.BytecodeLength == 0))
 	{
 		DEBUG_LOG_ERROR("内蔵PSの取得に失敗しました\n");
 		return false;
@@ -970,6 +1020,9 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	model.parameters.push_back(MakeRootCBV(4, D3D12_SHADER_VISIBILITY_VERTEX)); // モデル個体ごとのデータ(b4)
 	model.staticSamplers.push_back(MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL)); // サンプラー設定(s0)
 	model.parameters.push_back(MakeSRVTable(1, D3D12_SHADER_VISIBILITY_PIXEL)); // MetallicRoughnessテクスチャ(t1)
+	model.parameters.push_back(MakeRootCBV(5, D3D12_SHADER_VISIBILITY_ALL)); // Shadow用LightViewProjection(b5)
+	model.parameters.push_back(MakeSRVTable(2, D3D12_SHADER_VISIBILITY_PIXEL)); // ShadowMapのt2
+	model.staticSamplers.push_back(MakeShadowComparisonSampler(1, D3D12_SHADER_VISIBILITY_PIXEL)); // ShadowMap比較用のSampler(s1)
 	descs.push_back(std::move(model)); // model変数は使わないのでmoveして空にする(コピーの必要性なし)
 	// Shape用
 	RootSignatureDesc shape{};
@@ -1039,12 +1092,14 @@ ComPtr<ID3D12PipelineState> ShaderSystem::BuildGraphicsPipeline(const GraphicsPi
 	const size_t layoutID{ static_cast<size_t>(_desc.layout) };
 	const size_t blendID{ static_cast<size_t>(_desc.blend) };
 	const size_t depthID{ static_cast<size_t>(_desc.depth) };
+	const size_t colorTargetID{ static_cast<size_t>(_desc.colorTarget) };
 
 	// 各enumがテーブルの範囲内にあるか確認する
 	if (rootSignatureID >= static_cast<size_t>(RootSigID::Count) ||
 		layoutID >= static_cast<size_t>(InputLayout::Count) ||
 		blendID >= static_cast<size_t>(BlendMode::Count) ||
-		depthID >= static_cast<size_t>(DepthParam::Count))
+		depthID >= static_cast<size_t>(DepthParam::Count) ||
+		colorTargetID >= static_cast<size_t>(ColorTargetParam::Count))
 	{
 		DEBUG_LOG_ERROR("GraphicsPipelineDescに無効なIDが指定されています\n");
 		return nullptr;
@@ -1107,6 +1162,9 @@ ComPtr<ID3D12PipelineState> ShaderSystem::BuildGraphicsPipeline(const GraphicsPi
 	nativeDesc.RasterizerState.FillMode = _desc.fillMode; // 塗るかwireか
 	nativeDesc.RasterizerState.CullMode = _desc.cullMode;
 	nativeDesc.RasterizerState.FrontCounterClockwise = _desc.frontCounterClockwise; // ポリゴンのどちらを表とするか
+	nativeDesc.RasterizerState.DepthBias = _desc.depthBias;
+	nativeDesc.RasterizerState.DepthBiasClamp = _desc.depthBiasClamp;
+	nativeDesc.RasterizerState.SlopeScaledDepthBias = _desc.slopeScaledDepthBias;
 
 	// 深度範囲外の頂点をクリップする
 	nativeDesc.RasterizerState.DepthClipEnable = true;
@@ -1118,9 +1176,10 @@ ComPtr<ID3D12PipelineState> ShaderSystem::BuildGraphicsPipeline(const GraphicsPi
 	nativeDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
 	nativeDesc.PrimitiveTopologyType = _desc.topology;
 
-	// とりあえず今はRenderTargetを1枚だけ使用する
-	nativeDesc.NumRenderTargets = 1;
-	nativeDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+	// RenderTarget関連
+	const ColorTargetEntry& colorTarget{ COLOR_TARGET_TABLE[colorTargetID] };
+	nativeDesc.NumRenderTargets = colorTarget.count;
+	nativeDesc.RTVFormats[0] = colorTarget.format;
 
 	// MSAAなし
 	nativeDesc.SampleDesc.Count = 1;
