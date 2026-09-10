@@ -57,9 +57,21 @@ public:
 	bool Destroy(AnimInstanceHandle _handle);
 
 private:
+
+	// 行列化する前のボーン1本分のローカル姿勢
+	struct BoneLocalPose
+	{
+		Vector3 translation{ Vector3::Zero };
+		Quaternion rotation{ Quaternion::Identity };
+		Vector3 scale{ Vector3::One };
+	};
+
 	// 個体の現在時刻からグローバル姿勢とスキニング行列を計算する
 	void UpdateGlobalPose(AnimInstanceData& _instance);
 	
+	// クリップをボーン事のローカルTRSとしてサンプリングする
+	void SampleAnimationTRS(const Animation& _animation, const std::vector<Bone>& _bones, float _time, std::vector<BoneLocalPose>& _outPoses);
+
 	// クリップの各チャンネルを補間してボーンごとのローカル姿勢を作る
 	void SampleAnimation(const Animation& _animation, const std::vector<Bone>& _bones, float _time, std::vector<Mat4x4>& _outLocalPoses);
 
@@ -72,8 +84,6 @@ private:
 
 	// 姿勢計算中だけ使う領域(単一スレッド想定なので今後変更する)
 	std::vector<Mat4x4> localPoseCache{};
-	std::vector<Vector3> translationCache{};
-	std::vector<Quaternion> rotationCache{};
-	std::vector<Vector3> scaleCache{};
+	std::vector<BoneLocalPose> sampledPoseCache{};
 
 };
