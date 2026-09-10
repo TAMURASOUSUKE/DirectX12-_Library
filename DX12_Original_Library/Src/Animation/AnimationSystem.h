@@ -47,6 +47,9 @@ public:
 	// 指定したアニメーションの再生速度を変更する(負数なら逆再生)
 	bool SetAnimPlaybackSpeed(AnimInstanceHandle _handle, float _playbackSpeed);
 
+	// 現在のアニメーションから指定したアニメーションに滑らかに遷移する
+	bool CrossFade(AnimInstanceHandle _handle, int _clipIndex, float _duration, bool _isLoop, float _playbackSpeed = 1.0f);
+
 	// 世代付きハンドルから個体データを
 	AnimInstanceData* Lookup(AnimInstanceHandle _handle);
 

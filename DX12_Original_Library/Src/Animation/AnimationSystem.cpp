@@ -328,6 +328,11 @@ bool AnimationSystem::SetAnimPlaybackSpeed(AnimInstanceHandle _handle, float _pl
 	return true;
 }
 
+bool  AnimationSystem::CrossFade(AnimInstanceHandle _handle, int _clipIndex, float _duration, bool _isLoop, float _playbackSpeed)
+{
+
+}
+
 AnimInstanceData* AnimationSystem::Lookup(AnimInstanceHandle _handle)
 {
 	if (!_handle.IsValid())
