@@ -72,9 +72,6 @@ private:
 	// クリップをボーン事のローカルTRSとしてサンプリングする
 	void SampleAnimationTRS(const Animation& _animation, const std::vector<Bone>& _bones, float _time, std::vector<BoneLocalPose>& _outPoses);
 
-	// クリップの各チャンネルを補間してボーンごとのローカル姿勢を作る
-	void SampleAnimation(const Animation& _animation, const std::vector<Bone>& _bones, float _time, std::vector<Mat4x4>& _outLocalPoses);
-
 	// 1チャンネル内の前後キーフレームを補間する
 	static Vector4 SampleChannel(const AnimChannel& _channel, float _time);
 
@@ -84,6 +81,8 @@ private:
 
 	// 姿勢計算中だけ使う領域(単一スレッド想定なので今後変更する)
 	std::vector<Mat4x4> localPoseCache{};
-	std::vector<BoneLocalPose> sampledPoseCache{};
 
+	std::vector<BoneLocalPose> sourcePoseCache{}; // 遷移元のキャッシュ
+	std::vector<BoneLocalPose> destinationPoseCache{}; // 遷移先のキャッシュ
+	std::vector<BoneLocalPose> blendedPoseCache{}; // ブレンド中のキャッシュ
 };

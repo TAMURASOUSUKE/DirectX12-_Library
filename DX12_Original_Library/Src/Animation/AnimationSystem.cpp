@@ -14,6 +14,9 @@ void AnimationSystem::Setup()
 	
 	// 姿勢計算中の再確保防止
 	localPoseCache.reserve(MAX_BONE_NUM);
+	sourcePoseCache.reserve(MAX_BONE_NUM);
+	destinationPoseCache.reserve(MAX_BONE_NUM);
+	blendedPoseCache.reserve(MAX_BONE_NUM);
 }
 
 void AnimationSystem::Shutdown()
@@ -25,6 +28,9 @@ void AnimationSystem::Shutdown()
 	}
 
 	localPoseCache.clear();
+	sourcePoseCache.clear();
+	destinationPoseCache.clear();
+	blendedPoseCache.clear();
 }
 
 AnimInstanceHandle AnimationSystem::Create(ModelHandle _modelHandle)
@@ -141,6 +147,9 @@ bool AnimationSystem::PlayRange(AnimInstanceHandle _handle, int _clipIndex, floa
 		return false;
 	}
 
+	// 通常再生中は進行中のクロスフェードを解除する
+	instance->blend = AnimationBlendState{};
+
 	// 指定区間を入れる
 	instance->currentAnim = _clipIndex;
 	instance->playbackSpeed = _playbackSpeed;
@@ -190,6 +199,10 @@ bool AnimationSystem::Stop(AnimInstanceHandle _handle)
 	instance->isPaused = false;
 	// 逆再生かどうかによって戻す位置を決める
 	instance->currentTime = instance->playbackSpeed > 0.0f ? instance->playbackStartTime : instance->playbackEndTime;
+	
+	// 停止中はクロスフェードも終了する
+	instance->blend = AnimationBlendState{};
+
 	// 指定姿勢へ
 	UpdateGlobalPose(*instance);
 	return true;
@@ -412,6 +425,23 @@ bool  AnimationSystem::CrossFade(AnimInstanceHandle _handle, int _clipIndex, flo
 		return false;
 	}
 
+	// CrossFadeのまでにPlayまたはPlayRangeが行われたかチェック
+	const Animation& source{ model->animations[instance->currentAnim] };
+	const bool hasValidSourceRange{
+	std::isfinite(instance->playbackStartTime) && // スタート時が有効値か
+	std::isfinite(instance->playbackEndTime) && // スタート時が有効値か
+	instance->playbackStartTime >= 0.0f && // スタート時が0以上か
+	instance->playbackStartTime <
+		instance->playbackEndTime && // StartよりEndの方が大きいか
+	instance->playbackEndTime <= source.duration // 再生終了時刻はアニメーションの長さの範囲内か
+	};
+
+	if (!hasValidSourceRange)
+	{
+		DEBUG_LOG_ERROR("CrossFadeの前にPlayまたはPlayRangeを実行してください\n");
+		return false;
+	}
+
 	// ブレンド設定をローカルに
 	AnimationBlendState& blend{ instance->blend };
 	blend.sourceAnim = instance->currentAnim;
@@ -503,8 +533,45 @@ void AnimationSystem::UpdateGlobalPose(AnimInstanceData& _instance)
 	localPoseCache.resize(model->bones.size());
 	if (hasValidAnimation)
 	{
-		const Animation& anim{ model->animations[_instance.currentAnim] }; // 指定のアニメーションを取り出す
-		SampleAnimation(anim, model->bones, _instance.currentTime, localPoseCache);
+		const Animation& destination{ model->animations[_instance.currentAnim] }; // 指定の遷移先アニメーションを取り出す
+		SampleAnimationTRS(destination, model->bones, _instance.currentTime, destinationPoseCache);
+		const std::vector<BoneLocalPose>* finalPose{ &destinationPoseCache }; // 最終的なポーズ
+
+		AnimationBlendState& blend{ _instance.blend };
+		const bool hasValidSource{ blend.sourceAnim >= 0 && static_cast<std::size_t>(blend.sourceAnim) < model->animations.size() }; // 遷移元が範囲内か
+		if (blend.isActive && !hasValidSource)
+		{
+			DEBUG_LOG_ERROR("クロスフェードの遷移元が無効です\n");
+			blend.isActive = false;
+		}
+		else if (blend.isActive)
+		{
+			const Animation& source{ model->animations[blend.sourceAnim] };
+			SampleAnimationTRS(source, model->bones, blend.sourceTime, sourcePoseCache);
+			const float t{ std::clamp(blend.elapsedTime / blend.duration, 0.0f, 1.0f) }; // 混ぜ具合
+
+			blendedPoseCache.resize(model->bones.size());
+			for (std::size_t i = 0; i < model->bones.size(); i++)
+			{
+				const BoneLocalPose& sourcePose{ sourcePoseCache[i] };
+				const BoneLocalPose& destinationPose{ destinationPoseCache[i] };
+				BoneLocalPose& blendedPose{ blendedPoseCache[i] };
+
+				// 各ポーズを補間
+				blendedPose.translation = Vector3::Lerp(sourcePose.translation, destinationPose.translation, t);
+				blendedPose.rotation = Quaternion::Slerp(sourcePose.rotation, destinationPose.rotation, t);
+				blendedPose.scale = Vector3::Lerp(sourcePose.scale, destinationPose.scale, t);
+			}
+			finalPose = &blendedPoseCache;
+		}
+		for (std::size_t i = 0; i < model->bones.size(); i++)
+		{
+			const BoneLocalPose& pose{ (*finalPose)[i] };
+			const Mat4x4 translation{ Mat4x4::MakeTranslation(pose.translation) };
+			const Mat4x4 rotation{ pose.rotation.ToMat4x4() };
+			const Mat4x4 scale{ Mat4x4::MakeScaling(pose.scale) };
+			localPoseCache[i] = scale * rotation * translation;
+		}
 	}
 
 	// ボーン数分回してglobal行列を求める
@@ -572,23 +639,6 @@ void AnimationSystem::SampleAnimationTRS(const Animation& _animation, const std:
 		case AnimPath::Rotation: _outPoses[bone].rotation = Quaternion{ v }; break;
 		case AnimPath::Scale: _outPoses[bone].scale = Vector3{ v.x, v.y, v.z }; break;
 		}
-	}
-}
-
-void AnimationSystem::SampleAnimation(const Animation& _anim, const std::vector<Bone>& _bones, float _time, std::vector<Mat4x4>& _outLocalPoses)
-{
-	SampleAnimationTRS(_anim, _bones, _time, sampledPoseCache);
-	_outLocalPoses.resize(sampledPoseCache.size());
-
-	// TRSからlocalPosを組み立てる
-	for (size_t i = 0; i < sampledPoseCache.size(); i++)
-	{
-		const BoneLocalPose& pose{ sampledPoseCache[i] };
-
-		Mat4x4 t{ Mat4x4::MakeTranslation(pose.translation) };
-		Mat4x4 r{ pose.rotation.ToMat4x4() };
-		Mat4x4 s{ Mat4x4::MakeScaling(pose.scale) };
-		_outLocalPoses[i] = s * r * t;
 	}
 }
 
