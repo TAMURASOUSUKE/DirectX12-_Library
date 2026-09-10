@@ -418,6 +418,31 @@ struct ModelData
 	std::vector<TexHandle> ownedTextures; // モデル読み込み時にこのモデル用としてReosurceManagerが用意したTexture群
 };
 
+// アニメーションブレンド中に必要な遷移元の再生状態
+struct AnimationBlendState
+{
+	int sourceAnim{ -1 }; // 遷移元のクリップ番号
+	float sourceTime{ 0.0f }; // 遷移元のクリップの現在時刻
+
+	// PlayRangeで指定された遷移元の再生区間
+	float sourceStartTime{ 0.0f }; 
+	float sourceEndTime{ 0.0f };
+
+	// 遷移元もブレンド中に再生を続けるための速度
+	float sourcePlaybackSpeed{ 1.0f };
+
+	// ブレンド開始から経過した時間
+	float elapsedTime{ 0.0f };
+
+	// ブレンドが完了するまでの時間
+	float duration{ 0.0f };
+
+	// 遷移元のループ設定
+	bool sourceIsLoop{ true };
+	// 現在クロスフェード中か
+	bool isActive{ false };
+};
+
 // 個体ごとのアニメーションの状態
 struct AnimInstanceData
 {
@@ -433,6 +458,7 @@ struct AnimInstanceData
 	bool isLoop{ true };       // 最後まで行ったら先頭へ戻すか
 	bool isPlaying{ false };   // 現在時間を進めるか
 	bool isFinished{ false };  // 非ループ再生が最後まで到達したか
+	AnimationBlendState blend{}; // 現在行っているアニメーションブレンドの状態
 }; 
 
 struct AnimInstanceSlot
