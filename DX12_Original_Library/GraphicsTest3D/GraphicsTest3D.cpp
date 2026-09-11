@@ -30,6 +30,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	toonTransform.SetPosition({ 1.0f, 0.0f, 0.0f });
 	AnimInstanceHandle alienModelAnim{ Gfx::CreateAnimInstance(player) }; // testModelからAnimationのInstanceを作る
 	AnimInstanceHandle toonModelAnim{ Gfx::CreateAnimInstance(toon) }; // toonModelからAnimationのInstanceを作る
+	// アニメーションブレンド検証
+	constexpr int ALIEN_ANIM_0{ 0 };
+	constexpr int ALIEN_ANIM_1{ 1 };
+	constexpr float ALIEN_BLEND_DURATION{ 0.5f };
+	// CrossFadeには遷移元が必要なので、最初は通常再生で開始する
+	Gfx::PlayAnim(alienModelAnim, ALIEN_ANIM_0, true, 1.0f);
+
 
 	// LODテスト用フィールドモデル
 	ModelHandle heighField{ Gfx::LoadModel("Res/japanese_terrain_lod0.glb") };
@@ -109,8 +116,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		}
 
 		// ライト回転をして影響を確認
-		// sceneLight.directional.direction = { std::cos(time), -0.6f, std::sin(time) };
-		sceneLight.directional.direction = { 1.0f, -1.0f, 1.0f };
+		sceneLight.directional.direction = { std::cos(time), -0.6f, std::sin(time) };
 
 		// Terrain操作
 		float heightSpeed{ 3.0f };
@@ -164,15 +170,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 
 		// 3Dモデルアニメーション
-		// 通常ループ再生
-		if (Input::IsKeyPushed(KeyCode::Button::SPACE)) Gfx::PlayAnim(alienModelAnim, 0, true, 1.0f);
-		// 逆方向ループ再生
-		if (Input::IsKeyPushed(KeyCode::Button::R)) Gfx::PlayAnim(alienModelAnim, 0, true, -1.0f);
-		// 現在の姿勢で一時停止
+		// クリップ0または現在のクリップから、クリップ1へ遷移
+		if (Input::IsKeyPushed(KeyCode::Button::C)) Gfx::CrossFadeAnim(alienModelAnim, ALIEN_ANIM_1, ALIEN_BLEND_DURATION, true, 1.0f);
+		// クリップ1または現在のクリップから、クリップ0へ遷移
+		if (Input::IsKeyPushed(KeyCode::Button::V)) Gfx::CrossFadeAnim(alienModelAnim, ALIEN_ANIM_0, ALIEN_BLEND_DURATION, true, 1.0f);
+		// ブレンド中でも通常再生へ即座に切り替える 古いblend状態が残らないことを確認する
+		if (Input::IsKeyPushed(KeyCode::Button::X)) Gfx::PlayAnim(alienModelAnim, ALIEN_ANIM_0, true, 1.0f);
+		// ブレンドを含めて一時停止
 		if (Input::IsKeyPushed(KeyCode::Button::P)) Gfx::PauseAnim(alienModelAnim);
-		// 一時停止した位置から再開
+		// 停止位置から再開
 		if (Input::IsKeyPushed(KeyCode::Button::O)) Gfx::ResumeAnim(alienModelAnim);
-		// 再生方向に応じた開始位置へ戻して停止
+		// 再生とブレンドを停止
 		if (Input::IsKeyPushed(KeyCode::Button::B)) Gfx::StopAnim(alienModelAnim);
 		Gfx::UpdateAnim(alienModelAnim, Time::DeltaTime());
 

@@ -1427,6 +1427,11 @@ bool Gfx::PlayRangeAnim(AnimInstanceHandle _handle, int _clipIndex, float _start
 	return animSystem.PlayRange(_handle, _clipIndex, _startTime, _endTime, _isLoop, _playbackSpeed);
 }
 
+bool Gfx::CrossFadeAnim(AnimInstanceHandle _handle, int _clipIndex, float _duration, bool _isLoop, float _playbackSpeed)
+{
+	return animSystem.CrossFade(_handle, _clipIndex, _duration, _isLoop, _playbackSpeed);
+}
+
 bool Gfx::ResumeAnim(AnimInstanceHandle _handle)
 {
 	return animSystem.ResumePlay(_handle);
