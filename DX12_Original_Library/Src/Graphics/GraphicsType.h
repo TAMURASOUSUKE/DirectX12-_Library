@@ -346,6 +346,24 @@ enum class MaterialAlphaMode : std::uint32_t
 	Blend = 2,
 };
 
+// material内部のテクスチャ情報等を持つ
+struct PBRMaterialData
+{
+	TexHandle textures[MaterialTex::Count]{}; // テクスチャ群
+	Vector4 baseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f }; // 拡散色(デフォルトは白)
+	float metallic{ 1.0f }; //　金属度
+	float roughness{ 1.0f }; // 粗さ
+	Vector3 emissiveFactor{ 0.0f, 0.0f, 0.0f }; // 自己発光色
+};
+
+// このmaterialの描画状態を持つ
+struct MaterialRenderState
+{
+	bool doubleSided{ false }; // 両面描画か
+	MaterialAlphaMode alphaMode{ MaterialAlphaMode::Opaque }; // Alphaモード
+	float alphaCutoff{ 0.5f }; // AlphaModeのMaskにおいてα値がどこ未満なら捨てるかの値
+};
+
 // material本体
 struct Material
 {
@@ -532,25 +550,7 @@ struct MaterialData
 	ComPtr<ID3D12PipelineState> pipelineState{}; // Shaderと用途ごとのPSO設定から生成したもの
 	MaterialParameterSet parameters{}; // slot0-3のユーザーパラメータ
 	PBRMaterialData pbr{}; // 表面をどう表現するか
-	MaterialRenderState state{}; // どう描画するか
-};
-
-// material内部のテクスチャ情報等を持つ
-struct PBRMaterialData
-{
-	TexHandle textures[MaterialTex::Count]; // テクスチャ群
-	Vector4 baseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f }; // 拡散色(デフォルトは白)
-	float metallic{ 1.0f }; //　金属度
-	float roughness{ 1.0f }; // 粗さ
-	Vector3 emissiveFactor{ 0.0f, 0.0f, 0.0f }; // 自己発光色
-};
-
-// このmaterialの描画状態を持つ
-struct MaterialRenderState
-{
-	bool doubleSided{ false }; // 両面描画か
-	MaterialAlphaMode alphaMode{ MaterialAlphaMode::Opaque }; // Alphaモード
-	float alphaCutoff{ 0.5f }; // AlphaModeのMaskにおいてα値がどこ未満なら捨てるかの値
+	MaterialRenderState renderState{}; // どう描画するか
 };
 
 // materialを管理するスロット
