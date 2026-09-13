@@ -543,11 +543,20 @@ struct MaterialParameterBlock
 };
 
 using MaterialParameterSet = std::array<MaterialParameterBlock, MATERIAL_PARAMETER_SLOT_COUNT>;
+
+// PSOの状態が内蔵か外部Shaderから作られたものかを設定する
+enum class MaterialPipelineSource
+{
+	Builtin,
+	Custom,
+};
+
 // material一つ分の実データ
 struct MaterialData
 {
 	ShaderUsage usage{ ShaderUsage::PostEffect }; // Shaderがどの描画カテゴリだったか
-	ComPtr<ID3D12PipelineState> pipelineState{}; // Shaderと用途ごとのPSO設定から生成したもの
+	ComPtr<ID3D12PipelineState> pipelineState{}; // Shaderと用途ごとのPSO設定から生成したもの(内蔵PSOならShaderSystemでIDから生成するが外部はそのIDに登録できないのでmaterialが直接持つ)
+	MaterialPipelineSource pipelineSource{ MaterialPipelineSource::Builtin }; // PSOの状態
 	MaterialParameterSet parameters{}; // slot0-3のユーザーパラメータ
 	PBRMaterialData pbr{}; // 表面をどう表現するか
 	MaterialRenderState renderState{}; // どう描画するか
