@@ -8,6 +8,7 @@
 #include "ModelRenderer.h"
 #include "ModelRenderQueue.h"
 #include "ModelDrawPacket.h"
+#include "../Core/Handle/MaterialHandle.h"
 
 // モデルを描画するためのシステムを構築する
 class ModelRenderSystem
@@ -31,9 +32,9 @@ public:
 	void FlushBlend(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress, D3D12_GPU_DESCRIPTOR_HANDLE _shadowMapSRV);
 
 	// 静的モデルの描画依頼登録
-	bool Register(ModelHandle _model, const Transform& _transform);
+	bool Register(ModelHandle _model, const Transform& _transform, MaterialHandle _drawMaterialOverride);
 	// スキニングモデルの描画依頼登録
-	bool Register(AnimInstanceHandle _animInstance, const Transform& _transform);
+	bool Register(AnimInstanceHandle _animInstance, const Transform& _transform, MaterialHandle _drawMaterialOverride);
 
 	// カメラ距離に応じたモデルを一つ選び描画依頼として登録する
 	bool RegisterLOD(std::span<const ModelLODLevel> _levels, ModelLODState& _state, const Transform& _transform, float _hysteresisDistance);

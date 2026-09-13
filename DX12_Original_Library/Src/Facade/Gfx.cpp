@@ -1404,12 +1404,12 @@ void Gfx::DrawAABB3D(const AABB& _aabb, Vector4 _color)
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 {
-	modelRenderSystem.Register(_model, _transform);
+	modelRenderSystem.Register(_model, _transform, MaterialHandle{});
 }
 
 void Gfx::DrawAnimatedModel(AnimInstanceHandle _handle, Transform _transform)
 {
-	modelRenderSystem.Register(_handle, _transform);
+	modelRenderSystem.Register(_handle, _transform, MaterialHandle{});
 }
 
 bool Gfx::UpdateAnim(AnimInstanceHandle _handle, float _deltaTime)

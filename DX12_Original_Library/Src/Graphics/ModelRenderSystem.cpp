@@ -134,14 +134,14 @@ void ModelRenderSystem::FlushBlend(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress
 	}
 }
 
-bool ModelRenderSystem::Register(ModelHandle _model, const Transform& _transform)
+bool ModelRenderSystem::Register(ModelHandle _model, const Transform& _transform, MaterialHandle _drawMaterialOverride)
 {
-	return renderQueue.Register(_model, _transform);
+	return renderQueue.Register(_model, _transform, _drawMaterialOverride);
 }
 
-bool ModelRenderSystem::Register(AnimInstanceHandle _animInstance, const Transform& _transform)
+bool ModelRenderSystem::Register(AnimInstanceHandle _animInstance, const Transform& _transform, MaterialHandle _drawMaterialOverride)
 {
-	return renderQueue.Register(_animInstance, _transform);
+	return renderQueue.Register(_animInstance, _transform, _drawMaterialOverride);
 }
 
 bool ModelRenderSystem::RegisterLOD(std::span<const ModelLODLevel> _levels, ModelLODState& _state, const Transform& _transform, float _hysteresisDistance)
@@ -233,7 +233,7 @@ bool ModelRenderSystem::RegisterLOD(std::span<const ModelLODLevel> _levels, Mode
 	}
 
 	// 状態が選択しているモデルだけ既存のRenderQueueへ登録する
-	return renderQueue.Register(_levels[_state.currentLevelIndex].model, _transform);
+	return renderQueue.Register(_levels[_state.currentLevelIndex].model, _transform, MaterialHandle{}); // 現状はひとまず空のmaterialハンドルを渡す
 }
 
 bool ModelRenderSystem::AppendDrawPackets(const ModelData& _model, const AnimInstanceData* _animation, const Transform& _transform)

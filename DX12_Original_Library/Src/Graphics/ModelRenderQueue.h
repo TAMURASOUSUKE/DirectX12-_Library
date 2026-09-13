@@ -46,9 +46,9 @@ public:
 	void Reset();
 
 	// 静的モデルの描画依頼登録
-	bool Register(ModelHandle _model, const Transform& _transform);
+	bool Register(ModelHandle _model, const Transform& _transform, MaterialHandle _drawMaterialOverride);
 	// スキニングモデルの描画依頼登録
-	bool Register(AnimInstanceHandle _animInstance, const Transform& _transform);
+	bool Register(AnimInstanceHandle _animInstance, const Transform& _transform, MaterialHandle _drawMaterialOverride);
 
 	// 登録された描画依頼をコピーせず参照する
 	std::span<const ModelRenderCommand> GetCommands() const { return commands; }
