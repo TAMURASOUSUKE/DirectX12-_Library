@@ -9,6 +9,7 @@
 #include "../Math/TSMath.h"
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
+#include "../Core/Handle/MaterialHandle.h"
 #include "GraphicsConstant.h"
 using Microsoft::WRL::ComPtr;
 
@@ -382,7 +383,8 @@ struct SubMesh
 {
 	VertexBuffer vertexBuffer; // 頂点バッファ
 	IndexBuffer indexBuffer; // インデックスバッファ(この中にIndexCountがあるためそれを使う)
-	Material material; // マテリアル
+	Material material; // glTFから読み込んだモデル本体のmaterial
+	MaterialHandle materialOverride{}; // ユーザーが上書きしたmaterial
 };
 
 // ボーン一つ分のデータを持つ
