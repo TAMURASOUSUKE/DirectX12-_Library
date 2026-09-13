@@ -1007,23 +1007,24 @@ ShaderHandle Gfx::LoadShader(const wchar_t* _filePath, ShaderUsage _usage, Shade
 	const char* target{ nullptr };
 	switch (_stage)
 	{
+		// registerSpaceを使用するためShaderModelは5_1にする
 	case ShaderStage::Vertex:
-		target = "vs_5_0";
+		target = "vs_5_1";
 		break;
 	case ShaderStage::Pixel:
-		target = "ps_5_0";
+		target = "ps_5_1";
 		break;
 	case ShaderStage::Hull:
-		target = "hs_5_0";
+		target = "hs_5_1";
 		break;
 	case ShaderStage::Domain:
-		target = "ds_5_0";
+		target = "ds_5_1";
 		break;
 	case ShaderStage::Geometry:
-		target = "gs_5_0";
+		target = "gs_5_1";
 		break;
 	case ShaderStage::Compute:
-		target = "cs_5_0";
+		target = "cs_5_1";
 		break;
 	default:
 		DEBUG_LOG_ERROR("不正なShaderカテゴリが渡されました\n");

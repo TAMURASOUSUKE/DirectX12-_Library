@@ -347,13 +347,14 @@ namespace {
 namespace {
 	// 共通部品作成ヘルパー関数
 	// CBV作成
-	RootParamDesc MakeRootCBV(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+	RootParamDesc MakeRootCBV(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility, UINT _registerSpace = 0)
 	{
 		RootParamDesc desc{};
 		desc.type = D3D12_ROOT_PARAMETER_TYPE_CBV; // 定数バッファに設定
 		desc.shaderRegister = _shaderRegister;
 		desc.registerSpace = 0;
 		desc.visibility = _visibility;
+		desc.registerSpace = _registerSpace; // レジスタ番号がユーザー定義と内蔵定義でかぶらないようにするための論理的名前空間
 		return desc;
 	}
 
@@ -1001,10 +1002,10 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	texture.rootSignatureID = RootSigID::Texture;
 	texture.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_PIXEL)); // rootParamの0番目にはテクスチャ(t0)
 	texture.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // rootParamの1番目には座標変換用(b0)
-	// RootParam[2] - [5] : materailSlot0-3 HLSL側ではb4-b7
+	// RootParam[2] - [5] : materailSlot0-3 HLSL側ではb0-b3
 	for (UINT i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
 	{
-		texture.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL));
+		texture.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}
 
 	texture.staticSamplers.push_back(MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL)); // staticSampler0番目(s0)
@@ -1050,7 +1051,8 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	for (UINT i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
 	{
 		// RootParam[1]-[4]へmaterial slot0-3を追加する
-		postEffectDesc.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL));  // ユーザーが定義した定数バッファを受け取る。(将来VSからも見えるようにする可能性があるのでAllにする)
+		 // ユーザーが定義した定数バッファを受け取る 内蔵と番号の重複に耐えるためにregisterSpaceを1に設定
+		postEffectDesc.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}
 	D3D12_STATIC_SAMPLER_DESC sampler{ MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL) };
 	// 画面端で反対側のピクセルを拾わないようにClampする

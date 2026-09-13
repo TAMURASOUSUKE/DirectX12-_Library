@@ -26,7 +26,8 @@ constexpr size_t MAX_RENDER_TARGET_COUNT{ 16 }; // 登録できるRenderTarget�
 constexpr size_t MAX_CUSTOM_SHADER_COUNT{ 64 }; // 登録できるShaderの最大数
 constexpr size_t MAX_MATERIAL_COUNT{ 64 }; // 登録できるmaterialの最大数
 constexpr size_t MATERIAL_PARAMETER_SLOT_COUNT{ 4 }; // materialが保持できるユーザーパラメータスロット数
-constexpr UINT MATERIAL_PARAMETER_REGISTER_BASE{ 4 }; // ユーザーパラメータが使用するHLSL側の先頭レジスタslot0 = b4, slot1 = b5...となる
+constexpr UINT MATERIAL_PARAMETER_REGISTER_BASE{ 0 }; // ユーザーパラメータが使用するHLSL側の先頭レジスタのベース番号
+constexpr UINT USER_DEFINE_REGISTER_SPACE_NUM{ 1 }; // ユーザーが定義したマテリアルパラメータが置かれるレジスタースペース番号
 constexpr size_t SPRITE_BATCH_COUNT{ 2 }; // 現在存在するspritebatchの数(backとforground)
 constexpr size_t MAX_ANIM_INSTANCE_COUNT{ 1024 }; // 同時に存在できるアニメーション個体数
 constexpr UINT PRIMITIVE_3D_SPHERE_SLICE_COUNT{ 32 }; // 3D球体の横方向分割数

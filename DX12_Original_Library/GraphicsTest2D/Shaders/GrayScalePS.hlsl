@@ -1,15 +1,15 @@
 // シーンをグレースケールにする
 #include "../../Src/Shaders/PostEffectContract.hlsli"
 
-// 自作構造体(slot0はb4)
-cbuffer GrayScaleParameter : register(b4)
+// 自作構造体(slot0はb0)
+cbuffer GrayScaleParameter : register(b0, space1)
 {
     float strength;
     float3 padding;
 }
 
-// Material Parameter Slot1はb5
-cbuffer ColorOffsetParameter : register(b5)
+// Material Parameter Slot1はb1
+cbuffer ColorOffsetParameter : register(b1, space1)
 {
     float3 colorOffset;
     float padding2;

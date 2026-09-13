@@ -2,7 +2,7 @@
 #include "../../Src/Shaders/SpriteContract.hlsli"
 
 // MaterialParameterSlot0
-cbuffer InverseParameter : register(b4)
+cbuffer InverseParameter : register(b0, space1)
 {
     float strength;
     float3 padding;

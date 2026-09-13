@@ -1,8 +1,8 @@
 #include "../../Src/Shaders/SpriteContract.hlsli"
 
-// slot0 = b4
+// slot0 = b0
 // 時間とエフェクトの強さ
-cbuffer GlitchParameter : register(b4)
+cbuffer GlitchParameter : register(b0, space1)
 {
     float time;
     float strength;
@@ -10,16 +10,16 @@ cbuffer GlitchParameter : register(b4)
     float scanlineCount;
 }
 
-// slot1 = b5
+// slot1 = b1
 // グリッチ発生部分へ加える色
-cbuffer GlitchColorParameter : register(b5)
+cbuffer GlitchColorParameter : register(b1, space1)
 {
     float4 accentColor;
 }
 
-// slot = b6
+// slot = b2
 // アトラス対応用
-cbuffer AtlasParameter : register(b6)
+cbuffer AtlasParameter : register(b2, space1)
 {
 	// xy = 現在のコマの左上UV
 	// zw = 現在のコマの右下UV
