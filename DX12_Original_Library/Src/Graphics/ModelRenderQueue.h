@@ -3,21 +3,24 @@
 #include <span>
 #include <variant>
 #include "../Core/Handle/ModelHandle.h"
-#include "../Component/Transform.h"
+#include "../Core/Handle/MaterialHandle.h"
 #include "../Core/Handle/AnimInstanceHandle.h"
+#include "../Component/Transform.h"
 
-// 静的モデル一つ分の描画コマンド
+// 静的モデル一つ分の描画依頼
 struct StaticModelRenderCommand
 {
 	ModelHandle modelHandle{};
 	Transform transform{};
+	MaterialHandle drawMaterialOverride{}; // Draw呼び出し時に渡された一時上書きMaterial
 };
 
-// スキニングモデル一つ分の描画コマンド
+// スキニングモデル一つ分の描画依頼
 struct SkinningModelRenderCommand
 {
 	AnimInstanceHandle animInstanceHandle{};
 	Transform transform{};
+	MaterialHandle drawMaterialOverride{}; // Draw呼び出し時に渡された一時上書きMaterial
 };
 
 // 静的モデルまたはスキニングモデルのどちらか一方を保持する
