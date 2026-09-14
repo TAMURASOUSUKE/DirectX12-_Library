@@ -1,5 +1,6 @@
 #include <cmath>
-#include "../Core/Handle/ModelHandle.h"
+#include <array>
+#include <cstddef>
 #include "../Component/Transform.h"
 #include "GraphicsType.h"
 #include "ShaderSystem.h"
@@ -67,7 +68,7 @@ bool ModelRenderer::Setup(ShaderSystem* _shaderSystem, CameraSystem* _cameraSyst
 	modelObjectRingCBV.Setup(static_cast<UINT>(sizeof(ModelObjectCB)));
 	skinningRingCBV.Setup(sizeof(Mat4x4) * MAX_BONE_NUM);
 	materialRingCBV.Setup(sizeof(MaterialCB));
-	userMaterialParamterRingCBV.Setup(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE), static_cast<UINT>(MAX_MODEL_MATERIAL_PARAMETER_UPDATE_PER_FRAME));
+	userMaterialParameterRingCBV.Setup(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE), static_cast<UINT>(MAX_MODEL_MATERIAL_PARAMETER_UPDATE_PER_FRAME));
 
 	return true;
 }
@@ -78,7 +79,7 @@ void ModelRenderer::Shutdown()
 	modelObjectRingCBV.Shutdown();
 	materialRingCBV.Shutdown();
 	skinningRingCBV.Shutdown();
-	userMaterialParamterRingCBV.Shutdown();
+	userMaterialParameterRingCBV.Shutdown();
 	zeroMaterialParameterAddress = 0;
 }
 
@@ -88,8 +89,13 @@ void ModelRenderer::BeginFrame()
 	modelObjectRingCBV.Reset();
 	materialRingCBV.Reset();
 	skinningRingCBV.Reset();
-	userMaterialParamterRingCBV.Reset();
+	userMaterialParameterRingCBV.Reset();
 	sceneFrameGPUAddress = 0; // 更新するため0
+
+	// ユーザー定義MaterialRingCBVがリセットされた後はゼロダミーで埋めたデータで更新してそれをフレーム中共有とする
+	const std::array<std::byte, MAX_MATERIAL_PARAMETER_SIZE> zeroParamter{};
+	zeroMaterialParameterAddress = userMaterialParameterRingCBV.Update(zeroParamter.data(), static_cast<UINT>(zeroParamter.size()));
+	if (zeroMaterialParameterAddress == 0) DEBUG_LOG_ERROR("ユーザー定義materialのCBV更新に失敗しました\n");
 }
 
 bool ModelRenderer::PrepareModelData(const Transform& _transform, const AnimInstanceData* _animation, PreparedModelDrawData& _outData)
