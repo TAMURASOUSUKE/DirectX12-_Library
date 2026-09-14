@@ -1,46 +1,12 @@
 // テクスチャを表示するための基本的なシェーダー
 #pragma pack_matrix(row_major) // 全ての行列を行優先としてあつかう
+#include "ModelContract.hlsli"
 
-// 1フレーム共通
-cbuffer SceneFrameCB : register(b0)
-{
-	float4x4 viewProjection;
-
-    // xyz：カメラ位置 w：未使用
-	float4 cameraPosition;
-}
-
-// モデル個体ごと
-cbuffer ModelObjectCB : register(b4)
-{
-	float4x4 world;
-	float4x4 worldInverseTranspose;
-}
-
-cbuffer BoneCB : register(b2)
-{
-    float4x4 boneMatrices[256]; // スキニング行列
-}
-
-// 平行光源から見た座標変換行列
-cbuffer ShadowFrameCB : register(b5)
-{
-	float4x4 lightViewProjection;
-}
-
-struct VS_INPUT
-{
-    float3 position : POSITION; // 位置
-    float3 normal : NORMAL; // 法線
-    float2 uv : TEXCOORD; // テクスチャ
-    float4 weight : WEIGHTS; // 重み
-    uint4 bone : BONES; // ボーン
-};
 
 struct VS_OUTPUT
 {
-    float4 position : SV_Position;
-    float2 uv : TEXCOORD;
+	float4 position : SV_Position;
+	float2 uv : TEXCOORD;
 	float3 worldNormal : NORMAL0;
 	float3 worldPosition : POSITION0;
 	float4 shadowPosition : TEXCOORD1;
@@ -48,15 +14,15 @@ struct VS_OUTPUT
 
 VS_OUTPUT main(VS_INPUT _input)
 {
-    VS_OUTPUT output;
-    
+	VS_OUTPUT output;
+	
 	float4 pos = float4(_input.position, 1.0f);
-    // 頂点が影響を受ける4本のボーン行列を作成して位置と乗算
+	// 頂点が影響を受ける4本のボーン行列を作成して位置と乗算
 	const float4 skinnedPos =
-        mul(pos, boneMatrices[_input.bone.x]) * _input.weight.x +
+		mul(pos, boneMatrices[_input.bone.x]) * _input.weight.x +
 		mul(pos, boneMatrices[_input.bone.y]) * _input.weight.y +
 		mul(pos, boneMatrices[_input.bone.z]) * _input.weight.z +
-        mul(pos, boneMatrices[_input.bone.w]) * _input.weight.w;
+		mul(pos, boneMatrices[_input.bone.w]) * _input.weight.w;
 	
 	// スキニング後のローカル座標をワールド空間へ移す
 	const float4 worldPosition = mul(skinnedPos, world);
@@ -68,7 +34,7 @@ VS_OUTPUT main(VS_INPUT _input)
 		mul(localNormal, boneMatrices[_input.bone.x]).xyz * _input.weight.x +
 		mul(localNormal, boneMatrices[_input.bone.y]).xyz * _input.weight.y +
 		mul(localNormal, boneMatrices[_input.bone.z]).xyz * _input.weight.z +
-        mul(localNormal, boneMatrices[_input.bone.w]).xyz * _input.weight.w;
+		mul(localNormal, boneMatrices[_input.bone.w]).xyz * _input.weight.w;
 	
 	// 画面座標へ変換
 	output.position = mul(worldPosition, viewProjection);
@@ -78,6 +44,6 @@ VS_OUTPUT main(VS_INPUT _input)
 	output.shadowPosition = mul(worldPosition, lightViewProjection);
 	// モデルの回転と非均一スケールを法線へ反映
 	output.worldNormal = normalize(mul(float4(skinnedNormal, 0.0f), worldInverseTranspose).xyz);
-    output.uv = _input.uv;
-    return output;
+	output.uv = _input.uv;
+	return output;
 }

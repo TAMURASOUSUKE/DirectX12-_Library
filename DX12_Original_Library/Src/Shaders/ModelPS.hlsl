@@ -1,44 +1,9 @@
 // テクスチャを表示するための基本的なシェーダー
 #include "Lighting.hlsli"
 #include "PBRLighting.hlsli"
+#include "ModelContract.hlsli"
 #pragma pack_matrix(row_major) // 全ての行列を行優先としてあつかう
 
-cbuffer SceneFrameCB : register(b0)
-{
-	float4x4 viewProjection;
-	float4 cameraPosition;
-}
-
-// material用定数バッファ
-cbuffer MaterialCB : register(b1)
-{
-    float4 baseColorFactor; // 基本色
-    float metallic; // 金属色
-    float roughness; // 粗さ
-    float pad0; // パディング
-    float pad1;  // パディング
-    float3 emissiveColorFactor; // 自己発光色
-    float pad2; // パディング
-	uint alphaMode; // αモード
-	float alphaCutoff; // ピクセル切り捨ての基準
-	float pad3;
-	float pad4;
-};
-
-Texture2D baseTex : register(t0);
-Texture2D metallicRoughnessTex : register(t1);
-SamplerState smp : register(s0);
-Texture2D<float> shadowMap : register(t2);
-SamplerComparisonState shadowSampler : register(s1);
-
-struct PS_INPUT
-{
-    float4 position : SV_Position;
-    float2 uv : TEXCOORD;
-	float3 worldNormal : NORMAL0;
-	float3 worldPosition : POSITION0;
-	float4 shadowPosition : TEXCOORD1;
-};
 
 // 影を判定する関数
 float CalculateShadowVisibility(float4 _shadowPosition)

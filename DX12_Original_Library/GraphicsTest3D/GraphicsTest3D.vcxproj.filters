@@ -11,4 +11,9 @@
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="ThreeToneModelPS.hlsl">
+      <Filter>ソース ファイル</Filter>
+    </FxCompile>
+  </ItemGroup>
 </Project>

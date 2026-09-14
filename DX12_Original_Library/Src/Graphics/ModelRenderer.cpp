@@ -324,8 +324,8 @@ bool ModelRenderer::BeginShadowDraw(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddres
 	// ShadowPass中は全サブメッシュで同じPSOを使用する
 	cmd->SetPipelineState(shadowPipeline);
 
-	// RootParameter[0]にはHLSLのShadowFrameCB、つまりb0を設定する
-	cmd->SetGraphicsRootConstantBufferView(0, _shadowFrameAddress);
+	// RootParameter[7]にはHLSLのShadowFrameCB、つまりb5を設定する
+	cmd->SetGraphicsRootConstantBufferView(7, _shadowFrameAddress);
 
 	// glTFモデルのIndexBufferは三角形リストとして描画する
 	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
