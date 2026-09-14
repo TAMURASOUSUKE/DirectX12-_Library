@@ -54,8 +54,8 @@ float CalculateShadowVisibility(float4 _shadowPosition)
 		return 1.0f;
 	}
 	
-	uint shadowWidth;
-	uint shadowHeight;
+	uint shadowWidth = 0;
+	uint shadowHeight = 0;
 	shadowMap.GetDimensions(shadowWidth, shadowHeight);
 	// ShadowMap上の1ピクセル分のUVサイズ
 	const float2 texelSize = 1.0f / float2(shadowWidth, shadowHeight);

@@ -212,6 +212,34 @@ bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet)
 	}
 	cmd->SetPipelineState(pipeline);
 
+	constexpr UINT MODEL_MATERIAL_ROOT_PARAM_BASE{ 9 }; // モデル用ルートパラメータ先頭番号
+	// ユーザーが設定したカスタムMaterialが有効な場合それをGPUに送るループを行う
+	if (activeMaterial)
+	{
+		if (zeroMaterialParameterAddress == 0)
+		{
+			DEBUG_LOG_ERROR("ゼロダミーアドレスが無効な値になっています\n");
+			return false;
+		}
+		for (std::size_t i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
+		{
+			D3D12_GPU_VIRTUAL_ADDRESS parameterAddress{ zeroMaterialParameterAddress }; // ゼロダミーで初期化
+			const MaterialParameterBlock& currentMaterial = activeMaterial->parameters[i]; // 現在のマテリアルのパラメータを取る
+			// パラメータが設定されているか
+			if (currentMaterial.hasParameter)
+			{
+				parameterAddress = userMaterialParameterRingCBV.Update(currentMaterial.parameterData.data(), static_cast<UINT>(currentMaterial.parameterSize)); // パラメータを転送
+				if (parameterAddress == 0)
+				{
+					DEBUG_LOG_ERROR("ユーザー定義のマテリアルパラメータがGPU転送に失敗しました\n");
+					parameterAddress = zeroMaterialParameterAddress;
+				}
+			}
+			// CBVをセット
+			cmd->SetGraphicsRootConstantBufferView(MODEL_MATERIAL_ROOT_PARAM_BASE + static_cast<UINT>(i), parameterAddress);
+		}
+	}
+
 	// 静的モデルの場合は単位行列1個
 	cmd->SetGraphicsRootConstantBufferView(2, _packet.preparedData.skinningAddress); // (b2)
 	// World行列と法線用の逆転置行列

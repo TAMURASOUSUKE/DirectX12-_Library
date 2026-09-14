@@ -22,7 +22,7 @@ enum class ShaderUsage
 {
 	PostEffect, // 対応済み
 	Sprite, //　対応済み
-	Model, // 3D機能整備時に対応
+	Model, // 対応済み
 };
 
 // シェーダーステージの種類
