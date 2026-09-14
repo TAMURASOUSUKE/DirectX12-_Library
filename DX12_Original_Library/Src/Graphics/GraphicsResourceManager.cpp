@@ -1318,6 +1318,7 @@ MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, C
 
 
 	MaterialData data{};
+	data.pipelineSource = MaterialPipelineSource::Custom; // この時点でpipelineStateが非nullであるのでSourceがCustom,Stateがnullは起こらない
 	data.usage = shaderData->usage;
 	data.pipelineState = std::move(_pipelineState);
 	int index{};

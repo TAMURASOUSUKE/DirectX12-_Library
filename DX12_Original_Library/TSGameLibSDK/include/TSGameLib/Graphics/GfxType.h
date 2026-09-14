@@ -22,7 +22,7 @@ enum class ShaderUsage
 {
 	PostEffect, // 対応済み
 	Sprite, //　対応済み
-	Model, // 3D機能整備時に対応
+	Model, // 対応済み
 };
 
 // シェーダーステージの種類
@@ -43,6 +43,18 @@ struct ModelLODLevel
 	float minDistance{ 0.0f };
 	// この段階で描画するモデル
 	ModelHandle model{};
+};
+
+// 一つの描画対象が前フレームまで使用していたLODを保持(ヒステリシスを行うための閾値を決定づけるために必要)
+struct ModelLODState
+{
+	std::size_t currentLevelIndex{ 0 }; // 現在選択してるLOD
+	bool isInitialized{ false }; // 初回は過去のLODがないので通常の距離判定を行う
+	void Reset()
+	{
+		currentLevelIndex = 0;
+		isInitialized = false;
+	}
 };
 
 // MaterialParameterの1スロットへ保存できる最大サイズ

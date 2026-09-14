@@ -51,8 +51,10 @@ private:
 	RingConstantBuffer sceneFrameRingCBV{};
 	RingConstantBuffer modelObjectRingCBV{};
 	RingConstantBuffer skinningRingCBV{};
-	RingConstantBuffer materialRingCBV{};
+	RingConstantBuffer materialRingCBV{}; // glTF/PBR用MaterialCB
+	RingConstantBuffer userMaterialParameterRingCBV{}; // ユーザー定義値
 
 	D3D12_GPU_VIRTUAL_ADDRESS sceneFrameGPUAddress{ 0 };
+	D3D12_GPU_VIRTUAL_ADDRESS zeroMaterialParameterAddress{ 0 };
 
 };

@@ -2,6 +2,19 @@
 #include <string> // テスト用
 #include <algorithm>
 
+struct alignas(16) ThreeToneParameter
+{
+	Vector4 shadowColor{ 0.25f, 0.28f, 0.40f, 1.0f };
+	Vector4 middColor{0.65f, 0.68f, 0.78f, 1.0f};
+	Vector4 lightColor{1.0f, 0.95f, 0.82f, 1.0f};
+
+	float shadowThreshold{ 0.35f }; // 暗くなる閾値
+	float lightThreshold{ 0.70f }; // 一番明るくなる閾値
+	float shadowMapThreshold{ 0.50f }; // 影かどうかの判別
+	float padding{ 0.0f };
+};
+static_assert(sizeof(ThreeToneParameter) % 16 == 0, "ThreeToneParameter must be 16-byte aligned");
+
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
@@ -37,6 +50,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// CrossFadeには遷移元が必要なので、最初は通常再生で開始する
 	Gfx::PlayAnim(alienModelAnim, ALIEN_ANIM_0, true, 1.0f);
 
+	// Shader
+	ShaderHandle threeTonePS{ Gfx::LoadShader(L"ThreeToneModelPS.hlsl", ShaderUsage::Model, ShaderStage::Pixel) };
+	MaterialHandle threeToneMaterial{ Gfx::CreateMaterial(threeTonePS) };
+	ThreeToneParameter threeToneParameter{};
+	if (!Gfx::SetMaterialParameter(threeToneMaterial, 0, threeToneParameter)) DEBUG_LOG_ERROR("ThreeToneParameterの設定に失敗しました\n");
+	bool useThreeTone{ true };
 
 	// LODテスト用フィールドモデル
 	ModelHandle heighField{ Gfx::LoadModel("Res/japanese_terrain_lod0.glb") };
@@ -94,7 +113,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	SceneLight sceneLight{};
 	sceneLight.directional.direction = { 1.0f, -1.0f, 1.0f };
 	sceneLight.directional.color = { 1.0f, 1.0f, 1.0f };
-	sceneLight.directional.intensity = 4.0f;
+	sceneLight.directional.intensity = 1.0f;
 
 	sceneLight.ambient.color = { 1.0f, 1.0f, 1.0f };
 	sceneLight.ambient.intensity = 0.15f;
@@ -106,6 +125,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		TSLib::BeginFrame(); // フレーム開始処理
 		time += Time::DeltaTime();
 
+		if (Input::IsKeyPushed(KeyCode::Button::T)) useThreeTone = !useThreeTone; // TでToon切り替え
 		if (Input::IsKeyPushed(KeyCode::Button::TAB))
 		{
 			isLocked = !isLocked;
@@ -200,10 +220,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::SetSceneLight(sceneLight);
 		Gfx::ClearScreen(); // 画面クリア
 		
-		// 3Dモデルアニメーション
-		Gfx::DrawAnimatedModel(alienModelAnim, objectPosition);
-		// 静的モデル
-		Gfx::DrawAnimatedModel(toonModelAnim, toonTransform);
+		Gfx::DrawAnimatedModel(alienModelAnim, objectPosition); // 3Dモデルアニメーション
+
+		if (!useThreeTone) Gfx::DrawAnimatedModel(toonModelAnim, toonTransform); // 静的モデル(非toon)
+		else Gfx::DrawAnimatedModel(toonModelAnim, toonTransform, threeToneMaterial); // 静的モデル(toon)
 
 		// 3D基礎図形
 		Gfx::DrawCube3D(cube, { 1.0f, 0.0f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);

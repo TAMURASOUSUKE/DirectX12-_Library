@@ -203,14 +203,20 @@ namespace Gfx
 
 	// 静的モデルを描画する
 	void DrawModel(ModelHandle _model, Transform _transform);
-	// アニメーションつきモデルを描画する
+	// 静的モデルをmaterialつきで描画する
+	void DrawModel(ModelHandle _model, Transform _transform, MaterialHandle _material);
+	// スキニングモデルを描画する
 	void DrawAnimatedModel(AnimInstanceHandle _handle, Transform _transform);
+	// スキニングモデルをmaterialつきで描画する
+	void DrawAnimatedModel(AnimInstanceHandle _handle, Transform _transform, MaterialHandle _material);
 	// 指定したアニメーション個体のアニメーションを更新する
 	bool UpdateAnim(AnimInstanceHandle _handle, float _deltaTime);
 	// 指定したアニメーションを最初から最後まで再生する
 	bool PlayAnim(AnimInstanceHandle _handle, int _clipIndex, bool _isLoop, float _playbackSpeed = 1.0f);
 	// 指定したアニメーションを指定した範囲で再生する
 	bool PlayRangeAnim(AnimInstanceHandle _handle, int _clipIndex, float _startTime, float _endTime, bool _isLoop, float _playbackSpeed = 1.0f);
+	// アニメーションを別の指定アニメーションへと滑らかに遷移する
+	bool CrossFadeAnim(AnimInstanceHandle _handle, int _clipIndex, float _duration, bool _isLoop, float _playbackSpeed = 1.0f);
 	// ポーズされているアニメーションを再開する
 	bool ResumeAnim(AnimInstanceHandle _handle);
 	// 指定したアニメーションの再生を停止する(次回再生時には最初からになります)
@@ -237,8 +243,16 @@ namespace Gfx
 	// モデルのサブメッシュが使用するAlphaModeを変更するMaskの場合はalphaCutoff未満のピクセルを破棄する
 	bool SetModelAlphaMode(ModelHandle _model, int _subMeshIndex, ModelAlphaMode _alphaMode, float _alphaCutoff = 0.5f);
 	
-	// ModelLODLevelを使って作成した配列を受け取って設定した距離によってモデルを変えるLOD関数(静的モデルのみ対応)
-	void DrawLODModel(std::span<const ModelLODLevel> _levels, const Transform& _transform);
+	/// <summary>
+	/// <para>ModelLODLevelを使って作成した配列を受け取って設定した距離によってモデルを変えるLOD関数(静的モデルのみ対応)</para>
+	/// <para>LODModelStateは内部のモデル状態を自動で変更、保持する構造体なので定義してそのまま使って下さい。</para>
+	/// <para>HysteresisDistanceはLOD境界のちらつきを抑えるものです。近づくときは設定閾値 - HysteresisDistance、離れるときは設定閾値 + HysteresisDistanceが自動的に行われ、最終的な閾値が動的に変動します</para>
+	/// </summary>
+	/// <param name="_levels">Level設定構造体の配列</param>
+	/// <param name="_state">内部のLOD状態を保持する構造体</param>
+	/// <param name="_transform">描画位置、回転、サイズ等を保持したTranform</param>
+	/// <param name="_hysteresisDistance">境界の幅(Level構造体により設定された閾値に加えてこの値がデッドゾーン幅になります)</param>
+	void DrawLODModel(std::span<const ModelLODLevel> _levels, ModelLODState& _state, const Transform& _transform, float _hysteresisDistance);
 
 	// テクスチャリソースの解放
 	void Unload(TexHandle _handle);
@@ -251,9 +265,11 @@ namespace Gfx
 	
 	
 	/// <summary>
-	/// 任意のマテリアルに対して任意のslotにパラメータを設定する
-	/// パラメータは最大4つまで設定できます
-	/// レジスタの4-7まで置かれるので0を指定したらHLSL側ではb4, 1ならb5...となりb7まで使えます
+	/// <para>任意のマテリアルに対して任意のslotにパラメータを設定する</para>
+	/// <para>パラメータは最大4つまで設定できます</para>
+	/// <para>ユーザーが使えるregister spaceは1番なので定数バッファ宣言の後にはspace1を入れてください</para>
+	/// <para>定義例 : cbuffer Example : register(b0, space1)</para>
+	/// <para>レジスタの0-3まで置かれるので0を指定したらHLSL側ではb0, 1ならb1...となりb3まで使えます</para>
 	/// </summary>
 	/// <typeparam name="T">ユーザーが作成したパラメータとなるテンプレート</typeparam>
 	/// <param name="_handle">設定したいmaterial</param>
@@ -275,8 +291,8 @@ namespace Gfx
 		return Detail::SetMaterialParameterRaw(_handle, _slot,static_cast<const void*>(std::addressof(_parameter)), sizeof(ParameterType));
 	}
 	/// <summary>
-	/// 任意のマテリアルに対してパラメータを設定する
-	/// スロットを指定していないので0として扱い、b4に配置されます
+	/// <para>任意のマテリアルに対してパラメータを設定する</para>
+	/// <para>スロットを指定していないので0として扱い、b0に配置されます</para>
 	/// </summary>
 	/// <typeparam name="T">ユーザーが作成したパラメータとなるテンプレート</typeparam>
 	/// <param name="_handle">設定したいmaterial</param>

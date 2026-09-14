@@ -9,6 +9,7 @@
 #include "../Math/TSMath.h"
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
+#include "../Core/Handle/MaterialHandle.h"
 #include "GraphicsConstant.h"
 using Microsoft::WRL::ComPtr;
 
@@ -346,6 +347,24 @@ enum class MaterialAlphaMode : std::uint32_t
 	Blend = 2,
 };
 
+// material内部のテクスチャ情報等を持つ
+struct PBRMaterialData
+{
+	TexHandle textures[MaterialTex::Count]{}; // テクスチャ群
+	Vector4 baseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f }; // 拡散色(デフォルトは白)
+	float metallic{ 1.0f }; //　金属度
+	float roughness{ 1.0f }; // 粗さ
+	Vector3 emissiveFactor{ 0.0f, 0.0f, 0.0f }; // 自己発光色
+};
+
+// このmaterialの描画状態を持つ
+struct MaterialRenderState
+{
+	bool doubleSided{ false }; // 両面描画か
+	MaterialAlphaMode alphaMode{ MaterialAlphaMode::Opaque }; // Alphaモード
+	float alphaCutoff{ 0.5f }; // AlphaModeのMaskにおいてα値がどこ未満なら捨てるかの値
+};
+
 // material本体
 struct Material
 {
@@ -364,7 +383,8 @@ struct SubMesh
 {
 	VertexBuffer vertexBuffer; // 頂点バッファ
 	IndexBuffer indexBuffer; // インデックスバッファ(この中にIndexCountがあるためそれを使う)
-	Material material; // マテリアル
+	Material material; // glTFから読み込んだモデル本体のmaterial
+	MaterialHandle materialOverride{}; // ユーザーが上書きしたmaterial
 };
 
 // ボーン一つ分のデータを持つ
@@ -525,12 +545,23 @@ struct MaterialParameterBlock
 };
 
 using MaterialParameterSet = std::array<MaterialParameterBlock, MATERIAL_PARAMETER_SLOT_COUNT>;
+
+// PSOの状態が内蔵か外部Shaderから作られたものかを設定する
+enum class MaterialPipelineSource
+{
+	Builtin,
+	Custom,
+};
+
 // material一つ分の実データ
 struct MaterialData
 {
 	ShaderUsage usage{ ShaderUsage::PostEffect }; // Shaderがどの描画カテゴリだったか
-	ComPtr<ID3D12PipelineState> pipelineState{}; // Shaderと用途ごとのPSO設定から生成したもの
+	ComPtr<ID3D12PipelineState> pipelineState{}; // Shaderと用途ごとのPSO設定から生成したもの(内蔵PSOならShaderSystemでIDから生成するが外部はそのIDに登録できないのでmaterialが直接持つ)
+	MaterialPipelineSource pipelineSource{ MaterialPipelineSource::Builtin }; // PSOの状態
 	MaterialParameterSet parameters{}; // slot0-3のユーザーパラメータ
+	PBRMaterialData pbr{}; // 表面をどう表現するか
+	MaterialRenderState renderState{}; // どう描画するか
 };
 
 // materialを管理するスロット

@@ -870,10 +870,9 @@ bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _s
 	{
 	case ShaderUsage::PostEffect:
 	case ShaderUsage::Sprite:
-		break; // GPUへの配達に対応している
 	case ShaderUsage::Model:
-		DEBUG_LOG_ERROR("Model用MaterialParameterはまだ対応していません\n");
-		return false;
+		// GPUへの配達に対応している
+		break;
 	default:
 		DEBUG_LOG_ERROR("不明なShaderUsageです\n");
 		return false;
@@ -994,11 +993,9 @@ ShaderHandle Gfx::LoadShader(const wchar_t* _filePath, ShaderUsage _usage, Shade
 	{
 	case ShaderUsage::PostEffect:
 	case ShaderUsage::Sprite:
-		// この二つは現状対応しているのでbreak
-		break;
 	case ShaderUsage::Model:
-		DEBUG_LOG_ERROR("Model用の外部Shaderはまだ対応していません\n");
-		return ShaderHandle{};
+		// この三つは現状対応しているのでbreak
+		break;
 	default:
 		DEBUG_LOG_ERROR("不明なShaderUsageが指定されました\n");
 		return ShaderHandle{};
@@ -1007,23 +1004,24 @@ ShaderHandle Gfx::LoadShader(const wchar_t* _filePath, ShaderUsage _usage, Shade
 	const char* target{ nullptr };
 	switch (_stage)
 	{
+		// registerSpaceを使用するためShaderModelは5_1にする
 	case ShaderStage::Vertex:
-		target = "vs_5_0";
+		target = "vs_5_1";
 		break;
 	case ShaderStage::Pixel:
-		target = "ps_5_0";
+		target = "ps_5_1";
 		break;
 	case ShaderStage::Hull:
-		target = "hs_5_0";
+		target = "hs_5_1";
 		break;
 	case ShaderStage::Domain:
-		target = "ds_5_0";
+		target = "ds_5_1";
 		break;
 	case ShaderStage::Geometry:
-		target = "gs_5_0";
+		target = "gs_5_1";
 		break;
 	case ShaderStage::Compute:
-		target = "cs_5_0";
+		target = "cs_5_1";
 		break;
 	default:
 		DEBUG_LOG_ERROR("不正なShaderカテゴリが渡されました\n");
@@ -1404,12 +1402,23 @@ void Gfx::DrawAABB3D(const AABB& _aabb, Vector4 _color)
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 {
-	modelRenderSystem.Register(_model, _transform);
+	// 内部で指定版を呼び出して空ハンドルを指定することで内蔵を使う これで管理が一本化される
+	DrawModel(_model, _transform, MaterialHandle{});
+}
+
+void Gfx::DrawModel(ModelHandle _model, Transform _transform, MaterialHandle _material)
+{
+	modelRenderSystem.Register(_model, _transform, _material);
 }
 
 void Gfx::DrawAnimatedModel(AnimInstanceHandle _handle, Transform _transform)
+{// 内部で指定版を呼び出して空ハンドルを指定することで内蔵を使う これで管理が一本化される
+	DrawAnimatedModel(_handle, _transform, MaterialHandle{});
+}
+
+void Gfx::DrawAnimatedModel(AnimInstanceHandle _handle, Transform _transform, MaterialHandle _material)
 {
-	modelRenderSystem.Register(_handle, _transform);
+	modelRenderSystem.Register(_handle, _transform, _material);
 }
 
 bool Gfx::UpdateAnim(AnimInstanceHandle _handle, float _deltaTime)

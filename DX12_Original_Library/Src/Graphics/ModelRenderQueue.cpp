@@ -28,7 +28,7 @@ void ModelRenderQueue::Reset()
 	droppedCommandCount = 0;
 }
 
-bool ModelRenderQueue::Register(ModelHandle _model, const Transform& _transform)
+bool ModelRenderQueue::Register(ModelHandle _model, const Transform& _transform, MaterialHandle _drawMaterialOverride)
 {
 	if (!_model.IsValid())
 	{
@@ -40,13 +40,14 @@ bool ModelRenderQueue::Register(ModelHandle _model, const Transform& _transform)
 		droppedCommandCount++;
 		return false;
 	}
+	// Materialが外部から指定されていない場合は無効Handleなので、ここでは拒否しない
 
 	// Transformは現在地のスナップショットとしてコピーする
-	commands.emplace_back(StaticModelRenderCommand{_model, _transform});
+	commands.emplace_back(StaticModelRenderCommand{ _model, _transform, _drawMaterialOverride });
 	return true;
 }
 
-bool ModelRenderQueue::Register(AnimInstanceHandle _animInstance, const Transform& _transform)
+bool ModelRenderQueue::Register(AnimInstanceHandle _animInstance, const Transform& _transform, MaterialHandle _drawMaterialOverride)
 {
 	if (!_animInstance.IsValid())
 	{
@@ -58,8 +59,9 @@ bool ModelRenderQueue::Register(AnimInstanceHandle _animInstance, const Transfor
 		droppedCommandCount++;
 		return false;
 	}
+	// Materialが外部から指定されていない場合は無効Handleなので、ここでは拒否しない
 
 	// Transformは現在地のスナップショットとしてコピーする
-	commands.emplace_back(SkinningModelRenderCommand{ _animInstance, _transform });
+	commands.emplace_back(SkinningModelRenderCommand{ _animInstance, _transform, _drawMaterialOverride });
 	return true;
 }

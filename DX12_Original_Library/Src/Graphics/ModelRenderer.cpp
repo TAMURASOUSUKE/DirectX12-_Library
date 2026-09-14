@@ -1,5 +1,6 @@
 #include <cmath>
-#include "../Core/Handle/ModelHandle.h"
+#include <array>
+#include <cstddef>
 #include "../Component/Transform.h"
 #include "GraphicsType.h"
 #include "ShaderSystem.h"
@@ -67,6 +68,7 @@ bool ModelRenderer::Setup(ShaderSystem* _shaderSystem, CameraSystem* _cameraSyst
 	modelObjectRingCBV.Setup(static_cast<UINT>(sizeof(ModelObjectCB)));
 	skinningRingCBV.Setup(sizeof(Mat4x4) * MAX_BONE_NUM);
 	materialRingCBV.Setup(sizeof(MaterialCB));
+	userMaterialParameterRingCBV.Setup(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE), static_cast<UINT>(MAX_MODEL_MATERIAL_PARAMETER_UPDATE_PER_FRAME));
 
 	return true;
 }
@@ -77,6 +79,8 @@ void ModelRenderer::Shutdown()
 	modelObjectRingCBV.Shutdown();
 	materialRingCBV.Shutdown();
 	skinningRingCBV.Shutdown();
+	userMaterialParameterRingCBV.Shutdown();
+	zeroMaterialParameterAddress = 0;
 }
 
 void ModelRenderer::BeginFrame()
@@ -85,7 +89,13 @@ void ModelRenderer::BeginFrame()
 	modelObjectRingCBV.Reset();
 	materialRingCBV.Reset();
 	skinningRingCBV.Reset();
+	userMaterialParameterRingCBV.Reset();
 	sceneFrameGPUAddress = 0; // 更新するため0
+
+	// ユーザー定義MaterialRingCBVがリセットされた後はゼロダミーで埋めたデータで更新してそれをフレーム中共有とする
+	const std::array<std::byte, MAX_MATERIAL_PARAMETER_SIZE> zeroParamter{};
+	zeroMaterialParameterAddress = userMaterialParameterRingCBV.Update(zeroParamter.data(), static_cast<UINT>(zeroParamter.size()));
+	if (zeroMaterialParameterAddress == 0) DEBUG_LOG_ERROR("ユーザー定義materialのCBV更新に失敗しました\n");
 }
 
 bool ModelRenderer::PrepareModelData(const Transform& _transform, const AnimInstanceData* _animation, PreparedModelDrawData& _outData)
@@ -166,13 +176,69 @@ bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet)
 
 	// 名前を読みやすくするための参照
 	const SubMesh& subMesh{ *_packet.subMesh };
-	ID3D12PipelineState* pipeline{ shaderSystem->GetPipeline(_packet.pipelineID) };
+
+	// とりあえず最初は内蔵PSOを選択しておく
+	ID3D12PipelineState* const  defaultPipeline{ shaderSystem->GetPipeline(_packet.pipelineID) }; // デフォルトのPSOキャッシュ(ポインタそのもの書き換え禁止)
+	ID3D12PipelineState* pipeline{	defaultPipeline };
+	MaterialData* activeMaterial{ nullptr }; // 有効なマテリアル
+	// ユーザーが適用したmaterialが有効か
+	if (_packet.effectiveMaterial.IsValid()) 
+	{
+		MaterialData* customMateiral{ GraphicsResourceManager::Instance().Lookup(_packet.effectiveMaterial) };
+		if (!customMateiral)
+		{
+			DEBUG_LOG_ERROR("カスタムされたMaterialのlookupに失敗しました\n");
+			pipeline = defaultPipeline; // 失敗した場合は内蔵へ
+		}
+		else
+		{
+			// usageが正しくモデルか、ソースは正しいか、pipelineStateは生きているかチェックする
+			if (customMateiral->usage == ShaderUsage::Model && customMateiral->pipelineSource == MaterialPipelineSource::Custom && customMateiral->pipelineState)
+			{
+				pipeline = customMateiral->pipelineState.Get(); // カスタムしたPSOを持ってくる
+				activeMaterial = customMateiral;
+			}
+			else
+			{
+				DEBUG_LOG_ERROR("カスタムされたMaterialのUsageが不正です\n");
+				pipeline = defaultPipeline;
+			}
+		}
+	}
 	if (!pipeline)
 	{
 		DEBUG_LOG_ERROR("モデル用Pipelineの取得に失敗しました\n");
 		return false;
 	}
 	cmd->SetPipelineState(pipeline);
+
+	constexpr UINT MODEL_MATERIAL_ROOT_PARAM_BASE{ 9 }; // モデル用ルートパラメータ先頭番号
+	// ユーザーが設定したカスタムMaterialが有効な場合それをGPUに送るループを行う
+	if (activeMaterial)
+	{
+		if (zeroMaterialParameterAddress == 0)
+		{
+			DEBUG_LOG_ERROR("ゼロダミーアドレスが無効な値になっています\n");
+			return false;
+		}
+		for (std::size_t i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
+		{
+			D3D12_GPU_VIRTUAL_ADDRESS parameterAddress{ zeroMaterialParameterAddress }; // ゼロダミーで初期化
+			const MaterialParameterBlock& currentMaterial = activeMaterial->parameters[i]; // 現在のマテリアルのパラメータを取る
+			// パラメータが設定されているか
+			if (currentMaterial.hasParameter)
+			{
+				parameterAddress = userMaterialParameterRingCBV.Update(currentMaterial.parameterData.data(), static_cast<UINT>(currentMaterial.parameterSize)); // パラメータを転送
+				if (parameterAddress == 0)
+				{
+					DEBUG_LOG_ERROR("ユーザー定義のマテリアルパラメータがGPU転送に失敗しました\n");
+					parameterAddress = zeroMaterialParameterAddress;
+				}
+			}
+			// CBVをセット
+			cmd->SetGraphicsRootConstantBufferView(MODEL_MATERIAL_ROOT_PARAM_BASE + static_cast<UINT>(i), parameterAddress);
+		}
+	}
 
 	// 静的モデルの場合は単位行列1個
 	cmd->SetGraphicsRootConstantBufferView(2, _packet.preparedData.skinningAddress); // (b2)
@@ -258,8 +324,8 @@ bool ModelRenderer::BeginShadowDraw(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddres
 	// ShadowPass中は全サブメッシュで同じPSOを使用する
 	cmd->SetPipelineState(shadowPipeline);
 
-	// RootParameter[0]にはHLSLのShadowFrameCB、つまりb0を設定する
-	cmd->SetGraphicsRootConstantBufferView(0, _shadowFrameAddress);
+	// RootParameter[7]にはHLSLのShadowFrameCB、つまりb5を設定する
+	cmd->SetGraphicsRootConstantBufferView(7, _shadowFrameAddress);
 
 	// glTFモデルのIndexBufferは三角形リストとして描画する
 	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

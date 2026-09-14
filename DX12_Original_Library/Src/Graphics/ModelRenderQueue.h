@@ -3,21 +3,24 @@
 #include <span>
 #include <variant>
 #include "../Core/Handle/ModelHandle.h"
-#include "../Component/Transform.h"
+#include "../Core/Handle/MaterialHandle.h"
 #include "../Core/Handle/AnimInstanceHandle.h"
+#include "../Component/Transform.h"
 
-// 静的モデル一つ分の描画コマンド
+// 静的モデル一つ分の描画依頼
 struct StaticModelRenderCommand
 {
 	ModelHandle modelHandle{};
 	Transform transform{};
+	MaterialHandle drawMaterialOverride{}; // Draw呼び出し時に渡された一時上書きMaterial
 };
 
-// スキニングモデル一つ分の描画コマンド
+// スキニングモデル一つ分の描画依頼
 struct SkinningModelRenderCommand
 {
 	AnimInstanceHandle animInstanceHandle{};
 	Transform transform{};
+	MaterialHandle drawMaterialOverride{}; // Draw呼び出し時に渡された一時上書きMaterial
 };
 
 // 静的モデルまたはスキニングモデルのどちらか一方を保持する
@@ -43,9 +46,9 @@ public:
 	void Reset();
 
 	// 静的モデルの描画依頼登録
-	bool Register(ModelHandle _model, const Transform& _transform);
+	bool Register(ModelHandle _model, const Transform& _transform, MaterialHandle _drawMaterialOverride);
 	// スキニングモデルの描画依頼登録
-	bool Register(AnimInstanceHandle _animInstance, const Transform& _transform);
+	bool Register(AnimInstanceHandle _animInstance, const Transform& _transform, MaterialHandle _drawMaterialOverride);
 
 	// 登録された描画依頼をコピーせず参照する
 	std::span<const ModelRenderCommand> GetCommands() const { return commands; }

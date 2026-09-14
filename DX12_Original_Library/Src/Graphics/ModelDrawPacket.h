@@ -1,8 +1,7 @@
 #pragma once
 #include <d3d12.h>
+#include "../Core/Handle/MaterialHandle.h"
 #include "GraphicsType.h"
-#include "../Component/Transform.h"
-
 
 // パケット転送の際に無駄な転送を避けるためGPUアドレスを共有するための構造体
 struct PreparedModelDrawData
@@ -19,4 +18,5 @@ struct ModelDrawPacket
 	PipelineID pipelineID{ PipelineID::Count }; // OpaqueかBlendか片面か両面かの組み合わせを事前に決定する
 	float sortDepth{ 0.0f }; // 半透明、LOD、距離カリングで使うカメラ距離
 	PreparedModelDrawData preparedData{}; // 共有するアドレス
+	MaterialHandle effectiveMaterial{}; // 最終的に適用されるmaterial
 };

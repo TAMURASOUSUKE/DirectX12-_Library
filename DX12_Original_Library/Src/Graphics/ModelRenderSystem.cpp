@@ -68,7 +68,7 @@ void ModelRenderSystem::BuildDrawPackets()
 				{
 					ModelData* model{ GraphicsResourceManager::Instance().Lookup(_command.modelHandle) };
 					if (!model) return;
-					if (!AppendDrawPackets(*model, nullptr, _command.transform)) return;
+					if (!AppendDrawPackets(*model, nullptr, _command.transform, _command.drawMaterialOverride)) return;
 				}
 				else if constexpr (std::is_same_v<CommandType, SkinningModelRenderCommand>)
 				{
@@ -76,7 +76,7 @@ void ModelRenderSystem::BuildDrawPackets()
 					if (!instance) return;
 					ModelData* model{ GraphicsResourceManager::Instance().Lookup(instance->modelHandle) };
 					if (!model) return;
-					if (!AppendDrawPackets(*model, instance, _command.transform)) return;
+					if (!AppendDrawPackets(*model, instance, _command.transform, _command.drawMaterialOverride)) return;
 				}
 			},
 			renderCommand
@@ -134,14 +134,14 @@ void ModelRenderSystem::FlushBlend(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress
 	}
 }
 
-bool ModelRenderSystem::Register(ModelHandle _model, const Transform& _transform)
+bool ModelRenderSystem::Register(ModelHandle _model, const Transform& _transform, MaterialHandle _drawMaterialOverride)
 {
-	return renderQueue.Register(_model, _transform);
+	return renderQueue.Register(_model, _transform, _drawMaterialOverride);
 }
 
-bool ModelRenderSystem::Register(AnimInstanceHandle _animInstance, const Transform& _transform)
+bool ModelRenderSystem::Register(AnimInstanceHandle _animInstance, const Transform& _transform, MaterialHandle _drawMaterialOverride)
 {
-	return renderQueue.Register(_animInstance, _transform);
+	return renderQueue.Register(_animInstance, _transform, _drawMaterialOverride);
 }
 
 bool ModelRenderSystem::RegisterLOD(std::span<const ModelLODLevel> _levels, ModelLODState& _state, const Transform& _transform, float _hysteresisDistance)
@@ -233,10 +233,10 @@ bool ModelRenderSystem::RegisterLOD(std::span<const ModelLODLevel> _levels, Mode
 	}
 
 	// 状態が選択しているモデルだけ既存のRenderQueueへ登録する
-	return renderQueue.Register(_levels[_state.currentLevelIndex].model, _transform);
+	return renderQueue.Register(_levels[_state.currentLevelIndex].model, _transform, MaterialHandle{}); // 現状はひとまず空のmaterialハンドルを渡す
 }
 
-bool ModelRenderSystem::AppendDrawPackets(const ModelData& _model, const AnimInstanceData* _animation, const Transform& _transform)
+bool ModelRenderSystem::AppendDrawPackets(const ModelData& _model, const AnimInstanceData* _animation, const Transform& _transform, MaterialHandle _drawMaterialOverride)
 {
 	// Boneを持つモデルにはBone数分のスキニング行列が必要なのでDrawModelだと単位行列を一つしか渡さないのでSkin付モデルを描画すると頂点が壊れる
 	if (!_animation && !_model.bones.empty())
@@ -267,7 +267,12 @@ bool ModelRenderSystem::AppendDrawPackets(const ModelData& _model, const AnimIns
 	const float sortDepth{ Vector3::DistanceSquared(cameraSystem->GetCameraPosition(), _transform.GetPosition())}; // モデルからカメラへの距離の二乗
 	for (const SubMesh& subMesh : _model.subMeshes)
 	{
-		ModelDrawPacket packet{ &subMesh, SelectModelPipeline(subMesh.material), sortDepth, preparedData }; // GPUへ送る描画単位の作成
+		MaterialHandle resultMateral{}; // ユーザーが定義したmaterialを使う場合は中身が入り、そうでないなら空のまま渡される
+
+		if (_drawMaterialOverride.IsValid()) resultMateral = _drawMaterialOverride; // ユーザー定義かつこの描画だけに適用する
+		else if (subMesh.materialOverride.IsValid()) resultMateral = subMesh.materialOverride; // ユーザー定義かつSetMaterial関数によって全体に適用されるmaterial
+
+		ModelDrawPacket packet{ &subMesh, SelectModelPipeline(subMesh.material), sortDepth, preparedData, resultMateral }; // GPUへ送る描画単位の作成
 
 		// alphaModeで比較してvectorへのpushを選択する
 		if (subMesh.material.alphaMode == MaterialAlphaMode::Blend) blendModels.push_back(packet);

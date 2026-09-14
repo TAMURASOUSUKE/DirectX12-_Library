@@ -347,13 +347,14 @@ namespace {
 namespace {
 	// 共通部品作成ヘルパー関数
 	// CBV作成
-	RootParamDesc MakeRootCBV(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+	RootParamDesc MakeRootCBV(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility, UINT _registerSpace = 0)
 	{
 		RootParamDesc desc{};
 		desc.type = D3D12_ROOT_PARAMETER_TYPE_CBV; // 定数バッファに設定
 		desc.shaderRegister = _shaderRegister;
 		desc.registerSpace = 0;
 		desc.visibility = _visibility;
+		desc.registerSpace = _registerSpace; // レジスタ番号がユーザー定義と内蔵定義でかぶらないようにするための論理的名前空間
 		return desc;
 	}
 
@@ -972,8 +973,16 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _us
 		desc.fillMode = D3D12_FILL_MODE_SOLID;
 		break;
 	case ShaderUsage::Model:
-		DEBUG_LOG_ERROR("Model用Materialはまだ対応していません\n");
-		return nullptr;
+		defaultVertexShader = BuiltinShaderID::ModelVS;
+		desc.rootSignatureID = RootSigID::Model;
+		desc.pipelineID = PipelineID::Count;
+		desc.layout = InputLayout::Model;
+		desc.blend = BlendMode::Opaque; // 現状一旦不透明
+		desc.depth = DepthParam::ReadWrite; // 書き込みと読みが可能
+		desc.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		desc.fillMode = D3D12_FILL_MODE_SOLID; // 一旦塗りつぶし
+		desc.cullMode = D3D12_CULL_MODE_BACK; // 一旦背面固定
+		break;
 	default:
 		DEBUG_LOG_ERROR("不明なShaderUsageです\n");
 		return nullptr;
@@ -1001,10 +1010,10 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	texture.rootSignatureID = RootSigID::Texture;
 	texture.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_PIXEL)); // rootParamの0番目にはテクスチャ(t0)
 	texture.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // rootParamの1番目には座標変換用(b0)
-	// RootParam[2] - [5] : materailSlot0-3 HLSL側ではb4-b7
+	// RootParam[2] - [5] : materailSlot0-3 HLSL側ではb0-b3
 	for (UINT i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
 	{
-		texture.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL));
+		texture.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}
 
 	texture.staticSamplers.push_back(MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL)); // staticSampler0番目(s0)
@@ -1022,6 +1031,12 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	model.parameters.push_back(MakeSRVTable(1, D3D12_SHADER_VISIBILITY_PIXEL)); // MetallicRoughnessテクスチャ(t1)
 	model.parameters.push_back(MakeRootCBV(5, D3D12_SHADER_VISIBILITY_ALL)); // Shadow用LightViewProjection(b5)
 	model.parameters.push_back(MakeSRVTable(2, D3D12_SHADER_VISIBILITY_PIXEL)); // ShadowMapのt2
+	for (UINT i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
+	{
+		// RootParam[9]-[12]へmaterial slot0-3を追加する
+		 // ユーザーが定義した定数バッファを受け取る 内蔵と番号の重複に耐えるためにregisterSpaceを1に設定
+		model.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
+	}
 	model.staticSamplers.push_back(MakeShadowComparisonSampler(1, D3D12_SHADER_VISIBILITY_PIXEL)); // ShadowMap比較用のSampler(s1)
 	descs.push_back(std::move(model)); // model変数は使わないのでmoveして空にする(コピーの必要性なし)
 	// Shape用
@@ -1044,22 +1059,23 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	terrain.staticSamplers.push_back(terrainSampler);
 	descs.push_back(std::move(terrain)); // shape変数は使わないのでmoveして空にする(コピーの必要性なし)
 	// PostEffect
-	RootSignatureDesc postEffectDesc{};
-	postEffectDesc.rootSignatureID = RootSigID::PostEffect;
-	postEffectDesc.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_PIXEL)); // シーンRTのSRVをt0としてピクセルシェーダーから読む
+	RootSignatureDesc postEffect{};
+	postEffect.rootSignatureID = RootSigID::PostEffect;
+	postEffect.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_PIXEL)); // シーンRTのSRVをt0としてピクセルシェーダーから読む
 	for (UINT i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
 	{
 		// RootParam[1]-[4]へmaterial slot0-3を追加する
-		postEffectDesc.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL));  // ユーザーが定義した定数バッファを受け取る。(将来VSからも見えるようにする可能性があるのでAllにする)
+		 // ユーザーが定義した定数バッファを受け取る 内蔵と番号の重複に耐えるためにregisterSpaceを1に設定
+		postEffect.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}
 	D3D12_STATIC_SAMPLER_DESC sampler{ MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL) };
 	// 画面端で反対側のピクセルを拾わないようにClampする
 	sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-	postEffectDesc.staticSamplers.push_back(sampler);
-	postEffectDesc.flags = D3D12_ROOT_SIGNATURE_FLAG_NONE; // 頂点バッファを使用しないためIAの許可は不要
-	descs.push_back(std::move(postEffectDesc));
+	postEffect.staticSamplers.push_back(sampler);
+	postEffect.flags = D3D12_ROOT_SIGNATURE_FLAG_NONE; // 頂点バッファを使用しないためIAの許可は不要
+	descs.push_back(std::move(postEffect));
 	// インスタンシング対応3D基礎図形
 	RootSignatureDesc primitive3D{};
 	primitive3D.rootSignatureID = RootSigID::Primitive3D;

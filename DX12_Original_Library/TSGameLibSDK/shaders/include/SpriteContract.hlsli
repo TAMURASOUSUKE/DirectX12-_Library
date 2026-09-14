@@ -6,7 +6,7 @@
 // ライブラリ側の行列規約に合わせる
 #pragma pack_matrix(row_major)
 
-// register(b4)～register(b7)は、
+// register(b0)～register(b3)は、
 // SetMaterialParameterのSlot0～3として予約されています。
 // 外部Spriteシェーダー側で必要なcbufferを宣言してください。
 

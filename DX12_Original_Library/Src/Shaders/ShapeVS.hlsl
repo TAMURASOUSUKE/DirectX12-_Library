@@ -4,26 +4,26 @@
 // 定数バッファ
 cbuffer ConstantBuffer : register(b0)
 {
-    float4x4 orthogonalProjectionMat; // 正射影行列
+	float4x4 orthogonalProjectionMat; // 正射影行列
 }
 
 struct VS_INPUT
 {
-    float3 position : POSITION; // 座標
-    float4 color : COLOR; // カラー
+	float3 position : POSITION; // 座標
+	float4 color : COLOR; // カラー
 };
 
 struct VS_OUTPUT
 {
-    float4 position : SV_POSITION; // 座標
-    float4 color : COLOR; // カラー
+	float4 position : SV_POSITION; // 座標
+	float4 color : COLOR; // カラー
 };
 
 // EntryPoint
 VS_OUTPUT main(VS_INPUT _input)
 {
-    VS_OUTPUT output; // 返す用の構造体
-    output.position = mul(float4(_input.position, 1.0f), orthogonalProjectionMat);
-    output.color = _input.color; // そのまま渡す
-    return output;
+	VS_OUTPUT output; // 返す用の構造体
+	output.position = mul(float4(_input.position, 1.0f), orthogonalProjectionMat);
+	output.color = _input.color; // そのまま渡す
+	return output;
 }

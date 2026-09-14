@@ -64,7 +64,7 @@ struct alignas(16) Vector3
 	// 二点間のベクトル
 	static Vector3 FromTo(const Vector3& _startPos, const Vector3& _endPos);
 
-	// 二点間の二次元座標を第三引数の値で補完する(第三引数は0から1の間の数で渡してください)
+	// 二点間の三次元座標を第三引数の値で補完する(第三引数は0から1の間の数で渡してください)
 	static Vector3 Lerp(const Vector3& _startPos, const Vector3& _endPos, float _completionValue);
 
 	// 逆ベクトル
