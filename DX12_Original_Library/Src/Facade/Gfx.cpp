@@ -1405,12 +1405,23 @@ void Gfx::DrawAABB3D(const AABB& _aabb, Vector4 _color)
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)
 {
-	modelRenderSystem.Register(_model, _transform, MaterialHandle{});
+	// 内部で指定版を呼び出して空ハンドルを指定することで内蔵を使う これで管理が一本化される
+	DrawModel(_model, _transform, MaterialHandle{});
+}
+
+void Gfx::DrawModel(ModelHandle _model, Transform _transform, MaterialHandle _material)
+{
+	modelRenderSystem.Register(_model, _transform, _material);
 }
 
 void Gfx::DrawAnimatedModel(AnimInstanceHandle _handle, Transform _transform)
+{// 内部で指定版を呼び出して空ハンドルを指定することで内蔵を使う これで管理が一本化される
+	DrawAnimatedModel(_handle, _transform, MaterialHandle{});
+}
+
+void Gfx::DrawAnimatedModel(AnimInstanceHandle _handle, Transform _transform, MaterialHandle _material)
 {
-	modelRenderSystem.Register(_handle, _transform, MaterialHandle{});
+	modelRenderSystem.Register(_handle, _transform, _material);
 }
 
 bool Gfx::UpdateAnim(AnimInstanceHandle _handle, float _deltaTime)
