@@ -870,10 +870,9 @@ bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _s
 	{
 	case ShaderUsage::PostEffect:
 	case ShaderUsage::Sprite:
-		break; // GPUへの配達に対応している
 	case ShaderUsage::Model:
-		DEBUG_LOG_ERROR("Model用MaterialParameterはまだ対応していません\n");
-		return false;
+		// GPUへの配達に対応している
+		break;
 	default:
 		DEBUG_LOG_ERROR("不明なShaderUsageです\n");
 		return false;
@@ -994,11 +993,9 @@ ShaderHandle Gfx::LoadShader(const wchar_t* _filePath, ShaderUsage _usage, Shade
 	{
 	case ShaderUsage::PostEffect:
 	case ShaderUsage::Sprite:
-		// この二つは現状対応しているのでbreak
-		break;
 	case ShaderUsage::Model:
-		DEBUG_LOG_ERROR("Model用の外部Shaderはまだ対応していません\n");
-		return ShaderHandle{};
+		// この三つは現状対応しているのでbreak
+		break;
 	default:
 		DEBUG_LOG_ERROR("不明なShaderUsageが指定されました\n");
 		return ShaderHandle{};

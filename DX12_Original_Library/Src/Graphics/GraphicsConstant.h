@@ -36,4 +36,5 @@ constexpr UINT PRIMITIVE_3D_CYLINDER_DIVISION{ 32 }; // 3D円柱の円周方向�
 // 1フレームで発生しうるMaterialParamerter更新の最大数
 // 全Spriteが別Runかつ4スロット全使用する最悪条件にPostEffectの4スロットを追加する
 constexpr size_t MAX_MATERIAL_PARAMETER_UPDATE_PER_FRAME{ MAX_SPRITE_COUNT * SPRITE_BATCH_COUNT * MATERIAL_PARAMETER_SLOT_COUNT + MATERIAL_PARAMETER_SLOT_COUNT };
-
+/// 全Modelが別のPacketかつ全て異なる値の場合の最悪条件の4スロット + 1ゼロダミー用
+constexpr size_t MAX_MODEL_MATERIAL_PARAMETER_UPDATE_PER_FRAME{ MAX_MODEL_DRAW_PACKET_COUNT * MATERIAL_PARAMETER_SLOT_COUNT + 1 };

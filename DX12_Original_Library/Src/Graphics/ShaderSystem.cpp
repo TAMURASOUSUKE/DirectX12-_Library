@@ -973,8 +973,16 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _us
 		desc.fillMode = D3D12_FILL_MODE_SOLID;
 		break;
 	case ShaderUsage::Model:
-		DEBUG_LOG_ERROR("Model用Materialはまだ対応していません\n");
-		return nullptr;
+		defaultVertexShader = BuiltinShaderID::ModelVS;
+		desc.rootSignatureID = RootSigID::Model;
+		desc.pipelineID = PipelineID::Count;
+		desc.layout = InputLayout::Model;
+		desc.blend = BlendMode::Opaque; // 現状一旦不透明
+		desc.depth = DepthParam::ReadWrite; // 書き込みと読みが可能
+		desc.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		desc.fillMode = D3D12_FILL_MODE_SOLID; // 一旦塗りつぶし
+		desc.cullMode = D3D12_CULL_MODE_BACK; // 一旦背面固定
+		break;
 	default:
 		DEBUG_LOG_ERROR("不明なShaderUsageです\n");
 		return nullptr;
@@ -1025,7 +1033,7 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	model.parameters.push_back(MakeSRVTable(2, D3D12_SHADER_VISIBILITY_PIXEL)); // ShadowMapのt2
 	for (UINT i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
 	{
-		// RootParam[1]-[4]へmaterial slot0-3を追加する
+		// RootParam[9]-[12]へmaterial slot0-3を追加する
 		 // ユーザーが定義した定数バッファを受け取る 内蔵と番号の重複に耐えるためにregisterSpaceを1に設定
 		model.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}

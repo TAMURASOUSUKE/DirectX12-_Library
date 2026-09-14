@@ -67,6 +67,7 @@ bool ModelRenderer::Setup(ShaderSystem* _shaderSystem, CameraSystem* _cameraSyst
 	modelObjectRingCBV.Setup(static_cast<UINT>(sizeof(ModelObjectCB)));
 	skinningRingCBV.Setup(sizeof(Mat4x4) * MAX_BONE_NUM);
 	materialRingCBV.Setup(sizeof(MaterialCB));
+	userMaterialParamterRingCBV.Setup(static_cast<UINT>(MAX_MATERIAL_PARAMETER_SIZE), static_cast<UINT>(MAX_MODEL_MATERIAL_PARAMETER_UPDATE_PER_FRAME));
 
 	return true;
 }
@@ -77,6 +78,8 @@ void ModelRenderer::Shutdown()
 	modelObjectRingCBV.Shutdown();
 	materialRingCBV.Shutdown();
 	skinningRingCBV.Shutdown();
+	userMaterialParamterRingCBV.Shutdown();
+	zeroMaterialParameterAddress = 0;
 }
 
 void ModelRenderer::BeginFrame()
@@ -85,6 +88,7 @@ void ModelRenderer::BeginFrame()
 	modelObjectRingCBV.Reset();
 	materialRingCBV.Reset();
 	skinningRingCBV.Reset();
+	userMaterialParamterRingCBV.Reset();
 	sceneFrameGPUAddress = 0; // 更新するため0
 }
 
@@ -166,7 +170,35 @@ bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet)
 
 	// 名前を読みやすくするための参照
 	const SubMesh& subMesh{ *_packet.subMesh };
-	ID3D12PipelineState* pipeline{ shaderSystem->GetPipeline(_packet.pipelineID) };
+
+	// とりあえず最初は内蔵PSOを選択しておく
+	ID3D12PipelineState* const  defaultPipeline{ shaderSystem->GetPipeline(_packet.pipelineID) }; // デフォルトのPSOキャッシュ(ポインタそのもの書き換え禁止)
+	ID3D12PipelineState* pipeline{	defaultPipeline };
+	MaterialData* activeMaterial{ nullptr }; // 有効なマテリアル
+	// ユーザーが適用したmaterialが有効か
+	if (_packet.effectiveMaterial.IsValid()) 
+	{
+		MaterialData* customMateiral{ GraphicsResourceManager::Instance().Lookup(_packet.effectiveMaterial) };
+		if (!customMateiral)
+		{
+			DEBUG_LOG_ERROR("カスタムされたMaterialのlookupに失敗しました\n");
+			pipeline = defaultPipeline; // 失敗した場合は内蔵へ
+		}
+		else
+		{
+			// usageが正しくモデルか、ソースは正しいか、pipelineStateは生きているかチェックする
+			if (customMateiral->usage == ShaderUsage::Model && customMateiral->pipelineSource == MaterialPipelineSource::Custom && customMateiral->pipelineState)
+			{
+				pipeline = customMateiral->pipelineState.Get(); // カスタムしたPSOを持ってくる
+				activeMaterial = customMateiral;
+			}
+			else
+			{
+				DEBUG_LOG_ERROR("カスタムされたMaterialのUsageが不正です\n");
+				pipeline = defaultPipeline;
+			}
+		}
+	}
 	if (!pipeline)
 	{
 		DEBUG_LOG_ERROR("モデル用Pipelineの取得に失敗しました\n");
