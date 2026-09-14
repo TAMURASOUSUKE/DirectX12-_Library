@@ -1023,6 +1023,12 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	model.parameters.push_back(MakeSRVTable(1, D3D12_SHADER_VISIBILITY_PIXEL)); // MetallicRoughnessテクスチャ(t1)
 	model.parameters.push_back(MakeRootCBV(5, D3D12_SHADER_VISIBILITY_ALL)); // Shadow用LightViewProjection(b5)
 	model.parameters.push_back(MakeSRVTable(2, D3D12_SHADER_VISIBILITY_PIXEL)); // ShadowMapのt2
+	for (UINT i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
+	{
+		// RootParam[1]-[4]へmaterial slot0-3を追加する
+		 // ユーザーが定義した定数バッファを受け取る 内蔵と番号の重複に耐えるためにregisterSpaceを1に設定
+		model.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
+	}
 	model.staticSamplers.push_back(MakeShadowComparisonSampler(1, D3D12_SHADER_VISIBILITY_PIXEL)); // ShadowMap比較用のSampler(s1)
 	descs.push_back(std::move(model)); // model変数は使わないのでmoveして空にする(コピーの必要性なし)
 	// Shape用
@@ -1045,23 +1051,23 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	terrain.staticSamplers.push_back(terrainSampler);
 	descs.push_back(std::move(terrain)); // shape変数は使わないのでmoveして空にする(コピーの必要性なし)
 	// PostEffect
-	RootSignatureDesc postEffectDesc{};
-	postEffectDesc.rootSignatureID = RootSigID::PostEffect;
-	postEffectDesc.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_PIXEL)); // シーンRTのSRVをt0としてピクセルシェーダーから読む
+	RootSignatureDesc postEffect{};
+	postEffect.rootSignatureID = RootSigID::PostEffect;
+	postEffect.parameters.push_back(MakeSRVTable(0, D3D12_SHADER_VISIBILITY_PIXEL)); // シーンRTのSRVをt0としてピクセルシェーダーから読む
 	for (UINT i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
 	{
 		// RootParam[1]-[4]へmaterial slot0-3を追加する
 		 // ユーザーが定義した定数バッファを受け取る 内蔵と番号の重複に耐えるためにregisterSpaceを1に設定
-		postEffectDesc.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
+		postEffect.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}
 	D3D12_STATIC_SAMPLER_DESC sampler{ MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL) };
 	// 画面端で反対側のピクセルを拾わないようにClampする
 	sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-	postEffectDesc.staticSamplers.push_back(sampler);
-	postEffectDesc.flags = D3D12_ROOT_SIGNATURE_FLAG_NONE; // 頂点バッファを使用しないためIAの許可は不要
-	descs.push_back(std::move(postEffectDesc));
+	postEffect.staticSamplers.push_back(sampler);
+	postEffect.flags = D3D12_ROOT_SIGNATURE_FLAG_NONE; // 頂点バッファを使用しないためIAの許可は不要
+	descs.push_back(std::move(postEffect));
 	// インスタンシング対応3D基礎図形
 	RootSignatureDesc primitive3D{};
 	primitive3D.rootSignatureID = RootSigID::Primitive3D;
