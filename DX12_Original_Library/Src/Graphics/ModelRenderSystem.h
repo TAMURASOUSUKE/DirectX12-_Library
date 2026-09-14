@@ -41,7 +41,7 @@ public:
 
 private:
 	// 渡されたデータから静的かスキニングかを判断してサブメッシュへ展開する
-	bool AppendDrawPackets(const ModelData& _model, const AnimInstanceData* _animation, const Transform& _transform);
+	bool AppendDrawPackets(const ModelData& _model, const AnimInstanceData* _animation, const Transform& _transform, MaterialHandle _drawMaterialOverride);
 
 private:
 	ModelRenderQueue renderQueue{};
