@@ -4,7 +4,7 @@ namespace InternalResource
 {
 	const std::uint8_t defaultFontPng[]
 	{
-		// DejaVu Sans Mono.pngのバイト列
+		// DefaultFontAtlasのバイト列
 		#include "DefaultFontBytes.inc"
 	};
 
