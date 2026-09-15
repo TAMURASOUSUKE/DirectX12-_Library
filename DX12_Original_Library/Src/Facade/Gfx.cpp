@@ -555,9 +555,9 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 		DEBUG_LOG_ERROR("内蔵デフォルトフォントの読み込みに失敗しました\n");
 	}
 	defaultFont.texWidth = 256; // 全体横幅
-	defaultFont.texHeight = 256; // 全体縦幅
+	defaultFont.texHeight = 384; // 全体縦幅
 	defaultFont.cellWidth = 16; // セル幅
-	defaultFont.cellHeight = 16; // セル高さ
+	defaultFont.cellHeight = 24; // セル高さ
 	defaultFont.cols = 16; // 行の要素数
 	defaultFont.firstCode = 0; // CP437配列なので0
 	return true;
