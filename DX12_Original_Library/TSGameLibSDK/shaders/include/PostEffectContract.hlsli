@@ -14,8 +14,8 @@ SamplerState sceneSampler : register(s0);
 // フルスクリーン三角形VSからPSへ渡す情報
 struct PostEffectVertexOutput
 {
-    float4 position : SV_POSITION;
-    float2 uv : TEXCOORD0;
+	float4 position : SV_POSITION;
+	float2 uv : TEXCOORD0;
 };
 
 #endif

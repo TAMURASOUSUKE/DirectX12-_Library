@@ -14,7 +14,7 @@
 // RootSignatureではVSだけから参照可能
 cbuffer SpriteTransformCB : register(b0)
 {
-    float4x4 orthogonalProjectionMat;
+	float4x4 orthogonalProjectionMat;
 };
 
 // Spriteが表示するテクスチャ
@@ -27,18 +27,18 @@ SamplerState spriteSampler : register(s0);
 // Sprite頂点バッファからVSへ渡される入力
 struct SpriteVertexInput
 {
-    float3 position : POSITION;
-    float2 uv : TEXCOORD0;
-    float4 color : COLOR0;
+	float3 position : POSITION;
+	float2 uv : TEXCOORD0;
+	float4 color : COLOR0;
 };
 
 // VSからPSへ渡される出力
 // 外部Sprite用PSもこの構造体を入力として受け取る
 struct SpriteVertexOutput
 {
-    float4 position : SV_POSITION;
-    float2 uv : TEXCOORD0;
-    float4 color : COLOR0;
+	float4 position : SV_POSITION;
+	float2 uv : TEXCOORD0;
+	float4 color : COLOR0;
 };
 
 #endif
