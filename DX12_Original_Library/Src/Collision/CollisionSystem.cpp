@@ -13,7 +13,7 @@ bool CollisionSystem::Intersect(Rect _rect01, Rect _rect02)
 	return true;
 }
 
-bool CollisionSystem::Intersect(AABB _cube01, AABB _cube02)
+bool CollisionSystem::Intersect(Box _cube01, Box _cube02)
 {
 	const Vector3 min01{ _cube01.minPosition }; // 一つめの最小
 	const Vector3 max01{ _cube01.maxPosition }; // 一つめの最大
@@ -39,5 +39,11 @@ bool CollisionSystem::Intersect(Sphere _sphere01, Sphere _sphere02)
 	if (distanceSquared > totalRadiusSquared) return false; // 二つの球の半径の合計値より距離が離れていればfalse
 
 	return  true;
+}
+
+bool Intersect(Sphere _sphere, Box _cube)
+{
+	if (!_sphere.IsValid()) return false; // 不正な値ならfalse
+
 }
 

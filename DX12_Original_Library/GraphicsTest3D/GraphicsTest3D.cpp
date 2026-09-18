@@ -96,7 +96,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// あたり判定を行えるか
 	Transform debugCubeAABB{};
 	debugCubeAABB.SetPosition({ -2.0f, 0.0f, 3.0f });
-	AABB debugCube{debugCubeAABB.GetPosition() + Vector3{-0.5f, 0.0f, -0.5f}, debugCubeAABB.GetPosition() + Vector3{0.5f, 2.0f,  0.5f} };
+	Box debugCube{debugCubeAABB.GetPosition() + Vector3{-0.5f, 0.0f, -0.5f}, debugCubeAABB.GetPosition() + Vector3{0.5f, 2.0f,  0.5f} };
 	Vector4 hitColor{ 0.0f, 0.0f, 0.0f, 1.0 };
 
 	// カメラ設定
@@ -184,7 +184,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		camera.transform.Translate(dir * speed * Time::DeltaTime());
 
 		// AABB確認
-		AABB playerAABB{ objectPosition.GetPosition() + Vector3{-0.5f, 0.0f, -0.5f}, objectPosition.GetPosition() + Vector3{0.5f, 2.0f,  0.5f} };
+		Box playerAABB{ objectPosition.GetPosition() + Vector3{-0.5f, 0.0f, -0.5f}, objectPosition.GetPosition() + Vector3{0.5f, 2.0f,  0.5f} };
 		if (Collision::Intersect(playerAABB, debugCube)) hitColor = { 1.0f, 0.0f, 0.0f, 1.0f };
 		else hitColor = { 0.0f, 1.0f, 0.0f, 1.0f };
 
@@ -226,7 +226,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		else Gfx::DrawAnimatedModel(toonModelAnim, toonTransform, threeToneMaterial); // 静的モデル(toon)
 
 		// 3D基礎図形
-		Gfx::DrawCube3D(cube, { 1.0f, 0.0f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
+		Gfx::DrawBox3D(cube, { 1.0f, 0.0f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
 		Gfx::DrawSphere3D(sphere, { 0.0f, 0.5f, 0.0f, 1.0f }, Gfx::Primitive3DStyle::MeshWireframe);
 		Gfx::DrawCylinder3D(cylinder, { 0.0f, 1.0f, 0.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
 		Gfx::DrawCapsule3D({ 0.0f, -2.0f, 5.0f }, { 0.0f,  0.0f, 5.0f }, 0.5f, { 0.2f, 1.0f, 0.3f }, Gfx::Primitive3DStyle::Fill);

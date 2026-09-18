@@ -177,7 +177,7 @@ bool Primitive3DSystem::RegisterAxis(Vector3 _origin, Quaternion _rotation, floa
 	return batch.RegisterGroup(registrations);
 }
 
-bool Primitive3DSystem::RegisterAABB(const AABB& _aabb, Vector4 _color)
+bool Primitive3DSystem::RegisterAABB(const Box& _aabb, Vector4 _color)
 {
 	if (!_aabb.IsValid())
 	{
