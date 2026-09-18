@@ -8,6 +8,7 @@ public:
 	// 接触判定
 	bool Intersect(Rect _rect01, Rect _rect02); // 矩形と矩形
 	bool Intersect(AABB _cube01, AABB _cube02); // 箱と箱
+	bool Intersect(Sphere _sphere01, Sphere _sphere02); // 球と球
 
 private:
 
