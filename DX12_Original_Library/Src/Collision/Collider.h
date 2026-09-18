@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include "../Math/TSMath.h"
 
 // 形状定義
@@ -65,4 +66,20 @@ struct AABB
 
 	Vector3 minPosition{ Vector3::Zero };
 	Vector3 maxPosition{ Vector3::Zero };
+};
+
+// ワールド空間の球
+struct Sphere
+{
+	Sphere() = default;
+	
+	// 中心と半径で初期化する
+	Sphere(Vector3 _center, float _radius) : center{ _center }, radius{ _radius }{}
+
+	// 座標,半径が有限値で半径が負ではないかを確認
+	bool  IsValid() const { return std::isfinite(center.x) && std::isfinite(center.y) && std::isfinite(center.z) && std::isfinite(radius) && radius >= 0.0f; }
+
+	Vector3 center{ Vector3::Zero }; // 球の中心
+	float radius{ 0.0f };           // 球の半径
+
 };
