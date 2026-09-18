@@ -1,0 +1,64 @@
+name: 作業・整備
+description: 内部整理・検証・文書・開発環境などの計画作業
+labels:
+  - "type:task"
+
+body:
+  - type: markdown # 書き方の説明
+    attributes:
+      value: |
+        開発を進めるために必要な背景、作業項目、完了条件を整理してください。
+
+  - type: textarea # ユーザーが実際に入力する欄
+    id: objective # github側が読み込むid
+    attributes:
+      label: 背景・目的  # 入力欄の見出し
+      description: なぜこの作業が必要かを書く。 # その説明
+      placeholder: "例: 依存順やその関係を明確にしたい" # 例
+    validations: # 入力検証
+      required: true # 入力が必須か
+
+  - type: textarea
+    id: work
+    attributes:
+      label: 作業項目
+      value: |
+        - [ ] 作業1
+        - [ ] 作業2
+        - [ ] 作業3
+      description: 具体的に何をするかを書く。
+    validations:
+      required: true # 入力必須
+
+  - type: textarea
+    id: completion # 完了条件
+    attributes:
+      label: 完了条件
+      value: |
+        - [ ] 条件1
+        - [ ] 条件2
+        - [ ] 条件3
+      description: どの結果を確認できたら閉じるかを書く。
+    validations:
+      required: true # 入力必須
+
+  - type: dropdown # ドロップダウンリストを表示する
+    id: area # 作業対象を表す
+    attributes:
+      label: 作業対象領域
+      description: このIssueがどこを変更するのかを表す
+      multiple: false # 対象領域は巨大Issueを避けるために一つにする(複数を不可)
+      options:
+        - "area:gameplay" # 移動、戦闘、敵、ゲームルールなど
+        - "area:rendering" # Shader,Material,Light,Shadow
+        - "area:animation" # アニメーション、遷移
+        - "area:world" # 地形、ステージ、背景配置など
+        - "area:ui" # HUD、メニュー
+        - "area:audio" # BGM,SEなど音関係
+        - "area:input" # 入力系(コントローラー、キー、マウス)
+        - "area:build" # SDK配布ビルドなど
+        - "area:repository" # IssueやGit、テンプレート関連
+        - "area:documentation" # README・設定資料・操作説明など
+        - "area:other" # どれも該当しないもの
+    validations:
+      required: true # 入力必須
