@@ -18,20 +18,28 @@ struct Rect
 	Vector2 size{Vector2::Zero}; // サイズ
 };
 
-// ワールド座標軸に沿った3D境界ボックス
+// ワールド空間の回転可能な箱
 struct Box
 {
 	Box() = default;
 
-	Box(Vector3 _minPosition, Vector3 _maxPosition) : minPosition{ _minPosition }, maxPosition{ _maxPosition } {}
+	Box(Vector3 _center, Vector3 _halfSize, Quaternion _rotation = Quaternion::Identity) : center{_center}, halfSize{_halfSize}, rotation{_rotation} {}
 
-	Vector3 GetCenter() const { return (minPosition + maxPosition) * 0.5f; } // 最小座標と最大座標の中間を返す
-	Vector3 GetSize() const { return maxPosition - minPosition; } 	// 最小座標から最大座標までの全長を返す
-	Vector3 GetHalfSize() const { return GetSize() * 0.5f; } // 各軸の半分の長さを返す
-	bool IsValid() const { return minPosition.x <= maxPosition.x && minPosition.y <= maxPosition.y && minPosition.z <= maxPosition.z; } // 最小座標が最大座標を追い越していないか確認する
+	Vector3 GetSize() const { return center * 2.0f; } 	// Boxのサイズを返す
 
-	Vector3 minPosition{ Vector3::Zero };
-	Vector3 maxPosition{ Vector3::Zero };
+	// 正しい値が入っているか確認
+	bool IsValid() const
+	{
+		return std::isfinite(center.x) && std::isfinite(center.y) && std::isfinite(center.z) &&
+			std::isfinite(halfSize.x) && std::isfinite(halfSize.y) && std::isfinite(halfSize.z) &&
+			std::isfinite(rotation.x) && std::isfinite(rotation.y) && std::isfinite(rotation.z) && std::isfinite(rotation.w) &&
+			halfSize.x >= 0.0f && halfSize.y >= 0.0f && halfSize.z >= 0.0f && // 0は薄い壁として許可する(描画は別)
+			std::abs(rotation.LengthSquared() - 1) <= Math::EPSILON; // 回転用Quaternionの長さの二乗は1。丸め誤差対策でEPSILON確認
+	}
+
+	Vector3 center{ Vector3::Zero };
+	Vector3 halfSize{ Vector3::Zero };
+	Quaternion rotation{ Quaternion::Identity };
 };
 
 // ワールド空間の球

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "../Math/TSMath.h"
 #include "CollisionSystem.h"
 
@@ -41,9 +42,25 @@ bool CollisionSystem::Intersect(Sphere _sphere01, Sphere _sphere02)
 	return  true;
 }
 
-bool Intersect(Sphere _sphere, Box _cube)
+bool Intersect(Sphere _sphere, Box  _box)
 {
 	if (!_sphere.IsValid()) return false; // 不正な値ならfalse
 
+	const Vector3 sphereCenter{ _sphere.center }; // 球の中心
+	const Vector3 boxMin{ _box.minPosition }; // 箱の最小座標
+	const Vector3 boxMax{ _box.maxPosition }; // 箱の最大座標
+
+	// 級の中心から箱の最近点を求めている
+	const Vector3 nearestPos{ std::clamp(sphereCenter.x, boxMin.x, boxMax.x),
+													 std::clamp(sphereCenter.y, boxMin.y, boxMax.y),
+													 std::clamp(sphereCenter.z, boxMin.z, boxMax.z) };
+
+	const float radiusSquared{ _sphere.radius * _sphere.radius }; // 半径の二乗
+	const float distanceSquared{ Vector3::DistanceSquared(nearestPos, sphereCenter) }; // 最近点と級の中心の二乗
+
+	
+
+
+	return true;
 }
 
