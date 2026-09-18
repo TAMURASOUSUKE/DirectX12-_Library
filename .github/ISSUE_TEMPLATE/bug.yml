@@ -1,0 +1,88 @@
+name: 不具合報告
+description: 本来の動作にならない問題を報告する
+labels:
+  - "type:bug"
+
+body:
+  - type: markdown # 書き方の説明
+    attributes:
+      value: |
+        発生した動作、期待していた動作、再現手順、実行環境を整理してください。
+
+  - type: textarea # ユーザーが実際に入力する欄
+    id: actual # github側が読み込むid
+    attributes:
+      label: 実際に起きた動作  # 入力欄の見出し
+      description: 画面やログで確認した事実を書く。 # その説明
+      placeholder: "例: 一定の条件で通常の速度より速くなる" # 例
+    validations: # 入力検証
+      required: true # 入力が必須か
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待していた動作
+      description: 想定していた動作や期待していた出力結果を書く。
+      placeholder: "例: 移動をしたら設定されている速度が維持される"
+    validations:
+      required: true # 入力必須
+
+  - type: textarea
+    id: reproduction # 再現条件
+    attributes: 
+      label: 再現条件
+      description: |
+        どの条件で発生し、発生までに何を操作したかを書く。
+        再現できない場合は、発生直前の操作を書く。
+      placeholder: "例: スティックを斜めに倒したときだけ速度が速くなった"
+    validations:
+      required: false # 再現性のないバグも存在するので入力必須にしない
+
+  - type: textarea
+    id: environment # 実行環境
+    attributes: 
+      label: 実行環境
+      value: |
+        #### 【OS】
+        Windows11
+        #### 【ビルド】
+        Debug x64
+        #### 【起動方法】
+        VisualStudio2026 / F5(デバッガーあり)
+        #### 【ブランチ・Commit】
+        feature/....(実際のbranch名やコミット名を書く)
+        #### 【GPU】
+        NVIDIA(実際のGPU名)
+      description: バグが起こった実行環境を書く。
+    validations:
+      required: true # 入力必須
+
+  - type: textarea
+    id: log # ログなど
+    attributes: 
+      label: ログ・画像・補足情報
+      description: ログ、スクリーンショット、動画などを添付する。
+      placeholder: "例: Debug出力、例外メッセージ、スクリーンショット、動画を添付"
+    validations:
+      required: false # 入力必須ではない
+
+  - type: dropdown # ドロップダウンリストを表示する
+    id: area # 作業対象を表す
+    attributes:
+      label: 作業対象領域
+      description: このIssueがどこを変更するのかを表す
+      multiple: false # 対象領域は巨大Issueを避けるために一つにする(複数を不可)
+      options:
+        - "area:gameplay" # 移動、戦闘、敵、ゲームルールなど
+        - "area:rendering" # Shader,Material,Light,Shadow
+        - "area:animation" # アニメーション、遷移
+        - "area:world" # 地形、ステージ、背景配置など
+        - "area:ui" # HUD、メニュー
+        - "area:audio" # BGM,SEなど音関係
+        - "area:input" # 入力系(コントローラー、キー、マウス)
+        - "area:build" # SDK配布ビルドなど
+        - "area:repository" # IssueやGit、テンプレート関連
+        - "area:documentation" # README・設定資料・操作説明など
+        - "area:other" # どれも該当しないもの
+    validations:
+      required: true # 入力必須
