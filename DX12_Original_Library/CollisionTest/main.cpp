@@ -33,7 +33,7 @@ TestResult RunCollisionTests()
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
-	if (!TSLib::Initialize(L"CollisionTest - OBB", 1280, 720)) return -1;
+	if (!TSLib::Initialize(L"CollisionTest", 1280, 720)) return -1;
 	Time::SetTargetFPS(60);
 	System::SetCursorMode(System::CursorMode::Normal);
 
