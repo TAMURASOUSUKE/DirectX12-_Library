@@ -177,26 +177,26 @@ bool Primitive3DSystem::RegisterAxis(Vector3 _origin, Quaternion _rotation, floa
 	return batch.RegisterGroup(registrations);
 }
 
-bool Primitive3DSystem::RegisterAABB(const Box& _box, Vector4 _color)
+bool Primitive3DSystem::RegisterBox(const Box& _box, Vector4 _color)
 {
 	if (!_box.IsValid())
 	{
-		DEBUG_LOG_ERROR("AABBの最小座標と最大座標が逆転しています\n");
+		DEBUG_LOG_ERROR("BOXの最小座標と最大座標が逆転しています\n");
 		return false;
 	}
 	const Vector3 size{ _box.GetSize() };
-	// 現在のMakeInstanceDataは0スケールの逆数を計算するため厚さ0のAABBは描画対象外にする
+	// 現在のMakeInstanceDataは0スケールの逆数を計算するため厚さ0のBOXは描画対象外にする
 	if (size.x <= Math::EPSILON || size.y <= Math::EPSILON || size.z <= Math::EPSILON)
 	{
-		DEBUG_LOG_ERROR("AABBの各軸の大きさには0より大きい値が必要です Size : ({}, {}, {})\n", size.x, size.y, size.z);
+		DEBUG_LOG_ERROR("BOXの各軸の大きさには0より大きい値が必要です Size : ({}, {}, {})\n", size.x, size.y, size.z);
 		return false;
 	}
 
 	Transform transform{};
 	transform.SetPosition(_box.center);
+	transform.SetRotation(_box.rotation);
 	transform.SetScale(size);
 
-	// AABBは回転させないため、RotationはIdentityのまま
 	return RegisterCube(transform, _color, Primitive3DDrawMode::DebugLine);
 }
 

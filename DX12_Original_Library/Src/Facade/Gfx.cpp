@@ -1349,7 +1349,7 @@ void Gfx::DrawBox3D(const Transform& _transform, Vector4 _color, Primitive3DStyl
 void Gfx::DrawBox3D(const Box& _box, Vector4 _color)
 {
 	// ホットパスなのでログを出さない(溢れないようにする)
-	if (!primitive3DSystem.RegisterAABB(_box, _color)) return;
+	if (!primitive3DSystem.RegisterBox(_box, _color)) return;
 }
 
 void Gfx::DrawSphere3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)

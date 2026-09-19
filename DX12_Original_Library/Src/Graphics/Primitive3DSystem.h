@@ -31,7 +31,7 @@ public:
 	bool RegisterGrid(Vector3 _center, Quaternion _rotation, UINT _halfCellCount, float _cellSize, Vector4 _color); // グリッド
 	bool RegisterWorldAxisGrid(Vector3 _center, UINT _halfCellCount, float _cellSize, Vector4 _xAxisColor, Vector4 _yAxisColor, Vector4 _zAxisColor); // ワールド空間軸に沿ったグリッド
 	bool RegisterAxis(Vector3 _origin, Quaternion _rotation, float _length,Vector4 _xColor, Vector4 _yColor, Vector4 _zColor); // ローカル軸を指定位置へ
-	bool RegisterAABB(const Box& _aabb, Vector4 _color);
+	bool RegisterBox(const Box& _aabb, Vector4 _color);
 
 private:
 	// Transformと色から、GPUへ渡せる個体データを作る

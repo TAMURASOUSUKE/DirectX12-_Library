@@ -88,7 +88,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			movingBox.center += moveDirection * (3.0f * dt);
 		}
 
-		// 箱の回転はカメラから独立させ、OBB判定そのものを観察する。
+		// 箱の回転はカメラから独立させ OBB判定そのものを観察する
 		if (Input::IsKeyPress(KeyCode::Button::Q)) boxYaw -= 1.5f * dt;
 		if (Input::IsKeyPress(KeyCode::Button::E)) boxYaw += 1.5f * dt;
 		movingBox.rotation = Quaternion::FromAxisAngle(Vector3::Up, boxYaw);

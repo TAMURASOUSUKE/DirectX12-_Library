@@ -64,3 +64,23 @@ struct Sphere
 	float radius{ 0.0f };           // 球の半径
 
 };
+
+// ワールド空間のcapsule
+struct Capsule
+{
+	Capsule() = default;
+	// 始点と終点と半径で初期化する
+	Capsule(Vector3 _starPos, Vector3 _endPos, float _radius) : startPos{_starPos}, endPos{_endPos}, radius{_radius} {}
+
+	// 値が正しいものになっているかチェック
+	bool IsValid() const
+	{
+		return std::isfinite(startPos.x) && std::isfinite(startPos.y) && std::isfinite(startPos.z) &&
+			std::isfinite(endPos.x) && std::isfinite(endPos.y) && std::isfinite(endPos.z) &&
+			std::isfinite(radius) && radius > Math::EPSILON;
+	}
+
+	Vector3 startPos{ Vector3::Zero }; // 始点
+	Vector3 endPos{ Vector3::Zero }; // 終端 
+	float radius{ 1.0f }; // 半径
+};
