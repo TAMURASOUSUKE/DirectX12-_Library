@@ -2,16 +2,6 @@
 #include <algorithm>
 #include <string>
 
-// 判定用Boxと描画用Transformを同じ姿勢にする 現状のDrawBox3D(Box)はrotationを描画に反映しないため、Transform版を使う。
-Transform MakeDrawTransform(const Box& _box)
-{
-	Transform transform{};
-	transform.SetPosition(_box.center);
-	transform.SetRotation(_box.rotation);
-	transform.SetScale(_box.GetSize()); // halfSizeの2倍が描画する箱の全幅
-	return transform;
-}
-
 struct TestResult
 {
 	int failedCount{ 0 };
@@ -88,7 +78,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			movingBox.center += moveDirection * (3.0f * dt);
 		}
 
-		// 箱の回転はカメラから独立させ OBB判定そのものを観察する
+		// 箱の回転はカメラから独立させOBB判定そのものを観察する
 		if (Input::IsKeyPress(KeyCode::Button::Q)) boxYaw -= 1.5f * dt;
 		if (Input::IsKeyPress(KeyCode::Button::E)) boxYaw += 1.5f * dt;
 		movingBox.rotation = Quaternion::FromAxisAngle(Vector3::Up, boxYaw);
@@ -103,8 +93,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::SetCamera(camera);
 		Gfx::ClearScreen();
 		// Gfx::DrawWorldAxisGrid3D({0.0f, -1.0f, 0.0f}, 10, 1.0f);
-		Gfx::DrawBox3D(MakeDrawTransform(movingBox), hit ? Vector4{ 1.0f, 0.2f, 0.2f, 1.0f } : Vector4{ 0.2f, 1.0f, 0.3f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
-		Gfx::DrawBox3D(MakeDrawTransform(fixedBox), {0.2f, 0.6f, 1.0f, 1.0f}, Gfx::Primitive3DStyle::DebugLine);
+		Gfx::DrawBox3D(movingBox, hit ? Vector4{ 1.0f, 0.2f, 0.2f, 1.0f } : Vector4{ 0.2f, 1.0f, 0.3f, 1.0f });
+		Gfx::DrawBox3D(fixedBox, {0.2f, 0.6f, 1.0f, 1.0f});
 
 		Gfx::DrawString("WASD: move  Q/E: rotate box  Right drag: camera  ESC: exit", {20.0f, 20.0f});
 		Gfx::DrawString(hit ? "COLLISION: HIT" : "COLLISION: NONE", {20.0f, 55.0f}, 1.0f, hit ? Vector4{1.0f, 0.3f, 0.3f, 1.0f} : Vector4{0.3f, 1.0f, 0.3f, 1.0f});
