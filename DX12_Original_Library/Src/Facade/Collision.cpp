@@ -16,7 +16,12 @@ bool Collision::Intersect(Box _cube01, Box _cube02)
 	return collisionSystem.Intersect(_cube01, _cube02);
 }
 
-bool Intersect(Sphere _sphere01, Sphere _sphere02)
+bool Collision::Intersect(Sphere _sphere01, Sphere _sphere02)
 {
 	return collisionSystem.Intersect(_sphere01, _sphere02);
+}
+
+bool Collision::Intersect(Sphere _sphere, Box _box)
+{
+	return collisionSystem.Intersect(_sphere, _box);
 }

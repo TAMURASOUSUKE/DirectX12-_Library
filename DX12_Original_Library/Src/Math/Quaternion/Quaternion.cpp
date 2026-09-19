@@ -174,10 +174,10 @@ Mat4x4 Quaternion::ToMat4x4() const
 
 	return Mat4x4
 	{
-		Vector4{ 1.0f - 2.0f * (yy + zz), 2.0f * (xy + wz),         2.0f * (xz - wy),         0.0f },
-		Vector4{ 2.0f * (xy - wz),         1.0f - 2.0f * (xx + zz), 2.0f * (yz + wx),         0.0f },
-		Vector4{ 2.0f * (xz + wy),         2.0f * (yz - wx),         1.0f - 2.0f * (xx + yy), 0.0f },
-		Vector4{ 0.0f,                     0.0f,                     0.0f,                     1.0f }
+		Vector4{ 1.0f - 2.0f * (yy + zz), 2.0f * (xy + wz), 2.0f * (xz - wy), 0.0f },
+		Vector4{ 2.0f * (xy - wz), 1.0f - 2.0f * (xx + zz), 2.0f * (yz + wx), 0.0f },
+		Vector4{ 2.0f * (xz + wy), 2.0f * (yz - wx), 1.0f - 2.0f * (xx + yy), 0.0f },
+		Vector4{ 0.0f, 0.0f,  0.0f, 1.0f }
 	};
 }
 

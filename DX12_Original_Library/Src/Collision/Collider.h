@@ -8,6 +8,13 @@ struct Rect
 	Rect() = default;
 	Rect(Vector2 _position, Vector2 _size) : position{ _position }, size{ _size }{}
 
+	// 正しい値が入っているか確認
+	bool IsValid() const
+	{
+		return std::isfinite(position.x) && std::isfinite(position.y) &&
+			std::isfinite(size.x) && std::isfinite(size.y);
+	}
+
 	// Getter類
 	Vector2 GetCenter() const { return position + (size * 0.5f); } // 中心を取得
 	Vector2 GetHalfSize() const { return  size * 0.5f; } // 半分のサイズを取得
@@ -25,7 +32,7 @@ struct Box
 
 	Box(Vector3 _center, Vector3 _halfSize, Quaternion _rotation = Quaternion::Identity) : center{_center}, halfSize{_halfSize}, rotation{_rotation} {}
 
-	Vector3 GetSize() const { return center * 2.0f; } 	// Boxのサイズを返す
+	Vector3 GetSize() const { return halfSize * 2.0f; } 	// Boxのサイズを返す
 
 	// 正しい値が入っているか確認
 	bool IsValid() const
