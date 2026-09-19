@@ -53,8 +53,8 @@ bool CollisionSystem::Intersect(Box _box01, Box _box02)
 	const Vector3 halfEdgeY02{ axisY02 * _box02.halfSize.y };
 	const Vector3 halfEdgeZ02{ axisZ02 * _box02.halfSize.z };
 
-	// 任意軸を受け取り、分離しているか(分離軸が存在するか)をチェックする
-	const auto checkSeparationAxis = [&dist, &halfEdgeX01, &halfEdgeY01, &halfEdgeZ01, &halfEdgeX02, &halfEdgeY02, &halfEdgeZ02](const Vector3& _n)
+	// 任意軸を受け取りその軸上において二つの箱が重なっているかをチェックする
+	const auto overlapsOnAxis = [&dist, &halfEdgeX01, &halfEdgeY01, &halfEdgeZ01, &halfEdgeX02, &halfEdgeY02, &halfEdgeZ02](const Vector3& _n)
 		{
 			const float distDotN{ std::abs(Vector3::Dot(dist, _n)) }; // 分離軸候補に投影した中心間隔
 			const float rA{ std::abs(Vector3::Dot(halfEdgeX01, _n)) + std::abs(Vector3::Dot(halfEdgeY01, _n)) + std::abs(Vector3::Dot(halfEdgeZ01, _n)) }; // 片方のBoxの分離軸に対する投影線分
@@ -62,21 +62,21 @@ bool CollisionSystem::Intersect(Box _box01, Box _box02)
 			return (distDotN <= (rA + rB));
 		};
 
-	if (!checkSeparationAxis(axisX01)) return false; // Box1のローカルX軸方向の分離軸
-	if (!checkSeparationAxis(axisY01)) return false; // Box1のローカルY軸方向の分離軸
-	if (!checkSeparationAxis(axisZ01)) return false; // Box1のローカルZ軸方向の分離軸
-	if (!checkSeparationAxis(axisX02)) return false; // Box2のローカルX軸方向の分離軸
-	if (!checkSeparationAxis(axisY02)) return false; // Box2のローカルY軸方向の分離軸
-	if (!checkSeparationAxis(axisZ02)) return false; // Box2のローカルZ軸方向の分離軸
-	if (!checkSeparationAxis(Vector3::Cross(axisX01, axisX02))) return false; // Box1のローカルXとBox2のローカルXの2の外積による分離軸
-	if (!checkSeparationAxis(Vector3::Cross(axisX01, axisY02))) return false; // Box1のローカルXとBox2のローカルYの2の外積による分離軸
-	if (!checkSeparationAxis(Vector3::Cross(axisX01, axisZ02))) return false; // Box1のローカルXとBox2のローカルZの2の外積による分離軸
-	if (!checkSeparationAxis(Vector3::Cross(axisY01, axisX02))) return false; // Box1のローカルYとBox2のローカルXの2の外積による分離軸
-	if (!checkSeparationAxis(Vector3::Cross(axisY01, axisY02))) return false; // Box1のローカルYとBox2のローカルYの2の外積による分離軸
-	if (!checkSeparationAxis(Vector3::Cross(axisY01, axisZ02))) return false; // Box1のローカルYとBox2のローカルZの2の外積による分離軸
-	if (!checkSeparationAxis(Vector3::Cross(axisZ01, axisX02))) return false; // Box1のローカルZとBox2のローカルXの2の外積による分離軸
-	if (!checkSeparationAxis(Vector3::Cross(axisZ01, axisY02))) return false; // Box1のローカルZとBox2のローカルYの2の外積による分離軸
-	if (!checkSeparationAxis(Vector3::Cross(axisZ01, axisZ02))) return false; // Box1のローカルZとBox2のローカルZの2の外積による分離軸
+	if (!overlapsOnAxis(axisX01)) return false; // Box1のローカルX軸方向の分離軸
+	if (!overlapsOnAxis(axisY01)) return false; // Box1のローカルY軸方向の分離軸
+	if (!overlapsOnAxis(axisZ01)) return false; // Box1のローカルZ軸方向の分離軸
+	if (!overlapsOnAxis(axisX02)) return false; // Box2のローカルX軸方向の分離軸
+	if (!overlapsOnAxis(axisY02)) return false; // Box2のローカルY軸方向の分離軸
+	if (!overlapsOnAxis(axisZ02)) return false; // Box2のローカルZ軸方向の分離軸
+	if (!overlapsOnAxis(Vector3::Cross(axisX01, axisX02))) return false; // Box1のローカルXとBox2のローカルXの2の外積による分離軸
+	if (!overlapsOnAxis(Vector3::Cross(axisX01, axisY02))) return false; // Box1のローカルXとBox2のローカルYの2の外積による分離軸
+	if (!overlapsOnAxis(Vector3::Cross(axisX01, axisZ02))) return false; // Box1のローカルXとBox2のローカルZの2の外積による分離軸
+	if (!overlapsOnAxis(Vector3::Cross(axisY01, axisX02))) return false; // Box1のローカルYとBox2のローカルXの2の外積による分離軸
+	if (!overlapsOnAxis(Vector3::Cross(axisY01, axisY02))) return false; // Box1のローカルYとBox2のローカルYの2の外積による分離軸
+	if (!overlapsOnAxis(Vector3::Cross(axisY01, axisZ02))) return false; // Box1のローカルYとBox2のローカルZの2の外積による分離軸
+	if (!overlapsOnAxis(Vector3::Cross(axisZ01, axisX02))) return false; // Box1のローカルZとBox2のローカルXの2の外積による分離軸
+	if (!overlapsOnAxis(Vector3::Cross(axisZ01, axisY02))) return false; // Box1のローカルZとBox2のローカルYの2の外積による分離軸
+	if (!overlapsOnAxis(Vector3::Cross(axisZ01, axisZ02))) return false; // Box1のローカルZとBox2のローカルZの2の外積による分離軸
 
 	// ここまできたら当たっていると判定
 	return true;
