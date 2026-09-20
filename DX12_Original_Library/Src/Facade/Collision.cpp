@@ -25,3 +25,14 @@ bool Collision::Intersect(Sphere _sphere, Box _box)
 {
 	return collisionSystem.Intersect(_sphere, _box);
 }
+
+bool Collision::Intersect(Capsule _capsule01, Capsule _capsule02)
+{
+	return collisionSystem.Intersect(_capsule01, _capsule02);
+}
+
+bool Collision::Intersect(Capsule _capsule, Sphere _sphere)
+{
+	return collisionSystem.Intersect(_capsule, _sphere);
+}
+
