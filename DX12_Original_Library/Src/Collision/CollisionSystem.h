@@ -14,6 +14,15 @@ public:
 	bool Intersect(Capsule _capsule, Box _box); // カプセルと箱
 	bool Intersect(Capsule _capsule, Sphere _sphere); // カプセルと球
 
+	// 第1引数を固定された第2引数の外へ出す移動量を返す 接するだけならtrueとゼロ、非接触・不正値ならfalseとゼロを返す。
+	bool ComputePushOut(Rect _movable, Rect _obstacle, Vector2& _outMove);
+	bool ComputePushOut(Box _movable, Box _obstacle, Vector3& _outMove);
+	bool ComputePushOut(Sphere _movable, Sphere _obstacle, Vector3& _outMove);
+	bool ComputePushOut(Sphere _movable, Box _obstacle, Vector3& _outMove);
+	bool ComputePushOut(Capsule _movable, Capsule _obstacle, Vector3& _outMove);
+	bool ComputePushOut(Capsule _movable, Box _obstacle, Vector3& _outMove);
+	bool ComputePushOut(Capsule _movable, Sphere _obstacle, Vector3& _outMove);
+
 private:
 
 };
