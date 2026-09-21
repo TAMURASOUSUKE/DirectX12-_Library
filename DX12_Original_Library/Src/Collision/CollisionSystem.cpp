@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include "../Math/TSMath.h"
 #include "CollisionSystem.h"
 
@@ -190,9 +191,92 @@ bool CollisionSystem::Intersect(Capsule _capsule01, Capsule _capsule02)
 bool CollisionSystem::Intersect(Capsule _capsule, Box _box)
 {
 	if (!_capsule.IsValid() || !_box.IsValid()) return false;
-	const Vector3 A{ _capsule.startPos };
-	const Vector3 B{ _capsule.endPos };
-	return true;
+	// Boxの回転を打ち消しカプセルの軸線分をBoxのローカル空間へ移す
+	const Quaternion inverseRotation{ Vector4{-_box.rotation.x, -_box.rotation.y, -_box.rotation.z, _box.rotation.w} };
+	const Vector3 a{ inverseRotation.RotateVector(_capsule.startPos - _box.center) };
+	const Vector3 b{ inverseRotation.RotateVector(_capsule.endPos - _box.center) };
+	const Vector3 direction{ b - a };
+
+	const std::array<float, 3> start{ a.x, a.y, a.z };
+	const std::array<float, 3> dir{ direction.x, direction.y, direction.z };
+	const std::array<float, 3> half{ _box.halfSize.x, _box.halfSize.y, _box.halfSize.z };
+
+	// 軸線分上の点 P(t) とBoxとの距離の二乗  t=0始点 t=1終点
+	const auto distanceSquaredAt = [&](float t)
+		{
+			const Vector3 point{ a + direction * t };
+			const Vector3 nearest{
+				std::clamp(point.x, -_box.halfSize.x, _box.halfSize.x),
+				std::clamp(point.y, -_box.halfSize.y, _box.halfSize.y),
+				std::clamp(point.z, -_box.halfSize.z, _box.halfSize.z)
+			};
+			return (point - nearest).LengthSquared();
+		};
+
+	// 線分がBoxの各面の延長平面を横切るtを集めるその境界で距離関数の式が切り替わる。
+	std::array<float, 8> cuts{};
+	int cutCount{ 2 };
+	cuts[0] = 0.0f;
+	cuts[1] = 1.0f;
+
+	for (int axis = 0; axis < 3; axis++)
+	{
+		if (dir[axis] == 0.0f) continue;
+
+		for (int sign : { -1, 1 })
+		{
+			const float plane{ static_cast<float>(sign) * half[axis] };
+			const float t{ (plane - start[axis]) / dir[axis] };
+
+			if (t > 0.0f && t < 1.0f)
+			{
+				cuts[cutCount++] = t;
+			}
+		}
+	}
+
+	std::sort(cuts.begin(), cuts.begin() + cutCount);
+
+	// 境界点を候補にする。
+	float minDistanceSquared{ distanceSquaredAt(cuts[0]) };
+	for (int i = 1; i < cutCount; i++)
+	{
+		minDistanceSquared = std::min(minDistanceSquared, distanceSquaredAt(cuts[i]));
+	}
+
+	// 各区間内では「Boxの外側にある軸」が変わらず距離の二乗は二次関数になる その最小位置も調べる
+	for (int i = 0; i + 1 < cutCount; i++)
+	{
+		const float left{ cuts[i] };
+		const float right{ cuts[i + 1] };
+		if (right <= left) continue;
+
+		const float middle{ (left + right) * 0.5f };
+		float numerator{ 0.0f };
+		float denominator{ 0.0f };
+
+		for (int axis = 0; axis < 3; axis++)
+		{
+			const float valueAtMiddle{ start[axis] + dir[axis] * middle };
+
+			float nearestFace{};
+			if (valueAtMiddle < -half[axis]) nearestFace = -half[axis];
+			else if (valueAtMiddle > half[axis]) nearestFace = half[axis];
+			else continue; // この軸ではBoxの内側
+
+			numerator += dir[axis] * (start[axis] - nearestFace);
+			denominator += dir[axis] * dir[axis];
+		}
+
+		if (denominator > 0.0f)
+		{
+			const float nearestT{ std::clamp(-numerator / denominator, left, right) };
+			minDistanceSquared = std::min(minDistanceSquared, distanceSquaredAt(nearestT));
+		}
+	}
+
+	// 表面がちょうど触れる場合もtrue。
+	return minDistanceSquared <= _capsule.radius * _capsule.radius;
 }
 
 bool CollisionSystem::Intersect(Capsule _capsule, Sphere _sphere)

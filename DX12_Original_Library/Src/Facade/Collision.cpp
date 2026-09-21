@@ -31,6 +31,11 @@ bool Collision::Intersect(Capsule _capsule01, Capsule _capsule02)
 	return collisionSystem.Intersect(_capsule01, _capsule02);
 }
 
+bool Intersect(Capsule _capsule, Box _box)
+{
+	return collisionSystem.Intersect(_capsule, _box);
+}
+
 bool Collision::Intersect(Capsule _capsule, Sphere _sphere)
 {
 	return collisionSystem.Intersect(_capsule, _sphere);

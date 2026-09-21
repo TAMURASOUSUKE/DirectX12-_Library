@@ -9,5 +9,6 @@ namespace Collision
 	bool Intersect(Sphere _sphere01, Sphere _sphere02); // 球と球
 	bool Intersect(Sphere _sphere, Box _box); // 球と箱
 	bool Intersect(Capsule _capsule01, Capsule _capsule02); // カプセルとカプセル
+	bool Intersect(Capsule _capsule, Box _box); // カプセルと箱
 	bool Intersect(Capsule _capsule, Sphere _sphere); // カプセルと球
 }

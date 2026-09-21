@@ -110,10 +110,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	Camera camera{};
 	float cameraYaw{ 0.0f };
 	float cameraPitch{ 20.0f * Math::DEG_TO_RAD };
-	constexpr float cameraDistance{ 7.0f };
-	constexpr float mouseSensitivity{ 0.2f * Math::DEG_TO_RAD };
-	constexpr float minPitch{ 10.0f * Math::DEG_TO_RAD };
-	constexpr float maxPitch{ 75.0f * Math::DEG_TO_RAD };
+	constexpr float CAMERA_DISTANCE{ 7.0f };
+	constexpr float MOUSE_SENSITIVITY{ 0.2f * Math::DEG_TO_RAD };
+	constexpr float MIN_PITCH{ 10.0f * Math::DEG_TO_RAD };
+	constexpr float MAX_PITCH{ 75.0f * Math::DEG_TO_RAD };
 
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
 	{
@@ -124,8 +124,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsMousePress(MouseCode::Click::RIGHT))
 		{
 			const Vector2Int delta{ Input::GetMouseDelta() };
-			cameraYaw = Math::NormalizeAngle(cameraYaw + static_cast<float>(delta.x) * mouseSensitivity);
-			cameraPitch = std::clamp(cameraPitch + static_cast<float>(delta.y) * mouseSensitivity, minPitch, maxPitch);
+			cameraYaw = Math::NormalizeAngle(cameraYaw + static_cast<float>(delta.x) * MOUSE_SENSITIVITY);
+			cameraPitch = std::clamp(cameraPitch + static_cast<float>(delta.y) * MOUSE_SENSITIVITY, MIN_PITCH, MAX_PITCH);
 		}
 
 		// WASDの移動方向をカメラの水平向きに合わせる
@@ -159,7 +159,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		const Vector3 target{ movingCenter + Vector3{0.0f, 0.4f, 0.0f} };
 		const Vector3 cameraForward{ cameraRotation.RotateVector(Vector3::Forward) };
 		camera.transform.SetRotation(cameraRotation);
-		camera.transform.SetPosition(target - cameraForward * cameraDistance);
+		camera.transform.SetPosition(target - cameraForward * CAMERA_DISTANCE);
 
 		const bool hit{ Collision::Intersect(fixedCapsule, movingCapsule) };
 
@@ -167,10 +167,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::ClearScreen();
 
 		// 形状をDebugLineで表示
-		Gfx::DrawCapsule3D(fixedCapsule.startPos, fixedCapsule.endPos, fixedCapsule.radius, { 0.2f, 0.6f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
+		Gfx::DrawCapsule3D(fixedCapsule.startPos, fixedCapsule.endPos, fixedCapsule.radius, { 0.2f, 0.6f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::Fill);
 
 		// 操作対象は通常緑、衝突中だけ赤にする
-		Gfx::DrawCapsule3D(movingCapsule.startPos, movingCapsule.endPos, movingCapsule.radius, hit ? Vector4{ 1.0f, 0.2f, 0.2f, 1.0f } : Vector4{ 0.2f, 1.0f, 0.3f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
+		Gfx::DrawCapsule3D(movingCapsule.startPos, movingCapsule.endPos, movingCapsule.radius, hit ? Vector4{ 1.0f, 0.2f, 0.2f, 1.0f } : Vector4{ 0.2f, 1.0f, 0.3f, 1.0f }, Gfx::Primitive3DStyle::Fill);
 
 		Gfx::DrawString("WASD: move  Q/E: rotate capsule  Right drag: camera  ESC: exit", { 20.0f, 20.0f });
 		Gfx::DrawString(hit ? "COLLISION: HIT" : "COLLISION: NONE", { 20.0f, 55.0f }, 1.0f, hit ? Vector4{ 1.0f, 0.3f, 0.3f, 1.0f } : Vector4{ 0.3f, 1.0f, 0.3f, 1.0f });
