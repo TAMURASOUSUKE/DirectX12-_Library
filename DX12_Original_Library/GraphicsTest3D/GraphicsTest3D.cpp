@@ -107,6 +107,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	float cameraPtich{ 0.0f };
 	// 1pxの移動で何ラジアン回すか
 	constexpr float MOUSE_SENSITIVITY{ 0.2f * Math::DEG_TO_RAD };
+	constexpr float PAD_CAMERA_SPEED{ 90.0f * Math::DEG_TO_RAD }; // 右スティックを最大まで倒したときの1秒間の回転量
 	// 真下真上まで回すとLookAtの軸が不安定になるため少し手前で止める
 	constexpr float  MAX_CAMERA_PITCH{ 89.0f * Math::DEG_TO_RAD };
 
@@ -120,12 +121,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	bool isFullscreen{ false }; // 実行中のWindowSize変更チェック
 	// ゲームループ
-	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
+	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC) && !Input::IsPadPushed(PadCode::Button::BACK))
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 		time += Time::DeltaTime();
 
-		if (Input::IsKeyPushed(KeyCode::Button::T)) useThreeTone = !useThreeTone; // TでToon切り替え
+		if (Input::IsKeyPushed(KeyCode::Button::T) || Input::IsPadPushed(PadCode::Button::Y)) useThreeTone = !useThreeTone; // TかYでToon切り替え
 		if (Input::IsKeyPushed(KeyCode::Button::TAB))
 		{
 			isLocked = !isLocked;
@@ -140,10 +141,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// Terrain操作
 		float heightSpeed{ 3.0f };
-		if (Input::IsKeyPress(KeyCode::Button::UP)) heightFactor += heightSpeed * Time::UnscaledDeltaTime();
-		if (Input::IsKeyPress(KeyCode::Button::DOWN)) heightFactor -= heightSpeed * Time::UnscaledDeltaTime();
-		if (Input::IsKeyPushed(KeyCode::Button::D2)) tessFactor *= 2.0f;
-		if (Input::IsKeyPushed(KeyCode::Button::D1)) tessFactor /= 2.0f;
+		if (Input::IsKeyPress(KeyCode::Button::UP) || Input::IsPadPress(PadCode::Button::UP)) heightFactor += heightSpeed * Time::UnscaledDeltaTime();
+		if (Input::IsKeyPress(KeyCode::Button::DOWN) || Input::IsPadPress(PadCode::Button::DOWN)) heightFactor -= heightSpeed * Time::UnscaledDeltaTime();
+		if (Input::IsKeyPushed(KeyCode::Button::D2) || Input::IsPadPushed(PadCode::Trigger::RIGHT)) tessFactor *= 2.0f;
+		if (Input::IsKeyPushed(KeyCode::Button::D1) || Input::IsPadPushed(PadCode::Trigger::LEFT)) tessFactor /= 2.0f;
 		tessFactor = std::clamp(tessFactor, 2.0f, 64.0f);
 
 		heightFactor = std::clamp(heightFactor, -20.0f, 20.0f);
@@ -152,8 +153,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPushed(KeyCode::Button::D3)) Time::SetTargetFPS(30); // 30FPS
 		if (Input::IsKeyPushed(KeyCode::Button::D6)) Time::SetTargetFPS(60); // 60FPS
 		if (Input::IsKeyPushed(KeyCode::Button::D0)) Time::SetTargetFPS(120); // 120FPS モニターが120Hz以上である必要あり
-		if (Input::IsKeyPushed(KeyCode::Button::RIGHT)) timeScale += 0.1f;
-		if (Input::IsKeyPushed(KeyCode::Button::LEFT)) timeScale -= 0.1f;
+		if (Input::IsKeyPushed(KeyCode::Button::RIGHT) || Input::IsPadPushed(PadCode::Button::RIGHT)) timeScale += 0.1f;
+		if (Input::IsKeyPushed(KeyCode::Button::LEFT) || Input::IsPadPushed(PadCode::Button::LEFT)) timeScale -= 0.1f;
 		timeScale = std::clamp(timeScale, 0.0f, 10.0f); // 最大でもタイムスケールは10にとどめておく
 		Time::SetTimeScale(timeScale);
 
@@ -169,6 +170,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			// 保存している角度から毎回Quaternionを作り出す
 			camera.transform.SetRotation(Quaternion::FromEuler({ cameraPtich, cameraYaw, 0.0f }));
 		}
+		const Vector2 padLook{ Input::GetPadStickValue(PadCode::Stick::RIGHT) };
+		if (padLook != Vector2::Zero)
+		{
+			cameraYaw += padLook.x * PAD_CAMERA_SPEED * Time::UnscaledDeltaTime();
+			cameraPtich += padLook.y * PAD_CAMERA_SPEED * Time::UnscaledDeltaTime();
+			cameraYaw = Math::NormalizeAngle(cameraYaw);
+			cameraPtich = std::clamp(cameraPtich, -MAX_CAMERA_PITCH, MAX_CAMERA_PITCH);
+			camera.transform.SetRotation(Quaternion::FromEuler({ cameraPtich, cameraYaw, 0.0f }));
+		}
 
 		// カメラ移動
 		Vector3 dir{ Vector3::Zero };
@@ -179,6 +189,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPress(KeyCode::Button::A)) dir -= cameraRight;
 		if (Input::IsKeyPress(KeyCode::Button::S)) dir -= cameraForward;
 		if (Input::IsKeyPress(KeyCode::Button::D)) dir += cameraRight;
+		const Vector2 padMove{ Input::GetPadStickValue(PadCode::Stick::LEFT, true) };
+		dir += cameraRight * padMove.x;
+		dir += cameraForward * padMove.y;
 		float speed{ 8.0f };
 		dir.Normalize();
 		camera.transform.Translate(dir * speed * Time::DeltaTime());
@@ -191,17 +204,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// 3Dモデルアニメーション
 		// クリップ0または現在のクリップから、クリップ1へ遷移
-		if (Input::IsKeyPushed(KeyCode::Button::C)) Gfx::CrossFadeAnim(alienModelAnim, ALIEN_ANIM_1, ALIEN_BLEND_DURATION, true, 1.0f);
+		if (Input::IsKeyPushed(KeyCode::Button::C) || Input::IsPadPushed(PadCode::Button::A)) Gfx::CrossFadeAnim(alienModelAnim, ALIEN_ANIM_1, ALIEN_BLEND_DURATION, true, 1.0f);
 		// クリップ1または現在のクリップから、クリップ0へ遷移
-		if (Input::IsKeyPushed(KeyCode::Button::V)) Gfx::CrossFadeAnim(alienModelAnim, ALIEN_ANIM_0, ALIEN_BLEND_DURATION, true, 1.0f);
+		if (Input::IsKeyPushed(KeyCode::Button::V) || Input::IsPadPushed(PadCode::Button::X)) Gfx::CrossFadeAnim(alienModelAnim, ALIEN_ANIM_0, ALIEN_BLEND_DURATION, true, 1.0f);
 		// ブレンド中でも通常再生へ即座に切り替える 古いblend状態が残らないことを確認する
-		if (Input::IsKeyPushed(KeyCode::Button::X)) Gfx::PlayAnim(alienModelAnim, ALIEN_ANIM_0, true, 1.0f);
+		if (Input::IsKeyPushed(KeyCode::Button::X) || Input::IsPadPushed(PadCode::Button::B)) Gfx::PlayAnim(alienModelAnim, ALIEN_ANIM_0, true, 1.0f);
 		// ブレンドを含めて一時停止
-		if (Input::IsKeyPushed(KeyCode::Button::P)) Gfx::PauseAnim(alienModelAnim);
+		if (Input::IsKeyPushed(KeyCode::Button::P) || Input::IsPadPushed(PadCode::Button::LEFT_SHOULDER)) Gfx::PauseAnim(alienModelAnim);
 		// 停止位置から再開
-		if (Input::IsKeyPushed(KeyCode::Button::O)) Gfx::ResumeAnim(alienModelAnim);
+		if (Input::IsKeyPushed(KeyCode::Button::O) || Input::IsPadPushed(PadCode::Button::RIGHT_SHOULDER)) Gfx::ResumeAnim(alienModelAnim);
 		// 再生とブレンドを停止
-		if (Input::IsKeyPushed(KeyCode::Button::B)) Gfx::StopAnim(alienModelAnim);
+		if (Input::IsKeyPushed(KeyCode::Button::B) || Input::IsPadPushed(PadCode::Button::LEFT_THUMB)) Gfx::StopAnim(alienModelAnim);
 		Gfx::UpdateAnim(alienModelAnim, Time::DeltaTime());
 
 		std::string fpsValue{ std::format("CurrentMeasuredFPS : {:.1f}", Time::FPS()) };
@@ -212,7 +225,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		const std::string lodText{ std::format("Current LOD : {}", lodFieldState.currentLevelIndex) };
 
 		// ウィンドウモード変更チェック
-		if (Input::IsKeyPushed(KeyCode::Button::RETURN)) isFullscreen = !isFullscreen;
+		if (Input::IsKeyPushed(KeyCode::Button::RETURN) || Input::IsPadPushed(PadCode::Button::START)) isFullscreen = !isFullscreen;
 		if (isFullscreen) System::SetWindowMode(System::WindowMode::BorderlessFullscreen);
 		else  System::SetWindowMode(System::WindowMode::Windowed);
 
