@@ -1340,10 +1340,16 @@ bool Gfx::UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _st
 	return true;
 }
 
-void Gfx::DrawCube3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
+void Gfx::DrawBox3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
 {
 	// ホットパスなのでログを出さない(溢れないようにする)
 	if (!primitive3DSystem.RegisterCube(_transform, _color, ConvertPrimitive3DStyle(_style))) return;
+}
+
+void Gfx::DrawBox3D(const Box& _box, Vector4 _color)
+{
+	// ホットパスなのでログを出さない(溢れないようにする)
+	if (!primitive3DSystem.RegisterBox(_box, _color)) return;
 }
 
 void Gfx::DrawSphere3D(const Transform& _transform, Vector4 _color, Primitive3DStyle _style)
@@ -1392,12 +1398,6 @@ void Gfx::DrawAxis3D(Vector3 _origin, Quaternion _rotation, float _length, Vecto
 {
 	// ホットパスなのでログを出さない(溢れないようにする)
 	if (!primitive3DSystem.RegisterAxis(_origin, _rotation, _length, _xColor, _yColor, _zColor)) return;
-}
-
-void Gfx::DrawAABB3D(const AABB& _aabb, Vector4 _color)
-{
-	// ホットパスなのでログを出さない(溢れないようにする)
-	if (!primitive3DSystem.RegisterAABB(_aabb, _color)) return;
 }
 
 void Gfx::DrawModel(ModelHandle _model, Transform _transform)

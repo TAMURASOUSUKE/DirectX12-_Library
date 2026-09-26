@@ -13,7 +13,7 @@
 #include "../Component/Light.h"
 #include "../Math/TSMath.h"
 
-struct AABB; // 描画側が判定側に依存しない
+struct Box; // 描画側が判定側に依存しない
 
 // グラフィックスに関する機能をユーザーに簡易的に提供するためのファイル
 namespace Gfx 
@@ -179,8 +179,10 @@ namespace Gfx
 	// 設定に従って現在フレームを進める(対象アトラス, 設定, 時間)
 	bool UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _state, float _deltaTime);
 
-	// 単位CubeをTransformで配置して描画する
-	void DrawCube3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, Primitive3DStyle _style = Primitive3DStyle::Fill);
+	// 単位BoxをTransformで配置して描画する
+	void DrawBox3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, Primitive3DStyle _style = Primitive3DStyle::Fill);
+	// 単位Boxを判定を使って描画する(主にデバッグ確認)
+	void DrawBox3D(const Box& _box, Vector4 _color = { 0.0f, 1.0f, 0.0f, 1.0f });
 	// 単位SphereをTransformで配置して描画する
 	void DrawSphere3D(const Transform& _transform, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f}, Primitive3DStyle _style = Primitive3DStyle::Fill);
 	// 単位CylinderをTransformで配置して描画する
@@ -197,8 +199,6 @@ namespace Gfx
 	void DrawWorldAxisGrid3D(Vector3 _center, unsigned int _halfCellCount = 10, float _cellSize = 1.0f, Vector4 _xAxisColor = { 1.0f, 0.0f, 0.0f, 1.0f }, Vector4 _yAxisColor = { 0.0f, 1.0f, 0.0f, 1.0f }, Vector4 _zAxisColor = { 0.0f, 0.0f, 1.0f, 1.0f });
 	// ローカル座標軸を描画する
 	void DrawAxis3D(Vector3 _origin, Quaternion _rotation = Quaternion::Identity, float _length = 1.0f, Vector4 _xColor = { 1.0f, 0.0f, 0.0f, 1.0f }, Vector4 _yColor = { 0.0f, 1.0f, 0.0f, 1.0f }, Vector4 _zColor = { 0.0f, 0.0f, 1.0f, 1.0f });
-	// AABBをデバッグ表示する
-	void DrawAABB3D(const AABB& _aabb, Vector4 _color = { 0.0f, 1.0f, 0.0f, 1.0f });
 
 
 	// 静的モデルを描画する

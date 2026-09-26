@@ -53,7 +53,7 @@ struct AtlasParameter
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
-	const Vector2 windowSize{ 1280.0f, 720.0f };
+	const Vector2 windowSize{ 1920.0f, 1080.0f };
 
 	// 初期化 失敗したら-1を返す
 	if (!TSLib::Initialize(L"GraphicsTest2D", static_cast<int>(windowSize.x), static_cast<int>(windowSize.y)))return -1;
@@ -86,6 +86,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png") }; // Enemyのハンドル取得
 	TexHandle player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
 	TexHandle minivan{ Gfx::LoadTexture("Res/Minivan.png") }; // sRGBテスト
+	TexHandle keyboardGuide{ Gfx::LoadTexture("Res/InputGuide_2D_KeyboardMouse.png") }; // キーボード・マウス操作ガイド
+	TexHandle gamePadGuide{ Gfx::LoadTexture("Res/InputGuide_2D_GamePad.png") }; // ゲームパッド操作ガイド
 	TexHandle runtimeTexture{}; // 実行中にロードができるか確認
 	bool hasLoadedRuntimeTexture{ false };
 
@@ -119,7 +121,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 
 	// ゲームループ
-	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
+	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC) && !Input::IsPadPushed(PadCode::Button::BACK))
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 		time += Time::DeltaTime();
@@ -153,17 +155,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			dir.x += 1.0f;
 			if (!isAttacking && Time::GetTimeScale() != 0.0f) flip = Gfx::SpriteFlip::None;
 		}
+		const Vector2 padMove{ Input::GetPadStickValue(PadCode::Stick::LEFT) };
+		dir += padMove;
+		if (!isAttacking && Time::GetTimeScale() != 0.0f)
+		{
+			if (padMove.x < 0.0f) flip = Gfx::SpriteFlip::Horizontal;
+			else if (padMove.x > 0.0f) flip = Gfx::SpriteFlip::None;
+		}
 		dir.Normalize();
 
 		// 攻撃アニメーション
 		constexpr int ATTACK_INDEX{ 2 };
-		if (!isAttacking && Input::IsMousePushed(MouseCode::Click::LEFT) && Time::GetTimeScale() != 0.0f)
+		if (!isAttacking && (Input::IsMousePushed(MouseCode::Click::LEFT) || Input::IsPadPushed(PadCode::Button::A)) && Time::GetTimeScale() != 0.0f)
 		{
 			isAttacking = true;
 			attackAtlasIndex = 2;
 			atlasAnimDescs[ATTACK_INDEX].Reset();
 		}
-		if (!isAttacking && Input::IsMousePushed(MouseCode::Click::RIGHT) && Time::GetTimeScale() != 0.0f)
+		if (!isAttacking && (Input::IsMousePushed(MouseCode::Click::RIGHT) || Input::IsPadPushed(PadCode::Button::X)) && Time::GetTimeScale() != 0.0f)
 		{
 			isAttacking = true;
 			attackAtlasIndex = 3;
@@ -202,10 +211,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// PostEffect操作
 		float rate{ 0.5f }; // パラメータを動かす速度
-		if (Input::IsKeyPushed(KeyCode::Button::D5)) Gfx::SetPostEffect(grayScaleMaterial); // グレースケール変更
-		if (Input::IsKeyPushed(KeyCode::Button::D4)) Gfx::SetPostEffect({}); // 内蔵へ戻す
-		if (Input::IsKeyPress(KeyCode::Button::D7)) grayScaleParam.strength -= rate * Time::UnscaledDeltaTime();
-		if (Input::IsKeyPress(KeyCode::Button::D8)) grayScaleParam.strength += rate * Time::UnscaledDeltaTime();
+		if (Input::IsKeyPushed(KeyCode::Button::D5) || Input::IsPadPushed(PadCode::Button::Y)) Gfx::SetPostEffect(grayScaleMaterial); // グレースケール変更
+		if (Input::IsKeyPushed(KeyCode::Button::D4) || Input::IsPadPushed(PadCode::Button::B)) Gfx::SetPostEffect({}); // 内蔵へ戻す
+		if (Input::IsKeyPress(KeyCode::Button::D7) || Input::IsPadPress(PadCode::Button::LEFT_SHOULDER)) grayScaleParam.strength -= rate * Time::UnscaledDeltaTime();
+		if (Input::IsKeyPress(KeyCode::Button::D8) || Input::IsPadPress(PadCode::Button::RIGHT_SHOULDER)) grayScaleParam.strength += rate * Time::UnscaledDeltaTime();
 		if (Input::IsKeyPress(KeyCode::Button::R)) colorOffsetParam.red = 0.5f - 0.5f * std::sinf(time);
 		if (Input::IsKeyPress(KeyCode::Button::G)) colorOffsetParam.green = 0.5f - 0.5f * std::sinf(time);
 		if (Input::IsKeyPress(KeyCode::Button::B)) colorOffsetParam.blue = 0.5f - 0.5f * std::sinf(time);
@@ -215,9 +224,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// Sprite操作
 		float glitchSpeed{ 3.0f };
-		if (Input::IsKeyPress(KeyCode::Button::D9)) inverseParam.strength = 0.5f + 0.5f * std::sinf(time);
-		if (Input::IsKeyPress(KeyCode::Button::L)) glitch.strength = 1.0f;
-		if (Input::IsKeyPress(KeyCode::Button::J)) glitch.strength = 0.0f;
+		if (Input::IsKeyPress(KeyCode::Button::D9) || Input::IsPadPress(PadCode::Trigger::LEFT)) inverseParam.strength = 0.5f + 0.5f * std::sinf(time);
+		if (Input::IsKeyPress(KeyCode::Button::L) || Input::IsPadPress(PadCode::Trigger::RIGHT)) glitch.strength = 1.0f;
+		if (Input::IsKeyPress(KeyCode::Button::J) || Input::IsPadPress(PadCode::Button::RIGHT_THUMB)) glitch.strength = 0.0f;
 		Gfx::SetMaterialParameter(inverseSpriteMaterial, inverseParam);
 		Gfx::SetMaterialParameter(glitchMaterial, 0, glitch);
 
@@ -241,11 +250,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		
 
 		// FPS操作
-		if (Input::IsKeyPushed(KeyCode::Button::D3)) Time::SetTargetFPS(30); // 30FPS
-		if (Input::IsKeyPushed(KeyCode::Button::D6)) Time::SetTargetFPS(60); // 60FPS
-		if (Input::IsKeyPushed(KeyCode::Button::D0)) Time::SetTargetFPS(120); // 120FPS モニターが120Hz以上である必要あり
-		if (Input::IsKeyPushed(KeyCode::Button::RIGHT)) timeScale += 1.0f;
-		if (Input::IsKeyPushed(KeyCode::Button::LEFT)) timeScale -= 1.0f;
+		if (Input::IsKeyPushed(KeyCode::Button::D3) || Input::IsPadPushed(PadCode::Button::DOWN)) Time::SetTargetFPS(30); // 30FPS
+		if (Input::IsKeyPushed(KeyCode::Button::D6) || Input::IsPadPushed(PadCode::Button::UP)) Time::SetTargetFPS(60); // 60FPS
+		if (Input::IsKeyPushed(KeyCode::Button::D0) || Input::IsPadPushed(PadCode::Button::START)) Time::SetTargetFPS(120); // 120FPS モニターが120Hz以上である必要あり
+		if (Input::IsKeyPushed(KeyCode::Button::RIGHT) || Input::IsPadPushed(PadCode::Button::RIGHT)) timeScale += 1.0f;
+		if (Input::IsKeyPushed(KeyCode::Button::LEFT) || Input::IsPadPushed(PadCode::Button::LEFT)) timeScale -= 1.0f;
 		timeScale = std::clamp(timeScale, 0.0f, 10.0f); // 最大でもタイムスケールは10にとどめておく
 		Time::SetTimeScale(timeScale);
 
@@ -259,8 +268,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// スプライトバッチテスト
 		Gfx::DrawSpriteSized(background, { 0.0f, 0.0f }, windowSize, 0.0f, Gfx::SpriteFlip::None, Vector4::One, Vector2::Zero, Vector2::One, RenderLayer::BackGround);
-
-		// Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
 
 		// Shaderテスト
 		Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, Vector2::One, 0.0f, Gfx::SpriteFlip::None, { 1.0f, 0.0f, 0.0f, 1.0f });
@@ -294,6 +301,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawString(unscaledDeltaTime.c_str(), { 0.0f, 60.0f });
 		Gfx::DrawString(deltaTime.c_str(), { 0.0f, 90.0f });
 		Gfx::DrawString(timeScale.c_str(), { 0.0f, 120.0f });
+
+		// 最後に使用した入力機器に対応する操作ガイドを右下へ表示
+		TexHandle inputGuide{};
+		if (Input::GetInputMethod() == InputMethod::KeyboardMouse) inputGuide = keyboardGuide;
+		if (Input::GetInputMethod() == InputMethod::GamePad) inputGuide = gamePadGuide;
+
+		constexpr Vector2 GUIDE_POSITION{ 1380.0f, 695.0f };
+		constexpr Vector2 GUIDE_SCALE{ 0.3f, 0.3f };
+		if (inputGuide.IsValid()) Gfx::DrawSprite(inputGuide, GUIDE_POSITION, GUIDE_SCALE, 0.0f, Gfx::SpriteFlip::None, {1.0f, 1.0f, 1.0f, 0.5f});
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}

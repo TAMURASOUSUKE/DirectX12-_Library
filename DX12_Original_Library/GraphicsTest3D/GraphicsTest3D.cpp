@@ -18,7 +18,7 @@ static_assert(sizeof(ThreeToneParameter) % 16 == 0, "ThreeToneParameter must be 
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
-	const Vector2 windowSize{ 1280.0f, 720.0f };
+	const Vector2 windowSize{ 1920.0f, 1080.0f };
 
 	// 初期化 失敗したら-1を返す
 	if (!TSLib::Initialize(L"GraphicsTest3D", static_cast<int>(windowSize.x), static_cast<int>(windowSize.y)))return -1;
@@ -29,6 +29,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	if (!System::SetCursorMode(System::CursorMode::Normal)) DEBUG_LOG_ERROR("マウスカーソルの状態設定に失敗しました\n");
 
 	TexHandle heightMap{ Gfx::LoadTexture("Res/TestVolume.png") }; // ハイトマップ取得
+	TexHandle keyboardGuide{ Gfx::LoadTexture("Res/InputGuide_3D_KeyboardMouse.png") }; // キーボード・マウス操作ガイド
+	TexHandle gamePadGuide{ Gfx::LoadTexture("Res/InputGuide_3D_GamePad.png") }; // ゲームパッド操作ガイド
 
 	// Model
 	ModelHandle player{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Playerモデルのロード
@@ -96,7 +98,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// あたり判定を行えるか
 	Transform debugCubeAABB{};
 	debugCubeAABB.SetPosition({ -2.0f, 0.0f, 3.0f });
-	AABB debugCube{debugCubeAABB.GetPosition() + Vector3{-0.5f, 0.0f, -0.5f}, debugCubeAABB.GetPosition() + Vector3{0.5f, 2.0f,  0.5f} };
+	Box debugCube{debugCubeAABB.GetPosition() + Vector3{-0.5f, 0.0f, -0.5f}, debugCubeAABB.GetPosition() + Vector3{0.5f, 2.0f,  0.5f} };
 	Vector4 hitColor{ 0.0f, 0.0f, 0.0f, 1.0 };
 
 	// カメラ設定
@@ -107,6 +109,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	float cameraPtich{ 0.0f };
 	// 1pxの移動で何ラジアン回すか
 	constexpr float MOUSE_SENSITIVITY{ 0.2f * Math::DEG_TO_RAD };
+	constexpr float PAD_CAMERA_SPEED{ 90.0f * Math::DEG_TO_RAD }; // 右スティックを最大まで倒したときの1秒間の回転量
 	// 真下真上まで回すとLookAtの軸が不安定になるため少し手前で止める
 	constexpr float  MAX_CAMERA_PITCH{ 89.0f * Math::DEG_TO_RAD };
 
@@ -120,12 +123,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	bool isFullscreen{ false }; // 実行中のWindowSize変更チェック
 	// ゲームループ
-	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC))
+	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC) && !Input::IsPadPushed(PadCode::Button::BACK))
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 		time += Time::DeltaTime();
 
-		if (Input::IsKeyPushed(KeyCode::Button::T)) useThreeTone = !useThreeTone; // TでToon切り替え
+		if (Input::IsKeyPushed(KeyCode::Button::T) || Input::IsPadPushed(PadCode::Button::Y)) useThreeTone = !useThreeTone; // TかYでToon切り替え
 		if (Input::IsKeyPushed(KeyCode::Button::TAB))
 		{
 			isLocked = !isLocked;
@@ -140,10 +143,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		// Terrain操作
 		float heightSpeed{ 3.0f };
-		if (Input::IsKeyPress(KeyCode::Button::UP)) heightFactor += heightSpeed * Time::UnscaledDeltaTime();
-		if (Input::IsKeyPress(KeyCode::Button::DOWN)) heightFactor -= heightSpeed * Time::UnscaledDeltaTime();
-		if (Input::IsKeyPushed(KeyCode::Button::D2)) tessFactor *= 2.0f;
-		if (Input::IsKeyPushed(KeyCode::Button::D1)) tessFactor /= 2.0f;
+		if (Input::IsKeyPress(KeyCode::Button::UP) || Input::IsPadPress(PadCode::Button::UP)) heightFactor += heightSpeed * Time::UnscaledDeltaTime();
+		if (Input::IsKeyPress(KeyCode::Button::DOWN) || Input::IsPadPress(PadCode::Button::DOWN)) heightFactor -= heightSpeed * Time::UnscaledDeltaTime();
+		if (Input::IsKeyPushed(KeyCode::Button::D2) || Input::IsPadPushed(PadCode::Trigger::RIGHT)) tessFactor *= 2.0f;
+		if (Input::IsKeyPushed(KeyCode::Button::D1) || Input::IsPadPushed(PadCode::Trigger::LEFT)) tessFactor /= 2.0f;
 		tessFactor = std::clamp(tessFactor, 2.0f, 64.0f);
 
 		heightFactor = std::clamp(heightFactor, -20.0f, 20.0f);
@@ -152,8 +155,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPushed(KeyCode::Button::D3)) Time::SetTargetFPS(30); // 30FPS
 		if (Input::IsKeyPushed(KeyCode::Button::D6)) Time::SetTargetFPS(60); // 60FPS
 		if (Input::IsKeyPushed(KeyCode::Button::D0)) Time::SetTargetFPS(120); // 120FPS モニターが120Hz以上である必要あり
-		if (Input::IsKeyPushed(KeyCode::Button::RIGHT)) timeScale += 0.1f;
-		if (Input::IsKeyPushed(KeyCode::Button::LEFT)) timeScale -= 0.1f;
+		if (Input::IsKeyPushed(KeyCode::Button::RIGHT) || Input::IsPadPushed(PadCode::Button::RIGHT)) timeScale += 0.1f;
+		if (Input::IsKeyPushed(KeyCode::Button::LEFT) || Input::IsPadPushed(PadCode::Button::LEFT)) timeScale -= 0.1f;
 		timeScale = std::clamp(timeScale, 0.0f, 10.0f); // 最大でもタイムスケールは10にとどめておく
 		Time::SetTimeScale(timeScale);
 
@@ -169,6 +172,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			// 保存している角度から毎回Quaternionを作り出す
 			camera.transform.SetRotation(Quaternion::FromEuler({ cameraPtich, cameraYaw, 0.0f }));
 		}
+		const Vector2 padLook{ Input::GetPadStickValue(PadCode::Stick::RIGHT) };
+		if (padLook != Vector2::Zero)
+		{
+			cameraYaw += padLook.x * PAD_CAMERA_SPEED * Time::UnscaledDeltaTime();
+			cameraPtich += padLook.y * PAD_CAMERA_SPEED * Time::UnscaledDeltaTime();
+			cameraYaw = Math::NormalizeAngle(cameraYaw);
+			cameraPtich = std::clamp(cameraPtich, -MAX_CAMERA_PITCH, MAX_CAMERA_PITCH);
+			camera.transform.SetRotation(Quaternion::FromEuler({ cameraPtich, cameraYaw, 0.0f }));
+		}
 
 		// カメラ移動
 		Vector3 dir{ Vector3::Zero };
@@ -179,29 +191,32 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPress(KeyCode::Button::A)) dir -= cameraRight;
 		if (Input::IsKeyPress(KeyCode::Button::S)) dir -= cameraForward;
 		if (Input::IsKeyPress(KeyCode::Button::D)) dir += cameraRight;
+		const Vector2 padMove{ Input::GetPadStickValue(PadCode::Stick::LEFT, true) };
+		dir += cameraRight * padMove.x;
+		dir += cameraForward * padMove.y;
 		float speed{ 8.0f };
 		dir.Normalize();
 		camera.transform.Translate(dir * speed * Time::DeltaTime());
 
 		// AABB確認
-		AABB playerAABB{ objectPosition.GetPosition() + Vector3{-0.5f, 0.0f, -0.5f}, objectPosition.GetPosition() + Vector3{0.5f, 2.0f,  0.5f} };
+		Box playerAABB{ objectPosition.GetPosition() + Vector3{-0.5f, 0.0f, -0.5f}, objectPosition.GetPosition() + Vector3{0.5f, 2.0f,  0.5f} };
 		if (Collision::Intersect(playerAABB, debugCube)) hitColor = { 1.0f, 0.0f, 0.0f, 1.0f };
 		else hitColor = { 0.0f, 1.0f, 0.0f, 1.0f };
 
 
 		// 3Dモデルアニメーション
 		// クリップ0または現在のクリップから、クリップ1へ遷移
-		if (Input::IsKeyPushed(KeyCode::Button::C)) Gfx::CrossFadeAnim(alienModelAnim, ALIEN_ANIM_1, ALIEN_BLEND_DURATION, true, 1.0f);
+		if (Input::IsKeyPushed(KeyCode::Button::C) || Input::IsPadPushed(PadCode::Button::A)) Gfx::CrossFadeAnim(alienModelAnim, ALIEN_ANIM_1, ALIEN_BLEND_DURATION, true, 1.0f);
 		// クリップ1または現在のクリップから、クリップ0へ遷移
-		if (Input::IsKeyPushed(KeyCode::Button::V)) Gfx::CrossFadeAnim(alienModelAnim, ALIEN_ANIM_0, ALIEN_BLEND_DURATION, true, 1.0f);
+		if (Input::IsKeyPushed(KeyCode::Button::V) || Input::IsPadPushed(PadCode::Button::X)) Gfx::CrossFadeAnim(alienModelAnim, ALIEN_ANIM_0, ALIEN_BLEND_DURATION, true, 1.0f);
 		// ブレンド中でも通常再生へ即座に切り替える 古いblend状態が残らないことを確認する
-		if (Input::IsKeyPushed(KeyCode::Button::X)) Gfx::PlayAnim(alienModelAnim, ALIEN_ANIM_0, true, 1.0f);
+		if (Input::IsKeyPushed(KeyCode::Button::X) || Input::IsPadPushed(PadCode::Button::B)) Gfx::PlayAnim(alienModelAnim, ALIEN_ANIM_0, true, 1.0f);
 		// ブレンドを含めて一時停止
-		if (Input::IsKeyPushed(KeyCode::Button::P)) Gfx::PauseAnim(alienModelAnim);
+		if (Input::IsKeyPushed(KeyCode::Button::P) || Input::IsPadPushed(PadCode::Button::LEFT_SHOULDER)) Gfx::PauseAnim(alienModelAnim);
 		// 停止位置から再開
-		if (Input::IsKeyPushed(KeyCode::Button::O)) Gfx::ResumeAnim(alienModelAnim);
+		if (Input::IsKeyPushed(KeyCode::Button::O) || Input::IsPadPushed(PadCode::Button::RIGHT_SHOULDER)) Gfx::ResumeAnim(alienModelAnim);
 		// 再生とブレンドを停止
-		if (Input::IsKeyPushed(KeyCode::Button::B)) Gfx::StopAnim(alienModelAnim);
+		if (Input::IsKeyPushed(KeyCode::Button::B) || Input::IsPadPushed(PadCode::Button::LEFT_THUMB)) Gfx::StopAnim(alienModelAnim);
 		Gfx::UpdateAnim(alienModelAnim, Time::DeltaTime());
 
 		std::string fpsValue{ std::format("CurrentMeasuredFPS : {:.1f}", Time::FPS()) };
@@ -212,7 +227,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		const std::string lodText{ std::format("Current LOD : {}", lodFieldState.currentLevelIndex) };
 
 		// ウィンドウモード変更チェック
-		if (Input::IsKeyPushed(KeyCode::Button::RETURN)) isFullscreen = !isFullscreen;
+		if (Input::IsKeyPushed(KeyCode::Button::RETURN) || Input::IsPadPushed(PadCode::Button::START)) isFullscreen = !isFullscreen;
 		if (isFullscreen) System::SetWindowMode(System::WindowMode::BorderlessFullscreen);
 		else  System::SetWindowMode(System::WindowMode::Windowed);
 
@@ -226,7 +241,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		else Gfx::DrawAnimatedModel(toonModelAnim, toonTransform, threeToneMaterial); // 静的モデル(toon)
 
 		// 3D基礎図形
-		Gfx::DrawCube3D(cube, { 1.0f, 0.0f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
+		Gfx::DrawBox3D(cube, { 1.0f, 0.0f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
 		Gfx::DrawSphere3D(sphere, { 0.0f, 0.5f, 0.0f, 1.0f }, Gfx::Primitive3DStyle::MeshWireframe);
 		Gfx::DrawCylinder3D(cylinder, { 0.0f, 1.0f, 0.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
 		Gfx::DrawCapsule3D({ 0.0f, -2.0f, 5.0f }, { 0.0f,  0.0f, 5.0f }, 0.5f, { 0.2f, 1.0f, 0.3f }, Gfx::Primitive3DStyle::Fill);
@@ -237,7 +252,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawAxis3D(objectPosition.GetPosition(), objectPosition.GetRotation());
 		 //Gfx::DrawAABB3D(playerAABB,hitColor);
 		 //Gfx::DrawAABB3D(debugCube,{ 0.0f, 0.0f, 1.0f, 1.0f });
-		// Gfx::DrawTerrain({ 0.0f, 0.0f, 3.0f }, 10.0f, tessFactor, heightFactor, {1.0f, 0.0f, 0.0f, 1.0f}, heightMap);
+		Gfx::DrawTerrain({ -15.0f, -4.0f, 3.0f }, 10.0f, tessFactor, heightFactor, {1.0f, 0.0f, 0.0f, 1.0f}, heightMap);
 
 		// LOD描画
 		Gfx::DrawLODModel(levels, lodFieldState,lodFieldPosition, LOD_HYSTERESIS_DISTANCE);
@@ -249,6 +264,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawString(deltaTime.c_str(), { 0.0f, 90.0f });
 		Gfx::DrawString(timeScale.c_str(), { 0.0f, 120.0f });
 		Gfx::DrawString(lodText.c_str(), { 0.0f, 150.0f });
+
+		// 最後に使用した入力機器に対応する操作ガイドを右下へ表示
+		TexHandle inputGuide{};
+		if (Input::GetInputMethod() == InputMethod::KeyboardMouse) inputGuide = keyboardGuide;
+		if (Input::GetInputMethod() == InputMethod::GamePad) inputGuide = gamePadGuide;
+
+		constexpr Vector2 GUIDE_POSITION{ 1380.0f, 695.0f };
+		constexpr Vector2 GUIDE_SCALE{ 0.3f, 0.3f };
+		if (inputGuide.IsValid()) Gfx::DrawSprite(inputGuide, GUIDE_POSITION, GUIDE_SCALE);
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}
