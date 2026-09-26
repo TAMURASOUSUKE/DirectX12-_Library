@@ -1,48 +1,87 @@
 #pragma once
+#include <limits>
 #include <string>
 #include <cstdint>
 #include <vector>
 
 // 内部の処理情報を管理する際のDebugSystemで共有する軽量な型など
 
+class FrameDebugSystem;
+
 // どの分類かを表す
-struct DebugChannelID
+class DebugChannelID
 {
-	std::uint32_t value{ 0 };
+public:
+	DebugChannelID() = default;
+
+	// 外部からは取得しかできない
+	bool IsValid() const { return value != InvalidValue; }
+
+	bool operator==(DebugChannelID _other) const { return value == _other.value; }
+
+	bool operator!=(DebugChannelID _other) const { return value != _other.value; }
+
+private:
+	explicit DebugChannelID(std::uint32_t _value) : value{ _value } {}
+	static constexpr std::uint32_t InvalidValue{ std::numeric_limits<std::uint32_t>::max() };
+
+	// 実際の内部の値
+	std::uint32_t value{ InvalidValue };
+
+	// このクラスからはIDを作れるようにする
+	friend class FrameDebugSystem;
 };
 
 // 数値として観測することのできるデータ
-struct DebugMetricID
+class DebugMetricID
 {
-	std::uint32_t value{ 0 };
+public:
+	DebugMetricID() = default;
+
+	// 外部からは取得しかできない
+	bool IsValid() const { return value != InvalidValue; }
+
+	bool operator==(DebugMetricID _other) const { return value == _other.value; }
+
+	bool operator!=(DebugMetricID _other) const { return value != _other.value; }
+
+private:
+	explicit DebugMetricID(std::uint32_t _value) : value{ _value } {}
+	static constexpr std::uint32_t InvalidValue{ std::numeric_limits<std::uint32_t>::max() };
+
+	// 実際の内部の値
+	std::uint32_t value{ InvalidValue };
+
+	// このクラスからはIDを作れるようにする
+	friend class FrameDebugSystem;
 };
 
 // Metricとしての単位
-enum class DebugMetrictUint : std::uint32_t
+enum class DebugMetricUnit : std::uint8_t
 {
 	None, // 単位なし
 	Count, // 個数
-	Byte, // バイト数
-	Precent, // 割合
+	Bytes, // バイト数
+	Percent, // 割合
 	Distance, // 距離
 	Speed, // 速度
 	Frequency, // 回 / 秒
 };
 
-// データを集約させるときの分類
-enum class DebugMetricAggregation
+// 同一フレーム内の集約情報
+enum class DebugMetricAggregation : std::uint8_t
 {
-	Set, // 値を設定
+	Set, // 値を設定(最後に提出された値が採用)
 	Add, // 値を追加
 	Max, // 最大値
 };
 
 // 登録時から変わらない情報を持つ
-struct DeubugMetricDescriptor
+struct DebugMetricDescriptor
 {
 	std::string name{}; // 表示名
 	DebugChannelID channelID{}; // どの分類か
-	DebugMetrictUint uint{}; // 単位はどれか
+	DebugMetricUnit unit{}; // 単位はどれか
 	DebugMetricAggregation aggregation{}; // 登録する際の方法はなにか
 };
 
@@ -53,7 +92,7 @@ struct DebugMetricValue
 	bool written{ false }; // このフレームで一度でも更新されたか
 };
 
-// フレーム間のデータを集める
+// 1フレーム分のデータを集める
 struct DebugFrameData
 {
 	std::vector<DebugMetricValue> metrics{}; // 数値として観測することのできるデータの集まり
