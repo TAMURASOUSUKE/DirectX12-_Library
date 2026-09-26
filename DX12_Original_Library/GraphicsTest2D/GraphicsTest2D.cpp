@@ -53,7 +53,7 @@ struct AtlasParameter
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
-	const Vector2 windowSize{ 1280.0f, 720.0f };
+	const Vector2 windowSize{ 1920.0f, 1080.0f };
 
 	// 初期化 失敗したら-1を返す
 	if (!TSLib::Initialize(L"GraphicsTest2D", static_cast<int>(windowSize.x), static_cast<int>(windowSize.y)))return -1;
@@ -86,6 +86,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	TexHandle enemy{ Gfx::LoadTexture("Res/enemy.png") }; // Enemyのハンドル取得
 	TexHandle player{ Gfx::LoadTexture("Res/player.png") }; // Playerのハンドル取得
 	TexHandle minivan{ Gfx::LoadTexture("Res/Minivan.png") }; // sRGBテスト
+	TexHandle keyboardGuide{ Gfx::LoadTexture("Res/InputGuide_2D_KeyboardMouse.png") }; // キーボード・マウス操作ガイド
+	TexHandle gamePadGuide{ Gfx::LoadTexture("Res/InputGuide_2D_GamePad.png") }; // ゲームパッド操作ガイド
 	TexHandle runtimeTexture{}; // 実行中にロードができるか確認
 	bool hasLoadedRuntimeTexture{ false };
 
@@ -267,8 +269,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		// スプライトバッチテスト
 		Gfx::DrawSpriteSized(background, { 0.0f, 0.0f }, windowSize, 0.0f, Gfx::SpriteFlip::None, Vector4::One, Vector2::Zero, Vector2::One, RenderLayer::BackGround);
 
-		// Gfx::DrawTerrain({ 0.0f, -10.0f, 20.0f }, 80.0f, tessFactor, heightFactor, { 1.0f, 0.0f, 0.0f, 0.0f }, heightMap);
-
 		// Shaderテスト
 		Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, Vector2::One, 0.0f, Gfx::SpriteFlip::None, { 1.0f, 0.0f, 0.0f, 1.0f });
 
@@ -301,6 +301,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawString(unscaledDeltaTime.c_str(), { 0.0f, 60.0f });
 		Gfx::DrawString(deltaTime.c_str(), { 0.0f, 90.0f });
 		Gfx::DrawString(timeScale.c_str(), { 0.0f, 120.0f });
+
+		// 最後に使用した入力機器に対応する操作ガイドを右下へ表示
+		TexHandle inputGuide{};
+		if (Input::GetInputMethod() == InputMethod::KeyboardMouse) inputGuide = keyboardGuide;
+		if (Input::GetInputMethod() == InputMethod::GamePad) inputGuide = gamePadGuide;
+
+		constexpr Vector2 GUIDE_POSITION{ 1380.0f, 695.0f };
+		constexpr Vector2 GUIDE_SCALE{ 0.3f, 0.3f };
+		if (inputGuide.IsValid()) Gfx::DrawSprite(inputGuide, GUIDE_POSITION, GUIDE_SCALE, 0.0f, Gfx::SpriteFlip::None, {1.0f, 1.0f, 1.0f, 0.5f});
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}

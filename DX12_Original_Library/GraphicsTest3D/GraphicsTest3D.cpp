@@ -18,7 +18,7 @@ static_assert(sizeof(ThreeToneParameter) % 16 == 0, "ThreeToneParameter must be 
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
-	const Vector2 windowSize{ 1280.0f, 720.0f };
+	const Vector2 windowSize{ 1920.0f, 1080.0f };
 
 	// 初期化 失敗したら-1を返す
 	if (!TSLib::Initialize(L"GraphicsTest3D", static_cast<int>(windowSize.x), static_cast<int>(windowSize.y)))return -1;
@@ -29,6 +29,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	if (!System::SetCursorMode(System::CursorMode::Normal)) DEBUG_LOG_ERROR("マウスカーソルの状態設定に失敗しました\n");
 
 	TexHandle heightMap{ Gfx::LoadTexture("Res/TestVolume.png") }; // ハイトマップ取得
+	TexHandle keyboardGuide{ Gfx::LoadTexture("Res/InputGuide_3D_KeyboardMouse.png") }; // キーボード・マウス操作ガイド
+	TexHandle gamePadGuide{ Gfx::LoadTexture("Res/InputGuide_3D_GamePad.png") }; // ゲームパッド操作ガイド
 
 	// Model
 	ModelHandle player{ Gfx::LoadModel("Res/TestMultipleAnimModel.glb") }; // Playerモデルのロード
@@ -250,7 +252,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawAxis3D(objectPosition.GetPosition(), objectPosition.GetRotation());
 		 //Gfx::DrawAABB3D(playerAABB,hitColor);
 		 //Gfx::DrawAABB3D(debugCube,{ 0.0f, 0.0f, 1.0f, 1.0f });
-		// Gfx::DrawTerrain({ 0.0f, 0.0f, 3.0f }, 10.0f, tessFactor, heightFactor, {1.0f, 0.0f, 0.0f, 1.0f}, heightMap);
+		Gfx::DrawTerrain({ -15.0f, -4.0f, 3.0f }, 10.0f, tessFactor, heightFactor, {1.0f, 0.0f, 0.0f, 1.0f}, heightMap);
 
 		// LOD描画
 		Gfx::DrawLODModel(levels, lodFieldState,lodFieldPosition, LOD_HYSTERESIS_DISTANCE);
@@ -262,6 +264,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawString(deltaTime.c_str(), { 0.0f, 90.0f });
 		Gfx::DrawString(timeScale.c_str(), { 0.0f, 120.0f });
 		Gfx::DrawString(lodText.c_str(), { 0.0f, 150.0f });
+
+		// 最後に使用した入力機器に対応する操作ガイドを右下へ表示
+		TexHandle inputGuide{};
+		if (Input::GetInputMethod() == InputMethod::KeyboardMouse) inputGuide = keyboardGuide;
+		if (Input::GetInputMethod() == InputMethod::GamePad) inputGuide = gamePadGuide;
+
+		constexpr Vector2 GUIDE_POSITION{ 1380.0f, 695.0f };
+		constexpr Vector2 GUIDE_SCALE{ 0.3f, 0.3f };
+		if (inputGuide.IsValid()) Gfx::DrawSprite(inputGuide, GUIDE_POSITION, GUIDE_SCALE);
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}
