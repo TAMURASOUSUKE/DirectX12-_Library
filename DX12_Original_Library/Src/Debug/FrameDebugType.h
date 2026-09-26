@@ -97,3 +97,10 @@ struct DebugFrameData
 {
 	std::vector<DebugMetricValue> metrics{}; // 数値として観測することのできるデータの集まり
 };
+
+// 登録される際の分類
+struct DebugChannelData
+{
+	std::string name{}; // Channel名
+	bool enabled{ true }; // 現在表示、記録対象になっているかどうか
+};
