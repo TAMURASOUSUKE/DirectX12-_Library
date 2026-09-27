@@ -1,6 +1,22 @@
 #include <limits>
+#include <utility>
 #include "DebugLogs.h"
 #include "FrameDebugSystem.h"
+
+void FrameDebugSystem::BeginFrame()
+{
+	// 計測した値を空にしてデフォルト状態へ戻す
+	for (DebugMetricValue& metricValue : writeFrame.metrics)
+	{
+		metricValue = DebugMetricValue{};
+	}
+}
+
+void FrameDebugSystem::EndFrame()
+{
+	// 書き込み用と表示用を入れ替える(古い保存領域も再利用できる)
+	std::swap(writeFrame, readFrame);
+}
 
 DebugChannelID FrameDebugSystem::RegisterChannel(const std::string& _channelName)
 {
@@ -77,4 +93,85 @@ DebugMetricID FrameDebugSystem::RegisterMetric(const DebugMetricDescriptor& _des
 	writeFrame.metrics.emplace_back();
 	readFrame.metrics.emplace_back();
 	return DebugMetricID{ newIndex };
+}
+
+void FrameDebugSystem::SubmitMetric(DebugMetricID _metricID, double _value)
+{
+	if (!_metricID.IsValid())
+	{
+		DEBUG_LOG_ERROR("IDが不正です\n");
+		return;
+	}
+
+	// 冗長にならないようにキャッシュ
+	const std::size_t index{ static_cast<std::size_t>(_metricID.value) };
+
+	if (index >= metricDescriptors.size() || index >= writeFrame.metrics.size())
+	{
+		DEBUG_LOG_ERROR("IDが配列範囲外です");
+		return;
+	}
+
+	const DebugMetricDescriptor& metricDesc{ metricDescriptors[index] };
+	DebugMetricValue& metricValue{ writeFrame.metrics[index] };
+
+	if (!metricDesc.channelID.IsValid())
+	{
+		DEBUG_LOG_ERROR("所属しているチャンネルが不正です\n");
+		return;
+	}
+
+	const std::size_t channelIndex{ static_cast<std::size_t>(metricDesc.channelID.value) };
+
+	if (channelIndex >= channels.size())
+	{
+		DEBUG_LOG_ERROR("所属Channelが配列範囲外です");
+		return;
+	}
+
+	// 無効化されいているチャンネルなら終了
+	if (!channels[channelIndex].enabled) return;
+
+	switch (metricDesc.aggregation)
+	{
+	case DebugMetricAggregation::Set:
+	{
+		// 最後の値を適用する
+		metricValue.value = _value;
+		break;
+	}
+	case DebugMetricAggregation::Add:
+	{
+		// 加算する
+		metricValue.value += _value;
+		break;
+	}
+	case DebugMetricAggregation::Max:
+	{
+		// まだ一度も更新されていないもしくは現在の値より大きければ入れる
+		if (!metricValue.written || metricValue.value < _value) metricValue.value = _value;
+		break;
+	}
+	default:
+		DEBUG_LOG_ERROR("不正な登録方法が指定されています\n");
+		return;
+	}
+
+	// 正常に値が更新されたのでwrittenもtrueへ
+	metricValue.written = true;
+}
+
+const std::vector<DebugChannelData>& FrameDebugSystem::GetChannels() const
+{
+	return channels;
+}
+
+const std::vector<DebugMetricDescriptor>& FrameDebugSystem::GetMetricDescriptors() const
+{
+	return metricDescriptors;
+}
+
+const DebugFrameData& FrameDebugSystem::GetReadFrame() const
+{
+	return readFrame;
 }

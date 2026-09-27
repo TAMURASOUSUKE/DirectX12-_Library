@@ -23,7 +23,7 @@ public:
 
 private:
 	explicit DebugChannelID(std::uint32_t _value) : value{ _value } {}
-	static constexpr std::uint32_t InvalidValue{ std::numeric_limits<std::uint32_t>::max() };
+	static constexpr std::uint32_t InvalidValue{ (std::numeric_limits<std::uint32_t>::max)() };
 
 	// 実際の内部の値
 	std::uint32_t value{ InvalidValue };
@@ -47,7 +47,7 @@ public:
 
 private:
 	explicit DebugMetricID(std::uint32_t _value) : value{ _value } {}
-	static constexpr std::uint32_t InvalidValue{ std::numeric_limits<std::uint32_t>::max() };
+	static constexpr std::uint32_t InvalidValue{ (std::numeric_limits<std::uint32_t>::max)() };
 
 	// 実際の内部の値
 	std::uint32_t value{ InvalidValue };

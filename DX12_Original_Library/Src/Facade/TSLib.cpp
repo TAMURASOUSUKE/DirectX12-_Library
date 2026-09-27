@@ -6,6 +6,7 @@
 #include "TimeInternal.h"
 #include "SystemInternal.h"
 #include "UIInternal.h"
+#include "DebugInternal.h"
 #include "TSLib.h"
 
 // 初期化
@@ -33,6 +34,9 @@ bool TSLib::Initialize(const wchar_t* _title, int _virtualWidth, int _virtualHei
 	const Vector2Int clientSize{ SystemInternal::GetClientSize() };
 	result = GfxInternal::Initialize(SystemInternal::GetHWND(), clientSize.x, clientSize.y, _virtualWidth, _virtualHeight); // グラフィックの初期化とウィンドウ作成
 	DEBUG_ASSERT(result && "ゲームの初期化に失敗しました\n");
+	if (!result) return result;
+	result = DebugInternal::Initialize(); // デバッグ表示の初期化
+	DEBUG_ASSERT(result && "デバッグ機能の初期化に失敗しました\n");
 	if (!result) return result;
 	result = InputInternal::Initialize(SystemInternal::GetHWND());
 	DEBUG_ASSERT(result && "入力処理の初期化に失敗しました\n");
@@ -63,6 +67,7 @@ bool TSLib::ProcessMessage()
 
 void TSLib::BeginFrame()
 {
+	DebugInternal::BeginFrame(); // デバッグ表示用のフレームの開始処理
 	TimeInternal::BeginFrame(); // 時間関連のフレーム最初の処理
 	InputInternal::BeginFrame(Time::UnscaledDeltaTime()); // 入力の最初の処理
 	UIInternal::BeginFrame({Time::UnscaledDeltaTime(), System::GetClientSize(), Gfx::GetVirtualSize()}); // 入力の更新後にUIの更新
@@ -74,6 +79,7 @@ void TSLib::BeginFrame()
 void TSLib::EndFrame()
 {
 	SoundInternal::EndFrame(); // 音関連のフレーム最後の処理
+	DebugInternal::EndFrame(); // デバッグ表示用のフレームの最後の処理
 	GfxInternal::EndFrame(); // グラフィックのフレーム最後の処理
 	InputInternal::EndFrame(); // 入力関連のフレーム最後の処理
 	TimeInternal::EndFrame(); // 時間関連のフレーム最後の処理
@@ -84,6 +90,7 @@ void TSLib::Finish()
 	SoundInternal::Finish(); // 音の終了処理
 	UIInternal::Finish(); // 入力更新より前に終了処理
 	InputInternal::Finish(); // 入力の終了処理
+	DebugInternal::Finish(); // デバッグ機能関連の終了
 	GfxInternal::Finish(); // グラフィックの終了処理
 	SystemInternal::Finish(); // システムの終了処理
 	TimeInternal::Finish(); // 時間管理の終了処理

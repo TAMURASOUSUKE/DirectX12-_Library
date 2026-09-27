@@ -177,6 +177,7 @@
     <ClInclude Include="Src\Core\Handle\UIButtonHandle.h" />
     <ClInclude Include="Src\Core\TextEncoding.h" />
     <ClInclude Include="Src\Debug\DebugLogs.h" />
+    <ClInclude Include="Src\Debug\FrameDebugSystem.h" />
     <ClInclude Include="Src\Debug\FrameDebugType.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
@@ -185,6 +186,8 @@
     </ClInclude>
     <ClInclude Include="Src\External\cgltf.h" />
     <ClInclude Include="Src\Facade\Collision.h" />
+    <ClInclude Include="Src\Facade\Debug.h" />
+    <ClInclude Include="Src\Facade\DebugInternal.h" />
     <ClInclude Include="Src\Facade\File.h" />
     <ClInclude Include="Src\Facade\Gfx.h" />
     <ClInclude Include="Src\Facade\GfxInternal.h" />
@@ -272,8 +275,10 @@
     <ClCompile Include="Src\Component\Transform.cpp" />
     <ClCompile Include="Src\Core\TextEncoding.cpp" />
     <ClCompile Include="Src\Debug\DebugLogs.cpp" />
+    <ClCompile Include="Src\Debug\FrameDebugSystem.cpp" />
     <ClCompile Include="Src\External\CgltfEnable.cpp" />
     <ClCompile Include="Src\Facade\Collision.cpp" />
+    <ClCompile Include="Src\Facade\Debug.cpp" />
     <ClCompile Include="Src\Facade\File.cpp" />
     <ClCompile Include="Src\Facade\Gfx.cpp" />
     <ClCompile Include="Src\Facade\Input.cpp" />
