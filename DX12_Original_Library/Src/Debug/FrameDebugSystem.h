@@ -26,13 +26,16 @@ public:
 	void SubmitMetric(DebugMetricID _metricID, double _value);
 
 	// 登録済みChannelを読み取り専用で取得する
-	const std::vector<DebugChannelData>& GetChannels() const;
+	const std::vector<DebugChannelData>& GetChannels() const { return channels; }
 
 	// 登録済みMetricの定義を読み取り専用で取得する
-	const std::vector<DebugMetricDescriptor>& GetMetricDescriptors() const;
+	const std::vector<DebugMetricDescriptor>& GetMetricDescriptors() const { return metricDescriptors; }
 
 	// 完成済みFrameを読み取り専用で取得する
-	const DebugFrameData& GetReadFrame() const;
+	const DebugFrameData& GetReadFrame() const { return readFrame; }
+
+	// IDに対応するChannelを読み取り専用で取得する
+	const DebugChannelData* FindChannel(DebugChannelID _channelID) const;
 
 private:
 	std::vector<DebugChannelData> channels{}; // 分類

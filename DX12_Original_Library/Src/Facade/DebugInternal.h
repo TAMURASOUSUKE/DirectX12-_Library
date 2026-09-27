@@ -1,4 +1,5 @@
 #pragma once
+#include "../Debug/FrameDebugOverlayType.h"
 
 // ユーザーに提供するマクロ以外のデバッグでユーザーに公開しない部分の機能を担当する
 namespace DebugInternal
@@ -11,4 +12,7 @@ namespace DebugInternal
 	void EndFrame();
 	// 終了処理
 	void Finish();
+
+	// 完成済みのDebug描画命令を取得する
+	const DebugOverlayFrame& GetOverlayFrame();
 }

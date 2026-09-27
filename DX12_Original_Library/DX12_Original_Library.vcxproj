@@ -177,6 +177,8 @@
     <ClInclude Include="Src\Core\Handle\UIButtonHandle.h" />
     <ClInclude Include="Src\Core\TextEncoding.h" />
     <ClInclude Include="Src\Debug\DebugLogs.h" />
+    <ClInclude Include="Src\Debug\FrameDebugOverlay.h" />
+    <ClInclude Include="Src\Debug\FrameDebugOverlayType.h" />
     <ClInclude Include="Src\Debug\FrameDebugSystem.h" />
     <ClInclude Include="Src\Debug\FrameDebugType.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
@@ -275,6 +277,7 @@
     <ClCompile Include="Src\Component\Transform.cpp" />
     <ClCompile Include="Src\Core\TextEncoding.cpp" />
     <ClCompile Include="Src\Debug\DebugLogs.cpp" />
+    <ClCompile Include="Src\Debug\FrameDebugOverlay.cpp" />
     <ClCompile Include="Src\Debug\FrameDebugSystem.cpp" />
     <ClCompile Include="Src\External\CgltfEnable.cpp" />
     <ClCompile Include="Src\Facade\Collision.cpp" />

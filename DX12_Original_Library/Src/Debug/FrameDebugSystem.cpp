@@ -161,17 +161,20 @@ void FrameDebugSystem::SubmitMetric(DebugMetricID _metricID, double _value)
 	metricValue.written = true;
 }
 
-const std::vector<DebugChannelData>& FrameDebugSystem::GetChannels() const
+const DebugChannelData* FrameDebugSystem::FindChannel(DebugChannelID _channelID) const
 {
-	return channels;
-}
+	if (!_channelID.IsValid())
+	{
+		DEBUG_LOG_ERROR("不正なIDが渡されました\n");
+		return nullptr;
+	}
 
-const std::vector<DebugMetricDescriptor>& FrameDebugSystem::GetMetricDescriptors() const
-{
-	return metricDescriptors;
-}
+	if (static_cast<std::size_t>(_channelID.value) >= channels.size())
+	{
+		DEBUG_LOG_ERROR("ChannelIDが配列外です\n");
+		return nullptr;
+	}
 
-const DebugFrameData& FrameDebugSystem::GetReadFrame() const
-{
-	return readFrame;
+	// 指定されたIDからデータを取り出す
+	return &channels[_channelID.value];
 }
