@@ -18,7 +18,14 @@ public:
 	// 構築済みの描画命令を読み取り専用で取得する
 	const DebugOverlayFrame& GetFrame() const { return overlayFrame; }
 
+	// Overlay全体の表示状態を変更する
+	void SetVisible(bool _visible) { visible = _visible; }
+
+	// 現在表示する設定か
+	bool IsVisible() const { return visible; }
+
 private:
 	DebugOverlayFrame overlayFrame{};
+	bool visible{ false }; // 表示設定を持つ
 
 };

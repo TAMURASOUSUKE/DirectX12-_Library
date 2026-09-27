@@ -66,6 +66,8 @@ enum class DebugMetricUnit : std::uint8_t
 	Distance, // 距離
 	Speed, // 速度
 	Frequency, // 回 / 秒
+	Seconds, // 秒
+	Milliseconds, // ミリ秒
 };
 
 // 同一フレーム内の集約情報

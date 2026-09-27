@@ -1,9 +1,107 @@
+#include <cmath>
+#include <cstdio>
 #include "DebugLogs.h"
 #include "FrameDebugOverlay.h"
+
+namespace
+{
+	// 種類から値の整形を行う
+	void FormatMetricValue(char* _destination, std::size_t _destinationSize, DebugMetricUnit _unit, double _value)
+	{
+		// 書き込み先が存在しない、または容量が0なら書き込めない
+		if (_destination == nullptr || _destinationSize == 0) return;
+
+		// 途中で処理が終了しても空文字列として扱えるようにする
+		_destination[0] = '\0';
+
+		switch (_unit)
+		{
+		case DebugMetricUnit::None:
+		{
+			std::snprintf(_destination, _destinationSize, "%.2f",_value);
+			break;
+		}
+		case DebugMetricUnit::Count:
+		{
+			// Countは整数として表示する%.0fは小数点以下を四捨五入して表示する
+			std::snprintf(_destination, _destinationSize, "%.0f", _value);
+			break;
+		}
+		case DebugMetricUnit::Bytes:
+		{
+			constexpr const char* BYTE_UNITS[]
+			{
+				"B",
+				"KB",
+				"MB",
+				"GB",
+				"TB"
+			};
+
+			constexpr std::size_t BYTE_UNIT_COUNT{ sizeof(BYTE_UNITS) / sizeof(BYTE_UNITS[0]) };
+
+			double displayValue{ _value };
+			std::size_t unitIndex{ 0 };
+
+			// 1024以上なら値を小さくして、次の単位へ進める絶対値を見ることで負数でも無限ループしない
+			while (std::fabs(displayValue) >= 1024.0 && unitIndex + 1 < BYTE_UNIT_COUNT)
+			{
+				displayValue /= 1024.0;
+				unitIndex++;
+			}
+
+			if (unitIndex == 0) std::snprintf(_destination, _destinationSize, "%.0f %s", displayValue, BYTE_UNITS[unitIndex]); // Byte単位では基本的に整数表示
+			else std::snprintf(_destination, _destinationSize, "%.2f %s", displayValue, BYTE_UNITS[unitIndex]);
+
+			break;
+		}
+		case DebugMetricUnit::Percent:
+		{
+			// 提出側が0～100の値を渡す %自体を表示する場合は%%と書く
+			std::snprintf(_destination, _destinationSize, "%.1f %%", _value);
+			break;
+		}
+		case DebugMetricUnit::Distance:
+		{
+			// ライブラリでは1単位をメートルと確定していないためuとする
+			std::snprintf(_destination, _destinationSize, "%.2f u", _value);
+			break;
+		}
+		case DebugMetricUnit::Speed:
+		{
+			std::snprintf(_destination, _destinationSize, "%.2f u/s", _value);
+			break;
+		}
+		case DebugMetricUnit::Frequency:
+		{
+			std::snprintf(_destination, _destinationSize, "%.1f Hz", _value);
+			break;
+		}
+		case DebugMetricUnit::Seconds:
+		{
+			std::snprintf(_destination, _destinationSize, "%.3f s", _value);
+			break;
+		}
+		case DebugMetricUnit::Milliseconds:
+		{
+			std::snprintf(_destination, _destinationSize, "%.3f ms", _value);
+			break;
+		}
+		default:
+		{
+			// 不正な列挙値でも未初期化文字列を渡さない
+			std::snprintf(_destination, _destinationSize, "Invalid");
+			break;
+		}
+		}
+	}
+}
 
 void FrameDebugOverlay::Build(const FrameDebugSystem& _system)
 {
 	overlayFrame.textCommands.clear(); // 構築前にリセット
+
+	if (!visible) { return; } // 表示しないならここで終わる
 
 	const auto& channels{ _system.GetChannels() };
 	const auto& descriptors{ _system.GetMetricDescriptors() };
@@ -12,7 +110,7 @@ void FrameDebugOverlay::Build(const FrameDebugSystem& _system)
 	// 同じ添え字で対応しているので個数が違えばエラー
 	if (descriptors.size() != values.size())
 	{
-		DEBUG_LOG_ERROR("Matric定義と値の個数が一致しません\n");
+		DEBUG_LOG_ERROR("Metric定義と値の個数が一致しません\n");
 		return;
 	}
 
@@ -54,11 +152,16 @@ void FrameDebugOverlay::Build(const FrameDebugSystem& _system)
 			// 現在表示中のChannelに所属していない
 			if (ownerChannel != &channel) continue;
 
+			char valueText[64]{};
 			char metricLine[256]{};
 
-			if (value.written) std::snprintf(metricLine, sizeof(metricLine), "  %s : %.2f", descriptor.name.c_str(), value.value);
+			// Unitに応じて整数部分を調整する
+			if (value.written) FormatMetricValue(valueText, sizeof(valueText), descriptor.unit, value.value);
 			// 登録済みだが、このフレームでは値が提出されていない
 			else std::snprintf(metricLine, sizeof(metricLine), "  %s : --", descriptor.name.c_str());
+
+			// Metric名と整形済みの値を結合する
+			std::snprintf(metricLine, sizeof(metricLine), "  %s : %s", descriptor.name.c_str(), valueText);
 
 			overlayFrame.textCommands.emplace_back(DebugTextCommand{ metricLine, cursor, TEXT_SCALE, value.written ? writtenColor : notWrittenColor });
 

@@ -20,10 +20,15 @@ public:
 
 	// チャンネルを登録してIDを返す
 	DebugChannelID RegisterChannel(const std::string& _channelName);
+
 	// 数値項目を登録してIDを返す
 	DebugMetricID RegisterMetric(const DebugMetricDescriptor& _descriptor);
+
 	// 登録済みMetricへ、このフレームの値を提出する
 	void SubmitMetric(DebugMetricID _metricID, double _value);
+
+	// 指定Channelの計測と表示を切り替える
+	bool SetChannelEnabled(DebugChannelID _channelID, bool _enabled);
 
 	// 登録済みChannelを読み取り専用で取得する
 	const std::vector<DebugChannelData>& GetChannels() const { return channels; }

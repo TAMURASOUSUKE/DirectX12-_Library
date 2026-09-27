@@ -161,6 +161,26 @@ void FrameDebugSystem::SubmitMetric(DebugMetricID _metricID, double _value)
 	metricValue.written = true;
 }
 
+bool FrameDebugSystem::SetChannelEnabled(DebugChannelID _channelID, bool _enabled)
+{
+	if (!_channelID.IsValid())
+	{
+		DEBUG_LOG_ERROR("不正なIDが渡されました\n");
+		return false;
+	}
+
+	const std::size_t& index{ static_cast<std::size_t>(_channelID.value) };
+	if (index >= channels.size())
+	{
+		DEBUG_LOG_ERROR("範囲外のIDが渡されました\n");
+		return false;
+	}
+
+	// 表示状態を更新する
+	channels[index].enabled = _enabled;
+	return true;
+}
+
 const DebugChannelData* FrameDebugSystem::FindChannel(DebugChannelID _channelID) const
 {
 	if (!_channelID.IsValid())

@@ -118,3 +118,18 @@ void Debug::SubmitMetric(DebugMetricID _metricID, double _value)
 {
 	frameDebugSystem.SubmitMetric(_metricID, _value);
 }
+
+void Debug::SetOverlayVisible(bool _visible)
+{
+	frameDebugOverlay.SetVisible(_visible);
+}
+
+bool Debug::IsOverlayVisible()
+{
+	return frameDebugOverlay.IsVisible();
+}
+
+bool Debug::SetChannelEnabled(DebugChannelID _channelID, bool _enabled)
+{
+	return frameDebugSystem.SetChannelEnabled(_channelID, _enabled);
+}
