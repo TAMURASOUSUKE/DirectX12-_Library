@@ -21,9 +21,9 @@ void FrameDebugOverlay::Build(const FrameDebugSystem& _system)
 
 	Vector2 cursor{ 16.0f, 16.0f };
 
-	constexpr float TEXT_SCALE{ 0.75f };
-	constexpr float LINE_HEIGHT{ 20.0f };
-	constexpr float CHANNEL_GAP{ 8.0f };
+	constexpr float TEXT_SCALE{ 1.0f };
+	constexpr float LINE_HEIGHT{ 28.0f };
+	constexpr float CHANNEL_GAP{ 12.0f };
 
 	// 色を区別して見やすいようにする
 	const Vector4 channelColor{ 0.2f, 0.85f, 1.0f, 1.0f };

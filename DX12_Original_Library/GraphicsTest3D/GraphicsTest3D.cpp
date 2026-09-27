@@ -122,10 +122,30 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	sceneLight.ambient.intensity = 0.15f;
 
 	bool isFullscreen{ false }; // 実行中のWindowSize変更チェック
+
+	// デバッグ計測用確認
+	const DebugChannelID frameChannel{ Debug::RegisterChannel("Frame") };
+	const DebugMetricID fpsMetric{ Debug::RegisterMetric({"FPS", frameChannel, DebugMetricUnit::Frequency, DebugMetricAggregation::Set}) };
+	const DebugMetricID addMetric{ Debug::RegisterMetric({"AddTest", frameChannel, DebugMetricUnit::Count, DebugMetricAggregation::Add}) };
+	const DebugMetricID maxMetric{ Debug::RegisterMetric({"MaxTest", frameChannel, DebugMetricUnit::None, DebugMetricAggregation::Max}) };
+	const DebugMetricID emptyMetric{ Debug::RegisterMetric({"NotSubmitted", frameChannel, DebugMetricUnit::None, DebugMetricAggregation::Set}) };
+
+
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC) && !Input::IsPadPushed(PadCode::Button::BACK))
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
+
+		// デバッグの確認
+		Debug::SubmitMetric(fpsMetric, Time::FPS());
+
+		Debug::SubmitMetric(addMetric, 2.0);
+		Debug::SubmitMetric(addMetric, 3.0);
+
+		Debug::SubmitMetric(maxMetric, -5.0);
+		Debug::SubmitMetric(maxMetric, -2.0);
+		Debug::SubmitMetric(maxMetric, -8.0);
+
 		time += Time::DeltaTime();
 
 		if (Input::IsKeyPushed(KeyCode::Button::T) || Input::IsPadPushed(PadCode::Button::Y)) useThreeTone = !useThreeTone; // TかYでToon切り替え
@@ -258,12 +278,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawLODModel(levels, lodFieldState,lodFieldPosition, LOD_HYSTERESIS_DISTANCE);
 		Gfx::DrawAxis3D(lodFieldPosition.GetPosition(), lodFieldPosition.GetRotation(), 10.0f);
 
-		Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });
-		Gfx::DrawString(targetFPS.c_str(), { 0.0f, 30.0f });
-		Gfx::DrawString(unscaledDeltaTime.c_str(), { 0.0f, 60.0f });
-		Gfx::DrawString(deltaTime.c_str(), { 0.0f, 90.0f });
-		Gfx::DrawString(timeScale.c_str(), { 0.0f, 120.0f });
-		Gfx::DrawString(lodText.c_str(), { 0.0f, 150.0f });
+		//Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });
+		//Gfx::DrawString(targetFPS.c_str(), { 0.0f, 30.0f });
+		//Gfx::DrawString(unscaledDeltaTime.c_str(), { 0.0f, 60.0f });
+		//Gfx::DrawString(deltaTime.c_str(), { 0.0f, 90.0f });
+		//Gfx::DrawString(timeScale.c_str(), { 0.0f, 120.0f });
+		//Gfx::DrawString(lodText.c_str(), { 0.0f, 150.0f });
 
 		// 最後に使用した入力機器に対応する操作ガイドを右下へ表示
 		TexHandle inputGuide{};

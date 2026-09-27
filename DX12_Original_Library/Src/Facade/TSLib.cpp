@@ -1,6 +1,7 @@
 #include <windows.h>
 #include "../Debug/DebugLogs.h"
 #include "GfxInternal.h"
+#include "Gfx.h" // デバッグシステムとつなぐために必要
 #include "InputInternal.h"
 #include "SoundInternal.h"
 #include "TimeInternal.h"
@@ -80,6 +81,12 @@ void TSLib::EndFrame()
 {
 	SoundInternal::EndFrame(); // 音関連のフレーム最後の処理
 	DebugInternal::EndFrame(); // デバッグ表示用のフレームの最後の処理
+	const DebugOverlayFrame& debugOverlayFrame{ DebugInternal::GetOverlayFrame() }; // 描画とデバッグを非依存にするためにTSLib側からつなげる
+	for (const DebugTextCommand& command : debugOverlayFrame.textCommands)
+	{
+		// ここでデバッグ類の描画
+		Gfx::DrawString(command.text.c_str(), command.position, command.scale, command.color);
+	}
 	GfxInternal::EndFrame(); // グラフィックのフレーム最後の処理
 	InputInternal::EndFrame(); // 入力関連のフレーム最後の処理
 	TimeInternal::EndFrame(); // 時間関連のフレーム最後の処理
