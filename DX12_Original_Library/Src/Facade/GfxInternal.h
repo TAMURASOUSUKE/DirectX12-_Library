@@ -1,6 +1,8 @@
 #pragma once
 #include <windows.h>
 
+struct GraphicsFrameMetrics;
+
 // グラフィックに関する関数のInitialize等ユーザーに提供しない部分をまとめた関数
 namespace GfxInternal
 {
@@ -15,4 +17,7 @@ namespace GfxInternal
 
 	// 次フレームの開始前に適用する画面サイズを予約する
 	void RequestResize(int _width, int _height);
+
+	// 完成済みの前フレーム描画統計を取得する
+	const GraphicsFrameMetrics& GetLastFrameMetrics();
 }

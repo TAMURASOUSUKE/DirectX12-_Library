@@ -1,5 +1,6 @@
 #include "../GraphicsConstant.h"
 #include "../GraphicsResourceManager.h"
+#include "../GraphicsMetrics.h"
 #include "../DescriptorManager.h"
 #include "DebugQuad.h"
 
@@ -47,5 +48,6 @@ void DebugQuad::Draw(ID3D12GraphicsCommandList* _cmdList)
 	_cmdList->IASetIndexBuffer(&indexBuffer.indexView);
 
 	// インデックス描画
+	GraphicsMetrics::RecordDrawCall();
 	_cmdList->DrawIndexedInstanced(indexBuffer.indexCount, 1, 0, 0, 0);
 }

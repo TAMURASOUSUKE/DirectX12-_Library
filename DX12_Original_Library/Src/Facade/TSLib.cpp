@@ -1,5 +1,6 @@
 #include <windows.h>
 #include "../Debug/DebugLogs.h"
+#include "../Graphics/GraphicsMetrics.h"
 #include "GfxInternal.h"
 #include "Gfx.h" // デバッグシステムとつなぐために必要
 #include "InputInternal.h"
@@ -9,6 +10,12 @@
 #include "UIInternal.h"
 #include "DebugInternal.h"
 #include "TSLib.h"
+
+namespace 
+{
+	DebugChannelID renderingChannelID{};
+	DebugMetricID drawCallMetricID{};
+}
 
 // 初期化
 bool TSLib::Initialize(const wchar_t* _title, int _width, int _height)
@@ -39,6 +46,12 @@ bool TSLib::Initialize(const wchar_t* _title, int _virtualWidth, int _virtualHei
 	result = DebugInternal::Initialize(); // デバッグ表示の初期化
 	DEBUG_ASSERT(result && "デバッグ機能の初期化に失敗しました\n");
 	if (!result) return result;
+
+	renderingChannelID = Debug::RegisterChannel("Rendering"); // 描画関連のチャンネル登録
+	drawCallMetricID = Debug::RegisterMetric({ "Draw Calls", renderingChannelID, DebugMetricUnit::Count, DebugMetricAggregation::Set }); // Graphics側で合計しているのでSet
+	// デバッグ機能の失敗でゲームを機能不能にはしない
+	if (!renderingChannelID.IsValid() || !drawCallMetricID.IsValid()) DEBUG_LOG_ERROR("内蔵Rendering Metricの登録に失敗しました\n");
+
 	result = InputInternal::Initialize(SystemInternal::GetHWND());
 	DEBUG_ASSERT(result && "入力処理の初期化に失敗しました\n");
 	if (!result) return result;
@@ -69,6 +82,11 @@ bool TSLib::ProcessMessage()
 void TSLib::BeginFrame()
 {
 	DebugInternal::BeginFrame(); // デバッグ表示用のフレームの開始処理
+	if (drawCallMetricID.IsValid())
+	{
+		const GraphicsFrameMetrics& graphicsMetrics{ GfxInternal::GetLastFrameMetrics() }; // 前フレームの値を検出
+		Debug::SubmitMetric(drawCallMetricID, static_cast<double>(graphicsMetrics.drawCallCount)); // 書き込み
+	}
 	TimeInternal::BeginFrame(); // 時間関連のフレーム最初の処理
 	InputInternal::BeginFrame(Time::UnscaledDeltaTime()); // 入力の最初の処理
 	UIInternal::BeginFrame({Time::UnscaledDeltaTime(), System::GetClientSize(), Gfx::GetVirtualSize()}); // 入力の更新後にUIの更新

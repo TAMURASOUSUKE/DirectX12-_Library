@@ -169,7 +169,7 @@ bool FrameDebugSystem::SetChannelEnabled(DebugChannelID _channelID, bool _enable
 		return false;
 	}
 
-	const std::size_t& index{ static_cast<std::size_t>(_channelID.value) };
+	const std::size_t index{ static_cast<std::size_t>(_channelID.value) };
 	if (index >= channels.size())
 	{
 		DEBUG_LOG_ERROR("範囲外のIDが渡されました\n");

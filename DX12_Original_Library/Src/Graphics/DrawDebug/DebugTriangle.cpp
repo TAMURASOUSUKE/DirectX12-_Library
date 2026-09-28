@@ -1,4 +1,5 @@
 #include "../GraphicsResourceManager.h"
+#include "../GraphicsMetrics.h"
 #include "DebugTriangle.h"
 
 // 初期化
@@ -23,5 +24,6 @@ void DebugTriangle::Draw(ID3D12GraphicsCommandList* _commandList)
 
     _commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // リストでセットする
     _commandList->IASetVertexBuffers(0, 1, &vertexBuffer.vertexView);
-    _commandList->DrawInstanced(3, 1, 0, 0);
+	GraphicsMetrics::RecordDrawCall();
+	_commandList->DrawInstanced(3, 1, 0, 0);
 }

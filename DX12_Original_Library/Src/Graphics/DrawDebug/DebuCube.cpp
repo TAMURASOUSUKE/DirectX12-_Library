@@ -1,4 +1,5 @@
 #include "../GraphicsResourceManager.h"
+#include "../GraphicsMetrics.h"
 #include "../GPUMarker.h"
 #include "../GraphicsConstant.h"
 #include "DebugCube.h"
@@ -67,6 +68,7 @@ void DebugCube::Draw(ID3D12GraphicsCommandList* _cmdList)
 	_cmdList->IASetIndexBuffer(&indexBuffer.indexView);
 
 	// インデックス描画
+	GraphicsMetrics::RecordDrawCall();
 	_cmdList->DrawIndexedInstanced(indexBuffer.indexCount, 1, 0, 0, 0);
 }
 

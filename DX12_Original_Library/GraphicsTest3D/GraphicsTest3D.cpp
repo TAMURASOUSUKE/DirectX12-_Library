@@ -129,7 +129,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	const DebugMetricID addMetric{ Debug::RegisterMetric({"AddTest", frameChannel, DebugMetricUnit::Count, DebugMetricAggregation::Add}) };
 	const DebugMetricID maxMetric{ Debug::RegisterMetric({"MaxTest", frameChannel, DebugMetricUnit::None, DebugMetricAggregation::Max}) };
 	const DebugMetricID emptyMetric{ Debug::RegisterMetric({"NotSubmitted", frameChannel, DebugMetricUnit::None, DebugMetricAggregation::Set}) };
-
+	bool frameChannelEnabled{ true };
+	Debug::SetOverlayVisible(true); // 表示する
 
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC) && !Input::IsPadPushed(PadCode::Button::BACK))
@@ -145,6 +146,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Debug::SubmitMetric(maxMetric, -5.0);
 		Debug::SubmitMetric(maxMetric, -2.0);
 		Debug::SubmitMetric(maxMetric, -8.0);
+		if (Input::IsKeyPushed(KeyCode::Button::F3)) Debug::SetOverlayVisible(!Debug::IsOverlayVisible());
+		if (Input::IsKeyPushed(KeyCode::Button::F4))
+		{
+			frameChannelEnabled = !frameChannelEnabled;
+			if (!Debug::SetChannelEnabled(frameChannel, frameChannelEnabled)) DEBUG_LOG_ERROR("Frame Channelの切り替えに失敗しました\n");
+		}
 
 		time += Time::DeltaTime();
 

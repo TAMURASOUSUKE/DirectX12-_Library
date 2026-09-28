@@ -5,6 +5,7 @@
 #include "../External/Common/d3dx12.h"
 #include "../External/cgltf.h"
 #include "../Debug/DebugLogs.h"
+#include "../Graphics/GraphicsMetrics.h"
 #include "../Graphics/GraphicsDevice.h"
 #include "../Graphics/DescriptorManager.h"
 #include "../Graphics/ShaderSystem.h"
@@ -251,6 +252,7 @@ namespace {
 			cmd->IASetIndexBuffer(&terrainIndexBuffer.indexView);
 			// 3インデックスで1つの三角形パッチとして渡す
 			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
+			GraphicsMetrics::RecordDrawCall();
 			cmd->DrawIndexedInstanced(terrainIndexBuffer.indexCount, 1, 0, 0, 0);
 		}
 
@@ -397,6 +399,7 @@ namespace {
 			cmd->SetGraphicsRootDescriptorTable(0, shadowSystem.GetSRV());
 			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			// PostEffectVSがSV_VertexIDからフルスクリーン三角形を作る
+			GraphicsMetrics::RecordDrawCall();
 			cmd->DrawInstanced(3, 1, 0, 0);
 
 			// Debug表示で変更したViewportとScissorを通常サイズへ戻す
@@ -566,6 +569,8 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 // フレーム開始処理
 void GfxInternal::BeginFrame()
 {
+	GraphicsMetrics::BeginFrame(); // 統計のリセット
+
 	// cmdを開く前の安全なタイミングでサイズ依存リソースを更新
 	if (!graphicsSystem.ApplyPendingResize()) DEBUG_LOG_ERROR("予約された画面リサイズ適用に失敗しました\n");
 
@@ -783,6 +788,7 @@ void GfxInternal::EndFrame()
 			}
 
 			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			GraphicsMetrics::RecordDrawCall(); // 計測する
 			cmd->DrawInstanced(3, 1, 0, 0); // 頂点バッファを使わずにSV_VertexIDの0, 1, 2を発生させる
 
 			// 次フレームで再びシーンRTへ描けるようにする
@@ -795,6 +801,9 @@ void GfxInternal::EndFrame()
 			DEBUG_LOG_ERROR("EndFrameでシーンRTを取得できないためポストエフェクトをスキップします\n");
 		}
 	}
+
+	GraphicsMetrics::EndFrame(); // 統計の確定
+
 	GraphicsDevice& graphicsDevice{ GraphicsDevice::Instance() };
 	const bool endFrameSucceeded{ graphicsDevice.EndFrame() };
 	// Signalが成功したフレームだけpendingReleaseへ確定済みのFence値を割り当てる
@@ -854,6 +863,11 @@ void GfxInternal::Finish()
 void GfxInternal::RequestResize(int _width, int _height)
 {
 	graphicsSystem.RequestResize(_width, _height);
+}
+
+const GraphicsFrameMetrics& GfxInternal::GetLastFrameMetrics()
+{
+	return GraphicsMetrics::GetLastFrame();
 }
 
 bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _slot, const void* _data, size_t _dataSize)

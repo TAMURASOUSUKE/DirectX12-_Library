@@ -155,13 +155,17 @@ void FrameDebugOverlay::Build(const FrameDebugSystem& _system)
 			char valueText[64]{};
 			char metricLine[256]{};
 
-			// Unitに応じて整数部分を調整する
-			if (value.written) FormatMetricValue(valueText, sizeof(valueText), descriptor.unit, value.value);
-			// 登録済みだが、このフレームでは値が提出されていない
-			else std::snprintf(metricLine, sizeof(metricLine), "  %s : --", descriptor.name.c_str());
-
-			// Metric名と整形済みの値を結合する
-			std::snprintf(metricLine, sizeof(metricLine), "  %s : %s", descriptor.name.c_str(), valueText);
+			if (value.written)
+			{
+				// Unitに応じて値を整形して、Metric名と結合する
+				FormatMetricValue(valueText, sizeof(valueText), descriptor.unit, value.value);
+				std::snprintf(metricLine, sizeof(metricLine), "  %s : %s", descriptor.name.c_str(), valueText);
+			}
+			else
+			{
+				// 登録済みだが、このフレームでは値が提出されていない
+				std::snprintf(metricLine, sizeof(metricLine), "  %s : --", descriptor.name.c_str());
+			}
 
 			overlayFrame.textCommands.emplace_back(DebugTextCommand{ metricLine, cursor, TEXT_SCALE, value.written ? writtenColor : notWrittenColor });
 
