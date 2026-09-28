@@ -162,7 +162,7 @@ void SpriteBatch::RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipeli
 	spriteCounter++; // カウンターを増加する
 }
 
-void SpriteBatch::Flush(RingConstantBuffer& _parameterRing, ID3D12Resource* _zeroParameterBuffer)
+void SpriteBatch::Flush(RingConstantBuffer& _parameterRing, ID3D12Resource* _zeroParameterBuffer, GraphicsPass _pass)
 {
 	if (runs.empty()) return; // 何もなければパイプライン設定などもせずに即return
 	if (!_zeroParameterBuffer)
@@ -227,7 +227,7 @@ void SpriteBatch::Flush(RingConstantBuffer& _parameterRing, ID3D12Resource* _zer
 			}
 			cmd->SetGraphicsRootConstantBufferView(SPRITE_MATERIAL_ROOT_PARAM_BASE + static_cast<UINT>(i), parameterAddress);
 		}
-		GraphicsMetrics::RecordDrawCall();
+		GraphicsMetrics::RecordDrawCall(_pass);
 		cmd->DrawIndexedInstanced(run.count * 6, 1, 0, run.startSprite * 4, 0); // 区間情報から描画位置を特定して描画する(読むインデックスの数,  開始位置)
 	}
 

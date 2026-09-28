@@ -68,7 +68,7 @@ void DebugCube::Draw(ID3D12GraphicsCommandList* _cmdList)
 	_cmdList->IASetIndexBuffer(&indexBuffer.indexView);
 
 	// インデックス描画
-	GraphicsMetrics::RecordDrawCall();
+	GraphicsMetrics::RecordDrawCall(GraphicsPass::DebugPreview);
 	_cmdList->DrawIndexedInstanced(indexBuffer.indexCount, 1, 0, 0, 0);
 }
 

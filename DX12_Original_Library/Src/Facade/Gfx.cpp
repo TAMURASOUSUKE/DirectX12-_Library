@@ -252,7 +252,7 @@ namespace {
 			cmd->IASetIndexBuffer(&terrainIndexBuffer.indexView);
 			// 3インデックスで1つの三角形パッチとして渡す
 			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
-			GraphicsMetrics::RecordDrawCall();
+			GraphicsMetrics::RecordDrawCall(GraphicsPass::Terrain);
 			cmd->DrawIndexedInstanced(terrainIndexBuffer.indexCount, 1, 0, 0, 0);
 		}
 
@@ -399,7 +399,7 @@ namespace {
 			cmd->SetGraphicsRootDescriptorTable(0, shadowSystem.GetSRV());
 			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			// PostEffectVSがSV_VertexIDからフルスクリーン三角形を作る
-			GraphicsMetrics::RecordDrawCall();
+			GraphicsMetrics::RecordDrawCall(GraphicsPass::DebugPreview);
 			cmd->DrawInstanced(3, 1, 0, 0);
 
 			// Debug表示で変更したViewportとScissorを通常サイズへ戻す
@@ -629,7 +629,7 @@ void GfxInternal::EndFrame()
 	// Spritebatch描画
 	{
 		GPU_MARKER("backGround");
-		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
+		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get(), GraphicsPass::BackgroundSprite);
 	}
 
 	modelRenderSystem.BuildDrawPackets(); // Packet展開
@@ -690,7 +690,7 @@ void GfxInternal::EndFrame()
 	// 前面2DSprite
 	{
 		GPU_MARKER("foreGround");
-		fgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
+		fgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get(), GraphicsPass::ForegroundSprite);
 	}
 
 	// ShapeBatch描画
@@ -788,7 +788,7 @@ void GfxInternal::EndFrame()
 			}
 
 			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-			GraphicsMetrics::RecordDrawCall(); // 計測する
+			GraphicsMetrics::RecordDrawCall(GraphicsPass::PostEffect); // 計測する
 			cmd->DrawInstanced(3, 1, 0, 0); // 頂点バッファを使わずにSV_VertexIDの0, 1, 2を発生させる
 
 			// 次フレームで再びシーンRTへ描けるようにする
@@ -1490,7 +1490,7 @@ void Gfx::DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float 
 	{
 		// マクロがスコープを抜けるとEndEventするので囲う
 		GPU_MARKER("backGround");
-		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get()); // 背景の上に来るように3D描画前には背景batchをFlushする
+		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get(), GraphicsPass::BackgroundSprite); // 背景の上に来るように3D描画前には背景batchをFlushする
 	}
 
 	DrawTerrainInternal(_position, _scale, _tessFactor, _heightScale, _color, _heightMap);

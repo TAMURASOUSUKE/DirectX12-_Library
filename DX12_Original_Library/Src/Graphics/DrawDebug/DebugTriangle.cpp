@@ -24,6 +24,6 @@ void DebugTriangle::Draw(ID3D12GraphicsCommandList* _commandList)
 
     _commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // リストでセットする
     _commandList->IASetVertexBuffers(0, 1, &vertexBuffer.vertexView);
-	GraphicsMetrics::RecordDrawCall();
+	GraphicsMetrics::RecordDrawCall(GraphicsPass::DebugPreview);
 	_commandList->DrawInstanced(3, 1, 0, 0);
 }

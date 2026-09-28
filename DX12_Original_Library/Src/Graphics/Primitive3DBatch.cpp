@@ -257,7 +257,7 @@ bool Primitive3DBatch::Flush(const Mat4x4& _viewProjection, D3D12_GPU_VIRTUAL_AD
 		
 			// RootParameter[1] = t0
 			commandList->SetGraphicsRootShaderResourceView(1, bucketAddress);
-			GraphicsMetrics::RecordDrawCall();
+			GraphicsMetrics::RecordDrawCall(GraphicsPass::Primitive3D);
 			commandList->DrawIndexedInstanced(drawIndexBuffer.indexCount, range.instanceCount, 0, 0, 0);
 		}
 	}
