@@ -174,7 +174,7 @@ void FrameDebugSystem::SubmitLine(const DebugLineCommand& _command)
 	if (!CanSubmitToChannel(_command.channelID)) return;
 
 	// 形状データチェック
-	if (!Math::IsFiniteVector(_command.start) || !Math::IsFiniteVector(_command.end) || !Math::IsFiniteVector(_command.color)) return;
+	if (!Vector3::IsFinite(_command.start) || !Vector3::IsFinite(_command.end) || !Vector4::IsFinite(_command.color)) return;
 
 	writeFrame.lineCommands.push_back(_command);
 }
@@ -185,8 +185,8 @@ void FrameDebugSystem::SubmitBox(const DebugBoxCommand& _command)
 	if (!CanSubmitToChannel(_command.channelID)) return;
 
 	// 形状データチェック
-	if (!Math::IsFiniteVector(_command.center) || !Math::IsFiniteVector(_command.halfSize) || !Math::IsFiniteQuaternion(_command.rotation) ||
-		!Math::IsNonNegativeVector(_command.halfSize) || !Math::IsFiniteVector(_command.color) || std::abs(_command.rotation.LengthSquared() - 1.0f) > Math::EPSILON) return;
+	if (!Vector3::IsFinite(_command.center) || !Vector3::IsFinite(_command.halfSize) || !Quaternion::IsFinite(_command.rotation) ||
+		!Vector3::IsNonNegative(_command.halfSize) || !Vector4::IsFinite(_command.color) || std::abs(_command.rotation.LengthSquared() - 1.0f) > Math::EPSILON) return;
 
 	writeFrame.boxCommands.push_back(_command);
 }
@@ -197,7 +197,7 @@ void FrameDebugSystem::SubmitSphere(const DebugSphereCommand& _command)
 	if (!CanSubmitToChannel(_command.channelID)) return;
 
 	// 形状データチェック
-	if (!Math::IsFiniteVector(_command.center) || !std::isfinite(_command.radius) || _command.radius <= Math::EPSILON || !Math::IsFiniteVector(_command.color)) return;
+	if (!Vector3::IsFinite(_command.center) || !std::isfinite(_command.radius) || _command.radius <= Math::EPSILON || !Vector4::IsFinite(_command.color)) return;
 
 	writeFrame.sphereCommands.push_back(_command);
 }
@@ -208,8 +208,8 @@ void FrameDebugSystem::SubmitCapsule(const DebugCapsuleCommand& _command)
 	if (!CanSubmitToChannel(_command.channelID)) return;
 
 	// 形状データチェック
-	if (!Math::IsFiniteVector(_command.start) || !Math::IsFiniteVector(_command.end) || !std::isfinite(_command.radius) || _command.radius <= Math::EPSILON ||
-		!Math::IsFiniteVector(_command.color) || (_command.end - _command.start).LengthSquared() <= Math::EPSILON * Math::EPSILON) return;
+	if (!Vector3::IsFinite(_command.start) || !Vector3::IsFinite(_command.end) || !std::isfinite(_command.radius) || _command.radius <= Math::EPSILON ||
+		!Vector4::IsFinite(_command.color) || (_command.end - _command.start).LengthSquared() <= Math::EPSILON * Math::EPSILON) return;
 
 	writeFrame.capsuleCommands.push_back(_command);
 }

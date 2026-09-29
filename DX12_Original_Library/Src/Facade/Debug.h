@@ -11,6 +11,14 @@ namespace Debug
 	DebugMetricID RegisterMetric(const DebugMetricDescriptor& _descriptor);
 	// 指定したIDの場所に値を記録する
 	void SubmitMetric(DebugMetricID _metricID, double _value);
+	// 指定した形状を依頼する(Line)
+	void SubmitLine(const DebugLineCommand& _command);
+	// 指定した形状を依頼する(Box)
+	void SubmitBox(const DebugBoxCommand& _command);
+	// 指定した形状を依頼する(Sphere)
+	void SubmitSphere(const DebugSphereCommand& _command);
+	// 指定した形状を依頼する(Capsule)
+	void SubmitCapsule(const DebugCapsuleCommand& _command);
 	// Debug Overlay全体の表示を切り替える
 	void SetOverlayVisible(bool _visible);
 	// Debug Overlayが表示設定か取得する

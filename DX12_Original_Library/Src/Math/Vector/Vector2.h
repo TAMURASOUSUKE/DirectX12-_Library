@@ -66,12 +66,6 @@ struct Vector2
 	static Vector2 Lerp(const Vector2& _startPos, const Vector2& _endPos, float _completionValue);	
 
 	// 有効値を調べる
-	static bool IsFinite(const Vector2& _vector) { return std::isfinite(_vector.x) && std::isfinite(_vector.y); }
-
-	// 0以上かを調べる
-	static bool IsNonNegative(const Vector2& _vector) { return _vector.x >= 0.0f && _vector.y >= 0.0f; }
-
-	// 有効値を調べる
 	static bool IsFinite(const Vector2& _vector);
 
 	// 0以上かを調べる

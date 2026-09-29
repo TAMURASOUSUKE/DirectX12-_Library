@@ -131,6 +131,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	const DebugMetricID emptyMetric{ Debug::RegisterMetric({"NotSubmitted", frameChannel, DebugMetricUnit::None, DebugMetricAggregation::Set}) };
 	bool frameChannelEnabled{ true };
 	Debug::SetOverlayVisible(true); // 表示する
+	// Debug Primitive公開APIの動作確認用
+	const DebugLineCommand debugLine{ frameChannel, { -4.0f, 1.0f, 8.0f }, { -2.0f, 3.0f, 8.0f }, { 1.0f, 0.2f, 0.2f, 1.0f } };
+	const DebugBoxCommand debugBox{ frameChannel, { -1.0f, 1.0f, 8.0f }, { 0.75f, 1.0f, 0.5f }, Quaternion::FromAxisAngle(Vector3::Up, 30.0f * Math::DEG_TO_RAD), { 0.2f, 1.0f, 0.2f, 1.0f } };
+	const DebugSphereCommand debugSphere{ frameChannel, { 2.0f, 1.0f, 8.0f }, 1.0f, { 0.2f, 0.5f, 1.0f, 1.0f } };
+	const DebugCapsuleCommand debugCapsule{ frameChannel, { 4.0f, 0.0f, 8.0f }, { 4.0f, 2.0f, 8.0f }, 0.5f, { 1.0f, 1.0f, 0.2f, 1.0f } };
 
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC) && !Input::IsPadPushed(PadCode::Button::BACK))
@@ -152,6 +157,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			frameChannelEnabled = !frameChannelEnabled;
 			if (!Debug::SetChannelEnabled(frameChannel, frameChannelEnabled)) DEBUG_LOG_ERROR("Frame Channelの切り替えに失敗しました\n");
 		}
+
+		// Debug Primitiveは即時方式なので、表示したいフレームごとに提出する
+		Debug::SubmitLine(debugLine);
+		Debug::SubmitBox(debugBox);
+		Debug::SubmitSphere(debugSphere);
+		Debug::SubmitCapsule(debugCapsule);
 
 		time += Time::DeltaTime();
 

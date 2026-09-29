@@ -1,7 +1,6 @@
 #pragma once
 #include <cmath>
 #include "Vector/Vector3.h"
-#include "Vector/Vector4.h"
 
 // Math関連で共通して使うような定数や便利機能をまとめる
 namespace Math 
@@ -30,30 +29,6 @@ namespace Math
 		_angle.y = NormalizeAngle(_angle.y);
 		_angle.z = NormalizeAngle(_angle.z);
 		return _angle;
-	}
-
-	// 有効値かをVector3単位でチェックする関数
-	inline bool IsFiniteVector(const Vector3& _vector)
-	{
-		return std::isfinite(_vector.x) && std::isfinite(_vector.y) && std::isfinite(_vector.z);
-	}
-
-	// 有効値かをVector4単位でチェックする関数
-	inline bool IsFiniteVector(const Vector4& _vector)
-	{
-		return std::isfinite(_vector.x) && std::isfinite(_vector.y) && std::isfinite(_vector.z) && std::isfinite(_vector.w);
-	}
-
-	// 有効値かをVector単位でチェックする関数
-	inline bool IsFiniteQuaternion(const Quaternion& _quaternion)
-	{
-		return std::isfinite(_quaternion.x) && std::isfinite(_quaternion.y) && std::isfinite(_quaternion.z) && std::isfinite(_quaternion.w);
-	}
-
-	// Vector3が0以上かを調べる
-	inline bool IsNonNegativeVector(const Vector3& _vector)
-	{
-		return _vector.x >= 0.0f && _vector.y >= 0.0f && _vector.z >= 0.0f;
 	}
 
 	// 区間と値から補間率を求める関数(0割と判断できるくらい小さい値の区間であれば0を返します)
