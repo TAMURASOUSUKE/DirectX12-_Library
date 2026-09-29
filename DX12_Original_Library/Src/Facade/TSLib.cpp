@@ -1,4 +1,7 @@
 #include <windows.h>
+#include <cstddef>
+#include <string_view>
+#include <array>
 #include "../Debug/DebugLogs.h"
 #include "../Graphics/GraphicsMetrics.h"
 #include "GfxInternal.h"
@@ -13,8 +16,27 @@
 
 namespace 
 {
+	constexpr std::size_t PASS_COUNT{ static_cast<std::size_t>(GraphicsPass::Count) }; // パスの数
 	DebugChannelID renderingChannelID{};
 	DebugMetricID drawCallMetricID{};
+
+	// パスごとの表示名(個数を推論させることでstatic_assertに引っかかるようにする)
+	constexpr auto passName = std::array
+	{
+		std::string_view{ "Background Sprite" },
+		std::string_view{ "Shadow" },
+		std::string_view{ "Opaque Model" },
+		std::string_view{ "3D Primitive" },
+		std::string_view{ "Blend Model" },
+		std::string_view{ "Foreground Sprite" },
+		std::string_view{ "2D Shape" },
+		std::string_view{ "Debug Preview" },
+		std::string_view{ "PostEffect" },
+		std::string_view{ "Terrain" },
+	};
+	std::array<DebugMetricID, PASS_COUNT> passDrawCallID{};
+
+	static_assert(passName.size() == PASS_COUNT, "表示名がパスの数とあっていません");
 }
 
 // 初期化
@@ -47,10 +69,22 @@ bool TSLib::Initialize(const wchar_t* _title, int _virtualWidth, int _virtualHei
 	DEBUG_ASSERT(result && "デバッグ機能の初期化に失敗しました\n");
 	if (!result) return result;
 
+	// ライブラリのデフォルトで出すデバッグパラメータ
 	renderingChannelID = Debug::RegisterChannel("Rendering"); // 描画関連のチャンネル登録
 	drawCallMetricID = Debug::RegisterMetric({ "Draw Calls", renderingChannelID, DebugMetricUnit::Count, DebugMetricAggregation::Set }); // Graphics側で合計しているのでSet
 	// デバッグ機能の失敗でゲームを機能不能にはしない
 	if (!renderingChannelID.IsValid() || !drawCallMetricID.IsValid()) DEBUG_LOG_ERROR("内蔵Rendering Metricの登録に失敗しました\n");
+
+	// 各パス別Metricを登録
+	if (renderingChannelID.IsValid())
+	{
+		for (std::size_t i = 0; i < PASS_COUNT; i++)
+		{
+			// 明示的なstring変換を行う(コピーコストが発生するがInitializeの一回だけなので許容する)
+			passDrawCallID[i] = Debug::RegisterMetric({std::string{passName[i]}, renderingChannelID, DebugMetricUnit::Count, DebugMetricAggregation::Set});
+			if (!passDrawCallID[i].IsValid()) DEBUG_LOG_ERROR("%d番目のパス登録に失敗しました\n", i);
+		}
+	}
 
 	result = InputInternal::Initialize(SystemInternal::GetHWND());
 	DEBUG_ASSERT(result && "入力処理の初期化に失敗しました\n");
@@ -85,7 +119,14 @@ void TSLib::BeginFrame()
 	if (drawCallMetricID.IsValid())
 	{
 		const GraphicsFrameMetrics& graphicsMetrics{ GfxInternal::GetLastFrameMetrics() }; // 前フレームの値を検出
-		Debug::SubmitMetric(drawCallMetricID, static_cast<double>(graphicsMetrics.drawCallCount)); // 書き込み
+		Debug::SubmitMetric(drawCallMetricID, static_cast<double>(graphicsMetrics.drawCallCount)); // 全体個数書き込み
+		
+		for (std::size_t i = 0; i < PASS_COUNT; i++)
+		{
+			if (!passDrawCallID[i].IsValid()) continue;
+			Debug::SubmitMetric(passDrawCallID[i], static_cast<double>(graphicsMetrics.passDrawCallCount[i])); // パス個数書き込み
+		}
+
 	}
 	TimeInternal::BeginFrame(); // 時間関連のフレーム最初の処理
 	InputInternal::BeginFrame(Time::UnscaledDeltaTime()); // 入力の最初の処理

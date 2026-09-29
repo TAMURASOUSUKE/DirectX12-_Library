@@ -1,5 +1,7 @@
 #include <limits>
 #include <utility>
+#include <cmath>
+#include "../Math/MathConstant.h"
 #include "DebugLogs.h"
 #include "FrameDebugSystem.h"
 
@@ -10,6 +12,11 @@ void FrameDebugSystem::BeginFrame()
 	{
 		metricValue = DebugMetricValue{};
 	}
+
+	writeFrame.lineCommands.clear();
+	writeFrame.boxCommands.clear();
+	writeFrame.sphereCommands.clear();
+	writeFrame.capsuleCommands.clear();
 }
 
 void FrameDebugSystem::EndFrame()
@@ -161,6 +168,52 @@ void FrameDebugSystem::SubmitMetric(DebugMetricID _metricID, double _value)
 	metricValue.written = true;
 }
 
+void FrameDebugSystem::SubmitLine(const DebugLineCommand& _command)
+{
+	// ID関連が正しいかチェック
+	if (!CanSubmitToChannel(_command.channelID)) return;
+
+	// 形状データチェック
+	if (!Math::IsFiniteVector(_command.start) || !Math::IsFiniteVector(_command.end) || !Math::IsFiniteVector(_command.color)) return;
+
+	writeFrame.lineCommands.push_back(_command);
+}
+
+void FrameDebugSystem::SubmitBox(const DebugBoxCommand& _command)
+{
+	// ID関連が正しいかチェック
+	if (!CanSubmitToChannel(_command.channelID)) return;
+
+	// 形状データチェック
+	if (!Math::IsFiniteVector(_command.center) || !Math::IsFiniteVector(_command.halfSize) || !Math::IsFiniteQuaternion(_command.rotation) ||
+		!Math::IsNonNegativeVector(_command.halfSize) || !Math::IsFiniteVector(_command.color) || std::abs(_command.rotation.LengthSquared() - 1.0f) > Math::EPSILON) return;
+
+	writeFrame.boxCommands.push_back(_command);
+}
+
+void FrameDebugSystem::SubmitSphere(const DebugSphereCommand& _command)
+{
+	// ID関連が正しいかチェック
+	if (!CanSubmitToChannel(_command.channelID)) return;
+
+	// 形状データチェック
+	if (!Math::IsFiniteVector(_command.center) || !std::isfinite(_command.radius) || _command.radius <= Math::EPSILON || !Math::IsFiniteVector(_command.color)) return;
+
+	writeFrame.sphereCommands.push_back(_command);
+}
+
+void FrameDebugSystem::SubmitCapsule(const DebugCapsuleCommand& _command)
+{
+	// ID関連が正しいかチェック
+	if (!CanSubmitToChannel(_command.channelID)) return;
+
+	// 形状データチェック
+	if (!Math::IsFiniteVector(_command.start) || !Math::IsFiniteVector(_command.end) || !std::isfinite(_command.radius) || _command.radius <= Math::EPSILON ||
+		!Math::IsFiniteVector(_command.color) || (_command.end - _command.start).LengthSquared() <= Math::EPSILON * Math::EPSILON) return;
+
+	writeFrame.capsuleCommands.push_back(_command);
+}
+
 bool FrameDebugSystem::SetChannelEnabled(DebugChannelID _channelID, bool _enabled)
 {
 	if (!_channelID.IsValid())
@@ -197,4 +250,22 @@ const DebugChannelData* FrameDebugSystem::FindChannel(DebugChannelID _channelID)
 
 	// 指定されたIDからデータを取り出す
 	return &channels[_channelID.value];
+}
+
+bool FrameDebugSystem::CanSubmitToChannel(DebugChannelID _id) const
+{
+	if (!_id.IsValid())
+	{
+		DEBUG_LOG_ERROR("IDが不正です\n");
+		return false;
+	}
+
+	const DebugChannelData* channel = FindChannel(_id);
+
+	if (!channel)
+	{
+		return false;
+	}
+
+	return channel->enabled;
 }

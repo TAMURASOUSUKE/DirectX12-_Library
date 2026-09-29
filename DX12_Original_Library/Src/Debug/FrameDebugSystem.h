@@ -26,6 +26,14 @@ public:
 
 	// 登録済みMetricへ、このフレームの値を提出する
 	void SubmitMetric(DebugMetricID _metricID, double _value);
+	// Lineのデバッグ描画依頼を提出
+	void SubmitLine(const DebugLineCommand& _command);
+	// Boxのデバッグ描画依頼を提出
+	void SubmitBox(const DebugBoxCommand& _command);
+	// Shpereのデバッグ描画依頼を提出
+	void SubmitSphere(const DebugSphereCommand& _command);
+	// Capsuleのデバッグ描画依頼を提出
+	void SubmitCapsule(const DebugCapsuleCommand& _command);
 
 	// 指定Channelの計測と表示を切り替える
 	bool SetChannelEnabled(DebugChannelID _channelID, bool _enabled);
@@ -41,6 +49,10 @@ public:
 
 	// IDに対応するChannelを読み取り専用で取得する
 	const DebugChannelData* FindChannel(DebugChannelID _channelID) const;
+
+private:
+	// 提出先のチャンネルのチェックを行う
+	bool CanSubmitToChannel(DebugChannelID _id) const;
 
 private:
 	std::vector<DebugChannelData> channels{}; // 分類

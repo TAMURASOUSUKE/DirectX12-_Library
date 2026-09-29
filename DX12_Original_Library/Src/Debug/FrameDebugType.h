@@ -3,6 +3,9 @@
 #include <string>
 #include <cstdint>
 #include <vector>
+#include "../Math/Vector/Vector3.h"
+#include "../Math/Vector/Vector4.h"
+#include "../Math/Quaternion/Quaternion.h"
 
 // 内部の処理情報を管理する際のDebugSystemで共有する軽量な型など
 
@@ -94,10 +97,52 @@ struct DebugMetricValue
 	bool written{ false }; // このフレームで一度でも更新されたか
 };
 
+// 線分のデバッグ表示用
+struct DebugLineCommand
+{
+	DebugChannelID channelID{}; // チャンネル
+	Vector3 start{ Vector3::Zero }; // 始点
+	Vector3 end{ Vector3::Zero }; // 終点
+	Vector4 color{ 1.0f, 1.0f, 1.0f, 1.0f }; // 色
+};
+
+// 箱のデバッグ表示用
+struct DebugBoxCommand
+{
+	DebugChannelID channelID{}; // チャンネル
+	Vector3 center{ Vector3::Zero }; // 中心
+	Vector3 halfSize{ Vector3::Zero }; // サイズの半分
+	Quaternion rotation{ Quaternion::Identity }; // 回転
+	Vector4 color{ 1.0f, 1.0f, 1.0f, 1.0f }; // 色
+};
+
+// 球のデバッグ表示用
+struct DebugSphereCommand
+{
+	DebugChannelID channelID{}; // チャンネル
+	Vector3 center{ Vector3::Zero }; // 中心
+	float radius{ 0.0f }; // 半径
+	Vector4 color{ 1.0f, 1.0f, 1.0f, 1.0f }; // 色
+};
+
+// カプセルのデバッグ表示用
+struct DebugCapsuleCommand
+{
+	DebugChannelID channelID{}; // チャンネル
+	Vector3 start{ Vector3::Zero }; // 始点
+	Vector3 end{ Vector3::Zero }; // 終点
+	float radius{ 0.0f }; // 半径
+	Vector4 color{ 1.0f, 1.0f, 1.0f, 1.0f }; // 色
+};
+
 // 1フレーム分のデータを集める
 struct DebugFrameData
 {
 	std::vector<DebugMetricValue> metrics{}; // 数値として観測することのできるデータの集まり
+	std::vector<DebugLineCommand> lineCommands{}; // 線分のデバッグデータ
+	std::vector<DebugBoxCommand> boxCommands{}; // 箱のデバッグデータ
+	std::vector<DebugSphereCommand> sphereCommands{}; // 球のデバッグデータ
+	std::vector<DebugCapsuleCommand> capsuleCommands{}; // カプセルのデバッグデータ
 };
 
 // 登録される際の分類

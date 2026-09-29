@@ -54,6 +54,15 @@ Vector2Int Vector2Int::FromTo(const Vector2Int& _startPos, const Vector2Int& _en
 	return distVec;
 }
 
+bool Vector2Int::IsFinite(const Vector2Int& _vector)
+{
+	return std::isfinite(_vector.x) && std::isfinite(_vector.y);
+}
+
+bool Vector2Int::IsNonNegative(const Vector2Int& _vector)
+{
+	return _vector.x >= 0 && _vector.y >= 0;
+}
 
 // 逆ベクトル
 Vector2Int Vector2Int::operator -() const

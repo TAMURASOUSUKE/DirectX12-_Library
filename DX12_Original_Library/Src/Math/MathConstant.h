@@ -1,8 +1,9 @@
 #pragma once
 #include <cmath>
 #include "Vector/Vector3.h"
+#include "Vector/Vector4.h"
 
-// Math関連で共通して使うような定数をまとめる
+// Math関連で共通して使うような定数や便利機能をまとめる
 namespace Math 
 {
 
@@ -31,6 +32,30 @@ namespace Math
 		return _angle;
 	}
 
+	// 有効値かをVector3単位でチェックする関数
+	inline bool IsFiniteVector(const Vector3& _vector)
+	{
+		return std::isfinite(_vector.x) && std::isfinite(_vector.y) && std::isfinite(_vector.z);
+	}
+
+	// 有効値かをVector4単位でチェックする関数
+	inline bool IsFiniteVector(const Vector4& _vector)
+	{
+		return std::isfinite(_vector.x) && std::isfinite(_vector.y) && std::isfinite(_vector.z) && std::isfinite(_vector.w);
+	}
+
+	// 有効値かをVector単位でチェックする関数
+	inline bool IsFiniteQuaternion(const Quaternion& _quaternion)
+	{
+		return std::isfinite(_quaternion.x) && std::isfinite(_quaternion.y) && std::isfinite(_quaternion.z) && std::isfinite(_quaternion.w);
+	}
+
+	// Vector3が0以上かを調べる
+	inline bool IsNonNegativeVector(const Vector3& _vector)
+	{
+		return _vector.x >= 0.0f && _vector.y >= 0.0f && _vector.z >= 0.0f;
+	}
+
 	// 区間と値から補間率を求める関数(0割と判断できるくらい小さい値の区間であれば0を返します)
 	constexpr float InverseLerp(float _min, float _max, float _value)
 	{
@@ -40,6 +65,5 @@ namespace Math
 		if (totalValue <= EPSILON) return 0.0f; // 0割りなら0を返す
 		return fromStart / totalValue; // 補間率を返す
 	}
-	
 	static_assert(Math::InverseLerp(10.0f, 30.0f, 15.0f) == 0.25f, "InverseLerpの計算が違う");
 }
