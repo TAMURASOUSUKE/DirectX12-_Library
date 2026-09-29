@@ -170,6 +170,7 @@ void FrameDebugSystem::SubmitMetric(DebugMetricID _metricID, double _value)
 
 void FrameDebugSystem::SubmitLine(const DebugLineCommand& _command)
 {
+#ifdef _DEBUG
 	// ID関連が正しいかチェック
 	if (!CanSubmitToChannel(_command.channelID)) return;
 
@@ -177,10 +178,14 @@ void FrameDebugSystem::SubmitLine(const DebugLineCommand& _command)
 	if (!Vector3::IsFinite(_command.start) || !Vector3::IsFinite(_command.end) || !Vector4::IsFinite(_command.color)) return;
 
 	writeFrame.lineCommands.push_back(_command);
+#else
+	static_cast<void>(_command);
+#endif // _DEBUG
 }
 
 void FrameDebugSystem::SubmitBox(const DebugBoxCommand& _command)
 {
+#ifdef _DEBUG
 	// ID関連が正しいかチェック
 	if (!CanSubmitToChannel(_command.channelID)) return;
 
@@ -189,10 +194,14 @@ void FrameDebugSystem::SubmitBox(const DebugBoxCommand& _command)
 		!Vector3::IsNonNegative(_command.halfSize) || !Vector4::IsFinite(_command.color) || std::abs(_command.rotation.LengthSquared() - 1.0f) > Math::EPSILON) return;
 
 	writeFrame.boxCommands.push_back(_command);
+#else
+	static_cast<void>(_command);
+#endif // _DEBUG
 }
 
 void FrameDebugSystem::SubmitSphere(const DebugSphereCommand& _command)
 {
+#ifdef _DEBUG
 	// ID関連が正しいかチェック
 	if (!CanSubmitToChannel(_command.channelID)) return;
 
@@ -200,10 +209,14 @@ void FrameDebugSystem::SubmitSphere(const DebugSphereCommand& _command)
 	if (!Vector3::IsFinite(_command.center) || !std::isfinite(_command.radius) || _command.radius <= Math::EPSILON || !Vector4::IsFinite(_command.color)) return;
 
 	writeFrame.sphereCommands.push_back(_command);
+#else
+	static_cast<void>(_command);
+#endif // _DEBUG
 }
 
 void FrameDebugSystem::SubmitCapsule(const DebugCapsuleCommand& _command)
 {
+#ifdef _DEBUG
 	// ID関連が正しいかチェック
 	if (!CanSubmitToChannel(_command.channelID)) return;
 
@@ -212,6 +225,9 @@ void FrameDebugSystem::SubmitCapsule(const DebugCapsuleCommand& _command)
 		!Vector4::IsFinite(_command.color) || (_command.end - _command.start).LengthSquared() <= Math::EPSILON * Math::EPSILON) return;
 
 	writeFrame.capsuleCommands.push_back(_command);
+#else
+	static_cast<void>(_command);
+#endif // _DEBUG
 }
 
 bool FrameDebugSystem::SetChannelEnabled(DebugChannelID _channelID, bool _enabled)
