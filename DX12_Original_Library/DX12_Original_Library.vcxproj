@@ -176,6 +176,7 @@
     <ClInclude Include="Src\Core\Handle\TexHandle.h" />
     <ClInclude Include="Src\Core\Handle\UIButtonHandle.h" />
     <ClInclude Include="Src\Core\TextEncoding.h" />
+    <ClInclude Include="Src\Debug\CPUTimingScope.h" />
     <ClInclude Include="Src\Debug\DebugLogs.h" />
     <ClInclude Include="Src\Debug\FrameDebugOverlay.h" />
     <ClInclude Include="Src\Debug\FrameDebugOverlayType.h" />
@@ -277,6 +278,7 @@
     <ClCompile Include="Src\Collision\CollisionSystem.cpp" />
     <ClCompile Include="Src\Component\Transform.cpp" />
     <ClCompile Include="Src\Core\TextEncoding.cpp" />
+    <ClCompile Include="Src\Debug\CPUTimingScope.cpp" />
     <ClCompile Include="Src\Debug\DebugLogs.cpp" />
     <ClCompile Include="Src\Debug\FrameDebugOverlay.cpp" />
     <ClCompile Include="Src\Debug\FrameDebugSystem.cpp" />

@@ -26,6 +26,23 @@ struct GraphicsFrameMetrics
 	std::array<std::uint64_t, static_cast<std::size_t>(GraphicsPass::Count)> passDrawCallCount{}; // パスごとのドローカウント
 };
 
+// GPU計測1項目の完成値
+struct GraphicsGPUTimingValue
+{
+	double milliseconds{ 0.0 };
+	bool valid{ false };
+};
+
+// 完成したGPU計測結果
+struct GraphicsGPUTimingFrame
+{
+	// GPUフレーム全体
+	GraphicsGPUTimingValue total{};
+
+	// RenderPassごとのGPU時間
+	std::array<GraphicsGPUTimingValue, static_cast<std::size_t>(GraphicsPass::Count)> passes{};
+};
+
 // Graphcis内部だけが書き込み、外部は完成値だけ読む名前空間
 namespace GraphicsMetrics
 {

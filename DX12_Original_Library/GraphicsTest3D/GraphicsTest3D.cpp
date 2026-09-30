@@ -129,6 +129,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	const DebugMetricID addMetric{ Debug::RegisterMetric({"AddTest", frameChannel, DebugMetricUnit::Count, DebugMetricAggregation::Add}) };
 	const DebugMetricID maxMetric{ Debug::RegisterMetric({"MaxTest", frameChannel, DebugMetricUnit::None, DebugMetricAggregation::Max}) };
 	const DebugMetricID emptyMetric{ Debug::RegisterMetric({"NotSubmitted", frameChannel, DebugMetricUnit::None, DebugMetricAggregation::Set}) };
+	const DebugMetricID updateCpuTimeMetric{ Debug::RegisterMetric({"Update CPU", frameChannel, DebugMetricUnit::Milliseconds, DebugMetricAggregation::Set, DebugMetricDisplayMode::WindowStatistics}) };
 	bool frameChannelEnabled{ true };
 	Debug::SetOverlayVisible(true); // 表示する
 	// Debug Primitive公開APIの動作確認用
@@ -142,135 +143,141 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	{
 		TSLib::BeginFrame(); // フレーム開始処理
 
-		// デバッグの確認
-		Debug::SubmitMetric(fpsMetric, Time::FPS());
-
-		Debug::SubmitMetric(addMetric, 2.0);
-		Debug::SubmitMetric(addMetric, 3.0);
-
-		Debug::SubmitMetric(maxMetric, -5.0);
-		Debug::SubmitMetric(maxMetric, -2.0);
-		Debug::SubmitMetric(maxMetric, -8.0);
-		if (Input::IsKeyPushed(KeyCode::Button::F3)) Debug::SetOverlayVisible(!Debug::IsOverlayVisible());
-		if (Input::IsKeyPushed(KeyCode::Button::F4))
+		// 更新時間の計測
 		{
-			frameChannelEnabled = !frameChannelEnabled;
-			if (!Debug::SetChannelEnabled(frameChannel, frameChannelEnabled)) DEBUG_LOG_ERROR("Frame Channelの切り替えに失敗しました\n");
+			// この変数が作られた瞬間から計測開始
+			const auto updateCpuTiming{ Debug::BeginCPUTiming(updateCpuTimeMetric) };
+			// デバッグの確認
+			Debug::SubmitMetric(fpsMetric, Time::FPS());
+
+			Debug::SubmitMetric(addMetric, 2.0);
+			Debug::SubmitMetric(addMetric, 3.0);
+
+			Debug::SubmitMetric(maxMetric, -5.0);
+			Debug::SubmitMetric(maxMetric, -2.0);
+			Debug::SubmitMetric(maxMetric, -8.0);
+			if (Input::IsKeyPushed(KeyCode::Button::F3)) Debug::SetOverlayVisible(!Debug::IsOverlayVisible());
+			if (Input::IsKeyPushed(KeyCode::Button::F4))
+			{
+				frameChannelEnabled = !frameChannelEnabled;
+				if (!Debug::SetChannelEnabled(frameChannel, frameChannelEnabled)) DEBUG_LOG_ERROR("Frame Channelの切り替えに失敗しました\n");
+			}
+
+			// Debug Primitiveは即時方式なので、表示したいフレームごとに提出する
+			Debug::SubmitLine(debugLine);
+			Debug::SubmitBox(debugBox);
+			Debug::SubmitSphere(debugSphere);
+			Debug::SubmitCapsule(debugCapsule);
+
+			time += Time::DeltaTime();
+
+			if (Input::IsKeyPushed(KeyCode::Button::T) || Input::IsPadPushed(PadCode::Button::Y)) useThreeTone = !useThreeTone; // TかYでToon切り替え
+			if (Input::IsKeyPushed(KeyCode::Button::TAB))
+			{
+				isLocked = !isLocked;
+
+				const System::CursorMode mode{ isLocked ? System::CursorMode::Locked : System::CursorMode::Normal };
+
+				if (!System::SetCursorMode(mode)) DEBUG_LOG_ERROR("マウスカーソルの状態変更に失敗しました\n");
+			}
+
+			// ライト回転をして影響を確認
+			sceneLight.directional.direction = { std::cos(time), -0.6f, std::sin(time) };
+
+			// Terrain操作
+			float heightSpeed{ 3.0f };
+			if (Input::IsKeyPress(KeyCode::Button::UP) || Input::IsPadPress(PadCode::Button::UP)) heightFactor += heightSpeed * Time::UnscaledDeltaTime();
+			if (Input::IsKeyPress(KeyCode::Button::DOWN) || Input::IsPadPress(PadCode::Button::DOWN)) heightFactor -= heightSpeed * Time::UnscaledDeltaTime();
+			if (Input::IsKeyPushed(KeyCode::Button::D2) || Input::IsPadPushed(PadCode::Trigger::RIGHT)) tessFactor *= 2.0f;
+			if (Input::IsKeyPushed(KeyCode::Button::D1) || Input::IsPadPushed(PadCode::Trigger::LEFT)) tessFactor /= 2.0f;
+			tessFactor = std::clamp(tessFactor, 2.0f, 64.0f);
+
+			heightFactor = std::clamp(heightFactor, -20.0f, 20.0f);
+
+			// FPS操作
+			if (Input::IsKeyPushed(KeyCode::Button::D3)) Time::SetTargetFPS(30); // 30FPS
+			if (Input::IsKeyPushed(KeyCode::Button::D6)) Time::SetTargetFPS(60); // 60FPS
+			if (Input::IsKeyPushed(KeyCode::Button::D0)) Time::SetTargetFPS(120); // 120FPS モニターが120Hz以上である必要あり
+			if (Input::IsKeyPushed(KeyCode::Button::RIGHT) || Input::IsPadPushed(PadCode::Button::RIGHT)) timeScale += 0.1f;
+			if (Input::IsKeyPushed(KeyCode::Button::LEFT) || Input::IsPadPushed(PadCode::Button::LEFT)) timeScale -= 0.1f;
+			timeScale = std::clamp(timeScale, 0.0f, 10.0f); // 最大でもタイムスケールは10にとどめておく
+			Time::SetTimeScale(timeScale);
+
+			// カメラ回転
+			if (Input::IsMousePress(MouseCode::Click::RIGHT)) // 右クリック中だけ動かす
+			{
+				const Vector2Int mouseDelta{ Input::GetMouseDelta() };
+				cameraYaw += static_cast<float>(mouseDelta.x) * MOUSE_SENSITIVITY;
+				cameraPtich += static_cast<float>(mouseDelta.y) * MOUSE_SENSITIVITY; // クライアント座標では下方向がプラス
+				cameraYaw = Math::NormalizeAngle(cameraYaw); // Yawが際限なく大きくなるのを防ぐ
+				// 真下、真上を超えてカメラが反転しないようにする
+				cameraPtich = std::clamp(cameraPtich, -MAX_CAMERA_PITCH, MAX_CAMERA_PITCH);
+				// 保存している角度から毎回Quaternionを作り出す
+				camera.transform.SetRotation(Quaternion::FromEuler({ cameraPtich, cameraYaw, 0.0f }));
+			}
+			const Vector2 padLook{ Input::GetPadStickValue(PadCode::Stick::RIGHT) };
+			if (padLook != Vector2::Zero)
+			{
+				cameraYaw += padLook.x * PAD_CAMERA_SPEED * Time::UnscaledDeltaTime();
+				cameraPtich += padLook.y * PAD_CAMERA_SPEED * Time::UnscaledDeltaTime();
+				cameraYaw = Math::NormalizeAngle(cameraYaw);
+				cameraPtich = std::clamp(cameraPtich, -MAX_CAMERA_PITCH, MAX_CAMERA_PITCH);
+				camera.transform.SetRotation(Quaternion::FromEuler({ cameraPtich, cameraYaw, 0.0f }));
+			}
+
+			// カメラ移動
+			Vector3 dir{ Vector3::Zero };
+			const Quaternion cameraRotation{ camera.transform.GetRotation() };
+			const Vector3 cameraForward{ cameraRotation.RotateVector(Vector3::Forward) };
+			const Vector3 cameraRight{ cameraRotation.RotateVector(Vector3::Right) };
+			if (Input::IsKeyPress(KeyCode::Button::W)) dir += cameraForward;
+			if (Input::IsKeyPress(KeyCode::Button::A)) dir -= cameraRight;
+			if (Input::IsKeyPress(KeyCode::Button::S)) dir -= cameraForward;
+			if (Input::IsKeyPress(KeyCode::Button::D)) dir += cameraRight;
+			const Vector2 padMove{ Input::GetPadStickValue(PadCode::Stick::LEFT, true) };
+			dir += cameraRight * padMove.x;
+			dir += cameraForward * padMove.y;
+			float speed{ 8.0f };
+			dir.Normalize();
+			camera.transform.Translate(dir * speed * Time::DeltaTime());
+
+			// AABB確認
+			Box playerAABB{ objectPosition.GetPosition() + Vector3{-0.5f, 0.0f, -0.5f}, objectPosition.GetPosition() + Vector3{0.5f, 2.0f,  0.5f} };
+			if (Collision::Intersect(playerAABB, debugCube)) hitColor = { 1.0f, 0.0f, 0.0f, 1.0f };
+			else hitColor = { 0.0f, 1.0f, 0.0f, 1.0f };
+
+
+			// 3Dモデルアニメーション
+			// クリップ0または現在のクリップから、クリップ1へ遷移
+			if (Input::IsKeyPushed(KeyCode::Button::C) || Input::IsPadPushed(PadCode::Button::A)) Gfx::CrossFadeAnim(alienModelAnim, ALIEN_ANIM_1, ALIEN_BLEND_DURATION, true, 1.0f);
+			// クリップ1または現在のクリップから、クリップ0へ遷移
+			if (Input::IsKeyPushed(KeyCode::Button::V) || Input::IsPadPushed(PadCode::Button::X)) Gfx::CrossFadeAnim(alienModelAnim, ALIEN_ANIM_0, ALIEN_BLEND_DURATION, true, 1.0f);
+			// ブレンド中でも通常再生へ即座に切り替える 古いblend状態が残らないことを確認する
+			if (Input::IsKeyPushed(KeyCode::Button::X) || Input::IsPadPushed(PadCode::Button::B)) Gfx::PlayAnim(alienModelAnim, ALIEN_ANIM_0, true, 1.0f);
+			// ブレンドを含めて一時停止
+			if (Input::IsKeyPushed(KeyCode::Button::P) || Input::IsPadPushed(PadCode::Button::LEFT_SHOULDER)) Gfx::PauseAnim(alienModelAnim);
+			// 停止位置から再開
+			if (Input::IsKeyPushed(KeyCode::Button::O) || Input::IsPadPushed(PadCode::Button::RIGHT_SHOULDER)) Gfx::ResumeAnim(alienModelAnim);
+			// 再生とブレンドを停止
+			if (Input::IsKeyPushed(KeyCode::Button::B) || Input::IsPadPushed(PadCode::Button::LEFT_THUMB)) Gfx::StopAnim(alienModelAnim);
+			Gfx::UpdateAnim(alienModelAnim, Time::DeltaTime());
+
+			std::string fpsValue{ std::format("CurrentMeasuredFPS : {:.1f}", Time::FPS()) };
+			std::string targetFPS{ std::format("CurrentSettingFPS : {}", Time::GetTargetFPS()) };
+			std::string unscaledDeltaTime{ std::format("CurrentUnscaledDeltaTime: {:.6f}", Time::UnscaledDeltaTime()) };
+			std::string deltaTime{ std::format("CurrentDeltaTime : {:.3f}", Time::DeltaTime()) };
+			std::string timeScale{ std::format("CurrentTimeScale : {:.2f}", Time::GetTimeScale()) };
+			const std::string lodText{ std::format("Current LOD : {}", lodFieldState.currentLevelIndex) };
+
+			// ウィンドウモード変更チェック
+			if (Input::IsKeyPushed(KeyCode::Button::RETURN) || Input::IsPadPushed(PadCode::Button::START)) isFullscreen = !isFullscreen;
+			if (isFullscreen) System::SetWindowMode(System::WindowMode::BorderlessFullscreen);
+			else  System::SetWindowMode(System::WindowMode::Windowed);
+
+			Gfx::SetCamera(camera); // 3D描画前に呼ぶ
+			Gfx::SetSceneLight(sceneLight);
 		}
-
-		// Debug Primitiveは即時方式なので、表示したいフレームごとに提出する
-		Debug::SubmitLine(debugLine);
-		Debug::SubmitBox(debugBox);
-		Debug::SubmitSphere(debugSphere);
-		Debug::SubmitCapsule(debugCapsule);
-
-		time += Time::DeltaTime();
-
-		if (Input::IsKeyPushed(KeyCode::Button::T) || Input::IsPadPushed(PadCode::Button::Y)) useThreeTone = !useThreeTone; // TかYでToon切り替え
-		if (Input::IsKeyPushed(KeyCode::Button::TAB))
-		{
-			isLocked = !isLocked;
-
-			const System::CursorMode mode{ isLocked ? System::CursorMode::Locked : System::CursorMode::Normal };
-
-			if (!System::SetCursorMode(mode)) DEBUG_LOG_ERROR("マウスカーソルの状態変更に失敗しました\n");
-		}
-
-		// ライト回転をして影響を確認
-		sceneLight.directional.direction = { std::cos(time), -0.6f, std::sin(time) };
-
-		// Terrain操作
-		float heightSpeed{ 3.0f };
-		if (Input::IsKeyPress(KeyCode::Button::UP) || Input::IsPadPress(PadCode::Button::UP)) heightFactor += heightSpeed * Time::UnscaledDeltaTime();
-		if (Input::IsKeyPress(KeyCode::Button::DOWN) || Input::IsPadPress(PadCode::Button::DOWN)) heightFactor -= heightSpeed * Time::UnscaledDeltaTime();
-		if (Input::IsKeyPushed(KeyCode::Button::D2) || Input::IsPadPushed(PadCode::Trigger::RIGHT)) tessFactor *= 2.0f;
-		if (Input::IsKeyPushed(KeyCode::Button::D1) || Input::IsPadPushed(PadCode::Trigger::LEFT)) tessFactor /= 2.0f;
-		tessFactor = std::clamp(tessFactor, 2.0f, 64.0f);
-
-		heightFactor = std::clamp(heightFactor, -20.0f, 20.0f);
-
-		// FPS操作
-		if (Input::IsKeyPushed(KeyCode::Button::D3)) Time::SetTargetFPS(30); // 30FPS
-		if (Input::IsKeyPushed(KeyCode::Button::D6)) Time::SetTargetFPS(60); // 60FPS
-		if (Input::IsKeyPushed(KeyCode::Button::D0)) Time::SetTargetFPS(120); // 120FPS モニターが120Hz以上である必要あり
-		if (Input::IsKeyPushed(KeyCode::Button::RIGHT) || Input::IsPadPushed(PadCode::Button::RIGHT)) timeScale += 0.1f;
-		if (Input::IsKeyPushed(KeyCode::Button::LEFT) || Input::IsPadPushed(PadCode::Button::LEFT)) timeScale -= 0.1f;
-		timeScale = std::clamp(timeScale, 0.0f, 10.0f); // 最大でもタイムスケールは10にとどめておく
-		Time::SetTimeScale(timeScale);
-
-		// カメラ回転
-		if (Input::IsMousePress(MouseCode::Click::RIGHT)) // 右クリック中だけ動かす
-		{
-			const Vector2Int mouseDelta{ Input::GetMouseDelta() };
-			cameraYaw += static_cast<float>(mouseDelta.x) * MOUSE_SENSITIVITY;
-			cameraPtich += static_cast<float>(mouseDelta.y) * MOUSE_SENSITIVITY; // クライアント座標では下方向がプラス
-			cameraYaw = Math::NormalizeAngle(cameraYaw); // Yawが際限なく大きくなるのを防ぐ
-			// 真下、真上を超えてカメラが反転しないようにする
-			cameraPtich = std::clamp(cameraPtich, -MAX_CAMERA_PITCH, MAX_CAMERA_PITCH);
-			// 保存している角度から毎回Quaternionを作り出す
-			camera.transform.SetRotation(Quaternion::FromEuler({ cameraPtich, cameraYaw, 0.0f }));
-		}
-		const Vector2 padLook{ Input::GetPadStickValue(PadCode::Stick::RIGHT) };
-		if (padLook != Vector2::Zero)
-		{
-			cameraYaw += padLook.x * PAD_CAMERA_SPEED * Time::UnscaledDeltaTime();
-			cameraPtich += padLook.y * PAD_CAMERA_SPEED * Time::UnscaledDeltaTime();
-			cameraYaw = Math::NormalizeAngle(cameraYaw);
-			cameraPtich = std::clamp(cameraPtich, -MAX_CAMERA_PITCH, MAX_CAMERA_PITCH);
-			camera.transform.SetRotation(Quaternion::FromEuler({ cameraPtich, cameraYaw, 0.0f }));
-		}
-
-		// カメラ移動
-		Vector3 dir{ Vector3::Zero };
-		const Quaternion cameraRotation{ camera.transform.GetRotation() };
-		const Vector3 cameraForward{ cameraRotation.RotateVector(Vector3::Forward) };
-		const Vector3 cameraRight{ cameraRotation.RotateVector(Vector3::Right) };
-		if (Input::IsKeyPress(KeyCode::Button::W)) dir += cameraForward;
-		if (Input::IsKeyPress(KeyCode::Button::A)) dir -= cameraRight;
-		if (Input::IsKeyPress(KeyCode::Button::S)) dir -= cameraForward;
-		if (Input::IsKeyPress(KeyCode::Button::D)) dir += cameraRight;
-		const Vector2 padMove{ Input::GetPadStickValue(PadCode::Stick::LEFT, true) };
-		dir += cameraRight * padMove.x;
-		dir += cameraForward * padMove.y;
-		float speed{ 8.0f };
-		dir.Normalize();
-		camera.transform.Translate(dir * speed * Time::DeltaTime());
-
-		// AABB確認
-		Box playerAABB{ objectPosition.GetPosition() + Vector3{-0.5f, 0.0f, -0.5f}, objectPosition.GetPosition() + Vector3{0.5f, 2.0f,  0.5f} };
-		if (Collision::Intersect(playerAABB, debugCube)) hitColor = { 1.0f, 0.0f, 0.0f, 1.0f };
-		else hitColor = { 0.0f, 1.0f, 0.0f, 1.0f };
-
-
-		// 3Dモデルアニメーション
-		// クリップ0または現在のクリップから、クリップ1へ遷移
-		if (Input::IsKeyPushed(KeyCode::Button::C) || Input::IsPadPushed(PadCode::Button::A)) Gfx::CrossFadeAnim(alienModelAnim, ALIEN_ANIM_1, ALIEN_BLEND_DURATION, true, 1.0f);
-		// クリップ1または現在のクリップから、クリップ0へ遷移
-		if (Input::IsKeyPushed(KeyCode::Button::V) || Input::IsPadPushed(PadCode::Button::X)) Gfx::CrossFadeAnim(alienModelAnim, ALIEN_ANIM_0, ALIEN_BLEND_DURATION, true, 1.0f);
-		// ブレンド中でも通常再生へ即座に切り替える 古いblend状態が残らないことを確認する
-		if (Input::IsKeyPushed(KeyCode::Button::X) || Input::IsPadPushed(PadCode::Button::B)) Gfx::PlayAnim(alienModelAnim, ALIEN_ANIM_0, true, 1.0f);
-		// ブレンドを含めて一時停止
-		if (Input::IsKeyPushed(KeyCode::Button::P) || Input::IsPadPushed(PadCode::Button::LEFT_SHOULDER)) Gfx::PauseAnim(alienModelAnim);
-		// 停止位置から再開
-		if (Input::IsKeyPushed(KeyCode::Button::O) || Input::IsPadPushed(PadCode::Button::RIGHT_SHOULDER)) Gfx::ResumeAnim(alienModelAnim);
-		// 再生とブレンドを停止
-		if (Input::IsKeyPushed(KeyCode::Button::B) || Input::IsPadPushed(PadCode::Button::LEFT_THUMB)) Gfx::StopAnim(alienModelAnim);
-		Gfx::UpdateAnim(alienModelAnim, Time::DeltaTime());
-
-		std::string fpsValue{ std::format("CurrentMeasuredFPS : {:.1f}", Time::FPS()) };
-		std::string targetFPS{ std::format("CurrentSettingFPS : {}", Time::GetTargetFPS()) };
-		std::string unscaledDeltaTime{ std::format("CurrentUnscaledDeltaTime: {:.6f}", Time::UnscaledDeltaTime()) };
-		std::string deltaTime{ std::format("CurrentDeltaTime : {:.3f}", Time::DeltaTime()) };
-		std::string timeScale{ std::format("CurrentTimeScale : {:.2f}", Time::GetTimeScale()) };
-		const std::string lodText{ std::format("Current LOD : {}", lodFieldState.currentLevelIndex) };
-
-		// ウィンドウモード変更チェック
-		if (Input::IsKeyPushed(KeyCode::Button::RETURN) || Input::IsPadPushed(PadCode::Button::START)) isFullscreen = !isFullscreen;
-		if (isFullscreen) System::SetWindowMode(System::WindowMode::BorderlessFullscreen);
-		else  System::SetWindowMode(System::WindowMode::Windowed);
-
-		Gfx::SetCamera(camera); // 3D描画前に呼ぶ
-		Gfx::SetSceneLight(sceneLight);
+	
 		Gfx::ClearScreen(); // 画面クリア
 		
 		Gfx::DrawAnimatedModel(alienModelAnim, objectPosition); // 3Dモデルアニメーション

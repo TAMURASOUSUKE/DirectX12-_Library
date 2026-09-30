@@ -106,9 +106,10 @@ void FrameDebugOverlay::Build(const FrameDebugSystem& _system)
 	const auto& channels{ _system.GetChannels() };
 	const auto& descriptors{ _system.GetMetricDescriptors() };
 	const auto& values{ _system.GetReadFrame().metrics };
+	const auto& statistics{ _system.GetMetricStatistics() };
 
 	// 同じ添え字で対応しているので個数が違えばエラー
-	if (descriptors.size() != values.size())
+	if (descriptors.size() != values.size() || descriptors.size() != statistics.size())
 	{
 		DEBUG_LOG_ERROR("Metric定義と値の個数が一致しません\n");
 		return;
@@ -152,23 +153,39 @@ void FrameDebugOverlay::Build(const FrameDebugSystem& _system)
 			// 現在表示中のChannelに所属していない
 			if (ownerChannel != &channel) continue;
 
-			char valueText[64]{};
 			char metricLine[256]{};
+			bool hasDisplayValue{ false };
 
-			if (value.written)
+			if (descriptor.displayMode == DebugMetricDisplayMode::WindowStatistics)
 			{
-				// Unitに応じて値を整形して、Metric名と結合する
+				const DebugMetricStatistics& metricStatistics{ statistics[i] };
+				if (metricStatistics.valid)
+				{
+					char latestText[64]{};
+					char averageText[64]{};
+					char maximumText[64]{};
+
+					FormatMetricValue(latestText, sizeof(latestText), descriptor.unit, metricStatistics.latest);
+					FormatMetricValue(averageText, sizeof(averageText), descriptor.unit, metricStatistics.average);
+					FormatMetricValue(maximumText, sizeof(maximumText), descriptor.unit, metricStatistics.maximum);
+
+					std::snprintf(metricLine, sizeof(metricLine), " %s : Latest %s / Avg %s / Max %s", descriptor.name.c_str(), latestText, averageText, maximumText);
+					hasDisplayValue = true;
+				}
+			}
+			else if (value.written)
+			{
+				char valueText[64]{};
 				FormatMetricValue(valueText, sizeof(valueText), descriptor.unit, value.value);
 				std::snprintf(metricLine, sizeof(metricLine), "  %s : %s", descriptor.name.c_str(), valueText);
-			}
-			else
-			{
-				// 登録済みだが、このフレームでは値が提出されていない
-				std::snprintf(metricLine, sizeof(metricLine), "  %s : --", descriptor.name.c_str());
+
+				hasDisplayValue = true;
 			}
 
-			overlayFrame.textCommands.emplace_back(DebugTextCommand{ metricLine, cursor, TEXT_SCALE, value.written ? writtenColor : notWrittenColor });
+			// Currentが未提出、またはStatisticsがまだ確定していない
+			if (!hasDisplayValue) std::snprintf(metricLine, sizeof(metricLine), "  %s : --", descriptor.name.c_str());
 
+			overlayFrame.textCommands.emplace_back(DebugTextCommand{ metricLine, cursor, TEXT_SCALE, hasDisplayValue ? writtenColor : notWrittenColor });
 			cursor.y += LINE_HEIGHT;
 		}
 

@@ -81,6 +81,13 @@ enum class DebugMetricAggregation : std::uint8_t
 	Max, // 最大値
 };
 
+// MetricをOverlayへどのように表示するか
+enum class DebugMetricDisplayMode : std::uint8_t
+{
+	Current, // 完成した1フレームの値だけを表示
+	WindowStatistics, // 一定時間の更新、平均、最大を表示
+};
+
 // 登録時から変わらない情報を持つ
 struct DebugMetricDescriptor
 {
@@ -88,6 +95,7 @@ struct DebugMetricDescriptor
 	DebugChannelID channelID{}; // どの分類か
 	DebugMetricUnit unit{}; // 単位はどれか
 	DebugMetricAggregation aggregation{}; // 登録する際の方法はなにか
+	DebugMetricDisplayMode displayMode{ DebugMetricDisplayMode::Current }; // 時間方向にどのように表示するか
 };
 
 // 毎フレーム変化する情報を持つ
@@ -150,4 +158,14 @@ struct DebugChannelData
 {
 	std::string name{}; // Channel名
 	bool enabled{ true }; // 現在表示、記録対象になっているかどうか
+};
+
+// 一定期間に集計されたMetricの統計結果
+struct DebugMetricStatistics
+{
+	double latest{ 0.0 }; // 区間内で最後に提出された値
+	double average{ 0.0 }; // 区間内の平均
+	double maximum{ 0.0 }; // 区間内の最大
+	std::uint32_t sampleCount{ 0 }; // 区間内で値が提出された回数
+	bool valid{ false }; // 有効な統計結果が存在するか
 };

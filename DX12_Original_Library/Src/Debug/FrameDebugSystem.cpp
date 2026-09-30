@@ -23,6 +23,69 @@ void FrameDebugSystem::EndFrame()
 {
 	// 書き込み用と表示用を入れ替える(古い保存領域も再利用できる)
 	std::swap(writeFrame, readFrame);
+
+	// 個数をチェックする 登録時に同じ個数を追加しているので違うなら壊れていると判断する
+	if (readFrame.metrics.size() != metricDescriptors.size() ||
+		metricAccumulators.size() != metricDescriptors.size() ||
+		metricStatistics.size() != metricDescriptors.size())
+	{
+		DEBUG_LOG_ERROR("Metricの内部配列数が一致していません\n");
+		return;
+	}
+
+	// 完成した各Metricを現在の統計区間へ追加する
+	for (std::size_t i = 0; i < metricDescriptors.size(); i++)
+	{
+		const DebugMetricDescriptor& descriptor{ metricDescriptors[i] };
+
+		// CurrentModeの場合は時間方向の収集が不要
+		if (descriptor.displayMode != DebugMetricDisplayMode::WindowStatistics) continue;
+
+		const DebugMetricValue& value{ readFrame.metrics[i] };
+		if (!value.written) continue; // このフレームで提出されていない値は集計しない
+
+		DebugMetricWindowAccumulator& accumulator{ metricAccumulators[i] };
+		accumulator.latest = value.value;
+		accumulator.sum += value.value;
+
+		//初回は0と比較を行わずに提出値をそのまま最大値にする
+		if (accumulator.sampleCount == 0 || accumulator.maximum < value.value) accumulator.maximum = value.value;
+		accumulator.sampleCount++;
+	}
+
+	const auto currentTime{ std::chrono::steady_clock::now() };
+	const std::chrono::duration<double> elapsed{ currentTime - statisticsWindowStart };
+
+	// まだ指定秒数経過していないなら途中結果を保持したまま終わる
+	if (elapsed.count() < STATISTICS_WINDOW_SECONDS) return;
+
+	// 指定秒数分の計測結果をOverlay公開用へと確定する
+	for (std::size_t i = 0; i < metricDescriptors.size(); i++)
+	{
+		// Currentならスキップ
+		if (metricDescriptors[i].displayMode != DebugMetricDisplayMode::WindowStatistics) continue;
+
+		DebugMetricWindowAccumulator& accumulator{ metricAccumulators[i] };
+		DebugMetricStatistics& statistics{ metricStatistics[i] };
+
+		if (accumulator.sampleCount == 0)
+		{
+			// 区間内で一度も提出されなかった
+			statistics = DebugMetricStatistics{};
+		}
+		else
+		{
+			statistics.latest = accumulator.latest;
+			statistics.average = accumulator.sum / static_cast<double>(accumulator.sampleCount);
+			statistics.maximum = accumulator.maximum;
+			statistics.sampleCount = accumulator.sampleCount;
+			statistics.valid = true;
+		}
+
+		// 次の0.5秒区間に備えて計算途中の値をリセット
+		accumulator = DebugMetricWindowAccumulator{};
+	}
+	statisticsWindowStart = currentTime;                     
 }
 
 DebugChannelID FrameDebugSystem::RegisterChannel(const std::string& _channelName)
@@ -78,7 +141,7 @@ DebugMetricID FrameDebugSystem::RegisterMetric(const DebugMetricDescriptor& _des
 		if (metricDescriptors[i].name != _descriptor.name) continue; // 同名じゃない
 		if (metricDescriptors[i].channelID != _descriptor.channelID) continue; // チャンネルIDが同名じゃない
 		// 同じChannel・同じ名前なのに設定が違う場合は設計の矛盾
-		if (metricDescriptors[i].unit != _descriptor.unit || metricDescriptors[i].aggregation != _descriptor.aggregation)
+		if (metricDescriptors[i].unit != _descriptor.unit || metricDescriptors[i].aggregation != _descriptor.aggregation || metricDescriptors[i].displayMode != _descriptor.displayMode)
 		{
 			DEBUG_LOG_ERROR("同名Metricに異なる設定が指定されました");
 			return DebugMetricID{};
@@ -99,6 +162,9 @@ DebugMetricID FrameDebugSystem::RegisterMetric(const DebugMetricDescriptor& _des
 	// metric保存用の場所を予約するために空を入れる
 	writeFrame.metrics.emplace_back();
 	readFrame.metrics.emplace_back();
+	// 時間方向の集計領域も同じ添字で追加する
+	metricAccumulators.emplace_back();
+	metricStatistics.emplace_back();
 	return DebugMetricID{ newIndex };
 }
 

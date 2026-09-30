@@ -240,3 +240,12 @@ bool Debug::SetChannelEnabled(DebugChannelID _channelID, bool _enabled)
 {
 	return frameDebugSystem.SetChannelEnabled(_channelID, _enabled);
 }
+
+CPUTimingScope Debug::BeginCPUTiming(DebugMetricID _metricID)
+{
+#ifdef _DEBUG
+	return CPUTimingScope{ _metricID, Debug::SubmitMetric };
+#else
+	return CPUTimingScope{ DebugMetricID{}, nullptr };
+#endif
+}

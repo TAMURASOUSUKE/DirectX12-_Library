@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include "../Debug/CPUTimingScope.h"
 #include "../Debug/FrameDebugType.h"
 
 // ユーザーにマクロ以外のデバッグ機能を提供する空間
@@ -25,4 +26,6 @@ namespace Debug
 	bool IsOverlayVisible();
 	// 指定Channelの計測と表示を切り替える
 	bool SetChannelEnabled(DebugChannelID _channelID, bool _enabled);
+	// 指定MetricへCPU処理時間を記録する計測を開始する
+	CPUTimingScope BeginCPUTiming(DebugMetricID _metricID);
 }
