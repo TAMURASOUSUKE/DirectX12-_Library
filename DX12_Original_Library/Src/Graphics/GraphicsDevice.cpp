@@ -435,6 +435,25 @@ HRESULT GraphicsDevice::ExecuteUpdate(std::function<void(ID3D12GraphicsCommandLi
 	return S_OK; // ここまで来たら成功を返す
 }
 
+UINT64 GraphicsDevice::GetTimestampFrequency() const
+{
+	if (!cmdQueue)
+	{
+		DEBUG_LOG_ERROR("TimeStanp周波数を取得するQueueが存在しません\n");
+		return 0;
+	}
+
+	UINT64 frequency{ 0 };
+
+	const HRESULT result{ cmdQueue->GetTimestampFrequency(&frequency) };
+	if (FAILED(result) || frequency == 0)
+	{
+		DEBUG_LOG_ERROR("GPUTimestanp周波数の取得に失敗ししました\n");
+		return 0;
+	}
+	return frequency;
+}
+
 UINT64 GraphicsDevice::GetCompletedFenceValue() const
 {
 	// Shutdown後など、フェンスが存在しない場合の保険

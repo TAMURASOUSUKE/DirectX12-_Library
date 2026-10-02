@@ -10,6 +10,7 @@
 #include "../Debug/DebugLogs.h"
 #include "GraphicsResourceManager.h"
 #include "GraphicsDevice.h"
+#include "GraphicsMetrics.h"
 #include "DescriptorManager.h"
 #include "ModelRenderer.h"
 
@@ -165,7 +166,7 @@ bool ModelRenderer::BeginModelDraw(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress
 
 }
 
-bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet)
+bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet, GraphicsPass _pass)
 {
 	if (!_packet.subMesh || _packet.pipelineID == PipelineID::Count || _packet.preparedData.objectAddress == 0 || _packet.preparedData.skinningAddress == 0)
 	{
@@ -294,6 +295,7 @@ bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet)
 	cmd->IASetVertexBuffers(0, 1, &subMesh.vertexBuffer.vertexView); // InputAssemblerへ登録
 	cmd->IASetIndexBuffer(&subMesh.indexBuffer.indexView); // 頂点Indexを登録(読み込み時点で右手系から左手系にしている)
 
+	GraphicsMetrics::RecordDrawCall(_pass);
 	cmd->DrawIndexedInstanced(subMesh.indexBuffer.indexCount, 1, 0, 0, 0); // IndexBufferの要素数分描画
 	return true;
 }
@@ -353,6 +355,7 @@ bool ModelRenderer::DrawShadowSubMesh(const ModelDrawPacket& _packet)
 	cmd->SetGraphicsRootConstantBufferView(5, _packet.preparedData.objectAddress);
 	cmd->IASetVertexBuffers(0, 1, &subMesh.vertexBuffer.vertexView);
 	cmd->IASetIndexBuffer(&subMesh.indexBuffer.indexView);
+	GraphicsMetrics::RecordDrawCall(GraphicsPass::Shadow);
 	cmd->DrawIndexedInstanced(subMesh.indexBuffer.indexCount, 1, 0, 0, 0);
 	return true;
 }

@@ -46,6 +46,12 @@ struct Vector3Int
 	// 二点間のベクトル
 	static Vector3Int FromTo(const Vector3Int& _startPos, const Vector3Int& _endPos);
 
+	// 有効値を調べる
+	static bool IsFinite(const Vector3Int& _vector);
+
+	// 0以上かを調べる
+	static bool IsNonNegative(const Vector3Int& _vector);
+
 	// 逆ベクトル
 	Vector3Int operator -() const;
 

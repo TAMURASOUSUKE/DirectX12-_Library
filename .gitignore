@@ -456,3 +456,15 @@ FodyWeavers.xsd
 # Additional files built by Visual Studio
 *.glb
 # End of https://www.toptal.com/developers/gitignore/api/windows,c++,visualstudio
+
+# Debugという名前のソースフォルダはビルド出力ではない
+!DX12_Original_Library/Src/Debug/
+!DX12_Original_Library/Src/Debug/*.h
+!DX12_Original_Library/Src/Debug/*.cpp
+!DX12_Original_Library/Src/Debug/**/*.h
+!DX12_Original_Library/Src/Debug/**/*.cpp
+
+# SDKへ公開するDebugヘッダーもGit管理する
+!DX12_Original_Library/TSGameLibSDK/include/TSGameLib/Debug/
+!DX12_Original_Library/TSGameLibSDK/include/TSGameLib/Debug/*.h
+!DX12_Original_Library/TSGameLibSDK/include/TSGameLib/Debug/**/*.h

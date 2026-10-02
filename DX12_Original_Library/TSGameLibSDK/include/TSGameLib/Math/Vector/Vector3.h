@@ -67,6 +67,12 @@ struct alignas(16) Vector3
 	// 二点間の三次元座標を第三引数の値で補完する(第三引数は0から1の間の数で渡してください)
 	static Vector3 Lerp(const Vector3& _startPos, const Vector3& _endPos, float _completionValue);
 
+	// 有効値を調べる
+	static bool IsFinite(const Vector3& _vector);
+
+	// 0以上かを調べる
+	static bool IsNonNegative(const Vector3& _vector);
+
 	// 逆ベクトル
 	Vector3 operator -() const;
 

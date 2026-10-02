@@ -44,6 +44,12 @@ struct Vector2Int
 	// 二点間のベクトル
 	static Vector2Int FromTo(const Vector2Int& _startPos, const Vector2Int& _endPos);
 
+	// 有効値を調べる
+	static bool IsFinite(const Vector2Int& _vector);
+
+	// 0以上かを調べる
+	static bool IsNonNegative(const Vector2Int & _vector);
+
 	// 逆ベクトル
 	Vector2Int operator -() const;
 

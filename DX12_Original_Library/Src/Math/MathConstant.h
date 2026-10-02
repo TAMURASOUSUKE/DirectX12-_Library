@@ -2,7 +2,7 @@
 #include <cmath>
 #include "Vector/Vector3.h"
 
-// Math関連で共通して使うような定数をまとめる
+// Math関連で共通して使うような定数や便利機能をまとめる
 namespace Math 
 {
 
@@ -40,6 +40,5 @@ namespace Math
 		if (totalValue <= EPSILON) return 0.0f; // 0割りなら0を返す
 		return fromStart / totalValue; // 補間率を返す
 	}
-	
 	static_assert(Math::InverseLerp(10.0f, 30.0f, 15.0f) == 0.25f, "InverseLerpの計算が違う");
 }

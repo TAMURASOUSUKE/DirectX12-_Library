@@ -30,7 +30,7 @@
     </ClCompile>
 
     <Link>
-      <!-- DebugならDebug、ReleaseならReleaseを自動選択する -->
+      <!-- Debug、Profile、Releaseから現在の構成を自動選択する -->
       <AdditionalLibraryDirectories>
         $(TSGameLibRoot)lib\x64\$(Configuration);
         %(AdditionalLibraryDirectories)

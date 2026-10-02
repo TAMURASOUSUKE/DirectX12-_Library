@@ -103,6 +103,16 @@ Vector4 Vector4::FromPosition(const Vector3& _pos)
 	return Vector4{_pos, 1.0f};
 }
 
+bool Vector4::IsFinite(const Vector4& _vector)
+{
+	return std::isfinite(_vector.x) && std::isfinite(_vector.y) && std::isfinite(_vector.z) && std::isfinite(_vector.w);
+}
+
+bool Vector4::IsNonNegative(const Vector4& _vector)
+{
+	return _vector.x >= 0.0f && _vector.y >= 0.0f && _vector.z >= 0.0f && _vector.w >= 0.0f;
+}
+
 // 逆ベクトル
 Vector4 Vector4::operator -() const
 {

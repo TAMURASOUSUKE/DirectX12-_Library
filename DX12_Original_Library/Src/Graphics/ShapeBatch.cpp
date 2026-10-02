@@ -1,5 +1,6 @@
 #include "../Debug/DebugLogs.h"
 #include "GraphicsDevice.h"
+#include "GraphicsMetrics.h"
 #include "GraphicsType.h"
 #include "GraphicsConstant.h"
 #include "GraphicsResourceManager.h"
@@ -362,6 +363,7 @@ void ShapeBatch::Flush()
 			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		}
 
+		GraphicsMetrics::RecordDrawCall(GraphicsPass::Shape2D);
 		cmd->DrawInstanced(run.count, 1, run.startVertex, 0); // 区間情報から描画位置を特定して描画する
 	}
 

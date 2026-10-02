@@ -119,7 +119,7 @@ void ModelRenderSystem::FlushOpaque(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddres
 	if (!renderer.BeginModelDraw(_shadowFrameAddress, _shadowMapSRV)) return; // Model用共通データを設定する(RootSigやCBV,Topology)
 	for (const ModelDrawPacket& packet : opaqueModels)
 	{
-		renderer.DrawSubMesh(packet);
+		renderer.DrawSubMesh(packet, GraphicsPass::OpaqueModel);
 	}
 }
 
@@ -130,7 +130,7 @@ void ModelRenderSystem::FlushBlend(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress
 	if (!renderer.BeginModelDraw(_shadowFrameAddress, _shadowMapSRV)) return; // Model用共通データを設定する(RootSigやCBV,Topology)
 	for (const ModelDrawPacket& packet : blendModels)
 	{
-		renderer.DrawSubMesh(packet);
+		renderer.DrawSubMesh(packet, GraphicsPass::BlendModel);
 	}
 }
 

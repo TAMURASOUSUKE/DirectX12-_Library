@@ -56,6 +56,9 @@ public:
 	// ヘルパー
 	HRESULT ExecuteUpdate(std::function<void(ID3D12GraphicsCommandList*)> _recode); // アップロードヘルパー
 
+	// GPU Timestampの1秒当たりのカウント数を取得する
+	UINT64 GetTimestampFrequency() const;
+
 private:
 	GraphicsDevice() = default; // 内部でのみのインスタンス
 

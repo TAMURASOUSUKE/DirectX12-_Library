@@ -20,6 +20,7 @@
 #include "Input.h"
 #include "Sound.h"
 #include "System.h"
+#include "Debug.h"
 #include "File.h"
 #include "UI.h"
 

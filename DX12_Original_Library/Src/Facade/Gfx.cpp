@@ -5,10 +5,12 @@
 #include "../External/Common/d3dx12.h"
 #include "../External/cgltf.h"
 #include "../Debug/DebugLogs.h"
+#include "../Graphics/GraphicsMetrics.h"
 #include "../Graphics/GraphicsDevice.h"
 #include "../Graphics/DescriptorManager.h"
 #include "../Graphics/ShaderSystem.h"
 #include "../Graphics/GraphicsResourceManager.h"
+#include "../Graphics/GraphicsGPUTimingSystem.h"
 #include "../Graphics/SpriteBatch.h"
 #include "../Graphics/ShapeBatch.h"
 #include "../Graphics/RingConstantBuffer.h"
@@ -52,6 +54,7 @@ namespace {
 	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
 	MaterialHandle currentPostEffectMaterial{}; // 現在画面全体へ適用しているポストエフェクトmaterial(無効ハンドルなら内蔵の素通しPSOを使う)
 	DirectionalShadowSettings shadowSettings{}; // 最初は固定範囲でShadow Mappingを検証する
+	GraphicsGPUTimingSystem gpuTimingSystem; // GPU実行時間を計測するシステム
 
 	constexpr GraphicsPipelineDesc PIPELINE_TABLE[]{
 		// 図形塗りつぶし
@@ -135,7 +138,32 @@ namespace {
 	constexpr bool ENABLE_SHADOW_MAP_DEBUG_PREVIEW{ false };
 #endif
 
-	namespace {
+	namespace 
+	{
+		// 指定PassのGPU時間計測を開始する
+		bool BeginGPUTimingPass(GraphicsPass _pass)
+		{
+			ID3D12GraphicsCommandList* commandList{ GraphicsDevice::Instance().GetCommandList() };
+			if (!gpuTimingSystem.BeginPass(commandList, _pass))
+			{
+				DEBUG_LOG("指定されたPassのGPU計測開始に失敗しました\n");
+				return false;
+			}
+			return true;
+		}
+
+		// Beginに成功したPassのGPU時間計測を終了する
+		void EndGPUTimingPass(GraphicsPass _pass, bool _isStarted)
+		{
+			if (!_isStarted) return;
+
+			ID3D12GraphicsCommandList* commandList{ GraphicsDevice::Instance().GetCommandList() };
+			if (!gpuTimingSystem.EndPass(commandList, _pass))
+			{
+				DEBUG_LOG_ERROR("GPU Pass計測の終了に失敗しました\n");
+			}
+		}
+		
 		// Terrainのリソースを初期化する
 		bool InitializeTerrainResources()
 		{
@@ -221,10 +249,6 @@ namespace {
 				return;
 			}
 
-			// Terrain用RootSigとPSO
-			cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Terrain));
-			cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::TerrainWire));
-			DescriptorManager::Instance().SetDiscriptor(cmd); // SRVを使うのでDescriptorHeapをセット
 			//XZ方向に拡大
 			const Mat4x4 scaleMat{ Mat4x4::MakeScaling(Vector3{_scale, 1.0f, _scale}) };
 			const Mat4x4 translationMat{ Mat4x4::MakeTranslation(_position) };
@@ -241,6 +265,13 @@ namespace {
 				DEBUG_LOG_ERROR("terrainのリングバッファUpdateに失敗しました\n");
 				return;
 			}
+
+			const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::Terrain) };
+			// Terrain用RootSigとPSO
+			cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Terrain));
+			cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::TerrainWire));
+			DescriptorManager::Instance().SetDiscriptor(cmd); // SRVを使うのでDescriptorHeapをセット
+
 			// RootParam[0] : HS b0
 			cmd->SetGraphicsRootConstantBufferView(0, cbAddress);
 			// RootParam[1] : DS b0
@@ -251,7 +282,11 @@ namespace {
 			cmd->IASetIndexBuffer(&terrainIndexBuffer.indexView);
 			// 3インデックスで1つの三角形パッチとして渡す
 			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
+			GraphicsMetrics::RecordDrawCall(GraphicsPass::Terrain);
 			cmd->DrawIndexedInstanced(terrainIndexBuffer.indexCount, 1, 0, 0, 0);
+
+			// ここで終了
+			EndGPUTimingPass(GraphicsPass::Terrain, gpuTimingStarted);
 		}
 
 		// 指定したアトラスのセル番号からUV範囲を計算する
@@ -397,6 +432,7 @@ namespace {
 			cmd->SetGraphicsRootDescriptorTable(0, shadowSystem.GetSRV());
 			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			// PostEffectVSがSV_VertexIDからフルスクリーン三角形を作る
+			GraphicsMetrics::RecordDrawCall(GraphicsPass::DebugPreview);
 			cmd->DrawInstanced(3, 1, 0, 0);
 
 			// Debug表示で変更したViewportとScissorを通常サイズへ戻す
@@ -456,6 +492,13 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	{
 		DEBUG_LOG_ERROR("デバイスの読み込みに失敗しました\n");
 		return false; // デバイス読み込み失敗したらfalse
+	}
+
+	const UINT64 timestampFrequency{ GraphicsDevice::Instance().GetTimestampFrequency() };
+	if (!gpuTimingSystem.Initialize(GraphicsDevice::Instance().GetDevice(), timestampFrequency))
+	{
+		DEBUG_LOG_ERROR("GPUTimingSystemの初期化に失敗しました\n");
+		return false;
 	}
 
 	DescriptorManager::Instance().Setup(GraphicsDevice::Instance().GetDevice()); // ディスクリプタマネージャーをデバイスを使って初期化
@@ -566,10 +609,13 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 // フレーム開始処理
 void GfxInternal::BeginFrame()
 {
+	GraphicsMetrics::BeginFrame(); // 統計のリセット
+
 	// cmdを開く前の安全なタイミングでサイズ依存リソースを更新
 	if (!graphicsSystem.ApplyPendingResize()) DEBUG_LOG_ERROR("予約された画面リサイズ適用に失敗しました\n");
 
 	GraphicsDevice::Instance().BeginFrame(); // フレームの最初の処理
+	if (!gpuTimingSystem.BeginFrame(GraphicsDevice::Instance().GetCommandList(), GraphicsDevice::Instance().GetCurrentFrameIndex())) DEBUG_LOG_ERROR("GPUフレーム計測の開始に失敗しました\n");
 
 	// GPUが使用し終えた遅延開放リソースを回収する
 	GraphicsResourceManager::Instance().CollectDeferredReleases(GraphicsDevice::Instance().GetCompletedFenceValue());
@@ -622,9 +668,15 @@ void GfxInternal::BeginFrame()
 void GfxInternal::EndFrame()
 {
 	// Spritebatch描画
+	if (bgBatch.HasPendingDraw())
 	{
-		GPU_MARKER("backGround");
-		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
+		const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::BackgroundSprite) }; // 計測開始
+		{
+			GPU_MARKER("backGround");
+			bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get(), GraphicsPass::BackgroundSprite);
+		}
+
+		EndGPUTimingPass(GraphicsPass::BackgroundSprite, gpuTimingStarted); // 計測終了
 	}
 
 	modelRenderSystem.BuildDrawPackets(); // Packet展開
@@ -632,6 +684,7 @@ void GfxInternal::EndFrame()
 	const D3D12_GPU_DESCRIPTOR_HANDLE shadowMapSRV{ shadowSystem.GetSRV() };
 	// ShadowPass
 	{
+		const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::Shadow) }; // 計測開始
 		GPU_MARKER("Directional Shadow Pass");
 		// 最初はカメラ位置をShadow描画範囲の中心にする後でカメラ前方へずらし、Texel Snappingも追加する
 		DirectionalShadowSettings currentSettings{ shadowSettings };
@@ -661,45 +714,60 @@ void GfxInternal::EndFrame()
 
 		// ShadowPassが変更したRTV・DSV・Viewport・Scissorを戻す
 		if (!BindMainRenderState()) DEBUG_LOG_ERROR("ShadowPass後の通常描画状態の復元に失敗しました\n");
+		EndGPUTimingPass(GraphicsPass::Shadow, gpuTimingStarted); // 計測終了
 	}
 
 	// 不透明モデル描画
 	{
+		const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::OpaqueModel) }; // 計測開始
 		GPU_MARKER("Opaque・MaskModel");
 		modelRenderSystem.FlushOpaque(shadowFrameAddress, shadowMapSRV);
+		EndGPUTimingPass(GraphicsPass::OpaqueModel, gpuTimingStarted); // 計測終了
 	}
 
 	// 3D基礎図形
 	{
+		const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::Primitive3D) }; // 計測開始
 		const D3D12_GPU_VIRTUAL_ADDRESS lightAddress{ lightSystem.GetFrameGPUAddress() };
 		GPU_MARKER("Primitive3D");
 		if (!primitive3DSystem.Flush(cameraSystem.GetViewProjectionMatrix(), lightAddress)) DEBUG_LOG_ERROR("Primitive3Dの更新に失敗しました\n");
+		EndGPUTimingPass(GraphicsPass::Primitive3D, gpuTimingStarted); // 計測終了
 	}
 
 	// モデル描画
 	{
+		const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::BlendModel) }; // 計測開始
 		GPU_MARKER("BlendModel");
 		modelRenderSystem.FlushBlend(shadowFrameAddress, shadowMapSRV);
+		EndGPUTimingPass(GraphicsPass::BlendModel, gpuTimingStarted); // 計測終了
 	}
 
 	// 前面2DSprite
 	{
+		const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::ForegroundSprite) }; // 計測開始
 		GPU_MARKER("foreGround");
-		fgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get());
+		fgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get(), GraphicsPass::ForegroundSprite);
+		EndGPUTimingPass(GraphicsPass::ForegroundSprite, gpuTimingStarted); // 計測終了
 	}
 
 	// ShapeBatch描画
 	{
+		const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::Shape2D) }; // 計測開始
 		GPU_MARKER("ShapeDraw");
 		shapeBatch.Flush();
+		EndGPUTimingPass(GraphicsPass::Shape2D, gpuTimingStarted); // 計測終了
 	}
 
 #ifdef  _DEBUG
 	{
 		if (ENABLE_SHADOW_MAP_DEBUG_PREVIEW)
 		{
-			GPU_MARKER("ShadowMap Debug Preview");
-			if (!DrawShadowMapDebug()) DEBUG_LOG_ERROR("ShadowMapのDebug表示に失敗しました\n");
+			const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::DebugPreview) };
+			{
+				GPU_MARKER("ShadowMap Debug Preview");
+				if (!DrawShadowMapDebug()) DEBUG_LOG_ERROR("ShadowMapのDebug表示に失敗しました\n");
+			}
+			EndGPUTimingPass(GraphicsPass::DebugPreview,gpuTimingStarted);
 		}
 	}
 #endif //  _DEBUG
@@ -713,6 +781,9 @@ void GfxInternal::EndFrame()
 		RenderTargetData* sceneRT{ GraphicsResourceManager::Instance().Lookup(graphicsSystem.GetSceneRenderTarget()) };
 		if (sceneRT)
 		{
+			// 取得に成功した場合のみ計測を行う
+			const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::PostEffect) };
+
 			// バリアを使ってシーンRTを書き込み先からシェーダーで読む画像へ遷移させる
 			D3D12_RESOURCE_BARRIER toShaderResource{ CD3DX12_RESOURCE_BARRIER::Transition(sceneRT->resource.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE) };
 			cmd->ResourceBarrier(1, &toShaderResource);
@@ -783,11 +854,14 @@ void GfxInternal::EndFrame()
 			}
 
 			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			GraphicsMetrics::RecordDrawCall(GraphicsPass::PostEffect); // 計測する
 			cmd->DrawInstanced(3, 1, 0, 0); // 頂点バッファを使わずにSV_VertexIDの0, 1, 2を発生させる
 
 			// 次フレームで再びシーンRTへ描けるようにする
 			D3D12_RESOURCE_BARRIER toRenderTarget{ CD3DX12_RESOURCE_BARRIER::Transition(sceneRT->resource.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET) };
 			cmd->ResourceBarrier(1, &toRenderTarget);
+
+			EndGPUTimingPass(GraphicsPass::PostEffect, gpuTimingStarted);
 		}
 		else
 		{
@@ -795,6 +869,10 @@ void GfxInternal::EndFrame()
 			DEBUG_LOG_ERROR("EndFrameでシーンRTを取得できないためポストエフェクトをスキップします\n");
 		}
 	}
+
+	GraphicsMetrics::EndFrame(); // 統計の確定
+
+	if (!gpuTimingSystem.EndFrame(cmd)) DEBUG_LOG_ERROR("GPUフレーム計測の終了に失敗しました\n");
 	GraphicsDevice& graphicsDevice{ GraphicsDevice::Instance() };
 	const bool endFrameSucceeded{ graphicsDevice.EndFrame() };
 	// Signalが成功したフレームだけpendingReleaseへ確定済みのFence値を割り当てる
@@ -847,13 +925,23 @@ void GfxInternal::Finish()
 
 	}
 #endif
-
+	gpuTimingSystem.Shutdown();
 	GraphicsDevice::Instance().Shutdown(); // Deviceの解放
 }
 
 void GfxInternal::RequestResize(int _width, int _height)
 {
 	graphicsSystem.RequestResize(_width, _height);
+}
+
+const GraphicsFrameMetrics& GfxInternal::GetLastFrameMetrics()
+{
+	return GraphicsMetrics::GetLastFrame();
+}
+
+const GraphicsGPUTimingFrame& GfxInternal::GetLastGPUTimingFrame()
+{
+	return gpuTimingSystem.GetLastFrame();
 }
 
 bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _slot, const void* _data, size_t _dataSize)
@@ -1473,10 +1561,16 @@ bool Gfx::DestroyAnim(AnimInstanceHandle _handle)
 
 void Gfx::DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap)
 {
+	if (bgBatch.HasPendingDraw())
 	{
-		// マクロがスコープを抜けるとEndEventするので囲う
-		GPU_MARKER("backGround");
-		bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get()); // 背景の上に来るように3D描画前には背景batchをFlushする
+		const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::BackgroundSprite) };
+		{
+			// マクロがスコープを抜けるとEndEventするので囲う
+			GPU_MARKER("backGround");
+			bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get(), GraphicsPass::BackgroundSprite);
+		}
+
+		EndGPUTimingPass(GraphicsPass::BackgroundSprite, gpuTimingStarted);
 	}
 
 	DrawTerrainInternal(_position, _scale, _tessFactor, _heightScale, _color, _heightMap);

@@ -152,6 +152,11 @@ float Quaternion::Dot(const Quaternion& _a, const Quaternion& _b)
 	return _a.x * _b.x + _a.y * _b.y + _a.z * _b.z + _a.w * _b.w;
 }
 
+bool Quaternion::IsFinite(const Quaternion& _quaternion)
+{
+	return std::isfinite(_quaternion.x) && std::isfinite(_quaternion.y) && std::isfinite(_quaternion.z) && std::isfinite(_quaternion.w);
+}
+
 // 長さ
 float Quaternion::Length() const
 {

@@ -64,6 +64,12 @@ struct alignas(16) Vector4
 	// Vector3を位置座標としてVector4に変換する(w = 1)
 	static Vector4 FromPosition(const Vector3& _pos);
 
+	// 有効値を調べる
+	static bool IsFinite(const Vector4& _vector);
+
+	// 0以上かを調べる(Wも含めて検査します)
+	static bool IsNonNegative(const Vector4& _vector);
+
 	// 逆ベクトル
 	Vector4 operator -() const;
 

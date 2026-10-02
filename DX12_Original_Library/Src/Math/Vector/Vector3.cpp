@@ -222,9 +222,17 @@ Vector3& Vector3::operator /=(const float _value)
 	return *this;
 }
 
+bool Vector3::IsFinite(const Vector3& _vector)
+{
+	return std::isfinite(_vector.x) && std::isfinite(_vector.y) && std::isfinite(_vector.z);
+}
+
+bool Vector3::IsNonNegative(const Vector3& _vector)
+{
+	return _vector.x >= 0.0f && _vector.y >= 0.0f && _vector.z >= 0.0f; 
+}
+
 // 以下比較演算子
-
-
 
 // 等価
 bool Vector3::operator ==(const Vector3& _other) const

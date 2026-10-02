@@ -3,6 +3,7 @@
 #include "../Math/TSMath.h"
 #include "RingConstantBuffer.h"
 #include "GraphicsType.h"
+#include "GraphicsMetrics.h"
 
 // 描画順を記録するためのもの
 struct SpriteDrawRun
@@ -25,11 +26,12 @@ public:
 	// スプライトの登録(画像とパイプラインとパラメータと位置とサイズと回転角度とUV空間)
 	void RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipelineState, const MaterialParameterSet* _parameters, Vector2 _position, Vector2 _size, float _radRotation = 0.0f, Vector4 _color = Vector4::One, Vector2 _uvMin = {Vector2::Zero}, Vector2 _uvMax = {Vector2::One});
 	// まとめてDrawCallをする
-	void Flush(RingConstantBuffer& _parameterRing, ID3D12Resource* _zeroParameterBuffer);
+	void Flush(RingConstantBuffer& _parameterRing, ID3D12Resource* _zeroParameterBuffer, GraphicsPass _pass);
 	// カウンター等をリセットする
 	void Reset();
 
-	
+	// 描画待ちのSpriteが存在するか
+	bool HasPendingDraw() const { return !runs.empty(); }
 private:
 	VertexBuffer vertBuffers[FRAME_BUFFER_COUNT]; // 頂点バッファ : BackBufferごとに動的頂点バッファを分けてGPUが読み込んでいるときにCPUが上書きしないため
 	IndexBuffer indexBuffer; // インデックスバッファ

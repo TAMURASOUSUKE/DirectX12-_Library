@@ -62,6 +62,16 @@ Vector3Int Vector3Int::FromTo(const Vector3Int& _startPos, const Vector3Int& _en
 	return distVec;
 }
 
+bool Vector3Int::IsFinite(const Vector3Int& _vector)
+{
+	return std::isfinite(_vector.x) && std::isfinite(_vector.y) && std::isfinite(_vector.z);
+}
+
+bool Vector3Int::IsNonNegative(const Vector3Int& _vector)
+{
+	return _vector.x >= 0 && _vector.y >= 0 && _vector.z >= 0;
+}
+
 // 逆ベクトル
 Vector3Int Vector3Int::operator -() const
 {

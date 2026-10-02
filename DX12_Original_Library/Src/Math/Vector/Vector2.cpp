@@ -128,7 +128,15 @@ Vector2 Vector2::Lerp(const Vector2& _startPos, const Vector2& _endPos, float _c
 	return distVec * _completionValue + _startPos;
 }
 
+bool Vector2::IsFinite(const Vector2& _vector)
+{
+	return std::isfinite(_vector.x) && std::isfinite(_vector.y);
+}
 
+bool Vector2::IsNonNegative(const Vector2& _vector)
+{
+	return _vector.x >= 0.0f && _vector.y >= 0.0f;
+}
 
 // 逆ベクトル
 Vector2 Vector2::operator -() const

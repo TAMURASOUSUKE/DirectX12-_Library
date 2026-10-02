@@ -1,15 +1,30 @@
 <Solution>
   <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Profile" />
+    <BuildType Name="Release" />
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="CollisionTest/CollisionTest.vcxproj" Id="872ddec4-16e6-485f-91ad-de111e6e3457" />
+  <Project Path="CollisionTest/CollisionTest.vcxproj" Id="872ddec4-16e6-485f-91ad-de111e6e3457">
+    <BuildType Solution="Profile|*" Project="Release" />
+  </Project>
   <Project Path="DX12_Original_Library.vcxproj" Id="52cb1240-45e6-4b46-88fa-14088c51322a" />
-  <Project Path="FileTest/FileTest.vcxproj" Id="a39782cc-cb0d-4adc-be29-dcd2719f64be" />
-  <Project Path="GraphicsTest2D/GraphicsTest2D.vcxproj" Id="806203b0-000e-4855-a108-20e1e4333790" />
+  <Project Path="FileTest/FileTest.vcxproj" Id="a39782cc-cb0d-4adc-be29-dcd2719f64be">
+    <BuildType Solution="Profile|*" Project="Release" />
+  </Project>
+  <Project Path="GraphicsTest2D/GraphicsTest2D.vcxproj" Id="806203b0-000e-4855-a108-20e1e4333790">
+    <BuildType Solution="Profile|*" Project="Release" />
+  </Project>
   <Project Path="GraphicsTest3D/GraphicsTest3D.vcxproj" Id="7ece2da5-e955-49ab-9354-109a11704f83" />
-  <Project Path="InputTest/InputTest.vcxproj" Id="92f5e192-7f57-4ca0-9982-8ea768e91d8a" />
-  <Project Path="MathTest/MathTest.vcxproj" Id="89e6f130-5fbf-4caa-8763-de78e013c946" />
-  <Project Path="SoundTest/SoundTest.vcxproj" Id="c13ccc51-b0c9-43c7-b3b6-c08e0b45f79d" />
+  <Project Path="InputTest/InputTest.vcxproj" Id="92f5e192-7f57-4ca0-9982-8ea768e91d8a">
+    <BuildType Solution="Profile|*" Project="Release" />
+  </Project>
+  <Project Path="MathTest/MathTest.vcxproj" Id="89e6f130-5fbf-4caa-8763-de78e013c946">
+    <BuildType Solution="Profile|*" Project="Release" />
+  </Project>
+  <Project Path="SoundTest/SoundTest.vcxproj" Id="c13ccc51-b0c9-43c7-b3b6-c08e0b45f79d">
+    <BuildType Solution="Profile|*" Project="Release" />
+  </Project>
   <Project Path="Src/External/DirectXTex/DirectXTex_Desktop_2022_Win10.vcxproj" Id="371b9fa9-4c90-4ac6-a123-aced756d6c77" />
 </Solution>

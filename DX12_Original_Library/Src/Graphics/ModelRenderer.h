@@ -3,6 +3,7 @@
 #include "../Core/Handle/ModelHandle.h"
 #include "ModelDrawPacket.h"
 #include "RingConstantBuffer.h"
+#include "GraphicsMetrics.h"
 
 // 不完全な型でよいかつ、外部に参照を漏らさないために前方宣言
 class Transform;
@@ -29,7 +30,7 @@ public:
 	// モデル全体で共通する状態を設定する
 	bool BeginModelDraw(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress, D3D12_GPU_DESCRIPTOR_HANDLE _shadowMapSRV);
 	// パケット内のサブメッシュを1つ描画する
-	bool DrawSubMesh(const ModelDrawPacket& _packet);
+	bool DrawSubMesh(const ModelDrawPacket& _packet, GraphicsPass _pass);
 
 	// ShadowPassで使用する共通状態と光源ViewProjectionを設定する
 	bool BeginShadowDraw(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress);
