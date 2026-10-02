@@ -125,12 +125,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	// デバッグ計測用確認
 	const DebugChannelID frameChannel{ Debug::RegisterChannel("Frame") };
+	const DebugChannelID applicationChannel{ Debug::RegisterChannel("Application") };
 	const DebugMetricID fpsMetric{ Debug::RegisterMetric({"FPS", frameChannel, DebugMetricUnit::Frequency, DebugMetricAggregation::Set}) };
 	const DebugMetricID addMetric{ Debug::RegisterMetric({"AddTest", frameChannel, DebugMetricUnit::Count, DebugMetricAggregation::Add}) };
 	const DebugMetricID maxMetric{ Debug::RegisterMetric({"MaxTest", frameChannel, DebugMetricUnit::None, DebugMetricAggregation::Max}) };
 	const DebugMetricID emptyMetric{ Debug::RegisterMetric({"NotSubmitted", frameChannel, DebugMetricUnit::None, DebugMetricAggregation::Set}) };
-	const DebugMetricID updateCpuTimeMetric{ Debug::RegisterMetric({"Update CPU", frameChannel, DebugMetricUnit::Milliseconds, DebugMetricAggregation::Set, DebugMetricDisplayMode::WindowStatistics}) };
-	bool frameChannelEnabled{ true };
+	const DebugMetricID updateCpuTimeMetric{ Debug::RegisterMetric({"Update CPU", applicationChannel, DebugMetricUnit::Milliseconds, DebugMetricAggregation::Set, DebugMetricDisplayMode::WindowStatistics}) };
 	Debug::SetOverlayVisible(true); // 表示する
 	// Debug Primitive公開APIの動作確認用
 	const DebugLineCommand debugLine{ frameChannel, { -4.0f, 1.0f, 8.0f }, { -2.0f, 3.0f, 8.0f }, { 1.0f, 0.2f, 0.2f, 1.0f } };
@@ -157,11 +157,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			Debug::SubmitMetric(maxMetric, -2.0);
 			Debug::SubmitMetric(maxMetric, -8.0);
 			if (Input::IsKeyPushed(KeyCode::Button::F3)) Debug::SetOverlayVisible(!Debug::IsOverlayVisible());
-			if (Input::IsKeyPushed(KeyCode::Button::F4))
-			{
-				frameChannelEnabled = !frameChannelEnabled;
-				if (!Debug::SetChannelEnabled(frameChannel, frameChannelEnabled)) DEBUG_LOG_ERROR("Frame Channelの切り替えに失敗しました\n");
-			}
+			if (Input::IsKeyPushed(KeyCode::Button::F4)) Debug::SelectNextOverlayChannel();
+			if (Input::IsKeyPushed(KeyCode::Button::F5)) Debug::SelectPreviousOverlayChannel();
 
 			// Debug Primitiveは即時方式なので、表示したいフレームごとに提出する
 			Debug::SubmitLine(debugLine);

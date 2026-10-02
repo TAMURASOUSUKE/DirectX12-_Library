@@ -243,9 +243,19 @@ bool Debug::SetChannelEnabled(DebugChannelID _channelID, bool _enabled)
 
 CPUTimingScope Debug::BeginCPUTiming(DebugMetricID _metricID)
 {
-#ifdef _DEBUG
+#if defined(_DEBUG) || defined(TSLIB_ENABLE_PROFILING)
 	return CPUTimingScope{ _metricID, Debug::SubmitMetric };
 #else
 	return CPUTimingScope{ DebugMetricID{}, nullptr };
 #endif
+}
+
+void Debug::SelectNextOverlayChannel()
+{
+	frameDebugOverlay.SelectNextChannel(frameDebugSystem);
+}
+
+void Debug::SelectPreviousOverlayChannel()
+{
+	frameDebugOverlay.SelectPreviousChannel(frameDebugSystem);
 }

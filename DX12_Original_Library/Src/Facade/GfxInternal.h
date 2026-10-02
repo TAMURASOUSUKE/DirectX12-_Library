@@ -2,6 +2,7 @@
 #include <windows.h>
 
 struct GraphicsFrameMetrics;
+struct GraphicsGPUTimingFrame;
 
 // グラフィックに関する関数のInitialize等ユーザーに提供しない部分をまとめた関数
 namespace GfxInternal
@@ -20,4 +21,6 @@ namespace GfxInternal
 
 	// 完成済みの前フレーム描画統計を取得する
 	const GraphicsFrameMetrics& GetLastFrameMetrics();
+	// 完成済みのGPU時間計測結果を取得する
+	const GraphicsGPUTimingFrame& GetLastGPUTimingFrame();
 }

@@ -3,8 +3,7 @@
 #include "DebugLogs.h"
 #include "FrameDebugOverlay.h"
 
-namespace
-{
+namespace {
 	// 種類から値の整形を行う
 	void FormatMetricValue(char* _destination, std::size_t _destinationSize, DebugMetricUnit _unit, double _value)
 	{
@@ -18,7 +17,7 @@ namespace
 		{
 		case DebugMetricUnit::None:
 		{
-			std::snprintf(_destination, _destinationSize, "%.2f",_value);
+			std::snprintf(_destination, _destinationSize, "%.2f", _value);
 			break;
 		}
 		case DebugMetricUnit::Count:
@@ -129,68 +128,120 @@ void FrameDebugOverlay::Build(const FrameDebugSystem& _system)
 	const Vector4 writtenColor{ 1.0f, 1.0f, 1.0f, 1.0f };
 	const Vector4 notWrittenColor{ 0.55f, 0.55f, 0.55f, 1.0f };
 
-	for (const DebugChannelData& channel : channels)
+	// Channelが一つも登録されていない
+	if (channels.empty()) return;
+
+	// Channel数が変化しても範囲外にならないようにする
+	selectedChannelIndex %= channels.size();
+
+	// 選択中のChannelが無効なら、次の有効なChannelを探す
+	if (!channels[selectedChannelIndex].enabled) SelectNextChannel(_system);
+
+	// 全Channelが無効なら表示しない
+	if (!channels[selectedChannelIndex].enabled) return;
+
+	const DebugChannelData& selectedChannel{ channels[selectedChannelIndex] };
+
+	// 無効化されているChannelは表示しない
+	if (!selectedChannel.enabled) return;
+
+	// Channel見出しを作る
+	char channelLine[256]{};
+
+	std::snprintf(channelLine, sizeof(channelLine), "[%s]", selectedChannel.name.c_str());
+	overlayFrame.textCommands.emplace_back(DebugTextCommand{ channelLine, cursor, TEXT_SCALE, channelColor });
+
+	cursor.y += LINE_HEIGHT;
+
+	// 現在のChannelに所属するMetricを探す
+	for (std::size_t i = 0; i < descriptors.size(); ++i)
 	{
-		// 無効化されているChannelは表示しない
-		if (!channel.enabled) continue;
+		const DebugMetricDescriptor& descriptor{ descriptors[i] };
+		const DebugMetricValue& value{ values[i] };
 
-		// Channel見出しを作る
-		char channelLine[256]{};
+		const DebugChannelData* ownerChannel{ _system.FindChannel(descriptor.channelID) };
 
-		std::snprintf(channelLine, sizeof(channelLine), "[%s]", channel.name.c_str());
-		overlayFrame.textCommands.emplace_back(DebugTextCommand{ channelLine, cursor, TEXT_SCALE, channelColor });
+		// 現在表示中のChannelに所属していない
+		if (ownerChannel != &selectedChannel) continue;
 
-		cursor.y += LINE_HEIGHT;
+		char metricLine[256]{};
+		bool hasDisplayValue{ false };
 
-		// 現在のChannelに所属するMetricを探す
-		for (std::size_t i = 0; i < descriptors.size(); ++i)
+		if (descriptor.displayMode == DebugMetricDisplayMode::WindowStatistics)
 		{
-			const DebugMetricDescriptor& descriptor{ descriptors[i] };
-			const DebugMetricValue& value{ values[i] };
-
-			const DebugChannelData* ownerChannel{ _system.FindChannel(descriptor.channelID) };
-
-			// 現在表示中のChannelに所属していない
-			if (ownerChannel != &channel) continue;
-
-			char metricLine[256]{};
-			bool hasDisplayValue{ false };
-
-			if (descriptor.displayMode == DebugMetricDisplayMode::WindowStatistics)
+			const DebugMetricStatistics& metricStatistics{ statistics[i] };
+			if (metricStatistics.valid)
 			{
-				const DebugMetricStatistics& metricStatistics{ statistics[i] };
-				if (metricStatistics.valid)
-				{
-					char latestText[64]{};
-					char averageText[64]{};
-					char maximumText[64]{};
+				char latestText[64]{};
+				char averageText[64]{};
+				char maximumText[64]{};
 
-					FormatMetricValue(latestText, sizeof(latestText), descriptor.unit, metricStatistics.latest);
-					FormatMetricValue(averageText, sizeof(averageText), descriptor.unit, metricStatistics.average);
-					FormatMetricValue(maximumText, sizeof(maximumText), descriptor.unit, metricStatistics.maximum);
+				FormatMetricValue(latestText, sizeof(latestText), descriptor.unit, metricStatistics.latest);
+				FormatMetricValue(averageText, sizeof(averageText), descriptor.unit, metricStatistics.average);
+				FormatMetricValue(maximumText, sizeof(maximumText), descriptor.unit, metricStatistics.maximum);
 
-					std::snprintf(metricLine, sizeof(metricLine), " %s : Latest %s / Avg %s / Max %s", descriptor.name.c_str(), latestText, averageText, maximumText);
-					hasDisplayValue = true;
-				}
-			}
-			else if (value.written)
-			{
-				char valueText[64]{};
-				FormatMetricValue(valueText, sizeof(valueText), descriptor.unit, value.value);
-				std::snprintf(metricLine, sizeof(metricLine), "  %s : %s", descriptor.name.c_str(), valueText);
-
+				std::snprintf(metricLine, sizeof(metricLine), " %s : Latest %s / Avg %s / Max %s", descriptor.name.c_str(), latestText, averageText, maximumText);
 				hasDisplayValue = true;
 			}
+		}
+		else if (value.written)
+		{
+			char valueText[64]{};
+			FormatMetricValue(valueText, sizeof(valueText), descriptor.unit, value.value);
+			std::snprintf(metricLine, sizeof(metricLine), "  %s : %s", descriptor.name.c_str(), valueText);
 
-			// Currentが未提出、またはStatisticsがまだ確定していない
-			if (!hasDisplayValue) std::snprintf(metricLine, sizeof(metricLine), "  %s : --", descriptor.name.c_str());
-
-			overlayFrame.textCommands.emplace_back(DebugTextCommand{ metricLine, cursor, TEXT_SCALE, hasDisplayValue ? writtenColor : notWrittenColor });
-			cursor.y += LINE_HEIGHT;
+			hasDisplayValue = true;
 		}
 
-		// 次のChannelとの間隔
-		cursor.y += CHANNEL_GAP;
+		// Currentが未提出、またはStatisticsがまだ確定していない
+		if (!hasDisplayValue) std::snprintf(metricLine, sizeof(metricLine), "  %s : --", descriptor.name.c_str());
+
+		overlayFrame.textCommands.emplace_back(DebugTextCommand{ metricLine, cursor, TEXT_SCALE, hasDisplayValue ? writtenColor : notWrittenColor });
+		cursor.y += LINE_HEIGHT;
 	}
 
+	// 次のChannelとの間隔
+	cursor.y += CHANNEL_GAP;
+}
+
+void FrameDebugOverlay::SelectNextChannel(const FrameDebugSystem& _system)
+{
+	const auto& channels{ _system.GetChannels() };
+
+	if (channels.empty())
+	{
+		selectedChannelIndex = 0;
+		return;
+	}
+
+	const std::size_t channelCount{ channels.size() };
+
+	// 無効なChannelを飛ばしながら次へ進む
+	for (std::size_t checkedCount = 0; checkedCount < channelCount; checkedCount++)
+	{
+		selectedChannelIndex = (selectedChannelIndex + 1) % channelCount;
+
+		if (channels[selectedChannelIndex].enabled) return;
+	}
+}
+
+void FrameDebugOverlay::SelectPreviousChannel(const FrameDebugSystem& _system)
+{
+	const auto& channels{ _system.GetChannels() };
+
+	if (channels.empty())
+	{
+		selectedChannelIndex = 0;
+		return;
+	}
+
+	const std::size_t channelCount{ channels.size() };
+
+	// size_tを負数にせず、無効なChannelを飛ばしながら前へ戻る
+	for (std::size_t checkedCount = 0; checkedCount < channelCount; checkedCount++)
+	{
+		selectedChannelIndex = (selectedChannelIndex + channelCount - 1) % channelCount;
+
+		if (channels[selectedChannelIndex].enabled) return;
+	}
 }

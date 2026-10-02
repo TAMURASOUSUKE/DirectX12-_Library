@@ -17,8 +17,11 @@ Core/Handle/AnimInstanceHandle.h
 Core/Handle/UIButtonHandle.h
 
 Debug/DebugLogs.h
+Debug/CPUTimingScope.h
+Debug/FrameDebugType.h
 
 Facade/Collision.h
+Facade/Debug.h
 Facade/Gfx.h
 Facade/Input.h
 Facade/Sound.h

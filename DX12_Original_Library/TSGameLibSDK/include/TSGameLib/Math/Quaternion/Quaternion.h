@@ -40,6 +40,9 @@ public:
 	// 内積
 	static float Dot(const Quaternion& _a, const Quaternion& _b);
 
+	// 有効値を調べる
+	static bool IsFinite(const Quaternion& _quaternion);
+
 	// 四元数を回転行列に変換
 	Mat4x4 ToMat4x4() const;
 

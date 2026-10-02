@@ -30,7 +30,8 @@ public:
 	// カウンター等をリセットする
 	void Reset();
 
-	
+	// 描画待ちのSpriteが存在するか
+	bool HasPendingDraw() const { return !runs.empty(); }
 private:
 	VertexBuffer vertBuffers[FRAME_BUFFER_COUNT]; // 頂点バッファ : BackBufferごとに動的頂点バッファを分けてGPUが読み込んでいるときにCPUが上書きしないため
 	IndexBuffer indexBuffer; // インデックスバッファ

@@ -203,10 +203,11 @@ try
     # 自動ビルドする構成を配列として用意する
     $configurations = @(
         "Debug"
+        "Profile"
         "Release"
     )
 
-    # Debug、Releaseの順に処理する
+    # Debug、Profile、Releaseの順に処理する
     foreach ($configuration in $configurations)
     {
         Write-Host "========================================"
@@ -287,7 +288,7 @@ try
         Write-Host ""
     }
 
-    Write-Host "[PASS] Debug and Release builds succeeded." -ForegroundColor Green
+    Write-Host "[PASS] Debug, Profile and Release builds succeeded." -ForegroundColor Green
 
     Write-Host ""
     Write-Host "========================================"
@@ -357,7 +358,7 @@ try
         Copy-Item -LiteralPath $sourceShaderContract -Destination $destinationShaderContract -Force
     }
 
-    # DebugとReleaseのlib・PDBをステージングへコピーする
+    # Debug、Profile、Releaseのlib・PDBをステージングへコピーする
     foreach ($configuration in $configurations)
     {
         $stagingLibraryDirectory = Join-Path -Path $stagingDirectory -ChildPath "lib/x64/$configuration"
@@ -502,7 +503,7 @@ try
         throw "External SmokeTest solution was not found: $smokeTestSolutionFile"
     }
 
-    # Debug、Releaseの両方でSDKが利用できるか確認する
+    # Debug、Profile、Releaseの全構成でSDKが利用できるか確認する
     foreach ($configuration in $configurations)
     {
         Write-Host "Building external SmokeTest $configuration|x64..."
@@ -541,7 +542,7 @@ try
         Write-Host ""
     }
 
-    Write-Host "[PASS] External SmokeTest Debug and Release builds succeeded." -ForegroundColor Green
+    Write-Host "[PASS] External SmokeTest Debug, Profile and Release builds succeeded." -ForegroundColor Green
 
     Write-Host ""
 

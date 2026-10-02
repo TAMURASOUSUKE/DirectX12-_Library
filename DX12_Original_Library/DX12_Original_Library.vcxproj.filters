@@ -396,6 +396,12 @@
     <ClInclude Include="Src\Debug\CPUTimingScope.h">
       <Filter>Src\Debug</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Graphics\GraphicsGPUTimingSystem.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Debug\CPUFrameTimingSystem.h">
+      <Filter>Src\Debug</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -585,6 +591,12 @@
       <Filter>Src\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Src\Debug\CPUTimingScope.cpp">
+      <Filter>Src\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\GraphicsGPUTimingSystem.cpp">
+      <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Debug\CPUFrameTimingSystem.cpp">
       <Filter>Src\Debug</Filter>
     </ClCompile>
   </ItemGroup>
