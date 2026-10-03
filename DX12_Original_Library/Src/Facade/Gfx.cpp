@@ -1077,12 +1077,21 @@ ShaderHandle Gfx::LoadShader(const wchar_t* _filePath, ShaderUsage _usage, Shade
 		return  ShaderHandle{};
 	}
 
+	const bool isComputeUsage{ _usage == ShaderUsage::Compute };
+	const bool isComputeStage{ _stage == ShaderStage::Compute };
+
+	if (isComputeUsage != isComputeStage)
+	{
+		DEBUG_LOG_ERROR("ComputeのShaderUsageとShaderStageが一致していません\n");
+		return ShaderHandle{};
+	}
+
 	switch (_usage)
 	{
 	case ShaderUsage::PostEffect:
 	case ShaderUsage::Sprite:
 	case ShaderUsage::Model:
-		// この三つは現状対応しているのでbreak
+	case ShaderUsage::Compute:
 		break;
 	default:
 		DEBUG_LOG_ERROR("不明なShaderUsageが指定されました\n");

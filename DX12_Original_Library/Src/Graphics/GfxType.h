@@ -20,9 +20,10 @@ enum class ModelAlphaMode
 // シェーダーを適用する描画用途
 enum class ShaderUsage
 {
-	PostEffect, // 対応済み
-	Sprite, //　対応済み
-	Model, // 対応済み
+	PostEffect, 
+	Sprite, 
+	Model, 
+	Compute,
 };
 
 // シェーダーステージの種類
