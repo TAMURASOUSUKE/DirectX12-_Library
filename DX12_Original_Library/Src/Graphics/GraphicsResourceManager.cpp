@@ -318,6 +318,7 @@ void GraphicsResourceManager::Setup(ID3D12Device* _device)
 	rtSlots.reserve(MAX_RENDER_TARGET_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
 	shaderSlots.reserve(MAX_CUSTOM_SHADER_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
 	materialSlots.reserve(MAX_MATERIAL_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
+	computePipelineSlots.reserve(MAX_COMPUTE_PIPELINE_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
 	// デフォルト用の白テクスチャを作成する(初期化時に1枚だけ)
 	defaultTexture = CreateMetaTexture({ 1.0f, 1.0f, 1.0f });
 	// エラー用のピンクテクスチャを作成する
@@ -817,6 +818,40 @@ MaterialData* GraphicsResourceManager::Lookup(MaterialHandle _handle)
 		DEBUG_LOG_WARNING("世代が異なります\n");
 		return nullptr; // 世代チェック
 	}
+	return &slot.data; // 実体を返す
+}
+
+ComputePipelineData* GraphicsResourceManager::Lookup(ComputePipelineHandle _handle)
+{
+	if (!_handle.IsValid())
+	{
+		DEBUG_LOG_ERROR("無効なハンドルです\n");
+		return nullptr; // 無効なハンドルならnull
+	}
+
+	int packed{ _handle.GetRaw(PassKey{}) }; // 生の値(内部ハンドルを取得)
+	int index{ UnpackIndex(packed) }; // index部分を取り出す
+	// 範囲外チェック
+	if (index < 0 || index >= static_cast<int>(computePipelineSlots.size()))
+	{
+		DEBUG_LOG_ERROR("ハンドルに範囲外のサイズが渡されました\n");
+		return nullptr; // 範囲チェック
+	}
+	ComputePipelineSlot& slot{ computePipelineSlots[index] }; // スロットの指定ハンドル部分を取り出す
+	// 世代チェック
+	if (UnpackGen(packed) != static_cast<int>(slot.generation))
+	{
+		DEBUG_LOG_WARNING("世代が異なります\n");
+		return nullptr; // 世代チェック
+	}
+
+	// 実行に必要なRootSigとPSOが存在するか確認
+	if (!slot.data.pipelineState || !slot.data.rootSignature)
+	{
+		DEBUG_LOG_ERROR("ComputePipelineの実データが無効です\n");
+		return nullptr;
+	}
+
 	return &slot.data; // 実体を返す
 }
 
@@ -1373,6 +1408,41 @@ bool GraphicsResourceManager::SetMaterialParameter(MaterialHandle _handle, size_
 	return true;
 }
 
+ComputePipelineHandle GraphicsResourceManager::RegisterComputePipeline(ComputePipelineData _data)
+{
+	if (!_data.pipelineState || !_data.rootSignature)
+	{
+		DEBUG_LOG_ERROR("dataに不正な値が設定されています\n");
+		return {};
+	}
+
+	const bool canRegister{ !computePipelineFreeList.empty() || computePipelineSlots.size() < MAX_COMPUTE_PIPELINE_COUNT };
+
+	if (!canRegister)
+	{
+		DEBUG_LOG_ERROR("Slot若しくはフリーリストが不正です\n");
+		return {};
+	}
+
+	int index{};
+	if (!computePipelineFreeList.empty())
+	{
+		// 解放済みSlotの利用
+		index = computePipelineFreeList.top();
+		computePipelineFreeList.pop();
+		computePipelineSlots[index].data = std::move(_data);
+	}
+	else
+	{
+		// 新しいSlotを作る
+		index = static_cast<int>(computePipelineSlots.size());
+		computePipelineSlots.push_back({ std::move(_data), 0 });
+	}
+
+	int packed{ Pack(index, computePipelineSlots[index].generation) };
+	return ComputePipelineHandle{ PassKey{}, packed };
+}
+
 void GraphicsResourceManager::Unload(TexHandle _handle)
 {
 	TextureData* data{ Lookup(_handle) };
@@ -1484,6 +1554,29 @@ void  GraphicsResourceManager::Unload(MaterialHandle _handle)
 	// 古いハンドルを無効にしてスロットを再利用可能にする
 	materialSlots[index].generation++;
 	materialFreeList.push(index);
+}
+
+void GraphicsResourceManager::Unload(ComputePipelineHandle _handle)
+{
+	// ハンドルの範囲と世代を確認する
+	ComputePipelineData* data{ Lookup(_handle) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("無効なComputePipelineHandleです\n");
+		return;
+	}
+
+	const int index{ UnpackIndex(_handle.GetRaw(PassKey{})) };
+
+	// PSOはGPUが使用中かもしれないため、Fence付き解放待ちへ移す
+	pendingRelease.pipelineStates.push_back(std::move(computePipelineSlots[index].data.pipelineState));
+
+	// CPU側のComputePipeline情報を破棄する
+	computePipelineSlots[index].data = ComputePipelineData{};
+
+	// 古いハンドルを無効にしてスロットを再利用可能にする
+	computePipelineSlots[index].generation++;
+	computePipelineFreeList.push(index);
 }
 
 TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta)

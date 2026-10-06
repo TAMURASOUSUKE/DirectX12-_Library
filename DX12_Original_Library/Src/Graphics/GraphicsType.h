@@ -571,6 +571,21 @@ struct MaterialSlot
 	uint32_t generation{ 0 }; // 世代
 };
 
+// ComputePipeline一つ分のデータ
+struct ComputePipelineData
+{
+	ComPtr<ID3D12PipelineState> pipelineState{}; // ComputeShaderを実行するPSO
+	ComPtr<ID3D12RootSignature> rootSignature{}; // Pipelineが使用するResourceの接続契約
+};
+
+// ComputePipelineを管理するSlot
+struct ComputePipelineSlot
+{
+	ComputePipelineData data{}; // 実データ
+	uint32_t generation{ 0 }; // 世代
+};
+
+
 // 1回のGPU送信に対応する解放待ちのリソース
 struct DeferredReleaseBatch
 {
@@ -579,4 +594,5 @@ struct DeferredReleaseBatch
 	std::vector<ModelData> models{}; // VB・IB・Material等を保持する
 	std::vector<RenderTargetData> renderTargets{}; // RenderTargetのリソースとRTV/SRVを保持する
 	std::vector<ComPtr<ID3D12PipelineState>> pipelineStates{}; // GPUが使用中かもしれないmaterialのPSO
+	std::vector<ComputePipelineData> computePipelines{}; // コンピュート計算に使う際のPSO
 };

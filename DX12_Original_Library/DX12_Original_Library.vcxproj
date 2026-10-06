@@ -236,6 +236,7 @@
     <ClInclude Include="Src\Component\Shadow.h" />
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\AnimInstanceHandle.h" />
+    <ClInclude Include="Src\Core\Handle\ComputePipelineHandle.h" />
     <ClInclude Include="Src\Core\Handle\HandlePacking.h" />
     <ClInclude Include="Src\Core\Handle\HandlePassKey.h" />
     <ClInclude Include="Src\Core\Handle\MaterialHandle.h" />

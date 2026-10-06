@@ -11,6 +11,7 @@
 #include "../Core/Handle/ShaderHandle.h"
 #include "../Core/Handle/MaterialHandle.h"
 #include "../Core/Handle/RTHandle.h"
+#include "../Core/Handle/ComputePipelineHandle.h"
 #include "GraphicsType.h"
 using Microsoft::WRL::ComPtr;
 #pragma comment(lib, "d3d12.lib")
@@ -75,6 +76,8 @@ public:
 	MaterialHandle RegisterMaterial(ShaderHandle _shader, ComPtr<ID3D12PipelineState> _pipelineState);
 	// Materialへユーザーパラメータのバイト列を保存する
 	bool SetMaterialParameter(MaterialHandle _handle, size_t _slot, const void* _data, size_t _dataSize);
+	// 作成済みPSOとRootSignatureをComputePipeline台帳へ登録する
+	ComputePipelineHandle RegisterComputePipeline(ComputePipelineData _data);
 
 	// Handleをindex部分と世代部分に分ける
 	TextureData* Lookup(TexHandle _handle);
@@ -82,6 +85,8 @@ public:
 	RenderTargetData* Lookup(RTHandle _handle);
 	ShaderData* Lookup(ShaderHandle _handle);
 	MaterialData* Lookup(MaterialHandle _handle);
+	ComputePipelineData* Lookup(ComputePipelineHandle _handle);
+
 
 	// リソースを解放する
 	void Unload(TexHandle _handle);
@@ -89,6 +94,7 @@ public:
 	void Unload(RTHandle _handle);
 	void Unload(ShaderHandle _handle);
 	void Unload(MaterialHandle _handle);
+	void Unload(ComputePipelineHandle _handle);
 
 	// デフォルト用の白テクスチャを取得する
 	TexHandle GetDefaultTexture() const { return defaultTexture; }
@@ -122,12 +128,14 @@ private:
 	std::vector<RenderTargetSlot> rtSlots; // RenderTargetのスロット
 	std::vector<ShaderSlot> shaderSlots; // シェーダーのスロット
 	std::vector<MaterialSlot> materialSlots; // materialのスロット
+	std::vector<ComputePipelineSlot> computePipelineSlots; // ComputePipelineの管理スロット
 
 	std::stack<int> texFreeList; // テクスチャリソースのフリーリスト
 	std::stack<int> modelFreeList; // モデルリソースのフリーリスト
 	std::stack<int> renderTargetFreeList; // RenderTargetのフリーリスト
 	std::stack<int> shaderFreeList; // Shaderのフリーリスト
 	std::stack<int> materialFreeList; // materialのフリーリスト
+	std::stack<int> computePipelineFreeList; // ComputePSOのフリーリスト
 	DeferredReleaseBatch pendingRelease{}; // まだEndFrameしていないのでFence値が決まっていない荷物
 	std::deque<DeferredReleaseBatch> deferredReleases{}; // EndFrame済みでGPU完了を待っている荷物
 
