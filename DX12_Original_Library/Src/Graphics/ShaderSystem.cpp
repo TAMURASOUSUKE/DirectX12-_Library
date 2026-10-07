@@ -922,6 +922,51 @@ bool ShaderSystem::CreateComputePipeline(const ComputePipelineDesc& _desc)
 	return true;
 }
 
+ComPtr<ID3D12PipelineState> ShaderSystem::CreateComputePipeline(ID3DBlob* _computeShader, ID3D12RootSignature* _rootSignature)
+{
+	if (!device)
+	{
+		DEBUG_LOG_ERROR("Deviceが設定されていません\n");
+		return nullptr;
+	}
+
+	if (!_computeShader || !_rootSignature)
+	{
+		DEBUG_LOG_ERROR("ComputeShaderまたはRootSignatureが不正です\n");
+		return nullptr;
+	}
+
+	// コンパイル済みシェーダーのバイトコードを取り出す
+	const void* shaderBytecode{ _computeShader->GetBufferPointer() };
+	const SIZE_T shaderSize{ _computeShader->GetBufferSize() };
+
+	if (!shaderBytecode || shaderSize == 0)
+	{
+		DEBUG_LOG_ERROR("ComputeShaderのバイトコードが空です\n");
+		return nullptr;
+	}
+
+	// CSとRootSignatureを組み合わせてPSOの設定を作る
+	D3D12_COMPUTE_PIPELINE_STATE_DESC nativeDesc{};
+	nativeDesc.pRootSignature = _rootSignature;
+	nativeDesc.CS.pShaderBytecode = shaderBytecode;
+	nativeDesc.CS.BytecodeLength = shaderSize;
+	nativeDesc.NodeMask = 0; // 単一GPUなので0
+	nativeDesc.CachedPSO = {}; // PSOキャッシュは現在使用しない
+	nativeDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+	ComPtr<ID3D12PipelineState> pipeline{};
+	HRESULT result{ device->CreateComputePipelineState(&nativeDesc, IID_PPV_ARGS(&pipeline)) };
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("ComputePipelineStateの作成に失敗しました\n");
+		return nullptr;
+	}
+	
+	// 台帳記録は呼び出し元に行わせる
+	return pipeline;
+}
+
 ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _usage, ID3DBlob* _vertexShader, ID3DBlob* _pixelShader)
 {
 	if (!device)

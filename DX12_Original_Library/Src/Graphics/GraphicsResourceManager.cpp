@@ -357,6 +357,7 @@ void GraphicsResourceManager::Shutdown()
 		}
 	}
 
+
 	// RT削除ラムダ
 	auto releaseRenderTarget
 	{
@@ -398,6 +399,7 @@ void GraphicsResourceManager::Shutdown()
 	texSlots.clear();
 	materialSlots.clear();
 	shaderSlots.clear();
+	computePipelineSlots.clear();
 	pendingRelease = DeferredReleaseBatch{}; // 空にする
 	// FreeListも初期状態へ戻す
 	while (!texFreeList.empty())
@@ -420,6 +422,10 @@ void GraphicsResourceManager::Shutdown()
 	{
 		materialFreeList.pop();
 	}
+	while (!computePipelineFreeList.empty())
+	{
+		computePipelineFreeList.pop();
+	}
 	defaultTexture = TexHandle{};
 	errorTexture = TexHandle{};
 	device = nullptr;
@@ -429,7 +435,8 @@ void GraphicsResourceManager::CommitPendingRelease(UINT64 _submittedFenceValue)
 {
 	// 空チェック
 	if (pendingRelease.textures.empty() && pendingRelease.models.empty() &&
-		pendingRelease.renderTargets.empty() && pendingRelease.pipelineStates.empty())
+		pendingRelease.renderTargets.empty() && pendingRelease.pipelineStates.empty() &&
+		pendingRelease.computePipelines.empty())
 	{
 		return;
 	}
@@ -1569,7 +1576,7 @@ void GraphicsResourceManager::Unload(ComputePipelineHandle _handle)
 	const int index{ UnpackIndex(_handle.GetRaw(PassKey{})) };
 
 	// PSOはGPUが使用中かもしれないため、Fence付き解放待ちへ移す
-	pendingRelease.pipelineStates.push_back(std::move(computePipelineSlots[index].data.pipelineState));
+	pendingRelease.computePipelines.push_back(std::move(computePipelineSlots[index].data));
 
 	// CPU側のComputePipeline情報を破棄する
 	computePipelineSlots[index].data = ComputePipelineData{};
