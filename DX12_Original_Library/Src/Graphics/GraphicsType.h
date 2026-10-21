@@ -85,6 +85,15 @@ enum class RootSigID
 	Count,
 };
 
+// Compute用RootParameter番号
+enum class ComputeRootParameter : UINT
+{
+	ConstantBuffer, // b0
+	InputBuffer, // t0
+	OutputBuffer, // u0
+	Count,
+};
+
 // ブレンドモードの設定
 enum class BlendMode
 {
@@ -195,10 +204,10 @@ struct DescriptorHandle
 {
 	D3D12_CPU_DESCRIPTOR_HANDLE cpu{}; // CPUハンドル
 	D3D12_GPU_DESCRIPTOR_HANDLE gpu{}; // GPUハンドル
-	UINT index{ INVALID_INDEX }; // インデックス(デフォルトは無効値)
+	UINT index{ INVALID_UPLOAD_INDEX }; // インデックス(デフォルトは無効値)
 
 	// 無効値か確かめる関数
-	bool IsValid() const { return index != INVALID_INDEX; }
+	bool IsValid() const { return index != INVALID_UPLOAD_INDEX; }
 };
 
 // テクスチャの情報をまとめた構造体
@@ -585,6 +594,23 @@ struct ComputePipelineSlot
 	uint32_t generation{ 0 }; // 世代
 };
 
+// GPUBuffer一つ分のデータ
+struct GPUBufferData
+{
+	ComPtr<ID3D12Resource> resource{}; // バッファ本体
+	DescriptorHandle srvHandle{}; // 読み取り用View
+	DescriptorHandle uavHandle{}; // 読み書き用View
+	GPUBufferDesc desc{}; // 要素数、要素サイズ、書き込み許可
+	UINT64 sizeInBytes{ 0 }; // バッファ全体のサイズ
+	D3D12_RESOURCE_STATES currentState{ D3D12_RESOURCE_STATE_COMMON }; // 記録した状態遷移の追跡用
+};
+
+// GPUBufferを管理するSlot
+struct GPUBufferSlot
+{
+	GPUBufferData data{}; // 実データ
+	uint32_t generation{ 0 }; // 世代
+};
 
 // 1回のGPU送信に対応する解放待ちのリソース
 struct DeferredReleaseBatch
@@ -595,4 +621,5 @@ struct DeferredReleaseBatch
 	std::vector<RenderTargetData> renderTargets{}; // RenderTargetのリソースとRTV/SRVを保持する
 	std::vector<ComPtr<ID3D12PipelineState>> pipelineStates{}; // GPUが使用中かもしれないmaterialのPSO
 	std::vector<ComputePipelineData> computePipelines{}; // コンピュート計算に使う際のPSO
+	std::vector<GPUBufferData> gpuBuffers{}; // GPU使用完了までResourceとDescriptorを保持する
 };

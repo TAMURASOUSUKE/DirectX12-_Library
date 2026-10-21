@@ -306,27 +306,69 @@ namespace {
 	}
 }
 
-void GraphicsResourceManager::Setup(ID3D12Device* _device)
+bool GraphicsResourceManager::Setup(ID3D12Device* _device)
 {
-	if (_device != nullptr)
+	if (!_device)
 	{
-		device = _device;
+		DEBUG_LOG_ERROR("不正なデバイスが渡されました\n");
+		return false;
 	}
 
-	texSlots.reserve(MAX_TEXTURE_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
-	modelSlots.reserve(MAX_MODEL_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
-	rtSlots.reserve(MAX_RENDER_TARGET_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
-	shaderSlots.reserve(MAX_CUSTOM_SHADER_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
-	materialSlots.reserve(MAX_MATERIAL_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
-	computePipelineSlots.reserve(MAX_COMPUTE_PIPELINE_COUNT); // 先に容量確保 + ロード時ガードでダングリング防止
+	if (device)
+	{
+		DEBUG_LOG_ERROR("すでにGraphicsResourceManagerは初期化されています\n");
+		return false;
+	}
+
+	// tryを使って確保に失敗したらエラーログを出すようにする
+	try
+	{
+		// 先に容量確保 + ロード時ガードでダングリング防止
+		texSlots.reserve(MAX_TEXTURE_COUNT); 
+		modelSlots.reserve(MAX_MODEL_COUNT);
+		rtSlots.reserve(MAX_RENDER_TARGET_COUNT);
+		shaderSlots.reserve(MAX_CUSTOM_SHADER_COUNT);
+		materialSlots.reserve(MAX_MATERIAL_COUNT);
+		computePipelineSlots.reserve(MAX_COMPUTE_PIPELINE_COUNT);
+	}
+	catch (const std::bad_alloc&)
+	{
+		DEBUG_LOG_ERROR("GraphicsResourceManagerの管理配列のメモリ確保に失敗しました\n");
+		return false;
+	}
+
+	// 転送準備
+	if (!uploadSystem.Setup(_device, DEFAULT_UPLOAD_PAGE_SIZE, MAX_UPLOAD_POOL_BYTES))
+	{
+		DEBUG_LOG_ERROR("UploadSystemの初期化に失敗しました\n");
+		return false;
+	}
+
+	device = _device;
+
 	// デフォルト用の白テクスチャを作成する(初期化時に1枚だけ)
 	defaultTexture = CreateMetaTexture({ 1.0f, 1.0f, 1.0f });
+	if (!defaultTexture.IsValid())
+	{
+		DEBUG_LOG_ERROR("デフォルトのテクスチャ生成に失敗しました\n");
+		Shutdown();
+		return false;
+	}
 	// エラー用のピンクテクスチャを作成する
 	errorTexture = CreateMetaTexture({ 1.0f, 0.0f, 1.0f });
+	if (!errorTexture.IsValid())
+	{
+		DEBUG_LOG_ERROR("エラーテクスチャ生成に失敗しました\n");
+		Shutdown();
+		return false;
+	}
+	return true;
 }
 
 void GraphicsResourceManager::Shutdown()
 {
+	uploadSystem.Shutdown();
+
 	// テクスチャ削除ラムダ
 	auto releaseTexture
 	{
@@ -1298,6 +1340,11 @@ RTHandle GraphicsResourceManager::CreateRenderTarget(UINT _width, UINT _height)
 	return RTHandle(PassKey{}, packed);
 }
 
+GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _desc, const void* _initialData, std::size_t _initialDataSize = 0)
+{
+
+}
+
 ShaderHandle GraphicsResourceManager::RegisterShader(ShaderUsage _usage, ShaderStage _stage, ComPtr<ID3DBlob> _shaderBlob)
 {
 	if (!_shaderBlob)
@@ -1725,5 +1772,25 @@ TexHandle GraphicsResourceManager::CreateMetaTexture(Vector3 _color)
 	uint8_t meta[4]{ static_cast<uint8_t>(metaColor.x * 255.0f), static_cast<uint8_t>(metaColor.y * 255.0f), static_cast<uint8_t>(metaColor.z * 255.0f) ,255 }; // 色
 	memcpy(scratch.GetPixels(), meta, 4); // 生のメモリに白を書く
 	return CreateTextureFromScratch(scratch, scratch.GetMetadata());
+}
+
+bool GraphicsResourceManager::RecordPendingUploads(ID3D12GraphicsCommandList* _commandList)
+{
+	return uploadSystem.RecordPendingUploads(_commandList);
+}
+
+bool GraphicsResourceManager::CommitSubmittedUploads(UINT64 _submittedFenceValue)
+{
+	return uploadSystem.CommitSubmittedUploads(_submittedFenceValue);
+}
+
+void GraphicsResourceManager::CollectCompletedUploads(UINT64 _completedFenceValue)
+{
+	uploadSystem.CollectCompletedUploads(_completedFenceValue);
+}
+
+bool GraphicsResourceManager::HasRecordedUploads() const
+{
+	return uploadSystem.HasRecordedUploads();
 }
 

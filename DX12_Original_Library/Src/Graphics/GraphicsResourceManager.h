@@ -6,12 +6,14 @@
 #include <vector>
 #include <stack>
 #include <deque>
+#include "../Core/Handle/GPUBufferHandle.h"
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
 #include "../Core/Handle/ShaderHandle.h"
 #include "../Core/Handle/MaterialHandle.h"
 #include "../Core/Handle/RTHandle.h"
 #include "../Core/Handle/ComputePipelineHandle.h"
+#include "UploadSystem.h"
 #include "GraphicsType.h"
 using Microsoft::WRL::ComPtr;
 #pragma comment(lib, "d3d12.lib")
@@ -34,14 +36,27 @@ public:
 	}
 
 	// 初期化処理
-	void Setup(ID3D12Device* _device);
+	bool Setup(ID3D12Device* _device);
 	// 終了処理
 	void Shutdown();
+
 	// EndFrame時にFence値を構造体へ
 	void CommitPendingRelease(UINT64 _submittedFenceValue);
+
 	// GPUが完了した時に溜まっている解放待ちを解放する処理
 	void CollectDeferredReleases(UINT64 _completedFenceValue);
 
+	// 予約済みの転送命令を開いているCommandListへ記録する
+	bool RecordPendingUploads(ID3D12GraphicsCommandList* _commandList);
+
+	// 転送命令の送信後Signalに成功したFence値を関連付ける
+	bool CommitSubmittedUploads(UINT64 _submittedFenceValue);
+
+	// GPU完了済みへの転送用Pageを再利用可能にする
+	void CollectCompletedUploads(UINT64 _completedFenceValue);
+
+	// 記録済みでまだFenceと関連付けていない転送があるかチェック
+	bool HasRecordedUploads() const;
 
 	// 頂点バッファの作成(Map->UnMapの固定)
 	VertexBuffer CreateVertexBuffer(const void* _data, UINT _dataSize, UINT _strideSize);
@@ -70,12 +85,18 @@ public:
 	// 指定サイズのオフスクリーン描画先を作成する
 	RTHandle CreateRenderTarget(UINT _width, UINT _height);
 
+	// StructuredBufferを作成して台帳へ記録する(初期データ無しならnullptrと0にする)
+	GPUBufferHandle CreateGPUBuffer(const GPUBufferDesc& _desc, const void* _initialData = nullptr, std::size_t _initialDataSize = 0);
+
 	// コンパイル済みのShaderをShader台帳へ登録する
 	ShaderHandle RegisterShader(ShaderUsage _usage, ShaderStage _stage ,ComPtr<ID3DBlob> _shaderBlob);
+
 	// 作成済みPSOをMaterial台帳へ登録する(RegisterMaterialは外部Shaderから生成したPSOを登録するカスタム関数として登録)
 	MaterialHandle RegisterMaterial(ShaderHandle _shader, ComPtr<ID3D12PipelineState> _pipelineState);
+
 	// Materialへユーザーパラメータのバイト列を保存する
 	bool SetMaterialParameter(MaterialHandle _handle, size_t _slot, const void* _data, size_t _dataSize);
+
 	// 作成済みPSOとRootSignatureをComputePipeline台帳へ登録する
 	ComputePipelineHandle RegisterComputePipeline(ComputePipelineData _data);
 
@@ -119,6 +140,7 @@ private:
 
 private:
 	ID3D12Device* device{ nullptr }; // Initializeでデバイスを受け取って保持する
+	UploadSystem uploadSystem{}; // リソースの初期転送と転送用メモリを管理
 
 	TexHandle defaultTexture; // デフォルトの白テクスチャ
 	TexHandle errorTexture; // エラー用のピンクテクスチャ

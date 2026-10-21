@@ -7,6 +7,7 @@
 #include "../Core/Handle/ShaderHandle.h"
 #include "../Core/Handle/MaterialHandle.h"
 #include "../Core/Handle/AnimInstanceHandle.h"
+#include "../Core/Handle/ComputePipelineHandle.h"
 #include "../Graphics/GfxType.h"
 #include "../Component/Transform.h"
 #include "../Component/Camera.h"
@@ -141,6 +142,8 @@ namespace Gfx
 	MaterialHandle CreateMaterial(ShaderHandle _pixel);
 	// material読み込み(VSも指定する版)
 	MaterialHandle CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader);
+	// ComputeShaderからPipelineを作成する(b0, t0, u0のSpace0を使用する)
+	ComputePipelineHandle CreateComputePipeline(ShaderHandle _computeShader);
 	// モデルをもとにアニメーション個体の作成
 	AnimInstanceHandle CreateAnimInstance(ModelHandle _handle);
 
@@ -262,6 +265,8 @@ namespace Gfx
 	void Unload(ShaderHandle _handle);
 	// Materialリソースの解放
 	void Unload(MaterialHandle _handle);
+	// Computeリソースの解放
+	void Unload(ComputePipelineHandle _handle);
 	
 	
 	/// <summary>

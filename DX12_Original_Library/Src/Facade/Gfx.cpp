@@ -526,7 +526,12 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 		}
 	}
 
-	GraphicsResourceManager::Instance().Setup(GraphicsDevice::Instance().GetDevice()); // リソース管理ファイルの初期化
+	// リソース管理ファイルの初期化
+	if (!GraphicsResourceManager::Instance().Setup(GraphicsDevice::Instance().GetDevice()))
+	{
+		DEBUG_LOG_ERROR("GraphicsResourceManagerの初期化に失敗しました\n");
+		return false;
+	}
 
 	if (!shadowSystem.Setup(GraphicsDevice::Instance().GetDevice(), SHADOW_MAP_RESOLUTION))
 	{
@@ -617,8 +622,21 @@ void GfxInternal::BeginFrame()
 	GraphicsDevice::Instance().BeginFrame(); // フレームの最初の処理
 	if (!gpuTimingSystem.BeginFrame(GraphicsDevice::Instance().GetCommandList(), GraphicsDevice::Instance().GetCurrentFrameIndex())) DEBUG_LOG_ERROR("GPUフレーム計測の開始に失敗しました\n");
 
-	// GPUが使用し終えた遅延開放リソースを回収する
-	GraphicsResourceManager::Instance().CollectDeferredReleases(GraphicsDevice::Instance().GetCompletedFenceValue());
+	// 同じFenceの完了値をリソース解放と転送用Pageへ渡す
+	const UINT64 completedFenceValue{ GraphicsDevice::Instance().GetCompletedFenceValue() }; // GPUが完了したところまでのFence値
+	
+	if (completedFenceValue == (std::numeric_limits<UINT64>::max)())
+	{
+		DEBUG_LOG_ERROR("Fence完了値が無効なためリソースと転送用Pageの回収を見送ります\n");
+	}
+	else
+	{
+		// Unload済みでGPUも使用し終えたリソースを解放する
+		GraphicsResourceManager::Instance().CollectDeferredReleases(completedFenceValue);
+		// GPUがコピーに使い終えたPageを再利用可能にする
+		GraphicsResourceManager::Instance().CollectCompletedUploads(completedFenceValue);
+	}
+
 
 	// batch処理のカウンターリセット
 	bgBatch.Reset();
@@ -1196,6 +1214,53 @@ MaterialHandle Gfx::CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pix
 	return resourceManager.RegisterMaterial(_pixelShader, std::move(pipeline));
 }
 
+ComputePipelineHandle Gfx::CreateComputePipeline(ShaderHandle _computeShader)
+{
+	GraphicsResourceManager& resourceManager{ GraphicsResourceManager::Instance() };
+
+	// 世代と範囲確認
+	ShaderData* shaderData{ resourceManager.Lookup(_computeShader) };
+	if (!shaderData)
+	{
+		DEBUG_LOG_ERROR("ComputeShaderHandleが無効です\n");
+		return ComputePipelineHandle{};
+	}
+
+	// Graphics用Shaderを謝って渡していないか確認する
+	if (shaderData->usage != ShaderUsage::Compute || shaderData->stage != ShaderStage::Compute)
+	{
+		DEBUG_LOG_ERROR("Compute以外のShaderが指定されています\n");
+		return ComputePipelineHandle{};
+	}
+
+	if (!shaderData->blob)
+	{
+		DEBUG_LOG_ERROR("ComputeShaderのバイトコードがありません\n");
+		return ComputePipelineHandle{};
+	}
+
+	ComputePipelineData data{};
+
+	// Compute用のリソース接続契約を作成する
+	data.rootSignature = shaderSystem.CreateComputeRootSignature();
+	if (!data.rootSignature)
+	{
+		DEBUG_LOG_ERROR("Compute用RootSignatureの作成に失敗しました\n");
+		return ComputePipelineHandle{};
+	}
+
+	// コンパイル済みCSとRootSignatureからPSOを作成する
+	data.pipelineState = shaderSystem.CreateComputePipeline(shaderData->blob.Get(), data.rootSignature.Get());
+	if (!data.pipelineState)
+	{
+		DEBUG_LOG_ERROR("ComputePipelineの作成に失敗しました\n");
+		return ComputePipelineHandle{};
+	}
+
+	// PSOとRootSignatureの所有権を台帳へ移してハンドルを返す
+	return resourceManager.RegisterComputePipeline(std::move(data));
+}
+
 AnimInstanceHandle Gfx::CreateAnimInstance(ModelHandle _handle)
 {
 	return animSystem.Create(_handle);
@@ -1683,19 +1748,28 @@ void Gfx::Unload(TexHandle _handle)
 {
 	GraphicsResourceManager::Instance().Unload(_handle);
 }
+
 void Gfx::Unload(ModelHandle _handle)
 {
 	GraphicsResourceManager::Instance().Unload(_handle);
 }
+
 void Gfx::Unload(ShaderHandle _handle)
 {
 	GraphicsResourceManager::Instance().Unload(_handle);
 }
+
 void Gfx::Unload(MaterialHandle _handle)
 {
 	if (currentPostEffectMaterial == _handle)
 	{
 		currentPostEffectMaterial = {};
 	}
+	GraphicsResourceManager::Instance().Unload(_handle);
+}
+
+void Gfx::Unload(ComputePipelineHandle _handle)
+{
+	// 世代更新とFence付き解放待ちはResourceManagerが行う
 	GraphicsResourceManager::Instance().Unload(_handle);
 }

@@ -58,7 +58,14 @@ struct ModelLODState
 	}
 };
 
+// GPUで使用するStructuredBufferの設定
+struct GPUBufferDesc
+{
+	std::size_t elementCount{ 0 }; // 格納する要素数
+	std::size_t elementStride{ 0 }; // 1要素のサイズ(byte)
+	bool allowUnorderedAccess{ false }; // UAVに寄る書き込みを許可するか
+};
+
 // MaterialParameterの1スロットへ保存できる最大サイズ
 inline constexpr std::size_t MAX_MATERIAL_PARAMETER_SIZE{ 256 };
-
 

@@ -967,6 +967,88 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateComputePipeline(ID3DBlob* _compu
 	return pipeline;
 }
 
+ComPtr<ID3D12RootSignature> ShaderSystem::CreateComputeRootSignature()
+{
+	if (!device)
+	{
+		DEBUG_LOG_ERROR("デバイスが設定されていません\n");
+		return nullptr;
+	}
+
+	// 入力データを読むSRV一つ分の範囲
+	D3D12_DESCRIPTOR_RANGE inputRange{};
+	inputRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	inputRange.NumDescriptors = 1;
+	inputRange.BaseShaderRegister = 0; // t0
+	inputRange.RegisterSpace = 0;
+	inputRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	// 出力データを読み書きするUAV一つ分
+	D3D12_DESCRIPTOR_RANGE outputRange{};
+	outputRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+	outputRange.NumDescriptors = 1;
+	outputRange.BaseShaderRegister = 0; // u0
+	outputRange.RegisterSpace = 0;
+	outputRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	D3D12_ROOT_PARAMETER parameters[static_cast<UINT>(ComputeRootParameter::Count)]{};
+
+	// 定数バッファは仮想GPUアドレスを直接渡す
+	D3D12_ROOT_PARAMETER& constantBufferParam{ parameters[static_cast<UINT>(ComputeRootParameter::ConstantBuffer)] };
+	constantBufferParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	constantBufferParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	constantBufferParam.Descriptor.ShaderRegister = 0; // b0
+	constantBufferParam.Descriptor.RegisterSpace = 0;
+
+	// SRVのDescriptorが置かれている場所をさす
+	D3D12_ROOT_PARAMETER& inputParam{ parameters[static_cast<UINT>(ComputeRootParameter::InputBuffer)] };
+	inputParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	inputParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	inputParam.DescriptorTable.pDescriptorRanges = &inputRange;
+	inputParam.DescriptorTable.NumDescriptorRanges = 1;
+
+	// UAVのDescriptorが置かれている場所をさす
+	D3D12_ROOT_PARAMETER& ouputParam{ parameters[static_cast<UINT>(ComputeRootParameter::OutputBuffer)] };
+	ouputParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	ouputParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	ouputParam.DescriptorTable.pDescriptorRanges = &outputRange;
+	ouputParam.DescriptorTable.NumDescriptorRanges = 1;
+
+	// Computeは頂点入力を使わないのでIA用フラグは付けない
+	D3D12_ROOT_SIGNATURE_DESC nativeDesc{};
+	nativeDesc.NumParameters = static_cast<UINT>(ComputeRootParameter::Count);
+	nativeDesc.pParameters = parameters;
+	nativeDesc.NumStaticSamplers = 0;
+	nativeDesc.pStaticSamplers = nullptr;
+	nativeDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+
+	ComPtr<ID3DBlob> signatureBlob{};
+	ComPtr<ID3DBlob> errorBlob{};
+
+	// RootSignatureの設計図(Desc類)をバイナリ化
+	HRESULT result{ D3D12SerializeRootSignature(&nativeDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob, &errorBlob) };
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("Compute用RootSignatureのserialize化に失敗しました\n");
+		if (errorBlob)
+		{
+			OutputDebugStringA(static_cast<const char*>(errorBlob->GetBufferPointer()));
+			OutputDebugStringA("\n");
+		}
+		return nullptr;
+	}
+
+	// バイナリからRootSignatureの作成
+	ComPtr<ID3D12RootSignature> rootSignature{};
+	result = device->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("RootSignatureの作成しに失敗しました\n");
+		return nullptr;
+	}
+	return rootSignature;
+}
+
 ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _usage, ID3DBlob* _vertexShader, ID3DBlob* _pixelShader)
 {
 	if (!device)

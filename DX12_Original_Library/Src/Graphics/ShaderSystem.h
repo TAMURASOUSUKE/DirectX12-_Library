@@ -27,6 +27,8 @@ public:
 	bool CreateComputePipeline(const ComputePipelineDesc& _desc);
 	// コンパイル済みCSとRootSigからPSOを作成する(固定台帳には記録しない)
 	ComPtr<ID3D12PipelineState> CreateComputePipeline(ID3DBlob* _computeShader, ID3D12RootSignature* _rootSignature);
+	// Compute用RootSignatureを作成する固定台帳には登録しない
+	ComPtr<ID3D12RootSignature> CreateComputeRootSignature();
 	// Material用のPSOを作成する作成したPSOは固定Pipeline台帳には登録せず呼び出し元へ返す
 	ComPtr<ID3D12PipelineState> CreateMaterialPipeline(ShaderUsage _usage, ID3DBlob* _vertexShader, ID3DBlob* _pixelShader);
 	// 汎用RootSignatureDescを作成する関数
