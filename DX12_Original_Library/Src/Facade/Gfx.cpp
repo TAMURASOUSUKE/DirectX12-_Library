@@ -16,6 +16,7 @@
 #include "../Graphics/RingConstantBuffer.h"
 #include "../Graphics/GPUMarker.h"
 #include "../Graphics/ModelRenderSystem.h"
+#include "../Graphics/TerrainSystem.h"
 #include "../Graphics/ShadowSystem.h"
 #include "../Math/TSMath.h"
 #include "../Graphics/GraphicsConstant.h"
@@ -36,10 +37,7 @@ namespace {
 	ConstantBufferData orthConstantBufferData; // 正射影行列用定数バッファのデータメンバ
 	DynamicBuffer zeroMaterialParameterBuffer{}; // パラメータ未設定スロットへバインドするゼロ埋めCB 全スロットで同じGPUアドレス
 	RingConstantBuffer userMaterialParameterRingCBV{}; // 外部MaterialのユーザーパラメータをGPUへ送るRing, PostEffectとSpriteで将来共有する
-	RingConstantBuffer terrainRingCBV{}; // Terrain用RingConstantBuffer
 	// 全Terrain描画で共有するグリッド
-	VertexBuffer terrainVertexBuffer{};
-	IndexBuffer terrainIndexBuffer{};
 	SpriteBatch fgBatch; // 手前のスプライトバッチ処理
 	SpriteBatch bgBatch; // 背景のスプライトバッチ処理
 	ShapeBatch shapeBatch; // 基本図形のバッチ処理
@@ -49,6 +47,7 @@ namespace {
 	LightSystem lightSystem; // ライト管理システム
 	GraphicsSystem graphicsSystem; // Graphics全体のサイズ依存状態を統括
 	ModelRenderSystem modelRenderSystem{}; // モデルを描画するためのシステム
+	TerrainSystem terrainSystem{}; // テライン描画を行うためのシステム
 	ShadowSystem shadowSystem{}; // 平行光源ShadowMapを管理
 	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
 	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
@@ -162,131 +161,6 @@ namespace {
 			{
 				DEBUG_LOG_ERROR("GPU Pass計測の終了に失敗しました\n");
 			}
-		}
-		
-		// Terrainのリソースを初期化する
-		bool InitializeTerrainResources()
-		{
-			constexpr UINT GRID_SIZE{ 8 };
-			std::vector<TexVertex> vertices{};
-			std::vector<uint32_t> indices{};
-			vertices.reserve(GRID_SIZE * GRID_SIZE); // 正方形
-			indices.reserve((GRID_SIZE - 1) * (GRID_SIZE - 1) * 6);
-
-			for (UINT z = 0; z < GRID_SIZE; z++)
-			{
-				for (UINT x = 0; x < GRID_SIZE; x++)
-				{
-					const float u{ static_cast<float>(x) / static_cast<float>(GRID_SIZE - 1) };
-					const float v{ static_cast<float>(z) / static_cast<float>(GRID_SIZE - 1) };
-					TexVertex vertex{};
-
-					// 1x1のサイズで中心が原点のXZ平面を作る(実際の大きさはWorld行列で変更)
-					vertex.position[0] = u - 0.5f;
-					vertex.position[1] = 0.0f;
-					vertex.position[2] = v - 0.5f;
-					vertex.uv[0] = u;
-					vertex.uv[1] = v;
-					vertices.push_back(vertex);
-				}
-			}
-
-			for (UINT z = 0; z < GRID_SIZE - 1; z++)
-			{
-				for (UINT x = 0; x < GRID_SIZE - 1; x++)
-				{
-					const uint32_t i0{ z * GRID_SIZE + x };
-					const uint32_t i1{ i0 + 1 };
-					const uint32_t i2{ i0 + GRID_SIZE };
-					const uint32_t i3{ i2 + 1 };
-
-					// 1マス目の三角形
-					indices.push_back(i0);
-					indices.push_back(i2);
-					indices.push_back(i1);
-
-					// 2枚目の三角形
-					indices.push_back(i1);
-					indices.push_back(i2);
-					indices.push_back(i3);
-				}
-			}
-
-			terrainVertexBuffer = GraphicsResourceManager::Instance().CreateVertexBuffer(vertices.data(), static_cast<UINT>(vertices.size() * sizeof(TexVertex)), sizeof(TexVertex));
-			terrainIndexBuffer = GraphicsResourceManager::Instance().CreateIndexBuffer(indices.data(), static_cast<UINT>(indices.size() * sizeof(uint32_t)), static_cast<UINT>(indices.size()));
-			if (!terrainIndexBuffer.resource || !terrainVertexBuffer.resource)
-			{
-				DEBUG_LOG_ERROR("Terrainグリッドの作成に失敗しました\n");
-				return false;
-			}
-			terrainRingCBV.Setup(sizeof(TerrainCB));
-			return true;
-		}
-
-		// Terrain描画の内部処理
-		void DrawTerrainInternal(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap)
-		{
-			if (_scale <= 0.0f)
-			{
-				DEBUG_LOG_WARNING("Terrainのスケールは0より大きくしてください\n");
-				return;
-			}
-			ID3D12GraphicsCommandList* cmd{ GraphicsDevice::Instance().GetCommandList() };
-			if (!cmd || !terrainVertexBuffer.resource || !terrainIndexBuffer.resource) return;
-
-			// 指定されたHeightMapの実データ取得
-			TextureData* heightMap{ GraphicsResourceManager::Instance().Lookup(_heightMap) };
-			float effectiveHeightScale{ _heightScale }; // 高さのキャッシュ
-			if (!heightMap) // heightMapがないとき
-			{
-				const TexHandle fallback{ GraphicsResourceManager::Instance().GetDefaultTexture() };
-				heightMap = GraphicsResourceManager::Instance().Lookup(fallback); // 白テクスチャを使う
-				effectiveHeightScale = 0.0f; // ハイトマップがないときは高さ0にする
-			}
-			if (!heightMap)
-			{
-				DEBUG_LOG_ERROR("heighMapがデフォルトを含め失敗しました\n");
-				return;
-			}
-
-			//XZ方向に拡大
-			const Mat4x4 scaleMat{ Mat4x4::MakeScaling(Vector3{_scale, 1.0f, _scale}) };
-			const Mat4x4 translationMat{ Mat4x4::MakeTranslation(_position) };
-			const Mat4x4 worldMat{ scaleMat * translationMat }; // 行優先なのでS->T
-			TerrainCB cb{};
-			cb.mvp = worldMat * cameraSystem.GetViewProjectionMatrix();
-			cb.color = _color;
-			cb.heightScale = effectiveHeightScale;
-			cb.tessFactor = std::clamp(_tessFactor, 1.0f, 64.0f); // HSの分割係数の有効範囲内(1-64)にClamp
-			// 同じCBをHSとDSへ渡す
-			const D3D12_GPU_VIRTUAL_ADDRESS cbAddress{ terrainRingCBV.Update(&cb, sizeof(TerrainCB)) };
-			if (cbAddress <= 0)
-			{
-				DEBUG_LOG_ERROR("terrainのリングバッファUpdateに失敗しました\n");
-				return;
-			}
-
-			const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::Terrain) };
-			// Terrain用RootSigとPSO
-			cmd->SetGraphicsRootSignature(shaderSystem.GetRootSignature(RootSigID::Terrain));
-			cmd->SetPipelineState(shaderSystem.GetPipeline(PipelineID::TerrainWire));
-			DescriptorManager::Instance().SetDiscriptor(cmd); // SRVを使うのでDescriptorHeapをセット
-
-			// RootParam[0] : HS b0
-			cmd->SetGraphicsRootConstantBufferView(0, cbAddress);
-			// RootParam[1] : DS b0
-			cmd->SetGraphicsRootConstantBufferView(1, cbAddress);
-			// RootParam[2] : DS t0
-			cmd->SetGraphicsRootDescriptorTable(2, heightMap->srvHandle.gpu);
-			cmd->IASetVertexBuffers(0, 1, &terrainVertexBuffer.vertexView);
-			cmd->IASetIndexBuffer(&terrainIndexBuffer.indexView);
-			// 3インデックスで1つの三角形パッチとして渡す
-			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
-			GraphicsMetrics::RecordDrawCall(GraphicsPass::Terrain);
-			cmd->DrawIndexedInstanced(terrainIndexBuffer.indexCount, 1, 0, 0, 0);
-
-			// ここで終了
-			EndGPUTimingPass(GraphicsPass::Terrain, gpuTimingStarted);
 		}
 
 		// 指定したアトラスのセル番号からUV範囲を計算する
@@ -444,15 +318,11 @@ namespace {
 		// Gfx内のメンバの掃除
 		void ShutdownGfxOwnedResources()
 		{
-			// 仮で作っているTerrainのVB.IBを解放する(これは一時的な物なので3Dの基本図形描画時になくなる予定)
-			terrainIndexBuffer = IndexBuffer{};
-			terrainVertexBuffer = VertexBuffer{};
 			shadowSystem.Shutdown();
 			modelRenderSystem.Shutdown();
 			animSystem.Shutdown();
 			graphicsSystem.Shutdown();
-			// RingConstantBufferの解放
-			terrainRingCBV.Shutdown();
+			terrainSystem.Shutdown();
 			userMaterialParameterRingCBV.Shutdown();
 			zeroMaterialParameterBuffer = DynamicBuffer{}; // 解放
 			// Batchが所有するVB,IBを解放
@@ -539,9 +409,6 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 		return false;
 	}
 
-	// グリッドとCBの作成
-	if (!InitializeTerrainResources()) return false;
-
 	// ピクセル座標からNDC座標へ変換
 	const Mat4x4 orthMat{ Mat4x4::MakeOrthGraphic(static_cast<float>(_virtualWidth), static_cast<float>(_virtualHeight)) }; // 変換行列の作成
 	orthConstantBufferData = GraphicsResourceManager::Instance().CreateConstantBuffer(&orthMat, sizeof(Mat4x4));
@@ -561,6 +428,13 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	if (!graphicsSystem.Setup(&GraphicsDevice::Instance(), &GraphicsResourceManager::Instance(), &cameraSystem, _clientWidth, _clientHeight, _virtualWidth, _virtualHeight))
 	{
 		DEBUG_LOG_ERROR("GraphicsSystemの初期化に失敗しました\n");
+		return false;
+	}
+	
+	// ShaderSystemから指定した型のRootSigとPipelineを持ってくる
+	if (!terrainSystem.Setup(shaderSystem.GetRootSignature(RootSigID::Terrain), shaderSystem.GetPipeline(PipelineID::TerrainWire)))
+	{
+		DEBUG_LOG_ERROR("TerrainSystemの初期化に失敗しました\n");
 		return false;
 	}
 
@@ -644,7 +518,7 @@ void GfxInternal::BeginFrame()
 	shapeBatch.Reset();
 	primitive3DSystem.Reset();
 	// 定数バッファのカウンターリセット
-	terrainRingCBV.Reset();
+	terrainSystem.Reset();
 	userMaterialParameterRingCBV.Reset();
 	lightSystem.BeginFrame();
 	shadowSystem.BeginFrame();
@@ -750,6 +624,14 @@ void GfxInternal::EndFrame()
 		GPU_MARKER("Primitive3D");
 		if (!primitive3DSystem.Flush(cameraSystem.GetViewProjectionMatrix(), lightAddress)) DEBUG_LOG_ERROR("Primitive3Dの更新に失敗しました\n");
 		EndGPUTimingPass(GraphicsPass::Primitive3D, gpuTimingStarted); // 計測終了
+	}
+
+	// Terrain描画
+	{
+		const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::Terrain) }; // 計測開始
+		GPU_MARKER("Terrain");
+		terrainSystem.Flush(GraphicsDevice::Instance().GetCommandList());
+		EndGPUTimingPass(GraphicsPass::Terrain, gpuTimingStarted); // 計測終了
 	}
 
 	// モデル描画
@@ -1635,19 +1517,7 @@ bool Gfx::DestroyAnim(AnimInstanceHandle _handle)
 
 void Gfx::DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap)
 {
-	if (bgBatch.HasPendingDraw())
-	{
-		const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::BackgroundSprite) };
-		{
-			// マクロがスコープを抜けるとEndEventするので囲う
-			GPU_MARKER("backGround");
-			bgBatch.Flush(userMaterialParameterRingCBV, zeroMaterialParameterBuffer.resource.Get(), GraphicsPass::BackgroundSprite);
-		}
-
-		EndGPUTimingPass(GraphicsPass::BackgroundSprite, gpuTimingStarted);
-	}
-
-	DrawTerrainInternal(_position, _scale, _tessFactor, _heightScale, _color, _heightMap);
+	terrainSystem.RegsterTerrain(_position, _scale, _tessFactor, _heightScale, _color, _heightMap, cameraSystem.GetViewProjectionMatrix());
 }
 
 void Gfx::SetBaseColor(ModelHandle _model, int _submeshIndex, Vector4 _color)

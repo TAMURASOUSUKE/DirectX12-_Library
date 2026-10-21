@@ -1340,9 +1340,9 @@ RTHandle GraphicsResourceManager::CreateRenderTarget(UINT _width, UINT _height)
 	return RTHandle(PassKey{}, packed);
 }
 
-GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _desc, const void* _initialData, std::size_t _initialDataSize = 0)
+GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _desc, const void* _initialData, std::size_t _initialDataSize)
 {
-
+	return GPUBufferHandle{};
 }
 
 ShaderHandle GraphicsResourceManager::RegisterShader(ShaderUsage _usage, ShaderStage _stage, ComPtr<ID3DBlob> _shaderBlob)

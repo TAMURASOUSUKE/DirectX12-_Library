@@ -307,6 +307,7 @@
     <ClInclude Include="Src\Graphics\ShadowSystem.h" />
     <ClInclude Include="Src\Graphics\ShapeBatch.h" />
     <ClInclude Include="Src\Graphics\SpriteBatch.h" />
+    <ClInclude Include="Src\Graphics\TerrainSystem.h" />
     <ClInclude Include="Src\Graphics\UploadSystem.h" />
     <ClInclude Include="Src\Graphics\UploadType.h" />
     <ClInclude Include="Src\Input\ActionInput.h" />
@@ -394,6 +395,7 @@
     <ClCompile Include="Src\Graphics\ShadowSystem.cpp" />
     <ClCompile Include="Src\Graphics\ShapeBatch.cpp" />
     <ClCompile Include="Src\Graphics\SpriteBatch.cpp" />
+    <ClCompile Include="Src\Graphics\TerrainSystem.cpp" />
     <ClCompile Include="Src\Graphics\UploadSystem.cpp" />
     <ClCompile Include="Src\Input\ActionInput.cpp" />
     <ClCompile Include="Src\Input\GamePadInput.cpp" />

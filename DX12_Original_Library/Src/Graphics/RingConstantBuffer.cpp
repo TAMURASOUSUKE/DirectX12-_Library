@@ -7,12 +7,18 @@
 #include "GraphicsResourceManager.h"
 #include "RingConstantBuffer.h"
 
-void RingConstantBuffer::Setup(UINT _dataSize, UINT _maxUpadatePerFrame)
+bool RingConstantBuffer::Setup(UINT _dataSize, UINT _maxUpadatePerFrame)
 {
+	if (isInitialize)
+	{
+		DEBUG_LOG_WARNING("すでに初期化されています\n");
+		return false;
+	}
+
 	if (_dataSize == 0 || _maxUpadatePerFrame == 0)
 	{
 		DEBUG_LOG_ERROR("RingConstantBufferの初期化引数が不正です\n");
-		return;
+		return false;
 	}
 
 	alignedSize = (_dataSize + 0xff) & ~0xff; // 256バイトへの切り上げ
@@ -27,20 +33,22 @@ void RingConstantBuffer::Setup(UINT _dataSize, UINT _maxUpadatePerFrame)
 		DEBUG_LOG_ERROR("RingConstantBufferの確保サイズがUINT上限を超えています\n");
 		alignedSize = 0;
 		maxUpdatesPerFrame = 0;
-		return;
+		return false;
 	}
 
 	DynamicBuffer db{ GraphicsResourceManager::Instance().CreateDynamicBuffer(static_cast<UINT>(totalSize)) }; // 動的なバッファ確保
 	if (!db.mappedPtr || !db.resource)
 	{
 		DEBUG_LOG_ERROR("RingConstantBufferの作成に失敗しました\n");
-		return; // mapされたCPUptrを確認してnullであれば失敗判定
+		return false; // mapされたCPUptrを確認してnullであれば失敗判定
 	}
 
 	// メンバへ渡す
 	resource = db.resource; // リソースオブジェクト
 	baseCPUPtr = db.mappedPtr; // マップしたCPUポインタ
 	baseGPUVA = resource->GetGPUVirtualAddress(); // ベースの仮想アドレスをキャッシュして保持
+	isInitialize = true;
+	return true;
 }
 
 void RingConstantBuffer::Shutdown()
@@ -51,6 +59,7 @@ void RingConstantBuffer::Shutdown()
 	alignedSize = 0;
 	maxUpdatesPerFrame = 0;
 	frameCounter = 0;
+	isInitialize = false;
 }
 
 D3D12_GPU_VIRTUAL_ADDRESS RingConstantBuffer::Update(const void* _src, UINT _size)
