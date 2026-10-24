@@ -1176,6 +1176,11 @@ AnimInstanceHandle Gfx::CreateAnimInstance(ModelHandle _handle)
 	return animSystem.Create(_handle);
 }
 
+GPUBufferHandle Gfx::CreateGPUBuffer(const GPUBufferDesc& _desc, const void* _initialData, std::size_t _initialDataSize)
+{
+	return GraphicsResourceManager::Instance().CreateGPUBuffer(_desc, _initialData, _initialDataSize);
+}
+
 void Gfx::DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation, Vector4 _color, bool _isWireframe)
 {
 	shapeBatch.RegisterBox(_leftTop, _rightBottom, _radRotation, _color, _isWireframe);
@@ -1667,6 +1672,12 @@ void Gfx::Unload(MaterialHandle _handle)
 }
 
 void Gfx::Unload(ComputePipelineHandle _handle)
+{
+	// 世代更新とFence付き解放待ちはResourceManagerが行う
+	GraphicsResourceManager::Instance().Unload(_handle);
+}
+
+void Gfx::Unload(GPUBufferHandle _handle)
 {
 	// 世代更新とFence付き解放待ちはResourceManagerが行う
 	GraphicsResourceManager::Instance().Unload(_handle);

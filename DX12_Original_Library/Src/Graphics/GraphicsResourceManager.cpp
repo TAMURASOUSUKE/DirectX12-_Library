@@ -373,7 +373,7 @@ void GraphicsResourceManager::Shutdown()
 	uploadSystem.Shutdown();
 
 	// テクスチャ削除ラムダ
-	auto releaseTexture
+	const auto releaseTexture
 	{
 		[](TextureData& _texture)
 		{
@@ -404,7 +404,7 @@ void GraphicsResourceManager::Shutdown()
 
 
 	// RT削除ラムダ
-	auto releaseRenderTarget
+	const auto releaseRenderTarget
 	{
 		[](RenderTargetData& _rt)
 		{
@@ -435,6 +435,38 @@ void GraphicsResourceManager::Shutdown()
 	}
 	rtSlots.clear(); // 空にする
 
+	// GPUの待機完了後にBuffer本体とDescriptorを解放する
+	const auto releaseGPUBuffer
+	{
+		[](GPUBufferData& _buffer)
+		{
+			if (_buffer.srvHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, _buffer.srvHandle);
+			if (_buffer.uavHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, _buffer.uavHandle);
+			_buffer = GPUBufferData{};
+		}
+	};
+
+	// まだUnloadされていないBuffer
+	for (GPUBufferSlot& slot : gpuBufferSlots)
+	{
+		releaseGPUBuffer(slot.data);
+	}
+
+	// Unload済みでFenceが未確定のBuffer
+	for (GPUBufferData& buffer : pendingRelease.gpuBuffers)
+	{
+		releaseGPUBuffer(buffer);
+	}
+
+	// Fence完了待ちだったBuffer
+	for (DeferredReleaseBatch& batch : deferredReleases)
+	{
+		for (GPUBufferData& buffer : batch.gpuBuffers)
+		{
+			releaseGPUBuffer(buffer);
+		}
+	}
+
 	// 生存しているmodel
 	modelSlots.clear(); // ComPtrも解放
 	// Unload済みで解放待ちだったmodel
@@ -445,7 +477,9 @@ void GraphicsResourceManager::Shutdown()
 	materialSlots.clear();
 	shaderSlots.clear();
 	computePipelineSlots.clear();
+	gpuBufferSlots.clear();
 	pendingRelease = DeferredReleaseBatch{}; // 空にする
+
 	// FreeListも初期状態へ戻す
 	while (!texFreeList.empty())
 	{
@@ -471,6 +505,10 @@ void GraphicsResourceManager::Shutdown()
 	{
 		computePipelineFreeList.pop();
 	}
+	while (!gpuBufferFreeList.empty())
+	{
+		gpuBufferFreeList.pop();
+	}
 	defaultTexture = TexHandle{};
 	errorTexture = TexHandle{};
 	device = nullptr;
@@ -481,7 +519,7 @@ void GraphicsResourceManager::CommitPendingRelease(UINT64 _submittedFenceValue)
 	// 空チェック
 	if (pendingRelease.textures.empty() && pendingRelease.models.empty() &&
 		pendingRelease.renderTargets.empty() && pendingRelease.pipelineStates.empty() &&
-		pendingRelease.computePipelines.empty())
+		pendingRelease.computePipelines.empty() && pendingRelease.gpuBuffers.empty())
 	{
 		return;
 	}
@@ -502,10 +540,7 @@ void GraphicsResourceManager::CollectDeferredReleases(UINT64 _completedFenceValu
 		DeferredReleaseBatch& batch{ deferredReleases.front() }; // 先頭を取り出す
 
 		// 先頭の荷物をGPUがまだ使っている
-		if (batch.fenceValue > _completedFenceValue)
-		{
-			break;
-		}
+		if (batch.fenceValue > _completedFenceValue) break;
 
 		// GPUが使い終わったのでDescriptorを返す
 		for (TextureData& texture : batch.textures)
@@ -518,6 +553,13 @@ void GraphicsResourceManager::CollectDeferredReleases(UINT64 _completedFenceValu
 			// 両方ともここで開放
 			DescriptorManager::Instance().Free(HeapType::RTV, rt.rtvHandle);
 			DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, rt.srvHandle);
+		}
+
+		// GPUが使用し終えたBufferのDescriptorを返す
+		for (GPUBufferData& buffer : batch.gpuBuffers)
+		{
+			if (buffer.srvHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, buffer.srvHandle);
+			if (buffer.uavHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, buffer.uavHandle);
 		}
 
 		// pop_frontによって各リソースが破棄されて内部のComPtrもここで解放
@@ -1414,7 +1456,7 @@ GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _d
 	std::size_t sizeInBytes{ _desc.elementCount * _desc.elementStride };
 
 	// 初期データなしはnullptrと0,ある場合はBuffer全体のサイズを要求する
-	if ((!_initialData && _initialDataSize != 0) && (_initialData && _initialDataSize != sizeInBytes))
+	if ((!_initialData && _initialDataSize != 0) || (_initialData && _initialDataSize != sizeInBytes))
 	{
 		DEBUG_LOG_ERROR("渡されたデータが不正です\n");
 		return GPUBufferHandle{};
@@ -1477,7 +1519,7 @@ GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _d
 
 	// 読み取り用のSRVの置き場所の確保
 	data.srvHandle = descriptorManager.Allocate(HeapType::CBV_SRV_UAV);
-	if (data.srvHandle.IsValid())
+	if (!data.srvHandle.IsValid())
 	{
 		DEBUG_LOG_ERROR("GPUBufferのSRVハンドルを確保できませんでした\n");
 		return GPUBufferHandle{};
@@ -1502,6 +1544,7 @@ GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _d
 		if (!data.uavHandle.IsValid())
 		{
 			DEBUG_LOG_ERROR("GPUBufferのUAVのハンドルを確保できませんでした\n");
+			releaseDescriptors();
 			return  GPUBufferHandle{};
 		}
 
@@ -1524,6 +1567,7 @@ GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _d
 		if (!uploadSystem.EnqueueBuffer(data.resource.Get(), _initialData, sizeInBytes, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COMMON))
 		{
 			DEBUG_LOG_ERROR("GPUBufferへの初期転送予約ができませんでした\n");
+			releaseDescriptors();
 			return GPUBufferHandle{};
 		}
 	}
@@ -1834,6 +1878,32 @@ void GraphicsResourceManager::Unload(ComputePipelineHandle _handle)
 	// 古いハンドルを無効にしてスロットを再利用可能にする
 	computePipelineSlots[index].generation++;
 	computePipelineFreeList.push(index);
+}
+
+void GraphicsResourceManager::Unload(GPUBufferHandle _handle)
+{
+	// ハンドルの範囲と世代を確認する
+	GPUBufferData* data{ Lookup(_handle) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("無効なGPUBufferHandleです\n");
+		return;
+	}
+
+	const int index{ UnpackIndex(_handle.GetRaw(PassKey{})) };
+
+	// BufferはGPUが使用中かもしれないため、Fence付き解放待ちへ移す
+	pendingRelease.gpuBuffers.push_back(std::move(gpuBufferSlots[index].data));
+
+	// CPU側のGPUBuffer情報を破棄する
+	gpuBufferSlots[index].data = GPUBufferData{};
+
+	// 古いハンドルを無効にしてスロットを再利用可能にする
+	gpuBufferSlots[index].generation++;
+
+	// Handleへ格納できる世代の間だけSlotを再利用する
+	constexpr uint32_t MAX_GENERATION{ static_cast<uint32_t>((std::numeric_limits<int>::max)() >> INDEX_BITS) };
+	if(gpuBufferSlots[index].generation <= MAX_GENERATION) gpuBufferFreeList.push(index);
 }
 
 TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta)

@@ -37,6 +37,7 @@ public:
 
 	// 初期化処理
 	bool Setup(ID3D12Device* _device);
+
 	// 終了処理
 	void Shutdown();
 
@@ -117,6 +118,7 @@ public:
 	void Unload(ShaderHandle _handle);
 	void Unload(MaterialHandle _handle);
 	void Unload(ComputePipelineHandle _handle);
+	void Unload(GPUBufferHandle _handle);
 
 	// デフォルト用の白テクスチャを取得する
 	TexHandle GetDefaultTexture() const { return defaultTexture; }
