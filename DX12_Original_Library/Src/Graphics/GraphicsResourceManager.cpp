@@ -3,6 +3,8 @@
 #include <filesystem>
 #include <cstring>
 #include <unordered_map>
+#include <utility>
+#include <limits>
 #include "../External/Common/d3dx12.h"
 #include "../External/DirectXTex/DirectXTex.h"
 #include "../External/cgltf.h"
@@ -330,6 +332,7 @@ bool GraphicsResourceManager::Setup(ID3D12Device* _device)
 		shaderSlots.reserve(MAX_CUSTOM_SHADER_COUNT);
 		materialSlots.reserve(MAX_MATERIAL_COUNT);
 		computePipelineSlots.reserve(MAX_COMPUTE_PIPELINE_COUNT);
+		gpuBufferSlots.reserve(MAX_GPU_BUFFER_COUNT);
 	}
 	catch (const std::bad_alloc&)
 	{
@@ -880,6 +883,7 @@ ComputePipelineData* GraphicsResourceManager::Lookup(ComputePipelineHandle _hand
 
 	int packed{ _handle.GetRaw(PassKey{}) }; // 生の値(内部ハンドルを取得)
 	int index{ UnpackIndex(packed) }; // index部分を取り出す
+
 	// 範囲外チェック
 	if (index < 0 || index >= static_cast<int>(computePipelineSlots.size()))
 	{
@@ -898,6 +902,41 @@ ComputePipelineData* GraphicsResourceManager::Lookup(ComputePipelineHandle _hand
 	if (!slot.data.pipelineState || !slot.data.rootSignature)
 	{
 		DEBUG_LOG_ERROR("ComputePipelineの実データが無効です\n");
+		return nullptr;
+	}
+
+	return &slot.data; // 実体を返す
+}
+
+GPUBufferData* GraphicsResourceManager::Lookup(GPUBufferHandle _handle)
+{
+	if (!_handle.IsValid())
+	{
+		DEBUG_LOG_ERROR("無効なハンドルです\n");
+		return nullptr; // 無効なハンドルならnull
+	}
+
+	int packed{ _handle.GetRaw(PassKey{}) }; // 生の値(内部ハンドルを取得)
+	int index{ UnpackIndex(packed) }; // index部分を取り出す
+
+	// 範囲外チェック
+	if (index < 0 || index >= static_cast<int>(gpuBufferSlots.size()))
+	{
+		DEBUG_LOG_ERROR("ハンドルに範囲外のサイズが渡されました\n");
+		return nullptr; // 範囲チェック
+	}
+	GPUBufferSlot& slot{ gpuBufferSlots[index] }; // スロットの指定ハンドル部分を取り出す
+	// 世代チェック
+	if (UnpackGen(packed) != static_cast<int>(slot.generation))
+	{
+		DEBUG_LOG_WARNING("世代が異なります\n");
+		return nullptr; // 世代チェック
+	}
+
+	// バッファ本体が存在するか確認
+	if (!slot.data.resource)
+	{
+		DEBUG_LOG_ERROR("GPUBufferの実データが無効です\n");
 		return nullptr;
 	}
 
@@ -1342,7 +1381,171 @@ RTHandle GraphicsResourceManager::CreateRenderTarget(UINT _width, UINT _height)
 
 GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _desc, const void* _initialData, std::size_t _initialDataSize)
 {
-	return GPUBufferHandle{};
+	if (!device)
+	{
+		DEBUG_LOG_ERROR("Deviceが初期化されていません\n");
+		return GPUBufferHandle{};
+	}
+
+	// 一つのBufferResourceが持てる最大のテクセル数を計算する(2^27)
+	constexpr std::size_t MAX_ELEMENT_COUNT{ std::size_t{1} << D3D12_REQ_BUFFER_RESOURCE_TEXEL_COUNT_2_TO_EXP };
+
+	if (_desc.elementCount == 0 || _desc.elementCount > MAX_ELEMENT_COUNT)
+	{
+		DEBUG_LOG_ERROR("GPUBufferの要素数の値が不正です\n");
+		return GPUBufferHandle{};
+	}
+
+	// StructuredBufferの要素幅は4byteの倍数で2048byte
+	if (_desc.elementStride == 0 || _desc.elementStride > D3D12_REQ_MULTI_ELEMENT_STRUCTURE_SIZE_IN_BYTES || _desc.elementStride % 4 != 0)
+	{
+		DEBUG_LOG_ERROR("GPUBufferのデータサイズが不正です\n");
+		return GPUBufferHandle{};
+	}
+
+	// 掛け算を行う前にオーバーフロー確認を行う
+	if (_desc.elementCount > (std::numeric_limits<std::size_t>::max)() / _desc.elementStride)
+	{
+		DEBUG_LOG_ERROR("GPUBufferが全体サイズを超えています\n");
+		return GPUBufferHandle{};
+	}
+
+	// 全体のバイト数
+	std::size_t sizeInBytes{ _desc.elementCount * _desc.elementStride };
+
+	// 初期データなしはnullptrと0,ある場合はBuffer全体のサイズを要求する
+	if ((!_initialData && _initialDataSize != 0) && (_initialData && _initialDataSize != sizeInBytes))
+	{
+		DEBUG_LOG_ERROR("渡されたデータが不正です\n");
+		return GPUBufferHandle{};
+	}
+
+	const bool canRegister{ !gpuBufferFreeList.empty() || gpuBufferSlots.size() < MAX_GPU_BUFFER_COUNT };
+	if (!canRegister)
+	{
+		DEBUG_LOG_ERROR("GPUBufferの登録上限に達しました\n");
+		return GPUBufferHandle{};
+	}
+
+	// 失敗した際に破棄できるように一時データ
+	GPUBufferData data{};
+	data.desc = _desc;
+	data.sizeInBytes = static_cast<UINT64>(sizeInBytes);
+	data.currentState = D3D12_RESOURCE_STATE_COMMON; // 最初はCommon
+	
+	// GPUが書き込む場合でのみUAVを作成を許可する
+	const D3D12_RESOURCE_FLAGS resourceFlag{ _desc.allowUnorderedAccess ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS : D3D12_RESOURCE_FLAG_NONE };
+	CD3DX12_HEAP_PROPERTIES heapProperties{ D3D12_HEAP_TYPE_DEFAULT }; // デフォルトヒープ指定
+
+	const CD3DX12_RESOURCE_DESC resourceDesc{ CD3DX12_RESOURCE_DESC::Buffer(data.sizeInBytes, resourceFlag) };
+
+	const HRESULT result{ 
+		device->CreateCommittedResource(
+			&heapProperties, // GPU処理用のDefaultHeap
+			D3D12_HEAP_FLAG_NONE,
+			&resourceDesc, // 全体サイズの書き込み許可
+			data.currentState,
+			nullptr,
+			IID_PPV_ARGS(data.resource.GetAddressOf())
+		) 
+	};
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("リソースの作成に失敗しました\n");
+		return GPUBufferHandle{};
+	}
+
+	DescriptorManager& descriptorManager{ DescriptorManager::Instance() }; // キャッシュ
+
+	// まだGPUへ渡していない作成途中のDescriptorだけを返す
+	const auto releaseDescriptors
+	{
+		[&]()
+			{
+				if (data.srvHandle.IsValid())
+				{
+					descriptorManager.Free(HeapType::CBV_SRV_UAV, data.srvHandle);
+					data.srvHandle = {};
+				}	
+				if (data.uavHandle.IsValid())
+				{
+					descriptorManager.Free(HeapType::CBV_SRV_UAV, data.uavHandle);
+					data.uavHandle = {};
+				}
+			}
+	};
+
+	// 読み取り用のSRVの置き場所の確保
+	data.srvHandle = descriptorManager.Allocate(HeapType::CBV_SRV_UAV);
+	if (data.srvHandle.IsValid())
+	{
+		DEBUG_LOG_ERROR("GPUBufferのSRVハンドルを確保できませんでした\n");
+		return GPUBufferHandle{};
+	}
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+	srvDesc.Format = DXGI_FORMAT_UNKNOWN; // 構造体の並びなので指定しない
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Buffer.FirstElement = 0; // 先頭要素から読む
+	srvDesc.Buffer.NumElements = static_cast<UINT>(_desc.elementCount); // 要素数
+	srvDesc.Buffer.StructureByteStride = static_cast<UINT>(_desc.elementStride); // 次の要素までは何Byteか
+	srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+	// Allocateで確保したDescriptorの位置にcpuハンドルを使って指定resourceを作成
+	device->CreateShaderResourceView(data.resource.Get(), &srvDesc, data.srvHandle.cpu);
+
+	// 書き込みが許可されているBufferはUAVを作成する
+	if (_desc.allowUnorderedAccess)
+	{
+		// 書き込み用のUAVの置き場所の確保
+		data.uavHandle = descriptorManager.Allocate(HeapType::CBV_SRV_UAV);
+		if (!data.uavHandle.IsValid())
+		{
+			DEBUG_LOG_ERROR("GPUBufferのUAVのハンドルを確保できませんでした\n");
+			return  GPUBufferHandle{};
+		}
+
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc{};
+		uavDesc.Format = DXGI_FORMAT_UNKNOWN; // 構造体の並びなので指定しない
+		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+		uavDesc.Buffer.FirstElement = 0;
+		uavDesc.Buffer.NumElements = static_cast<UINT>(_desc.elementCount);
+		uavDesc.Buffer.StructureByteStride = static_cast<UINT>(_desc.elementStride);
+		uavDesc.Buffer.CounterOffsetInBytes = 0;
+		uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+
+		// SRVと同様にcpuハンドルを使って指定resoruceを作成 要素数カウンターは無し
+		device->CreateUnorderedAccessView(data.resource.Get(), nullptr, &uavDesc, data.uavHandle.cpu);
+	}
+
+	// 初期データがあればUploadSystemを使って転送予約
+	if (_initialData)
+	{
+		if (!uploadSystem.EnqueueBuffer(data.resource.Get(), _initialData, sizeInBytes, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COMMON))
+		{
+			DEBUG_LOG_ERROR("GPUBufferへの初期転送予約ができませんでした\n");
+			return GPUBufferHandle{};
+		}
+	}
+
+	// すべて成功したので追加を行う
+	int index{};
+	if (!gpuBufferFreeList.empty())
+	{
+		// 解放済みSlotの利用
+		index = gpuBufferFreeList.top();
+		gpuBufferFreeList.pop();
+		gpuBufferSlots[index].data = std::move(data);
+	}
+	else
+	{
+		// 新しいSlotを作る
+		index = static_cast<int>(gpuBufferSlots.size());
+		gpuBufferSlots.push_back({ std::move(data), 0 });
+	}
+
+	int packed{ Pack(index, gpuBufferSlots[index].generation) };
+	return GPUBufferHandle{ PassKey{}, packed };
 }
 
 ShaderHandle GraphicsResourceManager::RegisterShader(ShaderUsage _usage, ShaderStage _stage, ComPtr<ID3DBlob> _shaderBlob)

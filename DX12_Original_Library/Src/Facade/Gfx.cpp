@@ -2,6 +2,7 @@
 #include <limits>
 #include <utility>
 #include <algorithm>
+#include <exception>
 #include "../External/Common/d3dx12.h"
 #include "../External/cgltf.h"
 #include "../Debug/DebugLogs.h"
@@ -559,6 +560,15 @@ void GfxInternal::BeginFrame()
 // フレーム終了処理
 void GfxInternal::EndFrame()
 {
+	
+	// 予約してある転送命令をコマンドリストに記録
+	if (!GraphicsResourceManager::Instance().RecordPendingUploads(GraphicsDevice::Instance().GetCommandList()))
+	{
+		DEBUG_LOG_ERROR("転送命令をコマンドリストに記録できませんでした\n");
+		DEBUG_ASSERT(false); // cmdが開いたまま次へ行かないようにAssertで止める
+		std::terminate(); // releaseでも止められるようにteminateする(強制的な停止のためFinishを呼び出せる形に今後変更するべき)
+	}
+
 	// Spritebatch描画
 	if (bgBatch.HasPendingDraw())
 	{
@@ -774,10 +784,28 @@ void GfxInternal::EndFrame()
 
 	if (!gpuTimingSystem.EndFrame(cmd)) DEBUG_LOG_ERROR("GPUフレーム計測の終了に失敗しました\n");
 	GraphicsDevice& graphicsDevice{ GraphicsDevice::Instance() };
+	const UINT64 before{ graphicsDevice.GetLastSubmittedFenceValue() }; // EndFrame呼び出し前のSignal値
 	const bool endFrameSucceeded{ graphicsDevice.EndFrame() };
+	const UINT64 after{ graphicsDevice.GetLastSubmittedFenceValue() }; // EndFrame呼び出し後のSignal値
 	// Signalが成功したフレームだけpendingReleaseへ確定済みのFence値を割り当てる
-	if (endFrameSucceeded) GraphicsResourceManager::Instance().CommitPendingRelease(GraphicsDevice::Instance().GetLastSubmittedFenceValue()); 	// このフレーム中にUnloadされたリソースに対して今回のSignalしたFence値を割り当てる
-	else DEBUG_LOG_ERROR("GraphicsDevice::EndFrameに失敗したため遅延解放のFence確定を見送ります\n"); // fenceが成立していないので次の正常フレーム若しくは終了処理まで保持する
+	if (after > before)
+	{
+		// このフレーム中にUnloadされたリソースに対してFence値を割り当てる
+		GraphicsResourceManager::Instance().CommitPendingRelease(after);
+
+		// 記録済みの転送BatchへFence値を割り当てる
+		if (GraphicsResourceManager::Instance().HasRecordedUploads())
+		{
+			if (!GraphicsResourceManager::Instance().CommitSubmittedUploads(after))
+			{
+				DEBUG_LOG_ERROR("転送BatchへのFence値の関連付けに失敗しました\n");
+				DEBUG_ASSERT(false);
+			}
+		}
+	}
+
+	if (!endFrameSucceeded) DEBUG_LOG_ERROR("GraphicsDeviceのEndFrameに失敗しました\n");
+	
 	isSceneRenderTargetActive = false;
 }
 

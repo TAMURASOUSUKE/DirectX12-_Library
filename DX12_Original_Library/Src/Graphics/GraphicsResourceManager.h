@@ -107,6 +107,7 @@ public:
 	ShaderData* Lookup(ShaderHandle _handle);
 	MaterialData* Lookup(MaterialHandle _handle);
 	ComputePipelineData* Lookup(ComputePipelineHandle _handle);
+	GPUBufferData* Lookup(GPUBufferHandle _handle);
 
 
 	// リソースを解放する
@@ -151,6 +152,7 @@ private:
 	std::vector<ShaderSlot> shaderSlots; // シェーダーのスロット
 	std::vector<MaterialSlot> materialSlots; // materialのスロット
 	std::vector<ComputePipelineSlot> computePipelineSlots; // ComputePipelineの管理スロット
+	std::vector<GPUBufferSlot> gpuBufferSlots; // GPUBufferのスロット
 
 	std::stack<int> texFreeList; // テクスチャリソースのフリーリスト
 	std::stack<int> modelFreeList; // モデルリソースのフリーリスト
@@ -158,6 +160,8 @@ private:
 	std::stack<int> shaderFreeList; // Shaderのフリーリスト
 	std::stack<int> materialFreeList; // materialのフリーリスト
 	std::stack<int> computePipelineFreeList; // ComputePSOのフリーリスト
+	std::stack<int> gpuBufferFreeList; // GPUBufferのフリーリスト
+
 	DeferredReleaseBatch pendingRelease{}; // まだEndFrameしていないのでFence値が決まっていない荷物
 	std::deque<DeferredReleaseBatch> deferredReleases{}; // EndFrame済みでGPU完了を待っている荷物
 
