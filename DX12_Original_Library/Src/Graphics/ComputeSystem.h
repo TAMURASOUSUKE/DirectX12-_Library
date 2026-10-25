@@ -9,6 +9,7 @@
 // Compute実行要求の登録とCommandListへの記録を担当する
 class ComputeSystem
 {
+public:
 	ComputeSystem() = default;
 	~ComputeSystem() = default;
 
