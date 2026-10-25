@@ -117,12 +117,3 @@ struct ComputeDispatchDesc
 	std::uint32_t groupCountY{ 1 };
 	std::uint32_t groupCountZ{ 1 };
 };
-
-// 登録から実行までComputeSystemが保持する要求
-struct ComputeDispatchCommand
-{
-	ComputeDispatchDesc desc{}; // 設定
-
-	std::array<std::byte, MAX_COMPUTE_PARAMETER_SIZE> parameterData{}; 
-	std::size_t parameterSize{ 0 };
-};

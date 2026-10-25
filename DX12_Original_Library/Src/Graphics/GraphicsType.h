@@ -612,6 +612,16 @@ struct GPUBufferSlot
 	uint32_t generation{ 0 }; // 世代
 };
 
+// 登録から実行までComputeSystemが保持する要求
+struct ComputeDispatchCommand
+{
+	ComputeDispatchDesc desc{}; // 設定
+
+	std::array<std::byte, MAX_COMPUTE_PARAMETER_SIZE> parameterData{};
+	std::size_t parameterSize{ 0 };
+};
+
+
 // 1回のGPU送信に対応する解放待ちのリソース
 struct DeferredReleaseBatch
 {
