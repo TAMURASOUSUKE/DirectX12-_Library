@@ -1,4 +1,6 @@
 #include <new>
+#include <cstring>
+#include <cstdint>
 #include "DescriptorManager.h"
 #include "../Debug/DebugLogs.h"
 #include "ComputeSystem.h"
@@ -98,7 +100,7 @@ void ComputeSystem::Shutdown()
 	if (nullUAV.IsValid())
 	{
 		descriptorManager.Free(HeapType::CBV_SRV_UAV, nullUAV);
-		nullSRV = {};
+		nullUAV = {};
 	}
 
 	ringCBV.Shutdown();
@@ -110,7 +112,94 @@ void ComputeSystem::Shutdown()
 
 bool ComputeSystem::RegisterDispatch(const ComputeDispatchDesc& _desc, const void* _data, std::size_t _parameterSize)
 {
+	if (!isInitialize)
+	{
+		DEBUG_LOG_ERROR("ComputeSystemが初期化されていません\n");
+		return false;
+	}
 
+	// 確保した範囲を超えて登録しようとしない
+	if (commands.size() >= MAX_COMPUTE_DISPATCH_COUNT)
+	{
+		DEBUG_LOG_ERROR("Computeの実行予約登録上限に達しました\n");
+		return false;
+	}
+
+	// Handleが壊れていないか確認
+	if (!_desc.pipeline.IsValid())
+	{
+		DEBUG_LOG_ERROR("ComputePipelineが未設定です\n");
+		return false;
+	}
+
+	// このAPIでは何もしないグループ数0を許さない
+	const auto checkGroupCount
+	{
+		[](const std::uint32_t _count)
+		{
+			return _count != 0 && _count <= D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION;
+		}
+	};
+
+	if (!checkGroupCount(_desc.groupCountX) || !checkGroupCount(_desc.groupCountY) || !checkGroupCount(_desc.groupCountZ))
+	{
+		DEBUG_LOG_ERROR("Computeのスレッドグループ数が不正です\n");
+		return false;
+	}
+
+	//  コピーするデータがある場合はポインタが有効化チェックする
+	if (_parameterSize > MAX_COMPUTE_PARAMETER_SIZE || (_parameterSize > 0 && !_data))
+	{
+		DEBUG_LOG_ERROR("データが不正です\n");
+		return false;
+	}
+
+	// 指定された種類とハンドルの形式が正しいかチェックする
+	const auto isBindingWellFormed
+	{
+		[](const ComputeResourceBinding& _binding)
+		{
+			switch (_binding.type)
+			{
+			case ComputeResourceType::None:
+				return !_binding.texture.IsValid() && !_binding.buffer.IsValid();
+			case ComputeResourceType::Buffer:
+				return !_binding.texture.IsValid() && _binding.buffer.IsValid();
+			case ComputeResourceType::Texture:
+				return _binding.texture.IsValid() && !_binding.buffer.IsValid();
+			default:
+				DEBUG_LOG_ERROR("不正な種類が指定されています\n");
+				return false;
+			}
+		}
+	};
+
+	// 入力と出力それぞれ全てチェックする
+	for (std::size_t i = 0; i < _desc.inputs.size(); i++)
+	{
+		if (!isBindingWellFormed(_desc.inputs[i]))
+		{
+			DEBUG_LOG_ERROR("Computeの入力指定が不正です Slot = {}", i);
+			return false;
+		}
+	}
+
+	for (std::size_t i = 0; i < _desc.outputs.size(); i++)
+	{
+		if (!isBindingWellFormed(_desc.outputs[i]))
+		{
+			DEBUG_LOG_ERROR("Computeの出力指定が不正です Slot = {}", i);
+			return false;
+		}
+	}
+
+	// 要求を配列内へ直接作りデータをコピーする
+	ComputeDispatchCommand& command{ commands.emplace_back() };
+	command.desc = _desc;
+	command.parameterSize = _parameterSize;
+	// 指定された部分だけ上書きする
+	if (_parameterSize > 0) std::memcpy(command.parameterData.data(), _data, _parameterSize);
+	return true;
 }
 
 bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)

@@ -417,6 +417,12 @@
     <ClInclude Include="Src\Graphics\TerrainSystem.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Graphics\ComputeSystem.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Facade\Compute.h">
+      <Filter>Src\Facade</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -619,6 +625,12 @@
     </ClCompile>
     <ClCompile Include="Src\Graphics\TerrainSystem.cpp">
       <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\ComputeSystem.cpp">
+      <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Facade\Compute.cpp">
+      <Filter>Src\Facade</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

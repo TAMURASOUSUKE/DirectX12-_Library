@@ -89,9 +89,9 @@ enum class RootSigID
 enum class ComputeRootParameter : UINT
 {
 	ConstantBuffer, // b0
-	InputBuffer, // t0
-	OutputBuffer, // u0
-	Count,
+	InputBuffer, // 入力スロットの先頭ここからSRV数分を使用
+	OutputBuffer = static_cast<UINT>(InputBuffer) + static_cast<UINT>(MAX_COMPUTE_SRV_COUNT), // 入力スロットの直後から出力スロットを配置する
+	Count = static_cast<UINT>(OutputBuffer) + static_cast<UINT>(MAX_COMPUTE_UAV_COUNT),
 };
 
 // ブレンドモードの設定
@@ -186,7 +186,7 @@ struct GraphicsPipelineDesc
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE topology{ D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE }; // 形状
 	D3D12_FILL_MODE fillMode{ D3D12_FILL_MODE_SOLID }; // fillモード
 	bool frontCounterClockwise{ false };  // どちらを表にするかtrue = 反時計回り
-	INT depthBias{ D3D12_DEFAULT_DEPTH_BIAS }; // ShadowMapなど進度を書き込む位置を定数分奥へずらす
+	INT depthBias{ D3D12_DEFAULT_DEPTH_BIAS }; // ShadowMapなど深度を書き込む位置を定数分奥へずらす
 	float depthBiasClamp{ D3D12_DEFAULT_DEPTH_BIAS_CLAMP }; // DepthBiasへ設定できる最大値 0は制限なし
 	float slopeScaledDepthBias{ D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS }; // ポリゴンの傾きに応じて深度を追加でずらす
 };

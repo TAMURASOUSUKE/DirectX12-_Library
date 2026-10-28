@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -262,6 +262,7 @@
     </ClInclude>
     <ClInclude Include="Src\External\cgltf.h" />
     <ClInclude Include="Src\Facade\Collision.h" />
+    <ClInclude Include="Src\Facade\Compute.h" />
     <ClInclude Include="Src\Facade\Debug.h" />
     <ClInclude Include="Src\Facade\DebugInternal.h" />
     <ClInclude Include="Src\Facade\File.h" />
@@ -284,6 +285,7 @@
     <ClInclude Include="Src\FPS\FPSSystem.h" />
     <ClInclude Include="Src\FPS\FPSCounter.h" />
     <ClInclude Include="Src\Graphics\CameraSystem.h" />
+    <ClInclude Include="Src\Graphics\ComputeSystem.h" />
     <ClInclude Include="Src\Graphics\DescriptorManager.h" />
     <ClInclude Include="Src\Graphics\GfxType.h" />
     <ClInclude Include="Src\Graphics\GPUMarker.h" />
@@ -362,6 +364,7 @@
     <ClCompile Include="Src\Debug\FrameDebugSystem.cpp" />
     <ClCompile Include="Src\External\CgltfEnable.cpp" />
     <ClCompile Include="Src\Facade\Collision.cpp" />
+    <ClCompile Include="Src\Facade\Compute.cpp" />
     <ClCompile Include="Src\Facade\Debug.cpp" />
     <ClCompile Include="Src\Facade\File.cpp" />
     <ClCompile Include="Src\Facade\Gfx.cpp" />
@@ -376,6 +379,7 @@
     <ClCompile Include="Src\FPS\FPSLimiter.cpp" />
     <ClCompile Include="Src\FPS\FPSSystem.cpp" />
     <ClCompile Include="Src\Graphics\CameraSystem.cpp" />
+    <ClCompile Include="Src\Graphics\ComputeSystem.cpp" />
     <ClCompile Include="Src\Graphics\DescriptorManager.cpp" />
     <ClCompile Include="Src\Graphics\GPUMarker.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />

@@ -975,44 +975,55 @@ ComPtr<ID3D12RootSignature> ShaderSystem::CreateComputeRootSignature()
 		return nullptr;
 	}
 
-	// 入力データを読むSRV一つ分の範囲
-	D3D12_DESCRIPTOR_RANGE inputRange{};
-	inputRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	inputRange.NumDescriptors = 1;
-	inputRange.BaseShaderRegister = 0; // t0
-	inputRange.RegisterSpace = 0;
-	inputRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	// 現在のDescriptorManagerは連続して配置する仕組みではないのでひとつづつ入れたTabelを4つ用意してそれぞれの位置に渡すようにする
+	// 各スロットはDescriptor一つ分のTableとして定義する
+	D3D12_DESCRIPTOR_RANGE inputRanges[MAX_COMPUTE_SRV_COUNT];
+	D3D12_DESCRIPTOR_RANGE outputRanges[MAX_COMPUTE_UAV_COUNT];
 
-	// 出力データを読み書きするUAV一つ分
-	D3D12_DESCRIPTOR_RANGE outputRange{};
-	outputRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-	outputRange.NumDescriptors = 1;
-	outputRange.BaseShaderRegister = 0; // u0
-	outputRange.RegisterSpace = 0;
-	outputRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	D3D12_ROOT_PARAMETER parameters[static_cast<UINT>(ComputeRootParameter::Count)];
 
-	D3D12_ROOT_PARAMETER parameters[static_cast<UINT>(ComputeRootParameter::Count)]{};
-
-	// 定数バッファは仮想GPUアドレスを直接渡す
+	// 定数バッファはRootDescriptorを用いて仮想GPUアドレスを直接渡す
 	D3D12_ROOT_PARAMETER& constantBufferParam{ parameters[static_cast<UINT>(ComputeRootParameter::ConstantBuffer)] };
 	constantBufferParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-	constantBufferParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	constantBufferParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL; // ComputeなのでALL
 	constantBufferParam.Descriptor.ShaderRegister = 0; // b0
 	constantBufferParam.Descriptor.RegisterSpace = 0;
 
-	// SRVのDescriptorが置かれている場所をさす
-	D3D12_ROOT_PARAMETER& inputParam{ parameters[static_cast<UINT>(ComputeRootParameter::InputBuffer)] };
-	inputParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	inputParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-	inputParam.DescriptorTable.pDescriptorRanges = &inputRange;
-	inputParam.DescriptorTable.NumDescriptorRanges = 1;
+	// 入力をt0から順番に割り当てる
+	for (std::size_t i = 0; i < MAX_COMPUTE_SRV_COUNT; i++)
+	{
+		D3D12_DESCRIPTOR_RANGE& range{ inputRanges[i] };
+		range.NumDescriptors = 1; // 一つづつバインドする
+		range.BaseShaderRegister = static_cast<UINT>(i);
+		range.RegisterSpace = 0;
+		range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+		const UINT parameterIndex{ static_cast<UINT>(ComputeRootParameter::InputBuffer) + static_cast<UINT>(i) }; // 先頭に現在のIndexを足す
 
-	// UAVのDescriptorが置かれている場所をさす
-	D3D12_ROOT_PARAMETER& ouputParam{ parameters[static_cast<UINT>(ComputeRootParameter::OutputBuffer)] };
-	ouputParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	ouputParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-	ouputParam.DescriptorTable.pDescriptorRanges = &outputRange;
-	ouputParam.DescriptorTable.NumDescriptorRanges = 1;
+		D3D12_ROOT_PARAMETER& parameter{ parameters[parameterIndex] };
+		parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		parameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		parameter.DescriptorTable.NumDescriptorRanges = 1;
+		parameter.DescriptorTable.pDescriptorRanges = &range;
+	}
+
+	// 出力をu0から順番に割り当てる
+	for (std::size_t i = 0; i < MAX_COMPUTE_UAV_COUNT; i++)
+	{
+		D3D12_DESCRIPTOR_RANGE& range{ outputRanges[i] };
+		range.NumDescriptors = 1; // 一つづつバインドする
+		range.BaseShaderRegister = static_cast<UINT>(i);
+		range.RegisterSpace = 0;
+		range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+		range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+		const UINT parameterIndex{ static_cast<UINT>(ComputeRootParameter::OutputBuffer) + static_cast<UINT>(i) }; // 先頭に現在のIndexを足す
+
+		D3D12_ROOT_PARAMETER& parameter{ parameters[parameterIndex] };
+		parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		parameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		parameter.DescriptorTable.NumDescriptorRanges = 1;
+		parameter.DescriptorTable.pDescriptorRanges = &range;
+	}
 
 	// Computeは頂点入力を使わないのでIA用フラグは付けない
 	D3D12_ROOT_SIGNATURE_DESC nativeDesc{};
