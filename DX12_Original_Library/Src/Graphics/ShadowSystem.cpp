@@ -5,7 +5,7 @@
 
 namespace
 {
-	// チェックをようにするためのヘルパー群
+	// チェックを容易にするためのヘルパー群
 
 	// Vector3の全成分が有効値か
 	bool IsFiniteVector3(const Vector3& _value)

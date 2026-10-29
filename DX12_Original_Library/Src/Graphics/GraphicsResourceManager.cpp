@@ -1990,6 +1990,7 @@ TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::Scrat
 	texData.srvHandle = srv;
 	texData.width = static_cast<int>(_meta.width);
 	texData.height = static_cast<int>(_meta.height);
+	texData.currentState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 
 	int index;
 	// 空ではないなら再利用する

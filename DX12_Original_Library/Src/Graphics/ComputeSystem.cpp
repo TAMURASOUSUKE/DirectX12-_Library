@@ -1,9 +1,157 @@
 #include <new>
 #include <cstring>
 #include <cstdint>
+#include <d3d12.h>
+#include "GraphicsResourceManager.h"
 #include "DescriptorManager.h"
 #include "../Debug/DebugLogs.h"
 #include "ComputeSystem.h"
+
+namespace
+{
+	// 現在の状態が今回要求する状態を満たしているか
+	bool IsComputeStatisfied(D3D12_RESOURCE_STATES _currentState, D3D12_RESOURCE_STATES _requiredState)
+	{
+		if (_currentState == _requiredState) return true;
+		// Computeで読むために必要な状態をbit演算で含んでいるかを確認してTransitionが不要かを確かめる
+		return _requiredState != D3D12_RESOURCE_STATE_COMMON && (_currentState & _requiredState) == _requiredState;
+	}
+
+	// Resourceと状態変数への参照を登録する すでに登録済みのResourceなら矛盾を確認して省略する
+	bool AddComputeBarrierResource(ComputeBarrierBatch& _batch, ID3D12Resource* _resource, D3D12_RESOURCE_STATES& _currentState, D3D12_RESOURCE_STATES _requiredState, bool _requireUAVOrdering = false)
+	{
+		if (!_resource)
+		{
+			DEBUG_LOG_ERROR("Barrierの対象Resourceが不正です\n");
+			return false;
+		}
+
+		if (_batch.resourceCount > _batch.resources.size())
+		{
+			DEBUG_LOG_ERROR("BarrierのResource数が不正です\n");
+			return false;
+		}
+
+		// 同じResoruceを複数のスロットで使っても登録を重複させない
+		for (std::size_t i = 0; i < _batch.resourceCount; i++)
+		{
+			ComputeBarrierResource& entry{ _batch.resources[i] };
+			if (entry.resource != _resource) continue;
+
+			// 同じResourceの状態を別々の変数で管理しない
+			if (entry.currentState != &_currentState)
+			{
+				DEBUG_LOG_ERROR("同じResoruceの状態管理が一致していません\n");
+				return false;
+			}
+
+			// 同じResourceのSRV入力とUAV出力の同時指定を許可しない
+			if (entry.requiredState != _requiredState)
+			{
+				DEBUG_LOG_ERROR("同じResourceへ矛盾する状態が指定されました\n");
+				return false;
+			}
+
+			// どちらかの指定で順序保証が必要ならそれを維持する
+			entry.requireUAVOrdering = entry.requireUAVOrdering || _requireUAVOrdering;
+
+			return true;
+		}
+
+		if (_batch.resourceCount >= _batch.resources.size())
+		{
+			DEBUG_LOG_ERROR("Compute用BarrierのResource登録上限を超えました\n");
+			return false;
+		}
+
+		if (_batch.resourceCount >= _batch.resources.size())
+		{
+			DEBUG_LOG_ERROR("Compute用BarrierのResource登録上限を超えました\n");
+			return false;
+		}
+
+		ComputeBarrierResource& entry{ _batch.resources[_batch.resourceCount] };
+		entry.resource = _resource;
+		entry.currentState = &_currentState; // 元の変数の場所を保存する
+		entry.requiredState = _requiredState;
+		entry.requireUAVOrdering = _requireUAVOrdering;
+
+		_batch.resourceCount++;
+		return true;
+	}
+
+	// 必要なBarrierを一括登録してその後で元のcurrentStateを更新する
+	bool RecordComputeBarriers(ID3D12GraphicsCommandList* _cmd, ComputeBarrierBatch& _batch)
+	{
+		if (!_cmd || _batch.resources.size() < _batch.resourceCount)
+		{
+			DEBUG_LOG_ERROR("Compute用Barrierの記録引数が不正です\n");
+			return false;
+		}
+
+		// 参照先が設定されているか確認する
+		for (std::size_t i = 0; i < _batch.resourceCount; i++)
+		{
+			const ComputeBarrierResource& entry{ _batch.resources[i] };
+
+			if (!entry.resource || !entry.currentState)
+			{
+				DEBUG_LOG_ERROR("BarrierのResourceか状態参照が不正です\n");
+				return false;
+			}
+		}
+
+		UINT barrierCount{ 0 }; // 必要になったBarrierの個数
+		for (std::size_t i = 0; i < _batch.resourceCount; i++)
+		{
+			const ComputeBarrierResource& entry{ _batch.resources[i] };
+			const D3D12_RESOURCE_STATES before{ *entry.currentState };
+
+			if (!IsComputeStatisfied(before, entry.requiredState))
+			{
+				D3D12_RESOURCE_BARRIER& barrier{ _batch.barriers[barrierCount] };
+				barrier = {}; // 念のため初期化
+
+				barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION; // 要求の状態を満たしていないので遷移させる
+				barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+
+				barrier.Transition.pResource = entry.resource;
+				barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+				barrier.Transition.StateBefore = before;
+				barrier.Transition.StateAfter = entry.requiredState;
+
+				barrierCount++;
+			}
+			if (entry.requiredState == D3D12_RESOURCE_STATE_UNORDERED_ACCESS && entry.requireUAVOrdering)
+			{
+				// UAVを継続する場合は必要に応じてアクセス順序を保証する
+				D3D12_RESOURCE_BARRIER& barrier{ _batch.barriers[barrierCount] };
+				barrier = {};
+
+				barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+				barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+				barrier.UAV.pResource = entry.resource;
+
+				barrierCount++;
+			}
+		}
+
+		// 一つのResourceにつき最大一つなので配列の容量を超えない
+		if (barrierCount > 0) _cmd->ResourceBarrier(barrierCount, _batch.barriers.data());
+
+		// CommandListへ記録した後 元の状態変数を更新
+		for (std::size_t i = 0; i < _batch.resourceCount; i++)
+		{
+			const ComputeBarrierResource& entry{ _batch.resources[i] };
+			if (!IsComputeStatisfied(*entry.currentState, entry.requiredState)) *entry.currentState = entry.requiredState;
+		}
+
+		// 配列を再確保せず次のDispatchで再利用できるようにする
+		_batch.resourceCount = 0;
+		return true;
+	}
+}
 
 bool ComputeSystem::Setup(ID3D12Device* _device)
 {
@@ -204,7 +352,202 @@ bool ComputeSystem::RegisterDispatch(const ComputeDispatchDesc& _desc, const voi
 
 bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 {
+	if (!isInitialize)
+	{
+		DEBUG_LOG_ERROR("ComputeSystemが初期化されていません\n");
+		return false;
+	}
 
+	if (!_cmd)
+	{
+		DEBUG_LOG_ERROR("CommandListが不正です\n");
+		return false;
+	}
+
+	GraphicsResourceManager& resourceManager{ GraphicsResourceManager::Instance() };
+
+	// 全ての要求をチェックして安全かを見る
+	for (const auto& command : commands)
+	{
+		ComputePipelineData* pipelineData{ resourceManager.Lookup(command.desc.pipeline) };
+		if (!pipelineData)
+		{
+			DEBUG_LOG_ERROR("PipelineDataが不正です\n");
+			return false;
+		}
+
+		//  コピーするデータがある場合はポインタが有効化チェックする
+		if (command.parameterSize > MAX_COMPUTE_PARAMETER_SIZE)
+		{
+			DEBUG_LOG_ERROR("データが不正です\n");
+			return false;
+		}
+
+		// 入力と出力それぞれ全てチェックする
+		for (std::size_t i = 0; i < MAX_COMPUTE_SRV_COUNT; i++)
+		{
+			const ComputeResourceBinding& binding{ command.desc.inputs[i] };
+			switch (binding.type)
+			{
+			case ComputeResourceType::None:
+				continue;
+			case ComputeResourceType::Buffer:
+			{
+				if (!binding.buffer.IsValid())
+				{
+					DEBUG_LOG_ERROR("入力されたBufferのハンドルが不正です\n");
+					return false;
+				}
+				const GPUBufferData* data{ resourceManager.Lookup(binding.buffer) };
+				if (!data)
+				{
+					DEBUG_LOG_ERROR("入力されたBufferが不正です\n");
+					return false;
+				}
+				if (!data->srvHandle.IsValid())
+				{
+					DEBUG_LOG_ERROR("入力のViewが不正です\n");
+					return false;
+				}
+				break;
+			}
+			case ComputeResourceType::Texture:
+			{
+				if (!binding.texture.IsValid())
+				{
+					DEBUG_LOG_ERROR("入力されたTextureのハンドルが不正です\n");
+					return false;
+				}
+				const TextureData* data{ resourceManager.Lookup(binding.texture) };
+				if (!data)
+				{
+					DEBUG_LOG_ERROR("入力されたTextureが不正です\n");
+					return false;
+				}
+				if (!data->srvHandle.IsValid())
+				{
+					DEBUG_LOG_ERROR("入力のViewが不正です\n");
+					return false;
+				}
+				break;
+			}
+			}
+		}
+
+		for (std::size_t i = 0; i < MAX_COMPUTE_UAV_COUNT; i++)
+		{
+			const ComputeResourceBinding& binding{ command.desc.outputs[i] };
+			D3D12_GPU_DESCRIPTOR_HANDLE descriptorHandle{};
+			switch (binding.type)
+			{
+			case ComputeResourceType::None:
+				continue;
+			case ComputeResourceType::Buffer:
+			{
+				if (!binding.buffer.IsValid())
+				{
+					DEBUG_LOG_ERROR("出力するBufferのハンドルが不正です\n");
+					return false;
+				}
+				GPUBufferData* data{ resourceManager.Lookup(binding.buffer) };
+				if (!data)
+				{
+					DEBUG_LOG_ERROR("出力するBufferが不正です\n");
+					return false;
+				}
+				if (!data->uavHandle.IsValid())
+				{
+					DEBUG_LOG_ERROR("出力のViewが不正です\n");
+					return false;
+				}
+				break;
+			}
+			case ComputeResourceType::Texture:
+			{
+				DEBUG_LOG_ERROR("ComputeのUAV現在はTextureに対応していません\n");
+				return false;
+			}
+			}
+		}
+
+	}
+
+	// 全てチェックしたのでここから記録を行う
+	for (const auto& command : commands)
+	{
+		ComputeBarrierBatch barrierBatch{}; // まとめてバリアを使うために行う
+		const D3D12_GPU_VIRTUAL_ADDRESS gpuVirtualAddress{ ringCBV.Update(command.parameterData.data(), static_cast<UINT>(command.parameterSize)) };
+		if (gpuVirtualAddress == 0)
+		{
+			DEBUG_LOG_ERROR("GPU仮想アドレス取得に失敗しました\n");
+			return false;
+		}
+		ComputePipelineData* pipelineData{ resourceManager.Lookup(command.desc.pipeline) };
+		_cmd->SetComputeRootSignature(pipelineData->rootSignature.Get());
+		_cmd->SetPipelineState(pipelineData->pipelineState.Get());
+		_cmd->SetComputeRootConstantBufferView(static_cast<UINT>(ComputeRootParameter::ConstantBuffer), gpuVirtualAddress);
+
+		// 入力
+		for (std::size_t i = 0; i < MAX_COMPUTE_SRV_COUNT; i++)
+		{
+			const ComputeResourceBinding& binding{ command.desc.inputs[i] };
+			D3D12_GPU_DESCRIPTOR_HANDLE descriptorHandle{};
+			switch (binding.type)
+			{
+			case ComputeResourceType::None:
+				descriptorHandle = nullSRV.gpu; // 未設定を明示する
+				break;
+			case ComputeResourceType::Buffer:
+			{
+				GPUBufferData* data{ resourceManager.Lookup(binding.buffer) };
+				descriptorHandle = data->srvHandle.gpu;
+				if (!AddComputeBarrierResource(barrierBatch, data->resource.Get(), data->currentState, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)) return false;
+				break;
+			}
+			case ComputeResourceType::Texture:
+			{
+				TextureData* data{ resourceManager.Lookup(binding.texture) };
+				descriptorHandle = data->srvHandle.gpu;
+				if (!AddComputeBarrierResource(barrierBatch, data->resource.Get(), data->currentState, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)) return false;
+				break;
+			}
+			}
+
+			_cmd->SetComputeRootDescriptorTable(static_cast<UINT>(ComputeRootParameter::InputBuffer) + static_cast<UINT>(i), descriptorHandle);
+		}
+
+		// 出力
+		for (std::size_t i = 0; i < MAX_COMPUTE_UAV_COUNT; i++)
+		{
+			const ComputeResourceBinding& binding{ command.desc.outputs[i] };
+			D3D12_GPU_DESCRIPTOR_HANDLE descriptorHandle{};
+			switch (binding.type)
+			{
+			case ComputeResourceType::None:
+				descriptorHandle = nullUAV.gpu;
+				break;
+			case ComputeResourceType::Buffer:
+			{
+				GPUBufferData* data{ resourceManager.Lookup(binding.buffer) };
+				descriptorHandle = data->uavHandle.gpu;
+				// UAV出力は書き込み依存があるものとする
+				if (!AddComputeBarrierResource(barrierBatch, data->resource.Get(), data->currentState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true)) return false;
+				break;
+			}
+			case ComputeResourceType::Texture:
+			{
+				DEBUG_LOG_ERROR("ComputeのUAV現在はTextureに対応していません\n");
+				break;
+			}
+			}
+			_cmd->SetComputeRootDescriptorTable(static_cast<UINT>(ComputeRootParameter::OutputBuffer) + static_cast<UINT>(i), descriptorHandle);
+		}
+
+		// 命令記録
+		if (!RecordComputeBarriers(_cmd, barrierBatch)) return false;
+		_cmd->Dispatch(command.desc.groupCountX, command.desc.groupCountY, command.desc.groupCountZ);
+	}
+	return true;
 }
 
 void ComputeSystem::Reset()

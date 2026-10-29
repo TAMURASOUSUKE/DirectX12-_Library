@@ -1054,7 +1054,7 @@ ComPtr<ID3D12RootSignature> ShaderSystem::CreateComputeRootSignature()
 	result = device->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
 	if (FAILED(result))
 	{
-		DEBUG_LOG_ERROR("RootSignatureの作成しに失敗しました\n");
+		DEBUG_LOG_ERROR("RootSignatureの作成に失敗しました\n");
 		return nullptr;
 	}
 	return rootSignature;

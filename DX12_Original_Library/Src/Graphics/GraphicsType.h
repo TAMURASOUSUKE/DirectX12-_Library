@@ -217,6 +217,7 @@ struct TextureData
 	DescriptorHandle srvHandle; // ShaderReosurceViewハンドル
 	int width{ 0 }; // 画像の横幅
 	int height{ 0 }; // 画像の縦幅
+	D3D12_RESOURCE_STATES currentState{ D3D12_RESOURCE_STATE_COMMON }; // 記録した使用状態
 };
 
 // 頂点バッファ一つ分の情報をまとめた構造体
@@ -621,6 +622,22 @@ struct ComputeDispatchCommand
 	std::size_t parameterSize{ 0 };
 };
 
+// Compute一回で使用するResourceの情報
+struct ComputeBarrierResource
+{
+	ID3D12Resource* resource{ nullptr }; // リソース
+	D3D12_RESOURCE_STATES* currentState{ nullptr }; // 元の状態変数の場所をコピーする
+	D3D12_RESOURCE_STATES requiredState{ D3D12_RESOURCE_STATE_COMMON }; // 今回必要な状態
+	bool requireUAVOrdering{ false }; // UAV状態を継続する場合も先行アクセスとの順序を守るか
+};
+
+// Compute1回分のバリアを動的確保せずにまとめる
+struct ComputeBarrierBatch
+{
+	std::array<ComputeBarrierResource, MAX_COMPUTE_SRV_COUNT + MAX_COMPUTE_UAV_COUNT> resources{};
+	std::array<D3D12_RESOURCE_BARRIER, MAX_COMPUTE_SRV_COUNT + MAX_COMPUTE_UAV_COUNT> barriers{}; // DirectX側に渡すために連続させる
+	std::size_t resourceCount{ 0 }; // 登録済みのresoruceの個数
+};
 
 // 1回のGPU送信に対応する解放待ちのリソース
 struct DeferredReleaseBatch
