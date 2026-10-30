@@ -10,7 +10,7 @@
 namespace
 {
 	// 現在の状態が今回要求する状態を満たしているか
-	bool IsComputeStatisfied(D3D12_RESOURCE_STATES _currentState, D3D12_RESOURCE_STATES _requiredState)
+	bool IsComputeSatisfied(D3D12_RESOURCE_STATES _currentState, D3D12_RESOURCE_STATES _requiredState)
 	{
 		if (_currentState == _requiredState) return true;
 		// Computeで読むために必要な状態をbit演算で含んでいるかを確認してTransitionが不要かを確かめる
@@ -32,7 +32,7 @@ namespace
 			return false;
 		}
 
-		// 同じResoruceを複数のスロットで使っても登録を重複させない
+		// 同じResourceを複数のスロットで使っても登録を重複させない
 		for (std::size_t i = 0; i < _batch.resourceCount; i++)
 		{
 			ComputeBarrierResource& entry{ _batch.resources[i] };
@@ -41,7 +41,7 @@ namespace
 			// 同じResourceの状態を別々の変数で管理しない
 			if (entry.currentState != &_currentState)
 			{
-				DEBUG_LOG_ERROR("同じResoruceの状態管理が一致していません\n");
+				DEBUG_LOG_ERROR("同じResourceの状態管理が一致していません\n");
 				return false;
 			}
 
@@ -56,12 +56,6 @@ namespace
 			entry.requireUAVOrdering = entry.requireUAVOrdering || _requireUAVOrdering;
 
 			return true;
-		}
-
-		if (_batch.resourceCount >= _batch.resources.size())
-		{
-			DEBUG_LOG_ERROR("Compute用BarrierのResource登録上限を超えました\n");
-			return false;
 		}
 
 		if (_batch.resourceCount >= _batch.resources.size())
@@ -107,7 +101,7 @@ namespace
 			const ComputeBarrierResource& entry{ _batch.resources[i] };
 			const D3D12_RESOURCE_STATES before{ *entry.currentState };
 
-			if (!IsComputeStatisfied(before, entry.requiredState))
+			if (!IsComputeSatisfied(before, entry.requiredState))
 			{
 				D3D12_RESOURCE_BARRIER& barrier{ _batch.barriers[barrierCount] };
 				barrier = {}; // 念のため初期化
@@ -123,7 +117,7 @@ namespace
 
 				barrierCount++;
 			}
-			if (entry.requiredState == D3D12_RESOURCE_STATE_UNORDERED_ACCESS && entry.requireUAVOrdering)
+			else if (entry.requiredState == D3D12_RESOURCE_STATE_UNORDERED_ACCESS && entry.requireUAVOrdering)
 			{
 				// UAVを継続する場合は必要に応じてアクセス順序を保証する
 				D3D12_RESOURCE_BARRIER& barrier{ _batch.barriers[barrierCount] };
@@ -144,7 +138,7 @@ namespace
 		for (std::size_t i = 0; i < _batch.resourceCount; i++)
 		{
 			const ComputeBarrierResource& entry{ _batch.resources[i] };
-			if (!IsComputeStatisfied(*entry.currentState, entry.requiredState)) *entry.currentState = entry.requiredState;
+			if (!IsComputeSatisfied(*entry.currentState, entry.requiredState)) *entry.currentState = entry.requiredState;
 		}
 
 		// 配列を再確保せず次のDispatchで再利用できるようにする
@@ -364,11 +358,18 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 		return false;
 	}
 
+	if (isFlush)
+	{
+		DEBUG_LOG_ERROR("このフレームではすでにFlushが実行されています\n");
+		return false;
+	}
+
 	GraphicsResourceManager& resourceManager{ GraphicsResourceManager::Instance() };
 
 	// 全ての要求をチェックして安全かを見る
 	for (const auto& command : commands)
 	{
+		ComputeBarrierBatch barrierBatch{}; // まとめてバリアを使うために行う
 		ComputePipelineData* pipelineData{ resourceManager.Lookup(command.desc.pipeline) };
 		if (!pipelineData)
 		{
@@ -398,7 +399,7 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 					DEBUG_LOG_ERROR("入力されたBufferのハンドルが不正です\n");
 					return false;
 				}
-				const GPUBufferData* data{ resourceManager.Lookup(binding.buffer) };
+				GPUBufferData* data{ resourceManager.Lookup(binding.buffer) };
 				if (!data)
 				{
 					DEBUG_LOG_ERROR("入力されたBufferが不正です\n");
@@ -407,6 +408,11 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 				if (!data->srvHandle.IsValid())
 				{
 					DEBUG_LOG_ERROR("入力のViewが不正です\n");
+					return false;
+				}
+				if (!AddComputeBarrierResource(barrierBatch, data->resource.Get(), data->currentState, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE))
+				{
+					DEBUG_LOG_ERROR("入力用Bufferの登録に失敗しました\n");
 					return false;
 				}
 				break;
@@ -418,7 +424,7 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 					DEBUG_LOG_ERROR("入力されたTextureのハンドルが不正です\n");
 					return false;
 				}
-				const TextureData* data{ resourceManager.Lookup(binding.texture) };
+				TextureData* data{ resourceManager.Lookup(binding.texture) };
 				if (!data)
 				{
 					DEBUG_LOG_ERROR("入力されたTextureが不正です\n");
@@ -429,6 +435,11 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 					DEBUG_LOG_ERROR("入力のViewが不正です\n");
 					return false;
 				}
+				if (!AddComputeBarrierResource(barrierBatch, data->resource.Get(), data->currentState, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE))
+				{
+					DEBUG_LOG_ERROR("入力用Textureの登録に失敗しました\n");
+					return false;
+				}
 				break;
 			}
 			}
@@ -437,7 +448,6 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 		for (std::size_t i = 0; i < MAX_COMPUTE_UAV_COUNT; i++)
 		{
 			const ComputeResourceBinding& binding{ command.desc.outputs[i] };
-			D3D12_GPU_DESCRIPTOR_HANDLE descriptorHandle{};
 			switch (binding.type)
 			{
 			case ComputeResourceType::None:
@@ -460,6 +470,11 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 					DEBUG_LOG_ERROR("出力のViewが不正です\n");
 					return false;
 				}
+				if (!AddComputeBarrierResource(barrierBatch, data->resource.Get(), data->currentState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true))
+				{
+					DEBUG_LOG_ERROR("出力用Bufferの登録に失敗しました\n");
+					return false;
+				}
 				break;
 			}
 			case ComputeResourceType::Texture:
@@ -472,7 +487,10 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 
 	}
 
+	isFlush = true; // 検証に成功したのでここでtrue
+
 	// 全てチェックしたのでここから記録を行う
+	DescriptorManager::Instance().SetDiscriptor(_cmd);
 	for (const auto& command : commands)
 	{
 		ComputeBarrierBatch barrierBatch{}; // まとめてバリアを使うために行う
@@ -537,7 +555,7 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 			case ComputeResourceType::Texture:
 			{
 				DEBUG_LOG_ERROR("ComputeのUAV現在はTextureに対応していません\n");
-				break;
+				return false;
 			}
 			}
 			_cmd->SetComputeRootDescriptorTable(static_cast<UINT>(ComputeRootParameter::OutputBuffer) + static_cast<UINT>(i), descriptorHandle);
@@ -547,6 +565,7 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 		if (!RecordComputeBarriers(_cmd, barrierBatch)) return false;
 		_cmd->Dispatch(command.desc.groupCountX, command.desc.groupCountY, command.desc.groupCountZ);
 	}
+
 	return true;
 }
 
@@ -555,4 +574,5 @@ void ComputeSystem::Reset()
 	if (!isInitialize) return;
 	commands.clear();
 	ringCBV.Reset();
+	isFlush = false; 
 }

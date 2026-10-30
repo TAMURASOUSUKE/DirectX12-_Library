@@ -43,4 +43,5 @@ private:
 	DescriptorHandle nullUAV{}; // 未設定の入力スロットへ設定するnullUAV
 
 	bool isInitialize{ false }; // 初期化されたか
+	bool isFlush{ false }; // Flushを実行したか
 };
