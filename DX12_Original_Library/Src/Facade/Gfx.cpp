@@ -809,29 +809,6 @@ void GfxInternal::Finish()
 
 	GraphicsDevice& graphicsDevice{ GraphicsDevice::Instance() };
 
-#ifdef _DEBUG
-	// Wait前の状態を確認する
-	// submittedよりcompletedが小さければ、終了処理に入った時点でGPUはまだ動いている
-	const UINT64 submittedBefore{ graphicsDevice.GetLastSubmittedFenceValue() };
-
-	const UINT64 completedBefore{ graphicsDevice.GetCompletedFenceValue() };
-#endif
-
-	bool result{ GraphicsDevice::Instance().WaitForGPU() }; // GPUの待機をしてから各終了処理を行う
-	if (!result)
-	{
-		DEBUG_LOG_ERROR("Finish関数にてGPU待機処理に失敗しました\n");
-		return;
-	}
-
-#ifdef _DEBUG
-	// WaitForGPU内で新しいフェンス値をSignalしているため、
-	// Wait前の値を使い回さず、両方とも改めて取得する
-	const UINT64 submittedAfter{ graphicsDevice.GetLastSubmittedFenceValue() };
-
-	const UINT64 completedAfter{ graphicsDevice.GetCompletedFenceValue() };
-#endif
-
 	ShutdownGfxOwnedResources(); // Gfxが所有するリソースの削除
 	GraphicsResourceManager::Instance().Shutdown(); // 残っている全てのGraphicsResource解放
 	shaderSystem.Shutdown(); // PS・RootSignature解放
@@ -866,6 +843,35 @@ void GfxInternal::RecordUpload()
 		DEBUG_ASSERT(false); // cmdが開いたまま次へ行かないようにAssertで止める
 		std::terminate(); // releaseでも止められるようにteminateする
 	}
+}
+
+bool GfxInternal::WaitForGPU()
+{
+	GraphicsDevice& graphicsDevice{ GraphicsDevice::Instance() };
+
+#ifdef _DEBUG
+	// Wait前の状態を確認する
+	// submittedよりcompletedが小さければ、終了処理に入った時点でGPUはまだ動いている
+	const UINT64 submittedBefore{ graphicsDevice.GetLastSubmittedFenceValue() };
+
+	const UINT64 completedBefore{ graphicsDevice.GetCompletedFenceValue() };
+#endif
+
+	bool result{ GraphicsDevice::Instance().WaitForGPU() }; // GPUの待機をしてから各終了処理を行う
+	if (!result)
+	{
+		DEBUG_LOG_ERROR("Finish関数にてGPU待機処理に失敗しました\n");
+		return false;
+	}
+
+#ifdef _DEBUG
+	// WaitForGPU内で新しいフェンス値をSignalしているため、
+	// Wait前の値を使い回さず、両方とも改めて取得する
+	const UINT64 submittedAfter{ graphicsDevice.GetLastSubmittedFenceValue() };
+
+	const UINT64 completedAfter{ graphicsDevice.GetCompletedFenceValue() };
+#endif
+	return true;
 }
 
 const GraphicsFrameMetrics& GfxInternal::GetLastFrameMetrics()
