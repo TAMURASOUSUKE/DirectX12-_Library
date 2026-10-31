@@ -362,8 +362,19 @@ void TSLib::Finish()
 	UIInternal::Finish(); // 入力更新より前に終了処理
 	InputInternal::Finish(); // 入力の終了処理
 	DebugInternal::Finish(); // デバッグ機能関連の終了
-	ComputeInternal::Finish(); // Computeの終了処理
-	GfxInternal::Finish(); // グラフィックの終了処理
+
+	// GPU待機 
+	const bool isWait{ GfxInternal::WaitForGPU() }; // ここで待機することでComputeも読み込み中の定数バッファを触ることがなくなる
+	if (isWait)
+	{
+		ComputeInternal::Finish(); // Computeの終了処理
+		GfxInternal::Finish(); // グラフィックの終了処理
+	}
+	else
+	{
+		DEBUG_LOG_ERROR("GPU待機に失敗したためComputeとGfxの終了処理が呼ばれませんでした\n");
+	}
+
 	SystemInternal::Finish(); // システムの終了処理
 	TimeInternal::Finish(); // 時間管理の終了処理
 	CoUninitialize(); // COMも閉じる
