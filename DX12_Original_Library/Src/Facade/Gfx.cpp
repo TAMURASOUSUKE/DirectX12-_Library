@@ -10,6 +10,7 @@
 #include "../Graphics/GraphicsDevice.h"
 #include "../Graphics/DescriptorManager.h"
 #include "../Graphics/ShaderSystem.h"
+#include "../Graphics/PipelineFactory.h"
 #include "../Graphics/GraphicsResourceManager.h"
 #include "../Graphics/GraphicsGPUTimingSystem.h"
 #include "../Graphics/SpriteBatch.h"
@@ -358,29 +359,30 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	// 前回の初期化状態を引き継がない
 	currentPostEffectMaterial = {};
 
-	GraphicsDevice::Instance().Setup(_hwnd, _clientWidth, _clientHeight); // デバイスの初期化
-	if (!GraphicsDevice::Instance().GetDevice())
+	GraphicsDevice& graphicsDevice{ GraphicsDevice::Instance() };
+	graphicsDevice.Setup(_hwnd, _clientWidth, _clientHeight); // デバイスの初期化
+	if (!graphicsDevice.GetDevice())
 	{
 		DEBUG_LOG_ERROR("デバイスの読み込みに失敗しました\n");
 		return false; // デバイス読み込み失敗したらfalse
 	}
 
-	const UINT64 timestampFrequency{ GraphicsDevice::Instance().GetTimestampFrequency() };
-	if (!gpuTimingSystem.Initialize(GraphicsDevice::Instance().GetDevice(), timestampFrequency))
+	const UINT64 timestampFrequency{ graphicsDevice.GetTimestampFrequency() };
+	if (!gpuTimingSystem.Initialize(graphicsDevice.GetDevice(), timestampFrequency))
 	{
 		DEBUG_LOG_ERROR("GPUTimingSystemの初期化に失敗しました\n");
 		return false;
 	}
 
-	DescriptorManager::Instance().Setup(GraphicsDevice::Instance().GetDevice()); // ディスクリプタマネージャーをデバイスを使って初期化
+	DescriptorManager::Instance().Setup(graphicsDevice.GetDevice()); // ディスクリプタマネージャーをデバイスを使って初期化
 
-	shaderSystem.Setup(GraphicsDevice::Instance().GetDevice()); // ShaderSystemの初期化
+	shaderSystem.Setup(graphicsDevice.GetDevice()); // ShaderSystemの初期化
 
 	// 汎用するRootSignatureの作成
 	const std::vector<RootSignatureDesc> rootSignatureDescs{ shaderSystem.MakeRootSignatureDescs() };
 	for (const RootSignatureDesc& desc : rootSignatureDescs)
 	{
-		if (!shaderSystem.CreateRootSignature(desc))
+		if (!shaderSystem.RegisterBuiltinRootSignature(desc))
 		{
 			DEBUG_LOG_ERROR("RootSignatureの作成に失敗しました\n");
 			return false;
@@ -390,7 +392,7 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	// rootSignatureをつかってPSOを作成
 	for (const GraphicsPipelineDesc& desc : PIPELINE_TABLE)
 	{
-		if (!shaderSystem.CreateGraphicsPipeline(desc))
+		if (!shaderSystem.RegisterBuiltinPipeline(desc))
 		{
 			DEBUG_LOG_ERROR("GraphicsPipelineの作成に失敗しました\n");
 			return false;
@@ -560,14 +562,6 @@ void GfxInternal::BeginFrame()
 // フレーム終了処理
 void GfxInternal::EndFrame()
 {
-	
-	// 予約してある転送命令をコマンドリストに記録
-	if (!GraphicsResourceManager::Instance().RecordPendingUploads(GraphicsDevice::Instance().GetCommandList()))
-	{
-		DEBUG_LOG_ERROR("転送命令をコマンドリストに記録できませんでした\n");
-		DEBUG_ASSERT(false); // cmdが開いたまま次へ行かないようにAssertで止める
-		std::terminate(); // releaseでも止められるようにteminateする(強制的な停止のためFinishを呼び出せる形に今後変更するべき)
-	}
 
 	// Spritebatch描画
 	if (bgBatch.HasPendingDraw())
@@ -862,6 +856,18 @@ void GfxInternal::RequestResize(int _width, int _height)
 	graphicsSystem.RequestResize(_width, _height);
 }
 
+void GfxInternal::RecordUpload()
+{
+	// Computeとの実行の兼ね合いで記録部分を切り離す
+	// 予約してある転送命令をコマンドリストに記録
+	if (!GraphicsResourceManager::Instance().RecordPendingUploads(GraphicsDevice::Instance().GetCommandList()))
+	{
+		DEBUG_LOG_ERROR("転送命令をコマンドリストに記録できませんでした\n");
+		DEBUG_ASSERT(false); // cmdが開いたまま次へ行かないようにAssertで止める
+		std::terminate(); // releaseでも止められるようにteminateする
+	}
+}
+
 const GraphicsFrameMetrics& GfxInternal::GetLastFrameMetrics()
 {
 	return GraphicsMetrics::GetLastFrame();
@@ -932,7 +938,8 @@ void Gfx::ClearScreen(float _r, float _g, float _b, float _a)
 		DEBUG_LOG_ERROR("現在の描画先が設定されていません\n");
 		return;
 	}
-	GraphicsDevice::Instance().GetCommandList()->ClearRenderTargetView(currentRTV, windowColor, 0, nullptr); // コマンドリストを取得しそこから現在書き込んでいるRTVにの色を任意色でクリアする
+	// コマンドリストを取得しそこから現在書き込んでいるRTVにの色を任意色でクリアする
+	GraphicsDevice::Instance().GetCommandList()->ClearRenderTargetView(currentRTV, windowColor, 0, nullptr); 
 }
 
 // 画像読み込み
@@ -1059,7 +1066,7 @@ ShaderHandle Gfx::LoadShader(const wchar_t* _filePath, ShaderUsage _usage, Shade
 		return ShaderHandle{};
 	}
 
-	ComPtr<ID3DBlob> shaderBlob{ shaderSystem.Compile(_filePath, "main", target) }; // Shaderに対応するtargetでコンパイルする
+	ComPtr<ID3DBlob> shaderBlob{ PipelineFactory::Compile(_filePath, "main", target) }; // Shaderに対応するtargetでコンパイルする
 	if (!shaderBlob)
 	{
 		DEBUG_LOG_ERROR("Shaderの読み込みに失敗しました\n");
@@ -1124,61 +1131,9 @@ MaterialHandle Gfx::CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pix
 	return resourceManager.RegisterMaterial(_pixelShader, std::move(pipeline));
 }
 
-ComputePipelineHandle Gfx::CreateComputePipeline(ShaderHandle _computeShader)
-{
-	GraphicsResourceManager& resourceManager{ GraphicsResourceManager::Instance() };
-
-	// 世代と範囲確認
-	ShaderData* shaderData{ resourceManager.Lookup(_computeShader) };
-	if (!shaderData)
-	{
-		DEBUG_LOG_ERROR("ComputeShaderHandleが無効です\n");
-		return ComputePipelineHandle{};
-	}
-
-	// Graphics用Shaderを謝って渡していないか確認する
-	if (shaderData->usage != ShaderUsage::Compute || shaderData->stage != ShaderStage::Compute)
-	{
-		DEBUG_LOG_ERROR("Compute以外のShaderが指定されています\n");
-		return ComputePipelineHandle{};
-	}
-
-	if (!shaderData->blob)
-	{
-		DEBUG_LOG_ERROR("ComputeShaderのバイトコードがありません\n");
-		return ComputePipelineHandle{};
-	}
-
-	ComputePipelineData data{};
-
-	// Compute用のリソース接続契約を作成する
-	data.rootSignature = shaderSystem.CreateComputeRootSignature();
-	if (!data.rootSignature)
-	{
-		DEBUG_LOG_ERROR("Compute用RootSignatureの作成に失敗しました\n");
-		return ComputePipelineHandle{};
-	}
-
-	// コンパイル済みCSとRootSignatureからPSOを作成する
-	data.pipelineState = shaderSystem.CreateComputePipeline(shaderData->blob.Get(), data.rootSignature.Get());
-	if (!data.pipelineState)
-	{
-		DEBUG_LOG_ERROR("ComputePipelineの作成に失敗しました\n");
-		return ComputePipelineHandle{};
-	}
-
-	// PSOとRootSignatureの所有権を台帳へ移してハンドルを返す
-	return resourceManager.RegisterComputePipeline(std::move(data));
-}
-
 AnimInstanceHandle Gfx::CreateAnimInstance(ModelHandle _handle)
 {
 	return animSystem.Create(_handle);
-}
-
-GPUBufferHandle Gfx::CreateGPUBuffer(const GPUBufferDesc& _desc, const void* _initialData, std::size_t _initialDataSize)
-{
-	return GraphicsResourceManager::Instance().CreateGPUBuffer(_desc, _initialData, _initialDataSize);
 }
 
 void Gfx::DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation, Vector4 _color, bool _isWireframe)
@@ -1668,17 +1623,5 @@ void Gfx::Unload(MaterialHandle _handle)
 	{
 		currentPostEffectMaterial = {};
 	}
-	GraphicsResourceManager::Instance().Unload(_handle);
-}
-
-void Gfx::Unload(ComputePipelineHandle _handle)
-{
-	// 世代更新とFence付き解放待ちはResourceManagerが行う
-	GraphicsResourceManager::Instance().Unload(_handle);
-}
-
-void Gfx::Unload(GPUBufferHandle _handle)
-{
-	// 世代更新とFence付き解放待ちはResourceManagerが行う
 	GraphicsResourceManager::Instance().Unload(_handle);
 }

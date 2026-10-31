@@ -6,6 +6,7 @@
 #include "../Graphics/GraphicsMetrics.h"
 #include "../Debug/CPUFrameTimingSystem.h"
 #include "GfxInternal.h"
+#include "ComputeInternal.h"
 #include "Gfx.h" // デバッグシステムとつなぐために必要
 #include "InputInternal.h"
 #include "SoundInternal.h"
@@ -263,7 +264,10 @@ bool TSLib::Initialize(const wchar_t* _title, int _virtualWidth, int _virtualHei
 	if (!result) return result;
 	const Vector2Int clientSize{ SystemInternal::GetClientSize() };
 	result = GfxInternal::Initialize(SystemInternal::GetHWND(), clientSize.x, clientSize.y, _virtualWidth, _virtualHeight); // グラフィックの初期化とウィンドウ作成
-	DEBUG_ASSERT(result && "ゲームの初期化に失敗しました\n");
+	DEBUG_ASSERT(result && "描画機能の初期化に失敗しました\n");
+	if (!result) return result;
+	result = ComputeInternal::Initialize();
+	DEBUG_ASSERT(result && "Compute機能の初期化に失敗しました\n");
 	if (!result) return result;
 	result = DebugInternal::Initialize(); // デバッグ表示の初期化
 	DEBUG_ASSERT(result && "デバッグ機能の初期化に失敗しました\n");
@@ -327,6 +331,8 @@ void TSLib::BeginFrame()
 		const auto timing{ Debug::BeginCPUTiming(graphicsBeginCpuMetricID) };
 		GfxInternal::BeginFrame(); // グラフィックのフレーム最初の処理
 	}
+	// 後ほど計測と合わせる
+	ComputeInternal::BeginFrame();
 	{
 		const auto timing{ Debug::BeginCPUTiming(debugMetricSubmitCpuMetricID) };
 		SubmitGPUFrameTime(); // GPU完了済みフレームの時間を書き込む
@@ -342,6 +348,8 @@ void TSLib::EndFrame()
 	SoundInternal::EndFrame(); // 音関連のフレーム最後の処理
 	DebugInternal::EndFrame(); // デバッグ表示用のフレームの最後の処理
 	DebugDraw(); // デバッグパラメータなどの描画
+	GfxInternal::RecordUpload(); // リソースのUpload命令記録
+	ComputeInternal::EndFrame(); // Computeのフレーム最後の処理
 	GfxInternal::EndFrame(); // グラフィックのフレーム最後の処理
 	InputInternal::EndFrame(); // 入力関連のフレーム最後の処理
 	cpuFrameTimingSystem.EndFrame(Time::GetTargetFPS()); // 計測の終了
@@ -354,6 +362,7 @@ void TSLib::Finish()
 	UIInternal::Finish(); // 入力更新より前に終了処理
 	InputInternal::Finish(); // 入力の終了処理
 	DebugInternal::Finish(); // デバッグ機能関連の終了
+	ComputeInternal::Finish(); // Computeの終了処理
 	GfxInternal::Finish(); // グラフィックの終了処理
 	SystemInternal::Finish(); // システムの終了処理
 	TimeInternal::Finish(); // 時間管理の終了処理

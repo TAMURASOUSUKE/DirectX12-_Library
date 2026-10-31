@@ -23,6 +23,7 @@
 #include "Debug.h"
 #include "File.h"
 #include "UI.h"
+#include "Compute.h"
 
 
 // 初期化などlibrary全体の機能をまとめてユーザーに提供する

@@ -143,12 +143,8 @@ namespace Gfx
 	MaterialHandle CreateMaterial(ShaderHandle _pixel);
 	// material読み込み(VSも指定する版)
 	MaterialHandle CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader);
-	// ComputeShaderからPipelineを作成する(b0, t0, u0のSpace0を使用する)
-	ComputePipelineHandle CreateComputePipeline(ShaderHandle _computeShader);
 	// モデルをもとにアニメーション個体の作成
 	AnimInstanceHandle CreateAnimInstance(ModelHandle _handle);
-	// StructuredBufferを作成する(初期データを指定する場合はBuffer全体を渡す)
-	GPUBufferHandle CreateGPUBuffer(const GPUBufferDesc& _desc, const void* _initialData = nullptr, std::size_t _initialDataSize = 0);
 
 	// 矩形描画
 	void DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation = 0.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f }, bool _isWireframe = false);
@@ -268,10 +264,6 @@ namespace Gfx
 	void Unload(ShaderHandle _handle);
 	// Materialリソースの解放
 	void Unload(MaterialHandle _handle);
-	// Computeリソースの解放
-	void Unload(ComputePipelineHandle _handle);
-	// GPUBufferの解放
-	void Unload(GPUBufferHandle _handle);
 	
 	
 	/// <summary>

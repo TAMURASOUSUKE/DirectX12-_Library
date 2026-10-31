@@ -82,6 +82,7 @@ enum class RootSigID
 	Primitive3D, // インスタンシング対応3D基礎図形
 	Terrain, // テッセレーションデモ
 	PostEffect, // シーンRTのSRVのPSから読むためのルートシグネチャ
+	Compute, // Compute計算を行う
 	Count,
 };
 
@@ -156,7 +157,7 @@ struct RootParamDesc
 	std::vector<DescriptorRangeDesc> ranges{};
 };
 
-// RootSignature全体
+// RootSignature全体の設定
 struct RootSignatureDesc
 {
 	RootSigID rootSignatureID{RootSigID::Count}; // IDを無効値として設定する
@@ -189,14 +190,6 @@ struct GraphicsPipelineDesc
 	INT depthBias{ D3D12_DEFAULT_DEPTH_BIAS }; // ShadowMapなど深度を書き込む位置を定数分奥へずらす
 	float depthBiasClamp{ D3D12_DEFAULT_DEPTH_BIAS_CLAMP }; // DepthBiasへ設定できる最大値 0は制限なし
 	float slopeScaledDepthBias{ D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS }; // ポリゴンの傾きに応じて深度を追加でずらす
-};
-
-// Compute用PSO生成時に使う設定構造体
-struct ComputePipelineDesc
-{
-	RootSigID rootSignatureID{ RootSigID::Count }; // ルートシグネチャの鍵
-	PipelineID pipelineID{}; // パイプラインステートの鍵
-	const wchar_t* csPath{ nullptr }; // コンピュートシェーダーパス
 };
 
 // 書き込みを行うためのCPUハンドルと読み取るためのGPUハンドルとそのインデックスをまとめたハンドル

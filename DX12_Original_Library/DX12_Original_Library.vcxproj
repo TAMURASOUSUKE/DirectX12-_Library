@@ -263,6 +263,7 @@
     <ClInclude Include="Src\External\cgltf.h" />
     <ClInclude Include="Src\Facade\Collision.h" />
     <ClInclude Include="Src\Facade\Compute.h" />
+    <ClInclude Include="Src\Facade\ComputeInternal.h" />
     <ClInclude Include="Src\Facade\Debug.h" />
     <ClInclude Include="Src\Facade\DebugInternal.h" />
     <ClInclude Include="Src\Facade\File.h" />
@@ -305,6 +306,7 @@
     <ClInclude Include="Src\Graphics\Primitive3DBatch.h" />
     <ClInclude Include="Src\Graphics\Primitive3DSystem.h" />
     <ClInclude Include="Src\Graphics\RingConstantBuffer.h" />
+    <ClInclude Include="Src\Graphics\PipelineFactory.h" />
     <ClInclude Include="Src\Graphics\ShaderSystem.h" />
     <ClInclude Include="Src\Graphics\ShadowSystem.h" />
     <ClInclude Include="Src\Graphics\ShapeBatch.h" />
@@ -395,6 +397,7 @@
     <ClCompile Include="Src\Graphics\Primitive3DBatch.cpp" />
     <ClCompile Include="Src\Graphics\Primitive3DSystem.cpp" />
     <ClCompile Include="Src\Graphics\RingConstantBuffer.cpp" />
+    <ClCompile Include="Src\Graphics\PipelineFactory.cpp" />
     <ClCompile Include="Src\Graphics\ShaderSystem.cpp" />
     <ClCompile Include="Src\Graphics\ShadowSystem.cpp" />
     <ClCompile Include="Src\Graphics\ShapeBatch.cpp" />

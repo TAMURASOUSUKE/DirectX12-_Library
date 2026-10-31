@@ -423,6 +423,12 @@
     <ClInclude Include="Src\Facade\Compute.h">
       <Filter>Src\Facade</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Facade\ComputeInternal.h">
+      <Filter>Src\Facade</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Graphics\PipelineFactory.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -631,6 +637,9 @@
     </ClCompile>
     <ClCompile Include="Src\Facade\Compute.cpp">
       <Filter>Src\Facade</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\PipelineFactory.cpp">
+      <Filter>Src\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
