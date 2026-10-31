@@ -20,7 +20,7 @@ namespace Compute
 	// Computeの実行要求を行う
 	bool Dispatch(const ComputeDispatchDesc& _desc, const void* _data = nullptr, std::size_t _parameterSize = 0);
 
-	// 同期ReadbackによってComputeの計算結果を返す GPUが終わるまでCPUが止まる EndFrameの後に呼ぶこと（フレーム中に記録したDispatchの結果はまだ読めない）
+	// 同期ReadbackによってComputeの計算結果を返す GPUが終わるまでCPUが止まる 前のフレームまでに送信したDispatchの結果が読めます
 	bool ReadBackBuffer(GPUBufferHandle _handle, void* _dst, std::size_t _size);
 
 	// ComputeShaderの解放
