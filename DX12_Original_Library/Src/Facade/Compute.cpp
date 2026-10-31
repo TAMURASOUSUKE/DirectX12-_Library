@@ -137,6 +137,11 @@ bool Compute::Dispatch(const ComputeDispatchDesc& _desc, const void* _data, std:
 	return true;
 }
 
+bool Compute::ReadBackBuffer(GPUBufferHandle _handle, void* _dst, std::size_t _size)
+{
+	return GraphicsResourceManager::Instance().ReadBackBuffer(_handle, _dst, _size);
+}
+
 void Compute::Unload(ShaderHandle _handle)
 {
 	GraphicsResourceManager::Instance().Unload(_handle);

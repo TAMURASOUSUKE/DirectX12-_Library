@@ -351,8 +351,7 @@ UINT GraphicsDevice::GetCurrentFrameIndex() const
 	return currentFrameIndex;
 }
 
-// ヘルパー
-HRESULT GraphicsDevice::ExecuteUpdate(std::function<void(ID3D12GraphicsCommandList*)> _recode)
+HRESULT GraphicsDevice::ExecuteImmediate(std::function<void(ID3D12GraphicsCommandList*)> _recode)
 {
 	// nullかチェックする
 	DEBUG_ASSERT(_recode != nullptr);

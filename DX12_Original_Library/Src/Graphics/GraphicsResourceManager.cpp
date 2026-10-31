@@ -78,7 +78,7 @@ namespace {
 		uploadBuffer->Unmap(0, &writtenRange);
 
 		// UPLOADからDEFAULTへコピーして使用可能な状態へ切り替える
-		result = GraphicsDevice::Instance().ExecuteUpdate(
+		result = GraphicsDevice::Instance().ExecuteImmediate(
 			[&](ID3D12GraphicsCommandList* _cmd)
 			{
 				_cmd->CopyBufferRegion(defaultBuffer.Get(), 0, uploadBuffer.Get(), 0, _dataSize);
@@ -1592,6 +1592,104 @@ GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _d
 	return GPUBufferHandle{ PassKey{}, packed };
 }
 
+bool GraphicsResourceManager::ReadBackBuffer(GPUBufferHandle _handle, void* _dst, std::size_t _size)
+{
+	if (!_handle.IsValid())
+	{
+		DEBUG_LOG_ERROR("不正なHandleが渡されました\n");
+		return false;
+	}
+
+	GPUBufferData* gpuBufferData{ Lookup(_handle) };
+	if (!gpuBufferData)
+	{
+		DEBUG_LOG_ERROR("GPUBufferHandleのLookupに失敗しました\n");
+		return false;
+	}
+
+	if (!_dst)
+	{
+		DEBUG_LOG_ERROR("読み戻し先が不正です\n");
+		return false;
+	}
+
+	if (_size == 0 || gpuBufferData->sizeInBytes < _size)
+	{
+		DEBUG_LOG_ERROR("サイズが不正です\n");
+		return false;
+	}
+
+	HRESULT result{};
+	// ReadbackBufferの作成
+	ComPtr<ID3D12Resource> readbackBuffer{};
+	const CD3DX12_HEAP_PROPERTIES readbackProps{ D3D12_HEAP_TYPE_READBACK };
+	const CD3DX12_RESOURCE_DESC readbackDesc{ CD3DX12_RESOURCE_DESC::Buffer(_size) }; // readbackにはBufferしか置けない
+	result = device->CreateCommittedResource(
+		&readbackProps,
+		D3D12_HEAP_FLAG_NONE,
+		&readbackDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST, // readbackのBufferはこれで固定となり動かさない
+		nullptr,
+		IID_PPV_ARGS(&readbackBuffer));
+
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("Compute用ReadbackBufferの作成に失敗しました\n");
+		return false;
+	}
+
+	bool didTransition{ false };
+	// 現在のStateを見てCOPY_SOURCEを含んでいなければ遷移してから記録する
+	const auto& recordCopyBuffer
+	{
+		[&](ID3D12GraphicsCommandList* _cmd)
+		{
+			// 現在のStateにCOPY_SOURCEが含まれてい無ければ遷移する
+			if ((gpuBufferData->currentState & D3D12_RESOURCE_STATE_COPY_SOURCE) == 0)
+			{
+				D3D12_RESOURCE_BARRIER barrier{};
+				barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+				barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+				barrier.Transition.pResource = gpuBufferData->resource.Get();
+				barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+				barrier.Transition.StateBefore = gpuBufferData->currentState;
+				barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+				_cmd->ResourceBarrier(1, &barrier);
+				didTransition = true;
+			}
+
+			// GpuBufferDataのリソースをReadbackBufferへコピーする
+			_cmd->CopyBufferRegion(readbackBuffer.Get(), 0, gpuBufferData->resource.Get(), 0, _size);
+		}
+	};
+
+	result = GraphicsDevice::Instance().ExecuteImmediate(recordCopyBuffer);
+	DEBUG_ASSERT(SUCCEEDED(result));
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("読み戻しのGPU実行に失敗しました\n");
+		return false;
+	}
+
+	// 遷移を終えたのでCOPY_SOURCEにする
+	if(didTransition) gpuBufferData->currentState = D3D12_RESOURCE_STATE_COPY_SOURCE; // GPUで実行後Commonに減衰するがCOPY_SOURCEに昇格できるのでFlushも動く
+
+	// ReadbackBufferをMapしてCPUで読めるようにする
+	void* cpuData{ nullptr };
+	D3D12_RANGE mapRange{ 0, _size };
+	D3D12_RANGE unmapRange{ 0, 0 };
+	result =  readbackBuffer.Get()->Map(0, &mapRange, &cpuData); // CPUがメモリを読めるようにする
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("Compute用ReadbackBufferのMapに失敗しました\n");
+		return false;
+	}
+	std::memcpy(_dst, cpuData, _size);
+	readbackBuffer.Get()->Unmap(0, &unmapRange); // CPUがメモリを読めないように閉じる
+	return true;
+}
+
 ShaderHandle GraphicsResourceManager::RegisterShader(ShaderUsage _usage, ShaderStage _stage, ComPtr<ID3DBlob> _shaderBlob)
 {
 	if (!_shaderBlob)
@@ -1949,7 +2047,7 @@ TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::Scrat
 	}
 
 	// アップロードを行う。recode変数にコピーとバリアを積む
-	result = GraphicsDevice::Instance().ExecuteUpdate
+	result = GraphicsDevice::Instance().ExecuteImmediate
 	(
 		[&](ID3D12GraphicsCommandList* _cmd)
 		{

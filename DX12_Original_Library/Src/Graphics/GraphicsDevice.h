@@ -53,8 +53,8 @@ public:
 	// CPU側が最後にGPUへ通知したフェンス値を取得する
 	UINT64 GetLastSubmittedFenceValue() const;
 
-	// ヘルパー
-	HRESULT ExecuteUpdate(std::function<void(ID3D12GraphicsCommandList*)> _recode); // アップロードヘルパー
+	// 渡された記録関数で専用CommandListへ命令を積みGPUで実行して完了まで待機する
+	HRESULT ExecuteImmediate(std::function<void(ID3D12GraphicsCommandList*)> _recode); 
 
 	// GPU Timestampの1秒当たりのカウント数を取得する
 	UINT64 GetTimestampFrequency() const;

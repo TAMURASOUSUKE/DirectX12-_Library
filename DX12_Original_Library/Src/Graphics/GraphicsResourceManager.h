@@ -89,6 +89,9 @@ public:
 	// StructuredBufferを作成して台帳へ記録する(初期データ無しならnullptrと0にする)
 	GPUBufferHandle CreateGPUBuffer(const GPUBufferDesc& _desc, const void* _initialData = nullptr, std::size_t _initialDataSize = 0);
 
+	// 同期ReadbackによってComputeの計算結果を返す GPUが終わるまでCPUが止まる、同じフレームのDispatchの結果は読めないことに注意
+	bool ReadBackBuffer(GPUBufferHandle _handle, void* _dst, std::size_t _size);
+
 	// コンパイル済みのShaderをShader台帳へ登録する
 	ShaderHandle RegisterShader(ShaderUsage _usage, ShaderStage _stage ,ComPtr<ID3DBlob> _shaderBlob);
 
