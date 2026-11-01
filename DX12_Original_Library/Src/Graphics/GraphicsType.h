@@ -208,6 +208,7 @@ struct TextureData
 {
 	ComPtr<ID3D12Resource> resource; // テクスチャリソース
 	DescriptorHandle srvHandle; // ShaderReosurceViewハンドル
+	DescriptorHandle uavHandle; // Computeから出力する際に使う
 	int width{ 0 }; // 画像の横幅
 	int height{ 0 }; // 画像の縦幅
 	D3D12_RESOURCE_STATES currentState{ D3D12_RESOURCE_STATE_COMMON }; // 記録した使用状態

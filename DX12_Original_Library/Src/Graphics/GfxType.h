@@ -53,6 +53,14 @@ enum class ShaderStage
 	Compute,
 };
 
+// 出力をTextureで使う際にFormatを選ぶための列挙
+enum class TextureFormat
+{
+	RGBA8_URNOM,  // RGBA各成分が8bitの符号なし正規化整数
+	RGBA16_FLOAT, // 各成分が16bitの浮動小数点
+	R32_FLOAT, // Rの成分だけ持っている32bitの浮動小数点
+};
+
 // 1段階分のLOD設定
 struct ModelLODLevel
 {
@@ -79,6 +87,15 @@ struct GPUBufferDesc
 	std::size_t elementCount{ 0 }; // 格納する要素数
 	std::size_t elementStride{ 0 }; // 1要素のサイズ(byte)
 	bool allowUnorderedAccess{ false }; // UAVによる書き込みを許可するか
+};
+
+// 出力UAVをTextureにする際の設定
+struct TextureDesc
+{
+	int width{ 0 }; // 画像の横幅
+	int height{ 0 }; // 画像の縦幅
+	TextureFormat format{ TextureFormat::RGBA8_URNOM }; // 使用するformat
+	bool allowUnorderedAccsess{ false }; // UAVによる書き込みを許可するか
 };
 
 // Computeへ接続するリソースの種類
