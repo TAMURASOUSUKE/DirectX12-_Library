@@ -326,7 +326,7 @@ bool GraphicsResourceManager::Setup(ID3D12Device* _device)
 	try
 	{
 		// 先に容量確保 + ロード時ガードでダングリング防止
-		texSlots.reserve(MAX_TEXTURE_COUNT); 
+		texSlots.reserve(MAX_TEXTURE_COUNT);
 		modelSlots.reserve(MAX_MODEL_COUNT);
 		rtSlots.reserve(MAX_RENDER_TARGET_COUNT);
 		shaderSlots.reserve(MAX_CUSTOM_SHADER_COUNT);
@@ -379,6 +379,7 @@ void GraphicsResourceManager::Shutdown()
 		{
 			// GPUは停止済みなのでDescriptorを即座に返す
 			if (_texture.srvHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, _texture.srvHandle);
+			if (_texture.uavHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, _texture.uavHandle);
 			_texture = TextureData{}; // ComPtrも含めて空にする
 		}
 	};
@@ -546,6 +547,7 @@ void GraphicsResourceManager::CollectDeferredReleases(UINT64 _completedFenceValu
 		for (TextureData& texture : batch.textures)
 		{
 			DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texture.srvHandle);
+			if(texture.uavHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texture.uavHandle); // ファイルからの読み込みにはuavはないので確認してから
 		}
 
 		for (RenderTargetData& rt : batch.renderTargets)
@@ -1474,14 +1476,14 @@ GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _d
 	data.desc = _desc;
 	data.sizeInBytes = static_cast<UINT64>(sizeInBytes);
 	data.currentState = D3D12_RESOURCE_STATE_COMMON; // 最初はCommon
-	
+
 	// GPUが書き込む場合でのみUAVを作成を許可する
 	const D3D12_RESOURCE_FLAGS resourceFlag{ _desc.allowUnorderedAccess ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS : D3D12_RESOURCE_FLAG_NONE };
 	CD3DX12_HEAP_PROPERTIES heapProperties{ D3D12_HEAP_TYPE_DEFAULT }; // デフォルトヒープ指定
 
 	const CD3DX12_RESOURCE_DESC resourceDesc{ CD3DX12_RESOURCE_DESC::Buffer(data.sizeInBytes, resourceFlag) };
 
-	const HRESULT result{ 
+	const HRESULT result{
 		device->CreateCommittedResource(
 			&heapProperties, // GPU処理用のDefaultHeap
 			D3D12_HEAP_FLAG_NONE,
@@ -1489,7 +1491,7 @@ GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _d
 			data.currentState,
 			nullptr,
 			IID_PPV_ARGS(data.resource.GetAddressOf())
-		) 
+		)
 	};
 	if (FAILED(result))
 	{
@@ -1508,7 +1510,7 @@ GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _d
 				{
 					descriptorManager.Free(HeapType::CBV_SRV_UAV, data.srvHandle);
 					data.srvHandle = {};
-				}	
+				}
 				if (data.uavHandle.IsValid())
 				{
 					descriptorManager.Free(HeapType::CBV_SRV_UAV, data.uavHandle);
@@ -1533,7 +1535,7 @@ GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _d
 	srvDesc.Buffer.NumElements = static_cast<UINT>(_desc.elementCount); // 要素数
 	srvDesc.Buffer.StructureByteStride = static_cast<UINT>(_desc.elementStride); // 次の要素までは何Byteか
 	srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-	// Allocateで確保したDescriptorの位置にcpuハンドルを使って指定resourceを作成
+	// Allocateで確保したDescriptorの位置にcpuハンドルを使って指定vaiewを作成
 	device->CreateShaderResourceView(data.resource.Get(), &srvDesc, data.srvHandle.cpu);
 
 	// 書き込みが許可されているBufferはUAVを作成する
@@ -1557,7 +1559,7 @@ GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _d
 		uavDesc.Buffer.CounterOffsetInBytes = 0;
 		uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
 
-		// SRVと同様にcpuハンドルを使って指定resoruceを作成 要素数カウンターは無し
+		// SRVと同様にcpuハンドルを使って指定viewを作成 要素数カウンターは無し
 		device->CreateUnorderedAccessView(data.resource.Get(), nullptr, &uavDesc, data.uavHandle.cpu);
 	}
 
@@ -1590,6 +1592,158 @@ GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _d
 
 	int packed{ Pack(index, gpuBufferSlots[index].generation) };
 	return GPUBufferHandle{ PassKey{}, packed };
+}
+
+TexHandle GraphicsResourceManager::CreateUAVTexture(const TextureDesc& _desc)
+{
+	if (!device)
+	{
+		DEBUG_LOG_ERROR("Deviceが初期化されていません\n");
+		return TexHandle{};
+	}
+
+	// 幅と高さが下限と上限内にいるかチェックするラムダ
+	const auto& isInRange
+	{
+		[](int _value) { return _value > 0 && _value <= D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION; }
+	};
+
+	if (!isInRange(_desc.width) || !isInRange(_desc.height))
+	{
+		DEBUG_LOG_ERROR("設定された高さもしくは幅が不正です\n");
+		return TexHandle{};
+	}
+
+	// 登録上限チェック
+	if (texFreeList.empty() && texSlots.size() >= MAX_TEXTURE_COUNT)
+	{
+		DEBUG_LOG_ERROR("Textureが登録上限に達しています\n");
+		return TexHandle{};
+	}
+
+	// descの独自formatをDirectX12に変換する
+	const auto& changeDXGIFormat{
+		[](TextureFormat _format) -> DXGI_FORMAT
+		{
+			switch (_format)
+			{
+			case TextureFormat::RGBA8_UNORM:
+				return DXGI_FORMAT_R8G8B8A8_UNORM; // UAV用はSRGBではない
+			case TextureFormat::RGBA16_FLOAT:
+				return DXGI_FORMAT_R16G16B16A16_FLOAT;
+			case TextureFormat::R32_FLOAT:
+				return DXGI_FORMAT_R32_FLOAT;
+			default:
+				DEBUG_LOG_ERROR("不正なFormatです\n");
+				return DXGI_FORMAT_UNKNOWN;
+			}
+		}
+	};
+
+	DXGI_FORMAT format{ changeDXGIFormat(_desc.format) };
+	if (format == DXGI_FORMAT_UNKNOWN) return TexHandle{}; // ラムダでログを出すので省略
+
+	TextureData data{}; // 失敗したときでもローカルなので消える
+	data.currentState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+	data.height = _desc.height;
+	data.width = _desc.width;
+
+	D3D12_HEAP_PROPERTIES heapProps{}; // ヒープのプロパティ設定
+	heapProps.Type = D3D12_HEAP_TYPE_DEFAULT; // UAVで書き込むのでDefault
+	heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // ページングなし
+
+	ComPtr<ID3D12Resource> resource{}; // 作成するリソース
+	D3D12_RESOURCE_DESC resDesc{}; // リソース設定構造体
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS; // uav書き込みを許可する
+	resDesc.Width = data.width;
+	resDesc.Height = data.height;
+	resDesc.DepthOrArraySize = 1; // 配列ではない
+	resDesc.MipLevels = 1; // ミップマップなし
+	resDesc.Format = format;
+	resDesc.SampleDesc.Count = 1;
+	resDesc.SampleDesc.Quality = 0; // MSAAはなし
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN; // GPUに適切な並び方をさせる
+
+	HRESULT result{};
+	result = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resDesc, data.currentState, nullptr, IID_PPV_ARGS(&resource));
+	if (FAILED(result))
+	{
+		DEBUG_LOG_ERROR("リソースの作成に失敗しました\n");
+		return TexHandle{};
+	}
+	data.resource = resource; // 作成に成功したので入れる
+
+	// 作成に失敗したときは返せるように両方のハンドルを自動的にチェックして有効ならDescriptorを解放する
+	DescriptorManager& descriptorManager{ DescriptorManager::Instance() };
+	const auto releaseDescriptors
+	{
+		[&]()
+			{
+				if (data.srvHandle.IsValid())
+				{
+					descriptorManager.Free(HeapType::CBV_SRV_UAV, data.srvHandle);
+					data.srvHandle = {};
+				}
+				if (data.uavHandle.IsValid())
+				{
+					descriptorManager.Free(HeapType::CBV_SRV_UAV, data.uavHandle);
+					data.uavHandle = {};
+				}
+			}
+	};
+
+	// 読み取り用のSRVの置き場所の確保
+	data.srvHandle = descriptorManager.Allocate(HeapType::CBV_SRV_UAV);
+	if (!data.srvHandle.IsValid())
+	{
+		DEBUG_LOG_ERROR("TextureのSRVハンドルを確保できませんでした\n");
+		return TexHandle{};
+	}
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+	srvDesc.Format = format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	// Allocateで確保したDescriptorの位置にcpuハンドルを使って指定viewを作成
+	device->CreateShaderResourceView(data.resource.Get(), &srvDesc, data.srvHandle.cpu);
+
+	// 書き込み用のUAVの置き場所の確保
+	data.uavHandle = descriptorManager.Allocate(HeapType::CBV_SRV_UAV);
+	if (!data.uavHandle.IsValid())
+	{
+		DEBUG_LOG_ERROR("TextureのUAVのハンドルを確保できませんでした\n");
+		releaseDescriptors();
+		return  TexHandle{};
+	}
+
+	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc{};
+	uavDesc.Format = format;
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+	uavDesc.Texture2D.MipSlice = 0;
+
+	device->CreateUnorderedAccessView(data.resource.Get(), nullptr, &uavDesc, data.uavHandle.cpu);
+
+	// すべて成功したので追加を行う
+	int index{};
+	if (!texFreeList.empty())
+	{
+		// 解放済みSlotの利用
+		index = texFreeList.top();
+		texFreeList.pop();
+		texSlots[index].data = std::move(data);
+	}
+	else
+	{
+		// 新しいSlotを作る
+		index = static_cast<int>(texSlots.size());
+		texSlots.push_back({ std::move(data), 0 });
+	}
+
+	int packed{ Pack(index, texSlots[index].generation) };
+	return TexHandle{ PassKey{}, packed };
 }
 
 bool GraphicsResourceManager::ReadBackBuffer(GPUBufferHandle _handle, void* _dst, std::size_t _size)
@@ -1673,13 +1827,13 @@ bool GraphicsResourceManager::ReadBackBuffer(GPUBufferHandle _handle, void* _dst
 	}
 
 	// 遷移を終えたのでCOPY_SOURCEにする
-	if(didTransition) gpuBufferData->currentState = D3D12_RESOURCE_STATE_COPY_SOURCE; // GPUで実行後Commonに減衰するがCOPY_SOURCEに昇格できるのでFlushも動く
+	if (didTransition) gpuBufferData->currentState = D3D12_RESOURCE_STATE_COPY_SOURCE; // GPUで実行後Commonに減衰するがCOPY_SOURCEに昇格できるのでFlushも動く
 
 	// ReadbackBufferをMapしてCPUで読めるようにする
 	void* cpuData{ nullptr };
 	D3D12_RANGE mapRange{ 0, _size };
 	D3D12_RANGE unmapRange{ 0, 0 };
-	result =  readbackBuffer.Get()->Map(0, &mapRange, &cpuData); // CPUがメモリを読めるようにする
+	result = readbackBuffer.Get()->Map(0, &mapRange, &cpuData); // CPUがメモリを読めるようにする
 	if (FAILED(result))
 	{
 		DEBUG_LOG_ERROR("Compute用ReadbackBufferのMapに失敗しました\n");
@@ -2001,7 +2155,7 @@ void GraphicsResourceManager::Unload(GPUBufferHandle _handle)
 
 	// Handleへ格納できる世代の間だけSlotを再利用する
 	constexpr uint32_t MAX_GENERATION{ static_cast<uint32_t>((std::numeric_limits<int>::max)() >> INDEX_BITS) };
-	if(gpuBufferSlots[index].generation <= MAX_GENERATION) gpuBufferFreeList.push(index);
+	if (gpuBufferSlots[index].generation <= MAX_GENERATION) gpuBufferFreeList.push(index);
 }
 
 TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta)

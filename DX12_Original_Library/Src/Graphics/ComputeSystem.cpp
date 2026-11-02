@@ -2,6 +2,7 @@
 #include <cstring>
 #include <cstdint>
 #include <d3d12.h>
+#include "../External/Common/d3dx12.h"
 #include "GraphicsResourceManager.h"
 #include "DescriptorManager.h"
 #include "../Debug/DebugLogs.h"
@@ -168,7 +169,18 @@ bool ComputeSystem::Setup(ID3D12Device* _device)
 	}
 	catch (std::bad_alloc&)
 	{
-		DEBUG_LOG_ERROR("Compute実行要求のメモリ確保に失敗しました\n");
+		DEBUG_LOG_ERROR("Computeの実行要求メモリ確保に失敗しました\n");
+		Shutdown();
+		return false;
+	}
+
+	try
+	{
+		transitionAllResourceBarriers.reserve(MAX_COMPUTE_DISPATCH_COUNT);
+	}
+	catch (std::bad_alloc&)
+	{
+		DEBUG_LOG_ERROR("ComputeのTexture遷移Barreir配列メモリ確保に失敗しました\n");
 		Shutdown();
 		return false;
 	}
@@ -479,8 +491,28 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 			}
 			case ComputeResourceType::Texture:
 			{
-				DEBUG_LOG_ERROR("ComputeのUAV現在はTextureに対応していません\n");
-				return false;
+				if (!binding.texture.IsValid())
+				{
+					DEBUG_LOG_ERROR("出力されるTextureのハンドルが不正です\n");
+					return false;
+				}
+				TextureData* data{ resourceManager.Lookup(binding.texture) };
+				if (!data)
+				{
+					DEBUG_LOG_ERROR("出力されるTextureが不正です\n");
+					return false;
+				}
+				if (!data->uavHandle.IsValid())
+				{
+					DEBUG_LOG_ERROR("出力のViewが不正です\n");
+					return false;
+				}
+				if (!AddComputeBarrierResource(barrierBatch, data->resource.Get(), data->currentState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true))
+				{
+					DEBUG_LOG_ERROR("出力用Textureの登録に失敗しました\n");
+					return false;
+				}
+				break;
 			}
 			}
 		}
@@ -554,8 +586,10 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 			}
 			case ComputeResourceType::Texture:
 			{
-				DEBUG_LOG_ERROR("ComputeのUAV現在はTextureに対応していません\n");
-				return false;
+				TextureData* data{ resourceManager.Lookup(binding.texture) };
+				descriptorHandle = data->uavHandle.gpu;
+				if (!AddComputeBarrierResource(barrierBatch, data->resource.Get(), data->currentState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true)) return false;
+				break;
 			}
 			}
 			_cmd->SetComputeRootDescriptorTable(static_cast<UINT>(ComputeRootParameter::OutputBuffer) + static_cast<UINT>(i), descriptorHandle);
@@ -566,6 +600,45 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 		_cmd->Dispatch(command.desc.groupCountX, command.desc.groupCountY, command.desc.groupCountZ);
 	}
 
+	transitionAllResourceBarriers.clear(); // あらかじめクリアしておく
+	// TextureはCommonへ減衰しない、自動昇格もないので明示的にTransitionする
+	for (const auto& command : commands)
+	{
+		// 入力
+		for (std::size_t i = 0; i < MAX_COMPUTE_SRV_COUNT; i++)
+		{
+			const ComputeResourceBinding& binding{ command.desc.inputs[i] };
+			if (binding.type != ComputeResourceType::Texture) continue; // Textureのみ判定
+			
+			TextureData* data{ resourceManager.Lookup(binding.texture) };
+			// 現在の状態がALL_SHADER_RESOURCEを含んでいれば弾く
+			if (IsComputeSatisfied(data->currentState, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE)) continue;
+
+			// Barrierの作成
+			D3D12_RESOURCE_BARRIER barrier{ CD3DX12_RESOURCE_BARRIER::Transition(data->resource.Get(), data->currentState, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
+			transitionAllResourceBarriers.push_back(barrier);
+			// 追加したので現在の状態を更新
+			data->currentState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+		}
+
+		for (std::size_t i = 0; i < MAX_COMPUTE_UAV_COUNT; i++)
+		{
+			const ComputeResourceBinding& binding{ command.desc.outputs[i] };
+			if (binding.type != ComputeResourceType::Texture) continue; // Textureのみ判定
+
+			TextureData* data{ resourceManager.Lookup(binding.texture) };
+			// 現在の状態がALL_SHADER_RESOURCEを含んでいれば弾く
+			if (IsComputeSatisfied(data->currentState, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE)) continue;
+
+			// Barrierの作成
+			D3D12_RESOURCE_BARRIER barrier{ CD3DX12_RESOURCE_BARRIER::Transition(data->resource.Get(), data->currentState, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
+			transitionAllResourceBarriers.push_back(barrier);
+			// 追加したので現在の状態を更新
+			data->currentState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+		}
+	}
+	// 終了前に遷移をする
+	if(!transitionAllResourceBarriers.empty()) _cmd->ResourceBarrier(static_cast<UINT>(transitionAllResourceBarriers.size()), transitionAllResourceBarriers.data());
 	return true;
 }
 

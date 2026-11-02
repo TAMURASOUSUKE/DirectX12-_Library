@@ -2,6 +2,7 @@
 #include <cstddef>
 #include "../Core/Handle/ComputePipelineHandle.h"
 #include "../Core/Handle/GPUBufferHandle.h"
+#include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ShaderHandle.h"
 #include "../Graphics/GfxType.h"
 
@@ -16,6 +17,9 @@ namespace Compute
 
 	// StructuredBufferを作成し、必要なら初期転送を予約する
 	GPUBufferHandle CreateGPUBuffer(const GPUBufferDesc& _desc, const void* _initialData = nullptr, std::size_t _dataSize = 0);
+
+	// GPUから読み書き可能なテクスチャを生成する関数
+	TexHandle CreateTexture(const TextureDesc& _desc);
 
 	// Computeの実行要求を行う
 	bool Dispatch(const ComputeDispatchDesc& _desc, const void* _data = nullptr, std::size_t _parameterSize = 0);

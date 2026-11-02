@@ -89,6 +89,9 @@ public:
 	// StructuredBufferを作成して台帳へ記録する(初期データ無しならnullptrと0にする)
 	GPUBufferHandle CreateGPUBuffer(const GPUBufferDesc& _desc, const void* _initialData = nullptr, std::size_t _initialDataSize = 0);
 
+	// 内部でGPUから読み書き可能なTextureを作成して台帳に記録する
+	TexHandle CreateUAVTexture(const TextureDesc& _desc);
+
 	// 同期ReadbackによってComputeの計算結果を返す GPUが終わるまでCPUが止まる、同じフレームのDispatchの結果は読めないことに注意
 	bool ReadBackBuffer(GPUBufferHandle _handle, void* _dst, std::size_t _size);
 
@@ -169,5 +172,4 @@ private:
 
 	DeferredReleaseBatch pendingRelease{}; // まだEndFrameしていないのでFence値が決まっていない荷物
 	std::deque<DeferredReleaseBatch> deferredReleases{}; // EndFrame済みでGPU完了を待っている荷物
-
 };

@@ -37,6 +37,7 @@ public:
 private:
 	ID3D12Device* device{ nullptr }; // デバイス(非所有)
 	std::vector<ComputeDispatchCommand> commands{}; // 実行要求の配列
+	std::vector<D3D12_RESOURCE_BARRIER> transitionAllResourceBarriers{}; // Dispatch後にTextureをAllResoruceStateに戻すためのBarreir
 	RingConstantBuffer ringCBV{}; // 要求ごとの定数データを格納する
 
 	DescriptorHandle nullSRV{}; // 未設定の入力スロットへ設定するnullSRV

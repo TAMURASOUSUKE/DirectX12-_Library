@@ -127,6 +127,11 @@ GPUBufferHandle Compute::CreateGPUBuffer(const GPUBufferDesc& _desc, const void*
 	return GraphicsResourceManager::Instance().CreateGPUBuffer(_desc, _initialData, _dataSize);
 }
 
+TexHandle Compute::CreateTexture(const TextureDesc& _desc)
+{
+	return GraphicsResourceManager::Instance().CreateUAVTexture(_desc);
+}
+
 bool Compute::Dispatch(const ComputeDispatchDesc& _desc, const void* _data, std::size_t _parameterSize)
 {
 	if (!computeSystem.RegisterDispatch(_desc, _data, _parameterSize))

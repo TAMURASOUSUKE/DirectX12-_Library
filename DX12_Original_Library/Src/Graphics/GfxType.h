@@ -56,7 +56,7 @@ enum class ShaderStage
 // 出力をTextureで使う際にFormatを選ぶための列挙
 enum class TextureFormat
 {
-	RGBA8_URNOM,  // RGBA各成分が8bitの符号なし正規化整数
+	RGBA8_UNORM,  // RGBA各成分が8bitの符号なし正規化整数
 	RGBA16_FLOAT, // 各成分が16bitの浮動小数点
 	R32_FLOAT, // Rの成分だけ持っている32bitの浮動小数点
 };
@@ -94,8 +94,7 @@ struct TextureDesc
 {
 	int width{ 0 }; // 画像の横幅
 	int height{ 0 }; // 画像の縦幅
-	TextureFormat format{ TextureFormat::RGBA8_URNOM }; // 使用するformat
-	bool allowUnorderedAccsess{ false }; // UAVによる書き込みを許可するか
+	TextureFormat format{ TextureFormat::RGBA8_UNORM }; // 使用するformat
 };
 
 // Computeへ接続するリソースの種類
