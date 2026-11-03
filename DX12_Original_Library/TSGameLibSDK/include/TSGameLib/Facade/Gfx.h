@@ -7,6 +7,8 @@
 #include "../Core/Handle/ShaderHandle.h"
 #include "../Core/Handle/MaterialHandle.h"
 #include "../Core/Handle/AnimInstanceHandle.h"
+#include "../Core/Handle/ComputePipelineHandle.h"
+#include "../Core/Handle/GPUBufferHandle.h"
 #include "../Graphics/GfxType.h"
 #include "../Component/Transform.h"
 #include "../Component/Camera.h"

@@ -26,10 +26,10 @@ public:
 	void Shutdown();
 
 	// Buffer全体の初期データを内部へコピーして転送予約する
-	bool EnqueueBuffer(ID3D12Resource* _destination, const void* _sourceData, UINT64 _sizeInBytes, D3D12_RESOURCE_STATES _beforeState, D3D12_RESOURCE_STATES _afterState);
+	UploadResult EnqueueBuffer(ID3D12Resource* _destination, const void* _sourceData, UINT64 _sizeInBytes, D3D12_RESOURCE_STATES _beforeState, D3D12_RESOURCE_STATES _afterState);
 
 	// Texture全体の初期データを内部へコピーして転送予約する
-	bool EnqueueTexture(ID3D12Resource* _destination, std::span<const D3D12_SUBRESOURCE_DATA> _subresources, D3D12_RESOURCE_STATES _beforeState, D3D12_RESOURCE_STATES _afterState);
+	UploadResult EnqueueTexture(ID3D12Resource* _destination, std::span<const D3D12_SUBRESOURCE_DATA> _subresources, D3D12_RESOURCE_STATES _beforeState, D3D12_RESOURCE_STATES _afterState);
 
 	// 予約済みのコピーと状態遷移をCommandListへ記録する
 	bool RecordPendingUploads(ID3D12GraphicsCommandList* _commandList);
@@ -51,10 +51,10 @@ private:
 	std::size_t AcquirePendingBatch();
 
 	// 指定サイズと配置境界を満たす転送用メモリを確保する
-	bool AllocateUpload(UINT64 _sizeInBytes, UINT64 _alignment, UploadAllocation& _outAllocation);
+	UploadResult AllocateUpload(UINT64 _sizeInBytes, UINT64 _alignment, UploadAllocation& _outAllocation);
 
-	// 再利用できるPageがなければ新しいUpload Heapを作成する
-	bool CreateUploadPage(UINT64 _minimumSize, std::size_t& _outPageIndex);
+	// 再利用できるPageがなければ新しいUpload Heapを作成する 再利用できるページがあればそこに入れてそのindexを返す
+	UploadResult CreateUploadPage(UINT64 _minimumSize, std::size_t& _outPageIndex);
 
 	// GPU完了済みBatchのデータを消しPageを再利用可能にする
 	void RecycleBatch(std::size_t _batchIndex);

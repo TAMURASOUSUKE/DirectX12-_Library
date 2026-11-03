@@ -26,6 +26,14 @@ enum class BatchState
 	InFlight, // GPUで実行中
 };
 
+// Upload失敗の原因を区別する
+enum class [[nodiscard]] UploadResult // この結果は絶対に使わなければならないので戻り値として設定されているなら使用しなければエラーになるようにする
+{
+	Success, // 成功
+	OverBudget, // メモリ確保上限を超過
+	OtherFailed, // その他の失敗
+};
+
 // 複数のデータを詰めて使用するUploadHeapのBuffer
 struct UploadPage
 {

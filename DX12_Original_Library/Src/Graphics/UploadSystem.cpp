@@ -60,18 +60,18 @@ void UploadSystem::Shutdown()
 	initialized = false;
 }
 
-bool UploadSystem::EnqueueBuffer(ID3D12Resource* _destination, const void* _sourceData, UINT64 _sizeInBytes, D3D12_RESOURCE_STATES _beforeState, D3D12_RESOURCE_STATES _afterState)
+UploadResult UploadSystem::EnqueueBuffer(ID3D12Resource* _destination, const void* _sourceData, UINT64 _sizeInBytes, D3D12_RESOURCE_STATES _beforeState, D3D12_RESOURCE_STATES _afterState)
 {
 	if (!initialized || !device)
 	{
 		DEBUG_LOG_ERROR("UploadSystemが初期化されていません\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	if (!_destination || !_sourceData || _sizeInBytes == 0)
 	{
 		DEBUG_LOG_ERROR("Buffer転送の引数が不正です\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	// コピーサイズがsize_tの上限を超えていないかを確認
@@ -79,7 +79,7 @@ bool UploadSystem::EnqueueBuffer(ID3D12Resource* _destination, const void* _sour
 	if (_sizeInBytes > maxCopyBytes)
 	{
 		DEBUG_LOG_ERROR("CPUからコピーできるサイズの上限を超えています\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	// 種類とサイズの確認
@@ -87,11 +87,11 @@ bool UploadSystem::EnqueueBuffer(ID3D12Resource* _destination, const void* _sour
 	if (destinationDesc.Dimension != D3D12_RESOURCE_DIMENSION_BUFFER || destinationDesc.Width != _sizeInBytes)
 	{
 		DEBUG_LOG_ERROR("転送先がBufferではないか全体サイズが一致していません\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	const std::size_t batchIndex{ AcquirePendingBatch() };
-	if (batchIndex == INVALID_UPLOAD_INDEX) return false;
+	if (batchIndex == INVALID_UPLOAD_INDEX) return UploadResult::OtherFailed;
 
 	UploadBatch& batch{ batches[batchIndex] };
 
@@ -101,7 +101,7 @@ bool UploadSystem::EnqueueBuffer(ID3D12Resource* _destination, const void* _sour
 	if (requestIndex >= batch.requests.max_size() || copyIndex >= batch.bufferCopies.max_size())
 	{
 		DEBUG_LOG_ERROR("Buffer転送の管理配列の上限に達しました\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	// 予約枠を確保
@@ -117,18 +117,19 @@ bool UploadSystem::EnqueueBuffer(ID3D12Resource* _destination, const void* _sour
 		if (batch.bufferCopies.size() > copyIndex) batch.bufferCopies.pop_back();
 
 		DEBUG_LOG_ERROR("Buffer転送の管理情報のメモリ確保に失敗しました\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	UploadAllocation allocation{};
 
 	// 今回はBufferのバイト列コピー用なのでPage内は1バイト境界で確保する
-	if (!AllocateUpload(_sizeInBytes, 1, allocation))
+	UploadResult uploadResult{ AllocateUpload(_sizeInBytes, 1, allocation) };
+	if (uploadResult != UploadResult::Success)
 	{
 		// 領域を確保できなかったので、先に用意した空要素を取り除く
 		batch.bufferCopies.pop_back();
 		batch.requests.pop_back();
-		return false;
+		return uploadResult;
 	}
 
 	// page追加の可能性を考え確保後に参照取得
@@ -151,21 +152,21 @@ bool UploadSystem::EnqueueBuffer(ID3D12Resource* _destination, const void* _sour
 	request.afterBuffer = _afterState;
 	request.firstCopyIndex = copyIndex;
 	request.copyCount = 1; // Buffer全体を1回のコピーで転送する
-	return true;
+	return uploadResult;
 }
 
-bool UploadSystem::EnqueueTexture(ID3D12Resource* _destination, std::span<const D3D12_SUBRESOURCE_DATA> _subresources, D3D12_RESOURCE_STATES _beforeState, D3D12_RESOURCE_STATES _afterState)
+UploadResult UploadSystem::EnqueueTexture(ID3D12Resource* _destination, std::span<const D3D12_SUBRESOURCE_DATA> _subresources, D3D12_RESOURCE_STATES _beforeState, D3D12_RESOURCE_STATES _afterState)
 {
 	if (!initialized || !device)
 	{
 		DEBUG_LOG_ERROR("UploadSystemが初期化されていません\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	if (!_destination || _subresources.empty())
 	{
 		DEBUG_LOG_ERROR("Texture転送の引数が不正です\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	const D3D12_RESOURCE_DESC destinationDesc{ _destination->GetDesc() };
@@ -181,7 +182,7 @@ bool UploadSystem::EnqueueTexture(ID3D12Resource* _destination, std::span<const 
 	if (!isTexture || destinationDesc.SampleDesc.Count != 1)
 	{
 		DEBUG_LOG_ERROR("転送先には非MSAAのTextureを指定してください\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	// 転送先はDefaultHeap
@@ -192,7 +193,7 @@ bool UploadSystem::EnqueueTexture(ID3D12Resource* _destination, std::span<const 
 	if (FAILED(heapResult) || heapProperties.Type != D3D12_HEAP_TYPE_DEFAULT)
 	{
 		DEBUG_LOG_ERROR("転送先にはDEFAULT HeapのTextureを指定してください\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	// Formatによっては複数のplaneを持つため数を取得
@@ -203,7 +204,7 @@ bool UploadSystem::EnqueueTexture(ID3D12Resource* _destination, std::span<const 
 	if (FAILED(formatResult) || formatInfo.PlaneCount == 0)
 	{
 		DEBUG_LOG_ERROR("TextureのFormat情報を取得できませんでした\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	// 3DTextureのDepthは配列数ではないので分ける
@@ -213,7 +214,7 @@ bool UploadSystem::EnqueueTexture(ID3D12Resource* _destination, std::span<const 
 	if (expectedCount == 0 || expectedCount > D3D12_REQ_SUBRESOURCES || expectedCount != static_cast<UINT64>(_subresources.size()))
 	{
 		DEBUG_LOG_ERROR("Texture全体のSubresource数と入力データ数が一致していません\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	const UINT subresourceCount{ static_cast<UINT>(expectedCount) };
@@ -232,7 +233,7 @@ bool UploadSystem::EnqueueTexture(ID3D12Resource* _destination, std::span<const 
 	catch (const std::bad_alloc&)
 	{
 		DEBUG_LOG_ERROR("Textureの配置情報のメモリ確保に失敗しました\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	UINT64 requiredBytes{ 0 };
@@ -255,7 +256,7 @@ bool UploadSystem::EnqueueTexture(ID3D12Resource* _destination, std::span<const 
 	if (requiredBytes == 0 || requiredBytes == (std::numeric_limits<UINT64>::max)() || requiredBytes > maxCopyBytes)
 	{
 		DEBUG_LOG_ERROR("Texture転送に必要な容量が不正です\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	// 全てのコピー元の検証
@@ -268,7 +269,7 @@ bool UploadSystem::EnqueueTexture(ID3D12Resource* _destination, std::span<const 
 		if (!source.pData || source.RowPitch <= 0 || source.SlicePitch <= 0 || rows == 0 || depth == 0 || rowSizes[i] == 0)
 		{
 			DEBUG_LOG_ERROR("Textureのコピー元データが不正です\n");
-			return false;
+			return UploadResult::OtherFailed;
 		}
 
 		const UINT64 sourceRowPitch{ static_cast<UINT64>(source.RowPitch) };
@@ -278,12 +279,12 @@ bool UploadSystem::EnqueueTexture(ID3D12Resource* _destination, std::span<const 
 		if (rowSizes[i] > sourceRowPitch || sourceRowPitch > sourceSlicePitch / rows || sourceSlicePitch > maxSourceBytes / depth)
 		{
 			DEBUG_LOG_ERROR("Textureの行間隔またはスライス間隔が不正です\n");
-			return false;
+			return UploadResult::OtherFailed;
 		}
 	}
 
 	const std::size_t batchIndex{ AcquirePendingBatch() };
-	if (batchIndex == INVALID_UPLOAD_INDEX) return false;
+	if (batchIndex == INVALID_UPLOAD_INDEX) return UploadResult::OtherFailed;
 
 	UploadBatch& batch{ batches[batchIndex] };
 
@@ -294,7 +295,7 @@ bool UploadSystem::EnqueueTexture(ID3D12Resource* _destination, std::span<const 
 	if (requestIndex >= batch.requests.max_size() || copyCount > batch.textureCopies.max_size() - copyIndex)
 	{
 		DEBUG_LOG_ERROR("Texture転送の管理配列の上限に達しました\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	// Pageを確保する前に要求とコピー情報の格納場所を容易
@@ -307,17 +308,18 @@ bool UploadSystem::EnqueueTexture(ID3D12Resource* _destination, std::span<const 
 	{
 		if (batch.requests.size() > requestIndex) batch.requests.pop_back();
 		DEBUG_LOG_ERROR("Texture転送の管理情報のメモリ確保に失敗しました\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	UploadAllocation allocation{};
 
 	// Textureの配置開始位置は512byte境界に合わせる
-	if (!AllocateUpload(requiredBytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, allocation))
+	UploadResult uploadResult{ AllocateUpload(requiredBytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, allocation) };
+	if(uploadResult != UploadResult::Success)
 	{
 		batch.textureCopies.resize(copyIndex);
 		batch.requests.pop_back();
-		return false;
+		return uploadResult;
 	}
 
 	// Page追加による再確保が終わった後に参照を取得する
@@ -371,7 +373,7 @@ bool UploadSystem::EnqueueTexture(ID3D12Resource* _destination, std::span<const 
 	request.afterBuffer = _afterState;
 	request.firstCopyIndex = copyIndex;
 	request.copyCount = copyCount;
-	return true;
+	return uploadResult;
 }
 
 bool UploadSystem::RecordPendingUploads(ID3D12GraphicsCommandList* _commandList)
@@ -569,7 +571,7 @@ bool UploadSystem::RecordPendingUploads(ID3D12GraphicsCommandList* _commandList)
 					return false;
 				}
 
-				// コピー元の末尾が確保済み町域を超えないか確認する
+				// コピー元の末尾が確保済み領域を超えないか確認する
 				if (copy.footprint.Offset > page.usedBytes || requiredBytes > page.usedBytes - copy.footprint.Offset)
 				{
 					DEBUG_LOG_ERROR("Textureのコピー元が確保済み領域を超えています\n");
@@ -813,7 +815,7 @@ std::size_t UploadSystem::AcquirePendingBatch()
 	return pendingBatchIndex;
 }
 
-bool UploadSystem::AllocateUpload(UINT64 _sizeInBytes, UINT64 _alignment, UploadAllocation& _outAllocation)
+UploadResult UploadSystem::AllocateUpload(UINT64 _sizeInBytes, UINT64 _alignment, UploadAllocation& _outAllocation)
 {
 	// 失敗時は無効な値を返す
 	_outAllocation = {};
@@ -821,18 +823,18 @@ bool UploadSystem::AllocateUpload(UINT64 _sizeInBytes, UINT64 _alignment, Upload
 	if (!initialized || !device)
 	{
 		DEBUG_LOG_ERROR("UploadSystemが初期化されていません\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	if (_sizeInBytes == 0 || _alignment == 0)
 	{
 		DEBUG_LOG_ERROR("確保サイズまたは配置境界が0です\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	// 今回の領域を使用するBatchを取得する
 	const std::size_t batchIndex{ AcquirePendingBatch() };
-	if (batchIndex == INVALID_UPLOAD_INDEX) return false;
+	if (batchIndex == INVALID_UPLOAD_INDEX) return UploadResult::OtherFailed;
 
 	UploadBatch& batch{ batches[batchIndex] };
 
@@ -842,7 +844,7 @@ bool UploadSystem::AllocateUpload(UINT64 _sizeInBytes, UINT64 _alignment, Upload
 		if (pageIndex >= pages.size())
 		{
 			DEBUG_LOG_ERROR("Batchが保持するPage番号が不正です\n");
-			return false;
+			return UploadResult::OtherFailed;
 		}
 
 		UploadPage& page{ pages[pageIndex] };
@@ -850,7 +852,7 @@ bool UploadSystem::AllocateUpload(UINT64 _sizeInBytes, UINT64 _alignment, Upload
 		if (!page.inUse || !page.resource || !page.mappedData || page.usedBytes > page.capacity)
 		{
 			DEBUG_LOG_ERROR("使用中Pageの管理情報が不正です\n");
-			return false;
+			return UploadResult::OtherFailed;
 		}
 
 		// 現在の末尾が配置境界から何Byteずれているか
@@ -872,7 +874,7 @@ bool UploadSystem::AllocateUpload(UINT64 _sizeInBytes, UINT64 _alignment, Upload
 		page.usedBytes = offset + _sizeInBytes;
 
 		_outAllocation = UploadAllocation{ pageIndex, offset, _sizeInBytes };
-		return true;
+		return UploadResult::Success;
 	}
 
 	// このbatchのPageには入らなかったので未使用を探す
@@ -883,11 +885,12 @@ bool UploadSystem::AllocateUpload(UINT64 _sizeInBytes, UINT64 _alignment, Upload
 
 		// 別のbatchが使用しているPageには触らない
 		if (page.inUse) continue;
+		if (!page.resource) continue; // リソースが空であることで解放済みと考える
 
-		if (!page.resource || !page.mappedData || page.usedBytes != 0)
+		if (!page.mappedData || page.usedBytes != 0)
 		{
 			DEBUG_LOG_ERROR("未使用Pageの管理情報が不正です\n");
-			return false;
+			return UploadResult::OtherFailed;
 		}
 
 		if (page.capacity < _sizeInBytes) continue;
@@ -900,13 +903,14 @@ bool UploadSystem::AllocateUpload(UINT64 _sizeInBytes, UINT64 _alignment, Upload
 	if (batch.pageIndices.size() >= batch.pageIndices.max_size())
 	{
 		DEBUG_LOG_ERROR("Batchが保持できるPage数の上限に達しました\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	// 再利用できるPageがなければ新しく作成する
 	if (availablePageIndex == INVALID_UPLOAD_INDEX)
 	{
-		if (!CreateUploadPage(_sizeInBytes, availablePageIndex)) return false;
+		UploadResult result{ CreateUploadPage(_sizeInBytes, availablePageIndex) };
+		if (result != UploadResult::Success) return result;
 	}
 
 	try
@@ -917,7 +921,7 @@ bool UploadSystem::AllocateUpload(UINT64 _sizeInBytes, UINT64 _alignment, Upload
 	catch (const std::bad_alloc&)
 	{
 		DEBUG_LOG_ERROR("BatchへのPage番号の登録に失敗しました\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	// CreateUploadPageでpagesが再確保されてもいいように作成後に参照を取得
@@ -927,10 +931,10 @@ bool UploadSystem::AllocateUpload(UINT64 _sizeInBytes, UINT64 _alignment, Upload
 	// 未使用なので先頭から確保
 	page.usedBytes = _sizeInBytes;
 	_outAllocation = UploadAllocation{ availablePageIndex, 0, _sizeInBytes };
-	return true;
+	return UploadResult::Success;
 }
 
-bool UploadSystem::CreateUploadPage(UINT64 _minimumSize, std::size_t& _outPageIndex)
+UploadResult  UploadSystem::CreateUploadPage(UINT64 _minimumSize, std::size_t& _outPageIndex)
 {
 	// 失敗した際の補償
 	_outPageIndex = INVALID_UPLOAD_INDEX;
@@ -938,23 +942,45 @@ bool UploadSystem::CreateUploadPage(UINT64 _minimumSize, std::size_t& _outPageIn
 	if (!initialized || !device)
 	{
 		DEBUG_LOG_ERROR("UploadSystemが初期化されていません\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	if (_minimumSize == 0)
 	{
 		DEBUG_LOG_ERROR("必要なPage容量が0です\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	// 通常は基本サイズ、それを超える要求なら必要サイズ
 	const UINT64 capacity{ _minimumSize > pageSize ? _minimumSize : pageSize };
 
 	// 確保できる最大容量をチェックしてから残量が確保容量を超えていないか確認することでUINTの上限を超えて巻き戻らないようにする
-	if (allocatedUploadBytes > maxUploadBytes || capacity > maxUploadBytes - allocatedUploadBytes)
+
+	// 再計算後で値が変動するので通常の変数ではなくラムダに保存しておく
+	const auto& isWithinCapacity
 	{
-		DEBUG_LOG_ERROR("転送用メモリの確保上限を超えます\n");
-		return false;
+		[&]() { return allocatedUploadBytes <= maxUploadBytes && capacity <= maxUploadBytes - allocatedUploadBytes; }
+	};
+	if (!isWithinCapacity())
+	{
+		// inUseがfalseのページを全て解放する
+		for (auto& page : pages)
+		{
+			if (page.inUse) continue;
+			if (page.resource && page.mappedData) page.resource->Unmap(0, nullptr); // 0はサブリソース番号
+			page.mappedData = nullptr;
+			page.resource.Reset();
+			allocatedUploadBytes -= page.capacity; // 使用する容量をなくす
+			page.capacity = 0;
+			page.usedBytes = 0;
+		}
+
+		// 使われていないものを解放した状態でもう一度容量ないか確かめる
+		if (!isWithinCapacity())
+		{
+			DEBUG_LOG_ERROR("転送用メモリの確保上限を超えます\n"); // それでもだめなら超える
+			return UploadResult::OverBudget;
+		}
 	}
 
 	// 途中で失敗しても影響がないようにローカルで作る
@@ -976,7 +1002,7 @@ bool UploadSystem::CreateUploadPage(UINT64 _minimumSize, std::size_t& _outPageIn
 		IID_PPV_ARGS(page.resource.GetAddressOf()) // 作成結果の書き戻し先
 		) };
 	DEBUG_ASSERT(SUCCEEDED(result) && "正しくリソースが作成されませんでした\n");
-	if (FAILED(result)) return false; // Releaseでも受けられるように止める
+	if (FAILED(result)) return UploadResult::OtherFailed; // Releaseでも受けられるように止める
 
 	// CPUからアクセスできるようにするためのアドレスを受け取る
 	void* mappedPtr{ nullptr };
@@ -987,11 +1013,30 @@ bool UploadSystem::CreateUploadPage(UINT64 _minimumSize, std::size_t& _outPageIn
 	// 実際にMapを行う
 	result = page.resource->Map(0, &readRange, &mappedPtr);
 	DEBUG_ASSERT(SUCCEEDED(result) && "正しくMapできませんでした\n");
-	if (FAILED(result) || !mappedPtr) return false; // Releaseでも受けられるように止める
+	if (FAILED(result) || !mappedPtr) return UploadResult::OtherFailed; // Releaseでも受けられるように止める
 
 	// バイト単位で位置を計算できるポインタとして保持する
 	page.mappedData = static_cast<std::byte*>(mappedPtr);
 	page.capacity = capacity;
+
+	// リソースが空 = すでに解放されているページがあればそこに入れる
+	std::size_t emptyIndex{ pages.size() };
+	for (std::size_t i = 0; i < pages.size(); i++)
+	{
+		if (!pages[i].resource)
+		{
+			emptyIndex = i;
+			break;
+		}
+	}
+	// 空きIndexが最後尾でなければそこにいれる
+	if (emptyIndex < pages.size())
+	{
+		pages[emptyIndex] = std::move(page); // 空いている場所に所有権を移す
+		allocatedUploadBytes += capacity;
+		_outPageIndex = emptyIndex;
+		return UploadResult::Success;
+	}
 
 	try
 	{
@@ -1001,14 +1046,14 @@ bool UploadSystem::CreateUploadPage(UINT64 _minimumSize, std::size_t& _outPageIn
 	catch (const std::bad_alloc&) // 例外を出したオブジェクトを参照で受け取る
 	{
 		DEBUG_LOG_ERROR("UploadPageの管理配列のメモリ確保に失敗しました\n");
-		return false;
+		return UploadResult::OtherFailed;
 	}
 
 	// 登録が成功したので管理情報を確定する
 	allocatedUploadBytes += capacity;
 	_outPageIndex = pages.size() - 1; // 最後尾に入っているため
 
-	return true;
+	return UploadResult::Success;
 }
 
 void UploadSystem::RecycleBatch(std::size_t _batchIndex)

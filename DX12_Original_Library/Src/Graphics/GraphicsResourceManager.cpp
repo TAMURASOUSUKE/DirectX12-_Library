@@ -11,6 +11,7 @@
 #include"../Debug/DebugLogs.h"
 #include "../Core/Handle/HandlePacking.h"
 #include "../Math/TSMath.h"
+#include "UploadType.h"
 #include "GraphicsDevice.h"
 #include "DescriptorManager.h"
 #include "GraphicsResourceManager.h"
@@ -24,8 +25,44 @@ namespace {
 	Vector4 ToVec4(float* _f) { return Vector4{ _f[0], _f[1], _f[2], _f[3] }; }
 	Vector3 ToVec3(float* _f) { return Vector3{ _f[0], _f[1], _f[2] }; }
 
-	// CPUデータを一時Uploadヒープ経由でDefaultヒープへ転送する
-	ComPtr<ID3D12Resource> CreateStaticBufferResource(ID3D12Device* _device, const void* _data, UINT _dataSize, D3D12_RESOURCE_STATES _finalState)
+	// 溜まっている記録を送信してGPU待機を行いBatchの回収を行う
+	bool FlushUploads(UploadSystem& _upload)
+	{
+		bool isRecorded{ false };
+		const auto& recording{
+			[&](ID3D12GraphicsCommandList* _cmd) { isRecorded = _upload.RecordPendingUploads(_cmd); }
+		};
+
+		// 記録して待機する
+		HRESULT result{ GraphicsDevice::Instance().ExecuteImmediate(recording) };
+		if (FAILED(result))
+		{
+			DEBUG_LOG_ERROR("記録の実行命令に失敗しました\n");
+			return false;
+		}
+		if (!isRecorded)
+		{
+			DEBUG_LOG_ERROR("予約されたコピーと状態遷移の記録に失敗しました\n");
+			return false;
+		}
+
+		// 記録したBatchがあるなら実行してフェンス値を紐づけ
+		if (_upload.HasRecordedUploads())
+		{
+			if (!_upload.CommitSubmittedUploads(GraphicsDevice::Instance().GetLastSubmittedFenceValue()))
+			{
+				DEBUG_LOG_ERROR("Fence値の関連付けに失敗しました\n");
+				return false;
+			}
+		}
+
+		// Batchの回収を行う
+		_upload.CollectCompletedUploads(GraphicsDevice::Instance().GetCompletedFenceValue());
+		return true;
+	}
+
+	// CPUデータをDefaultヒープへ転送する
+	ComPtr<ID3D12Resource> CreateStaticBufferResource(ID3D12Device* _device, const void* _data, UINT _dataSize, D3D12_RESOURCE_STATES _finalState, UploadSystem& _upload)
 	{
 		if (!_device || !_data || _dataSize == 0)
 		{
@@ -39,7 +76,6 @@ namespace {
 		const CD3DX12_HEAP_PROPERTIES defaultHeap{ D3D12_HEAP_TYPE_DEFAULT };
 
 		// バッファの初期状態はCOMMON(Textureリソース等ではないためレイアウトがないから)
-		// CopyBufferRegion時にCOPY_DESTへ暗黙昇格させる
 		HRESULT result{ _device->CreateCommittedResource(&defaultHeap, D3D12_HEAP_FLAG_NONE, &bufferDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&defaultBuffer)) };
 		DEBUG_ASSERT(SUCCEEDED(result));
 		if (FAILED(result))
@@ -47,54 +83,32 @@ namespace {
 			DEBUG_LOG_ERROR("Defaultヒープの作成に失敗しました\n");
 			return nullptr;
 		}
-		// CPUからデータを書き込むための一時的な中継地点
-		ComPtr<ID3D12Resource> uploadBuffer{};
-		const CD3DX12_HEAP_PROPERTIES uploadHeap{ D3D12_HEAP_TYPE_UPLOAD };
 
-		result = _device->CreateCommittedResource(&uploadHeap, D3D12_HEAP_FLAG_NONE, &bufferDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer));
-		DEBUG_ASSERT(SUCCEEDED(result));
-		if (FAILED(result))
+		UploadResult uploadResult{ _upload.EnqueueBuffer(defaultBuffer.Get(), _data, _dataSize, D3D12_RESOURCE_STATE_COMMON, _finalState) };
+		switch (uploadResult)
 		{
-			DEBUG_LOG_ERROR("一時Uploadヒープの作成に失敗しました\n");
-			return nullptr;
-		}
-
-		// CPUデータをUPLOADヒープへコピー
-		void* mappedData{ nullptr };
-		const D3D12_RANGE readRange{ 0, 0 };
-
-		result = uploadBuffer->Map(0, &readRange, &mappedData);
-		DEBUG_ASSERT(SUCCEEDED(result));
-
-		if (FAILED(result))
-		{
-			DEBUG_LOG_ERROR("一時UPLOADヒープのMapに失敗しました\n");
-			return nullptr;
-		}
-
-		std::memcpy(mappedData, _data, _dataSize);
-
-		const D3D12_RANGE writtenRange{ 0, _dataSize };
-		uploadBuffer->Unmap(0, &writtenRange);
-
-		// UPLOADからDEFAULTへコピーして使用可能な状態へ切り替える
-		result = GraphicsDevice::Instance().ExecuteImmediate(
-			[&](ID3D12GraphicsCommandList* _cmd)
+		case UploadResult::Success:
+			break;
+		case UploadResult::OverBudget:
+			// 現状溜まっている記録を送信して再利用できる状態にする
+			if (!FlushUploads(_upload))
 			{
-				_cmd->CopyBufferRegion(defaultBuffer.Get(), 0, uploadBuffer.Get(), 0, _dataSize);
-
-				const D3D12_RESOURCE_BARRIER barrier{ CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, _finalState) };
-
-				_cmd->ResourceBarrier(1, &barrier);
-			});
-
-		DEBUG_ASSERT(SUCCEEDED(result));
-		if (FAILED(result))
-		{
-			DEBUG_LOG_ERROR("静的バッファのGPU転送に失敗しました\n");
+				DEBUG_LOG_ERROR("溜まっている記録の送信に失敗しました\n");
+				return nullptr;
+			}
+			// もう一度転送予約
+			uploadResult = _upload.EnqueueBuffer(defaultBuffer.Get(), _data, _dataSize, D3D12_RESOURCE_STATE_COMMON, _finalState);
+			if (uploadResult != UploadResult::Success)
+			{
+				DEBUG_LOG_ERROR("再度試しましたがBuffer転送予約に失敗しました\n");
+				return nullptr;
+			}
+			break;
+		case UploadResult::OtherFailed:
+			DEBUG_LOG_ERROR("Buffer転送予約に失敗しました\n");
 			return nullptr;
 		}
-		// ExecuteUpadateがGPU完了を待つのでuploadbufferが破棄されても大丈夫
+
 		return defaultBuffer;
 	}
 
@@ -547,7 +561,7 @@ void GraphicsResourceManager::CollectDeferredReleases(UINT64 _completedFenceValu
 		for (TextureData& texture : batch.textures)
 		{
 			DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texture.srvHandle);
-			if(texture.uavHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texture.uavHandle); // ファイルからの読み込みにはuavはないので確認してから
+			if (texture.uavHandle.IsValid()) DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texture.uavHandle); // ファイルからの読み込みにはuavはないので確認してから
 		}
 
 		for (RenderTargetData& rt : batch.renderTargets)
@@ -584,8 +598,8 @@ VertexBuffer GraphicsResourceManager::CreateVertexBuffer(const void* _data, UINT
 		return buffer;
 	}
 
-	// 一時UPLOADヒープを経由してDEFAULTヒープへ送る
-	buffer.resource = CreateStaticBufferResource(device, _data, _dataSize, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	// DEFAULTヒープへ送る
+	buffer.resource = CreateStaticBufferResource(device, _data, _dataSize, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, uploadSystem);
 	if (!buffer.resource)
 	{
 		return buffer;
@@ -676,8 +690,8 @@ IndexBuffer GraphicsResourceManager::CreateIndexBuffer(const void* _data, UINT _
 		return buffer;
 	}
 
-	// 一時UPLOADヒープを経由してDefaultヒープへ送る
-	buffer.resource = CreateStaticBufferResource(device, _data, _dataSize, D3D12_RESOURCE_STATE_INDEX_BUFFER);
+	// Defaultヒープへ送る
+	buffer.resource = CreateStaticBufferResource(device, _data, _dataSize, D3D12_RESOURCE_STATE_INDEX_BUFFER, uploadSystem);
 	if (!buffer.resource) return buffer;
 
 	// DEFAULTヒープ上のリソースをインデックスバッファとして読む
@@ -1566,8 +1580,30 @@ GPUBufferHandle GraphicsResourceManager::CreateGPUBuffer(const GPUBufferDesc& _d
 	// 初期データがあればUploadSystemを使って転送予約
 	if (_initialData)
 	{
-		if (!uploadSystem.EnqueueBuffer(data.resource.Get(), _initialData, sizeInBytes, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COMMON))
+		UploadResult uploadResult{ uploadSystem.EnqueueBuffer(data.resource.Get(), _initialData, sizeInBytes, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COMMON) };
+
+		switch (uploadResult)
 		{
+		case UploadResult::Success:
+			break;
+		case UploadResult::OverBudget:
+			// 現状溜まっている記録を送信して再利用できる状態にする
+			if (!FlushUploads(uploadSystem))
+			{
+				DEBUG_LOG_ERROR("溜まっている記録の送信に失敗しました\n");
+				releaseDescriptors();
+				return GPUBufferHandle{};
+			}
+			// もう一度転送予約
+			uploadResult = uploadSystem.EnqueueBuffer(data.resource.Get(), _initialData, sizeInBytes, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COMMON);
+			if (uploadResult != UploadResult::Success)
+			{
+				DEBUG_LOG_ERROR("再度試しましたがGPUBufferへの転送予約ができませんでした\n");
+				releaseDescriptors();
+				return GPUBufferHandle{};
+			}
+			break;
+		case UploadResult::OtherFailed:
 			DEBUG_LOG_ERROR("GPUBufferへの初期転送予約ができませんでした\n");
 			releaseDescriptors();
 			return GPUBufferHandle{};
@@ -2170,7 +2206,7 @@ TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::Scrat
 	}
 
 	// Defaultヒープに空のテクスチャを作る(CreateTextureは非Xbox環境の場合はCOMMONで返す。formatはmetadataのものを保持する)
-	ComPtr<ID3D12Resource> texResource;
+	ComPtr<ID3D12Resource> texResource{};
 	result = DirectX::CreateTexture(device, _meta, texResource.GetAddressOf());
 	DEBUG_ASSERT(SUCCEEDED(result));
 	if (FAILED(result))
@@ -2178,46 +2214,11 @@ TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::Scrat
 		return TexHandle{};
 	}
 
-	// UpdateSubResourceヘ渡せる形へ変換(mip/面ごとに1要素のsubresource配列)
+	// mip/面ごとに1要素のsubresource配列
 	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
 	result = DirectX::PrepareUpload(device, _scratch.GetImages(), _scratch.GetImageCount(), _meta, subresources);
 	DEBUG_ASSERT(SUCCEEDED(result));
-	if (FAILED(result))
-	{
-		return TexHandle{};
-	}
-
-	// Uploadバッファを確保する必要なバイト数はd3dx12のヘルパから
-	const UINT64 uploadSize{ GetRequiredIntermediateSize(texResource.Get(), 0, static_cast<UINT>(subresources.size())) };
-
-	ComPtr<ID3D12Resource> uploadBuffer;
-	CD3DX12_HEAP_PROPERTIES uploadHeap(D3D12_HEAP_TYPE_UPLOAD);
-	CD3DX12_RESOURCE_DESC bufDesc{ CD3DX12_RESOURCE_DESC::Buffer(uploadSize) };
-	result = device->CreateCommittedResource(&uploadHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer));
-	DEBUG_ASSERT(SUCCEEDED(result));
-	if (FAILED(result))
-	{
-		return TexHandle{};
-	}
-
-	// アップロードを行う。recode変数にコピーとバリアを積む
-	result = GraphicsDevice::Instance().ExecuteImmediate
-	(
-		[&](ID3D12GraphicsCommandList* _cmd)
-		{
-			// コピーを積む(非Xbox環境なのでCommonが来るが暗黙昇格でCOPY_DESTになる)
-			UpdateSubresources(_cmd, texResource.Get(), uploadBuffer.Get(), 0, 0, static_cast<UINT>(subresources.size()), subresources.data());
-
-			// バリアを使ってDESTからPIXEL_SHADER_RESOURCEへ遷移
-			D3D12_RESOURCE_BARRIER barrier{ CD3DX12_RESOURCE_BARRIER::Transition(texResource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
-			_cmd->ResourceBarrier(1, &barrier);
-		}
-	);
-	DEBUG_ASSERT(SUCCEEDED(result));
-	if (FAILED(result))
-	{
-		return TexHandle{};
-	}
+	if (FAILED(result)) return TexHandle{};
 
 	// SRVの作成(メタデータから引っ張ってきたものを使う)
 	DescriptorHandle srv{ DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV) }; // 確保
@@ -2243,6 +2244,38 @@ TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::Scrat
 	texData.width = static_cast<int>(_meta.width);
 	texData.height = static_cast<int>(_meta.height);
 	texData.currentState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+
+	// GPUへ転送記録予約 作られた状態ではCOMMONなのでbeforにはCOMMON
+	UploadResult uploadResult{ uploadSystem.EnqueueTexture(texResource.Get(), subresources, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
+	switch (uploadResult)
+	{
+	case UploadResult::Success:
+		break;
+	case UploadResult::OverBudget:
+		// 現状溜まっている記録を送信して再利用できる状態にする
+		if (!FlushUploads(uploadSystem))
+		{
+			DEBUG_LOG_ERROR("溜まっている記録の送信に失敗しました\n");
+			DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texData.srvHandle);
+			texData.srvHandle = {};
+			return TexHandle{};
+		}
+		// もう一度転送予約
+		uploadResult = uploadSystem.EnqueueTexture(texResource.Get(), subresources, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+		if (uploadResult != UploadResult::Success)
+		{
+			DEBUG_LOG_ERROR("再度試しましたがTextureのGPU転送記録予約に失敗しました\n");
+			DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texData.srvHandle);
+			texData.srvHandle = {};
+			return TexHandle{};
+		}
+		break;
+	case UploadResult::OtherFailed:
+		DEBUG_LOG_ERROR("TextureのGPU転送記録予約に失敗しました\n");
+		DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, texData.srvHandle);
+		texData.srvHandle = {};
+		return TexHandle{};
+	}
 
 	int index;
 	// 空ではないなら再利用する
