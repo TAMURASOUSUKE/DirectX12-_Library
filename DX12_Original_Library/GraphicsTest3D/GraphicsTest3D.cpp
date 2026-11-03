@@ -294,7 +294,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawAxis3D(objectPosition.GetPosition(), objectPosition.GetRotation());
 		 //Gfx::DrawAABB3D(playerAABB,hitColor);
 		 //Gfx::DrawAABB3D(debugCube,{ 0.0f, 0.0f, 1.0f, 1.0f });
-		Gfx::DrawTerrain({ -15.0f, -4.0f, 3.0f }, 10.0f, tessFactor, heightFactor, {1.0f, 0.0f, 0.0f, 1.0f}, heightMap);
+
+		float scale{ 10.0f };
+		for (int x = 0; x < 10; x++)
+		{
+			for (int z = 0; z < 10; z++)
+			{
+				Gfx::DrawTerrain({ -15.0f + (x * scale), -4.0f, 3.0f + (z * scale)}, scale, tessFactor, heightFactor, {1.0f, 0.0f, 0.0f, 1.0f}, heightMap);
+			}
+		}
 
 		// LOD描画
 		Gfx::DrawLODModel(levels, lodFieldState,lodFieldPosition, LOD_HYSTERESIS_DISTANCE);

@@ -1,6 +1,21 @@
 #pragma once
 #include <cstddef>
+#include <array>
+#include <cstdint>
+#include "../Core/Handle/GPUBufferHandle.h"
+#include "../Core/Handle/TexHandle.h"
+#include "../Core/Handle/ComputePipelineHandle.h"
 #include "../Core/Handle/ModelHandle.h"
+
+// MaterialParameterの1スロットへ保存できる最大サイズ
+inline constexpr std::size_t MAX_MATERIAL_PARAMETER_SIZE{ 256 };
+
+// 一回のComputeで指定できるリソース数
+inline constexpr std::size_t MAX_COMPUTE_SRV_COUNT{ 4 };
+inline constexpr std::size_t MAX_COMPUTE_UAV_COUNT{ 4 };
+
+// 一回のComputeへ渡せる定数データの最大サイズ
+inline constexpr std::size_t MAX_COMPUTE_PARAMETER_SIZE{ 256 };
 
 // 描画するスプライトのレイヤー
 enum class RenderLayer
@@ -20,9 +35,10 @@ enum class ModelAlphaMode
 // シェーダーを適用する描画用途
 enum class ShaderUsage
 {
-	PostEffect, // 対応済み
-	Sprite, //　対応済み
-	Model, // 対応済み
+	PostEffect, 
+	Sprite, 
+	Model, 
+	Compute,
 };
 
 // シェーダーステージの種類
@@ -35,6 +51,14 @@ enum class ShaderStage
 	Domain,
 	Geometry,
 	Compute,
+};
+
+// 出力をTextureで使う際にFormatを選ぶための列挙
+enum class TextureFormat
+{
+	RGBA8_UNORM,  // RGBA各成分が8bitの符号なし正規化整数
+	RGBA16_FLOAT, // 各成分が16bitの浮動小数点
+	R32_FLOAT, // Rの成分だけ持っている32bitの浮動小数点
 };
 
 // 1段階分のLOD設定
@@ -57,7 +81,55 @@ struct ModelLODState
 	}
 };
 
-// MaterialParameterの1スロットへ保存できる最大サイズ
-inline constexpr std::size_t MAX_MATERIAL_PARAMETER_SIZE{ 256 };
+// GPUで使用するStructuredBufferの設定
+struct GPUBufferDesc
+{
+	std::size_t elementCount{ 0 }; // 格納する要素数
+	std::size_t elementStride{ 0 }; // 1要素のサイズ(byte)
+	bool allowUnorderedAccess{ false }; // UAVによる書き込みを許可するか
+};
 
+// 出力UAVをTextureにする際の設定
+struct TextureDesc
+{
+	int width{ 0 }; // 画像の横幅
+	int height{ 0 }; // 画像の縦幅
+	TextureFormat format{ TextureFormat::RGBA8_UNORM }; // 使用するformat
+};
 
+// Computeへ接続するリソースの種類
+enum class ComputeResourceType
+{
+	None, // 未設定
+	Buffer,
+	Texture,
+};
+
+// Computeへ接続するリソース一つ分
+struct ComputeResourceBinding
+{
+	ComputeResourceBinding() = default;
+
+	// 指定したリソースの種類によってタイプが自動的に決定されるコンストラクタ
+	ComputeResourceBinding(GPUBufferHandle _handle) : type{ ComputeResourceType::Buffer }, buffer{ _handle } {} // Buffer
+	ComputeResourceBinding(TexHandle _handle) : type{ ComputeResourceType::Texture }, texture{ _handle } {} // Texture
+
+	ComputeResourceType type{ ComputeResourceType::None }; // 接続するリソースの種類
+	GPUBufferHandle buffer{};
+	TexHandle texture{};
+};
+
+// 一回のCompute実行に必要な設定
+struct ComputeDispatchDesc
+{
+	ComputePipelineHandle pipeline{};
+
+	// 配列番号をHLSL側のレジスタ番号へ対応させる
+	std::array<ComputeResourceBinding, MAX_COMPUTE_SRV_COUNT> inputs{}; // t0から
+	std::array<ComputeResourceBinding, MAX_COMPUTE_UAV_COUNT> outputs{}; // u0から
+
+	// 起動するスレッドグループ数
+	std::uint32_t groupCountX{ 1 };
+	std::uint32_t groupCountY{ 1 };
+	std::uint32_t groupCountZ{ 1 };
+};

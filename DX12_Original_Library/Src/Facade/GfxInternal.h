@@ -19,6 +19,12 @@ namespace GfxInternal
 	// 次フレームの開始前に適用する画面サイズを予約する
 	void RequestResize(int _width, int _height);
 
+	// リソースのUploadを記録する
+	void RecordUpload();
+
+	// GPU待機を行う 待機が完了したらtrue
+	bool WaitForGPU();
+
 	// 完成済みの前フレーム描画統計を取得する
 	const GraphicsFrameMetrics& GetLastFrameMetrics();
 	// 完成済みのGPU時間計測結果を取得する

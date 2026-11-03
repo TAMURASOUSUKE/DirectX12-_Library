@@ -19,12 +19,15 @@ constexpr size_t MAX_BONE_NUM{ 256 }; // 最大ボーン数
 constexpr size_t MAX_TEXTURE_COUNT{ 1024 }; // 最大画像ロード数
 constexpr size_t MAX_MODEL_COUNT{ 2048 }; // 最大モデルロード数
 constexpr size_t MAX_MODEL_RENDER_COMMAND_COUNT{ 256 }; // 1フレーム内で可能な描画命令登録数
-constexpr std::size_t MAX_MODEL_DRAW_PACKET_COUNT{ 2048 }; // 全サブメッシュの上限
+constexpr size_t MAX_GPU_BUFFER_COUNT{ 256 }; // 登録できるGPUBufferの最大数
+constexpr size_t MAX_COMPUTE_DISPATCH_COUNT{ 256 }; // 1フレームに登録できるCompute実行要求数
+constexpr size_t MAX_MODEL_DRAW_PACKET_COUNT{ 2048 }; // 全サブメッシュの上限
 constexpr UINT SHADOW_MAP_RESOLUTION{ 2048 }; // 影の解像度
 constexpr UINT INVALID_INDEX{ UINT_MAX }; // Descriptorハンドルのindex無効値
 constexpr size_t MAX_RENDER_TARGET_COUNT{ 16 }; // 登録できるRenderTargetの最大数
 constexpr size_t MAX_CUSTOM_SHADER_COUNT{ 64 }; // 登録できるShaderの最大数
 constexpr size_t MAX_MATERIAL_COUNT{ 64 }; // 登録できるmaterialの最大数
+constexpr size_t MAX_COMPUTE_PIPELINE_COUNT{ 64 }; // 登録できるComputePipelineの最大数
 constexpr size_t MATERIAL_PARAMETER_SLOT_COUNT{ 4 }; // materialが保持できるユーザーパラメータスロット数
 constexpr UINT MATERIAL_PARAMETER_REGISTER_BASE{ 0 }; // ユーザーパラメータが使用するHLSL側の先頭レジスタのベース番号
 constexpr UINT USER_DEFINE_REGISTER_SPACE_NUM{ 1 }; // ユーザーが定義したマテリアルパラメータが置かれるレジスタースペース番号
@@ -33,6 +36,8 @@ constexpr size_t MAX_ANIM_INSTANCE_COUNT{ 1024 }; // 同時に存在できるア
 constexpr UINT PRIMITIVE_3D_SPHERE_SLICE_COUNT{ 32 }; // 3D球体の横方向分割数
 constexpr UINT PRIMITIVE_3D_SPHERE_STACK_COUNT{ 16 }; // 3D球体の縦方向の分割数
 constexpr UINT PRIMITIVE_3D_CYLINDER_DIVISION{ 32 }; // 3D円柱の円周方向分割数
+constexpr UINT64 DEFAULT_UPLOAD_PAGE_SIZE{ 4ull * 1024 * 1024 }; // 通常の転送用Pageの容量 4Mib
+constexpr UINT64 MAX_UPLOAD_POOL_BYTES{ 256ull * 1024 * 1024 }; // 転送用Bufferの確保容量の合計上限256Mib
 // 1フレームで発生しうるMaterialParamerter更新の最大数
 // 全Spriteが別Runかつ4スロット全使用する最悪条件にPostEffectの4スロットを追加する
 constexpr size_t MAX_MATERIAL_PARAMETER_UPDATE_PER_FRAME{ MAX_SPRITE_COUNT * SPRITE_BATCH_COUNT * MATERIAL_PARAMETER_SLOT_COUNT + MATERIAL_PARAMETER_SLOT_COUNT };

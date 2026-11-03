@@ -85,7 +85,6 @@ void ModelRenderSystem::BuildDrawPackets()
 	// 並べ替えを行う
 	std::sort(opaqueModels.begin(), opaqueModels.end(), [](const ModelDrawPacket& _left, const ModelDrawPacket& _right) { return _left.sortDepth < _right.sortDepth; }); // 不透明は手前から奥に
 	std::sort(blendModels.begin(), blendModels.end(), [](const ModelDrawPacket& _left, const ModelDrawPacket& _right) { return _left.sortDepth > _right.sortDepth; }); // 半透明は奥から手前
-
 }
 
 bool ModelRenderSystem::FlushShadow(D3D12_GPU_VIRTUAL_ADDRESS _shadowFrameAddress)

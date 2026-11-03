@@ -82,7 +82,17 @@ enum class RootSigID
 	Primitive3D, // インスタンシング対応3D基礎図形
 	Terrain, // テッセレーションデモ
 	PostEffect, // シーンRTのSRVのPSから読むためのルートシグネチャ
+	Compute, // Compute計算を行う
 	Count,
+};
+
+// Compute用RootParameter番号
+enum class ComputeRootParameter : UINT
+{
+	ConstantBuffer, // b0
+	InputBuffer, // 入力スロットの先頭ここからSRV数分を使用
+	OutputBuffer = static_cast<UINT>(InputBuffer) + static_cast<UINT>(MAX_COMPUTE_SRV_COUNT), // 入力スロットの直後から出力スロットを配置する
+	Count = static_cast<UINT>(OutputBuffer) + static_cast<UINT>(MAX_COMPUTE_UAV_COUNT),
 };
 
 // ブレンドモードの設定
@@ -147,7 +157,7 @@ struct RootParamDesc
 	std::vector<DescriptorRangeDesc> ranges{};
 };
 
-// RootSignature全体
+// RootSignature全体の設定
 struct RootSignatureDesc
 {
 	RootSigID rootSignatureID{RootSigID::Count}; // IDを無効値として設定する
@@ -177,17 +187,9 @@ struct GraphicsPipelineDesc
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE topology{ D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE }; // 形状
 	D3D12_FILL_MODE fillMode{ D3D12_FILL_MODE_SOLID }; // fillモード
 	bool frontCounterClockwise{ false };  // どちらを表にするかtrue = 反時計回り
-	INT depthBias{ D3D12_DEFAULT_DEPTH_BIAS }; // ShadowMapなど進度を書き込む位置を定数分奥へずらす
+	INT depthBias{ D3D12_DEFAULT_DEPTH_BIAS }; // ShadowMapなど深度を書き込む位置を定数分奥へずらす
 	float depthBiasClamp{ D3D12_DEFAULT_DEPTH_BIAS_CLAMP }; // DepthBiasへ設定できる最大値 0は制限なし
 	float slopeScaledDepthBias{ D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS }; // ポリゴンの傾きに応じて深度を追加でずらす
-};
-
-// Compute用PSO生成時に使う設定構造体
-struct ComputePipelineDesc
-{
-	RootSigID rootSignatureID{ RootSigID::Count }; // ルートシグネチャの鍵
-	PipelineID pipelineID{}; // パイプラインステートの鍵
-	const wchar_t* csPath{ nullptr }; // コンピュートシェーダーパス
 };
 
 // 書き込みを行うためのCPUハンドルと読み取るためのGPUハンドルとそのインデックスをまとめたハンドル
@@ -206,8 +208,10 @@ struct TextureData
 {
 	ComPtr<ID3D12Resource> resource; // テクスチャリソース
 	DescriptorHandle srvHandle; // ShaderReosurceViewハンドル
+	DescriptorHandle uavHandle; // Computeから出力する際に使う
 	int width{ 0 }; // 画像の横幅
 	int height{ 0 }; // 画像の縦幅
+	D3D12_RESOURCE_STATES currentState{ D3D12_RESOURCE_STATE_COMMON }; // 記録した使用状態
 };
 
 // 頂点バッファ一つ分の情報をまとめた構造体
@@ -571,6 +575,64 @@ struct MaterialSlot
 	uint32_t generation{ 0 }; // 世代
 };
 
+// ComputePipeline一つ分のデータ
+struct ComputePipelineData
+{
+	ComPtr<ID3D12PipelineState> pipelineState{}; // ComputeShaderを実行するPSO
+	ComPtr<ID3D12RootSignature> rootSignature{}; // Pipelineが使用するResourceの接続契約
+};
+
+// ComputePipelineを管理するSlot
+struct ComputePipelineSlot
+{
+	ComputePipelineData data{}; // 実データ
+	uint32_t generation{ 0 }; // 世代
+};
+
+// GPUBuffer一つ分のデータ
+struct GPUBufferData
+{
+	ComPtr<ID3D12Resource> resource{}; // バッファ本体
+	DescriptorHandle srvHandle{}; // 読み取り用View
+	DescriptorHandle uavHandle{}; // 読み書き用View
+	GPUBufferDesc desc{}; // 要素数、要素サイズ、書き込み許可
+	UINT64 sizeInBytes{ 0 }; // バッファ全体のサイズ
+	D3D12_RESOURCE_STATES currentState{ D3D12_RESOURCE_STATE_COMMON }; // 記録した状態遷移の追跡用
+};
+
+// GPUBufferを管理するSlot
+struct GPUBufferSlot
+{
+	GPUBufferData data{}; // 実データ
+	uint32_t generation{ 0 }; // 世代
+};
+
+// 登録から実行までComputeSystemが保持する要求
+struct ComputeDispatchCommand
+{
+	ComputeDispatchDesc desc{}; // 設定
+
+	std::array<std::byte, MAX_COMPUTE_PARAMETER_SIZE> parameterData{};
+	std::size_t parameterSize{ 0 };
+};
+
+// Compute一回で使用するResourceの情報
+struct ComputeBarrierResource
+{
+	ID3D12Resource* resource{ nullptr }; // リソース
+	D3D12_RESOURCE_STATES* currentState{ nullptr }; // 元の状態変数の場所をコピーする
+	D3D12_RESOURCE_STATES requiredState{ D3D12_RESOURCE_STATE_COMMON }; // 今回必要な状態
+	bool requireUAVOrdering{ false }; // UAV状態を継続する場合も先行アクセスとの順序を守るか
+};
+
+// Compute1回分のバリアを動的確保せずにまとめる
+struct ComputeBarrierBatch
+{
+	std::array<ComputeBarrierResource, MAX_COMPUTE_SRV_COUNT + MAX_COMPUTE_UAV_COUNT> resources{};
+	std::array<D3D12_RESOURCE_BARRIER, MAX_COMPUTE_SRV_COUNT + MAX_COMPUTE_UAV_COUNT> barriers{}; // DirectX側に渡すために連続させる
+	std::size_t resourceCount{ 0 }; // 登録済みのresoruceの個数
+};
+
 // 1回のGPU送信に対応する解放待ちのリソース
 struct DeferredReleaseBatch
 {
@@ -579,4 +641,6 @@ struct DeferredReleaseBatch
 	std::vector<ModelData> models{}; // VB・IB・Material等を保持する
 	std::vector<RenderTargetData> renderTargets{}; // RenderTargetのリソースとRTV/SRVを保持する
 	std::vector<ComPtr<ID3D12PipelineState>> pipelineStates{}; // GPUが使用中かもしれないmaterialのPSO
+	std::vector<ComputePipelineData> computePipelines{}; // コンピュート計算に使う際のPSO
+	std::vector<GPUBufferData> gpuBuffers{}; // GPU使用完了までResourceとDescriptorを保持する
 };

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <format>
 #include <string>
 #include <utility>
@@ -29,8 +29,7 @@ namespace Debug::Detail
 	/// <param name="_fmt">出力文</param>
 	/// <param name="_args">出力文内に埋め込む値</param>
 	template <class... Args>
-	void LogImpl(const char* _level, const char* _file, int _line,
-				 std::format_string<Args...> _fmt, Args&&... _args)
+	void LogImpl(const char* _level, const char* _file, int _line, std::format_string<Args...> _fmt, Args&&... _args)
 	{
 		// _args内に入った右辺値が左辺値として解釈されないようにforwardを付ける(関数内では名前付き引数は左辺値扱いされるため)
 		std::string body{ std::format(_fmt, std::forward<Args>(_args)...) }; // 出力する文に変換

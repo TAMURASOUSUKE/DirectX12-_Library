@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -236,6 +236,8 @@
     <ClInclude Include="Src\Component\Shadow.h" />
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\AnimInstanceHandle.h" />
+    <ClInclude Include="Src\Core\Handle\ComputePipelineHandle.h" />
+    <ClInclude Include="Src\Core\Handle\GPUBufferHandle.h" />
     <ClInclude Include="Src\Core\Handle\HandlePacking.h" />
     <ClInclude Include="Src\Core\Handle\HandlePassKey.h" />
     <ClInclude Include="Src\Core\Handle\MaterialHandle.h" />
@@ -260,6 +262,8 @@
     </ClInclude>
     <ClInclude Include="Src\External\cgltf.h" />
     <ClInclude Include="Src\Facade\Collision.h" />
+    <ClInclude Include="Src\Facade\Compute.h" />
+    <ClInclude Include="Src\Facade\ComputeInternal.h" />
     <ClInclude Include="Src\Facade\Debug.h" />
     <ClInclude Include="Src\Facade\DebugInternal.h" />
     <ClInclude Include="Src\Facade\File.h" />
@@ -282,6 +286,7 @@
     <ClInclude Include="Src\FPS\FPSSystem.h" />
     <ClInclude Include="Src\FPS\FPSCounter.h" />
     <ClInclude Include="Src\Graphics\CameraSystem.h" />
+    <ClInclude Include="Src\Graphics\ComputeSystem.h" />
     <ClInclude Include="Src\Graphics\DescriptorManager.h" />
     <ClInclude Include="Src\Graphics\GfxType.h" />
     <ClInclude Include="Src\Graphics\GPUMarker.h" />
@@ -301,10 +306,14 @@
     <ClInclude Include="Src\Graphics\Primitive3DBatch.h" />
     <ClInclude Include="Src\Graphics\Primitive3DSystem.h" />
     <ClInclude Include="Src\Graphics\RingConstantBuffer.h" />
+    <ClInclude Include="Src\Graphics\PipelineFactory.h" />
     <ClInclude Include="Src\Graphics\ShaderSystem.h" />
     <ClInclude Include="Src\Graphics\ShadowSystem.h" />
     <ClInclude Include="Src\Graphics\ShapeBatch.h" />
     <ClInclude Include="Src\Graphics\SpriteBatch.h" />
+    <ClInclude Include="Src\Graphics\TerrainSystem.h" />
+    <ClInclude Include="Src\Graphics\UploadSystem.h" />
+    <ClInclude Include="Src\Graphics\UploadType.h" />
     <ClInclude Include="Src\Input\ActionInput.h" />
     <ClInclude Include="Src\Input\AxisType.h" />
     <ClInclude Include="Src\Input\InputBase.h" />
@@ -357,6 +366,7 @@
     <ClCompile Include="Src\Debug\FrameDebugSystem.cpp" />
     <ClCompile Include="Src\External\CgltfEnable.cpp" />
     <ClCompile Include="Src\Facade\Collision.cpp" />
+    <ClCompile Include="Src\Facade\Compute.cpp" />
     <ClCompile Include="Src\Facade\Debug.cpp" />
     <ClCompile Include="Src\Facade\File.cpp" />
     <ClCompile Include="Src\Facade\Gfx.cpp" />
@@ -371,6 +381,7 @@
     <ClCompile Include="Src\FPS\FPSLimiter.cpp" />
     <ClCompile Include="Src\FPS\FPSSystem.cpp" />
     <ClCompile Include="Src\Graphics\CameraSystem.cpp" />
+    <ClCompile Include="Src\Graphics\ComputeSystem.cpp" />
     <ClCompile Include="Src\Graphics\DescriptorManager.cpp" />
     <ClCompile Include="Src\Graphics\GPUMarker.cpp" />
     <ClCompile Include="Src\Graphics\GraphicsDevice.cpp" />
@@ -386,10 +397,13 @@
     <ClCompile Include="Src\Graphics\Primitive3DBatch.cpp" />
     <ClCompile Include="Src\Graphics\Primitive3DSystem.cpp" />
     <ClCompile Include="Src\Graphics\RingConstantBuffer.cpp" />
+    <ClCompile Include="Src\Graphics\PipelineFactory.cpp" />
     <ClCompile Include="Src\Graphics\ShaderSystem.cpp" />
     <ClCompile Include="Src\Graphics\ShadowSystem.cpp" />
     <ClCompile Include="Src\Graphics\ShapeBatch.cpp" />
     <ClCompile Include="Src\Graphics\SpriteBatch.cpp" />
+    <ClCompile Include="Src\Graphics\TerrainSystem.cpp" />
+    <ClCompile Include="Src\Graphics\UploadSystem.cpp" />
     <ClCompile Include="Src\Input\ActionInput.cpp" />
     <ClCompile Include="Src\Input\GamePadInput.cpp" />
     <ClCompile Include="Src\Input\InputMethodTracker.cpp" />

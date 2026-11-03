@@ -3,8 +3,6 @@
 #include <string_view>
 
 // ライブラリ内部で文字コードを変換する
-// TSlibでインクルードしないのでSDK利用者には公開しない
-
 namespace TextEncoding
 {
 	// UTF-16からUTF-8へ
