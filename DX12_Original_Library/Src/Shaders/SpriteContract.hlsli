@@ -20,6 +20,11 @@ cbuffer SpriteTransformCB : register(b0)
 // Spriteが表示するテクスチャ
 // RootSignatureではPixelShaderだけから参照可能
 Texture2D spriteTexture : register(t0);
+
+// ユーザーが作成またはロードしたテクスチャは、
+// SetMaterialTextureのSlot0~3のSpace1として予約されています
+// 外部Shader側で必要なテクスチャを定義してください
+
 // Spriteテクスチャを読み取るサンプラー
 // RootSignatureではPixelShaderだけから参照可能
 SamplerState spriteSampler : register(s0);

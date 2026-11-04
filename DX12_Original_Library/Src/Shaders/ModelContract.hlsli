@@ -44,11 +44,20 @@ cbuffer ShadowFrameCB : register(b5)
 	float4x4 lightViewProjection;
 }
 
+// register(b0)～register(b3)は、
+// registerSpace1としてSetMaterialParameterのSlot0～3に予約されています。
+// 外部Modelシェーダー側で必要なcbufferを宣言してください。
+
 Texture2D baseTex : register(t0);
 Texture2D metallicRoughnessTex : register(t1);
 SamplerState smp : register(s0);
 Texture2D<float> shadowMap : register(t2);
 SamplerComparisonState shadowSampler : register(s1);
+
+// ユーザーが作成またはロードしたテクスチャは、
+// SetMaterialTextureのSlot0~3のSpace1として予約されています
+// 外部Shader側で必要なテクスチャを定義してください
+
 
 struct PS_INPUT
 {

@@ -564,6 +564,7 @@ struct MaterialData
 	ComPtr<ID3D12PipelineState> pipelineState{}; // Shaderと用途ごとのPSO設定から生成したもの(内蔵PSOならShaderSystemでIDから生成するが外部はそのIDに登録できないのでmaterialが直接持つ)
 	MaterialPipelineSource pipelineSource{ MaterialPipelineSource::Builtin }; // PSOの状態
 	MaterialParameterSet parameters{}; // slot0-3のユーザーパラメータ
+	std::array<TexHandle, MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT> textureSlots{}; // ユーザーが定義するテクスチャのスロット
 	PBRMaterialData pbr{}; // 表面をどう表現するか
 	MaterialRenderState renderState{}; // どう描画するか
 };
