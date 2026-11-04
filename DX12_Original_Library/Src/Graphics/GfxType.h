@@ -61,6 +61,98 @@ enum class TextureFormat
 	R32_FLOAT, // Rの成分だけ持っている32bitの浮動小数点
 };
 
+// フォントアトラスの設定構造体(デフォルトでフォントを用意しているが変更したい時にここを設定してもらう)
+struct BitmapFont
+{
+	TexHandle texture; // アトラス画像のハンドル
+	int texWidth{ 0 }; // テクスチャ全体の幅(px)
+	int texHeight{ 0 }; // テクスチャ全体の高さ(px)
+	int cellWidth{ 0 }; // 1セルの幅(px)
+	int cellHeight{ 0 }; // 1セルの高さ(px)
+	int cols{ 0 }; // 1行あたりのセルの量
+	int firstCode{ 0 }; // 先頭セルが表す文字コード(CP437配列なら0, スペース始まりなら32)
+};
+
+// 画像の状態
+enum class SpriteFlip
+{
+	None,
+	Horizontal,
+	Vertical,
+	Both
+};
+
+// 等間隔のグリッド状に分割されたテクスチャアトラス
+struct TextureAtlas
+{
+	TexHandle texture{}; // アトラス画像本体
+	int columns{ 0 };    // 横方向の分割数
+	int rows{ 0 };       // 縦方向の分割数
+	int frameCount{ 0 }; // 実際に使用するセル数
+
+	bool IsValid() const
+	{
+		const long long capacity{ static_cast<long long>(columns) * rows };
+		return texture.IsValid() && columns > 0 && rows > 0 && frameCount > 0 && frameCount <= capacity;
+	}
+};
+
+// スプライトアニメーションの設定と再生状態
+struct SpriteAnimationState
+{
+	int firstFrame{ 0 };   // 使用する最初のセル
+	int lastFrame{ 0 };    // 使用する最後のセル（この番号を含む）
+	int currentFrame{ 0 }; // 現在表示しているセル
+
+	float secondsPerFrame{ 0.1f }; // 1コマの表示秒数
+	float elapsedTime{ 0.0f };     // コマ送り用の蓄積時間
+
+	bool isLoop{ true }; // ループするか
+	bool isFinished{ false }; // アニメーションが終了したか
+
+	SpriteAnimationState() = default;
+
+	// 必要な設定を引数だけで指定する
+	SpriteAnimationState(int _firstFrame, int _lastFrame, float _secondsPerFrame, bool _isLoop = true) :
+		firstFrame{ _firstFrame }, lastFrame{ _lastFrame }, currentFrame{ _firstFrame }, secondsPerFrame{ _secondsPerFrame }, isLoop{ _isLoop }
+	{}
+
+	bool IsValid(const TextureAtlas& _atlas) const
+	{
+		return _atlas.IsValid()
+			&& firstFrame >= 0
+			&& lastFrame >= firstFrame
+			&& lastFrame < _atlas.frameCount
+			&& currentFrame >= firstFrame
+			&& currentFrame <= lastFrame
+			&& secondsPerFrame > 0.0f;
+	}
+
+	int GetFrameIndex() const { return currentFrame; }
+
+	void Reset()
+	{
+		currentFrame = firstFrame;
+		elapsedTime = 0.0f;
+		isFinished = false;
+	}
+};
+
+// 画像をどの用途として読み込むか
+enum class TextureUsage
+{
+	Color, // 表示用カラー画像(sRGBとして読み込む) 
+	Data, // ハイトマップやノーマルマップなどの数値データ,Linerとして読み込む	
+};
+
+// 3Dの基本図形の描画方法を設定する
+enum class Primitive3DStyle
+{
+	Fill, // 塗りつぶし
+	MeshWireframe, // メッシュをワイヤー表示
+	DebugLine, // あたり判定可視化などデバッグ途用として余計な線を描画しないワイヤー表示
+};
+
 // 1段階分のLOD設定
 struct ModelLODLevel
 {

@@ -379,6 +379,22 @@ bool GraphicsResourceManager::Setup(ID3D12Device* _device)
 		Shutdown();
 		return false;
 	}
+
+	// nullSRVの作成(何もリソースが紐づけされていないディスクリプタ)
+	nullSRV = DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV); // ヒープを確保
+	if (!nullSRV.IsValid())
+	{
+		DEBUG_LOG_ERROR("ユーザー未入力用のTextureSlot用SRVの確保に失敗しました\n");
+		Shutdown(); 
+		return false;
+	}
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC nullSRVDesc{};
+	nullSRVDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // 線形
+	nullSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; // Shader側でtexture2Dで宣言するので食い違いがないようにする
+	nullSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; // 入れられた色通りにする
+	nullSRVDesc.Texture2D.MipLevels = 1; // nullなので1枚だけの設定
+	_device->CreateShaderResourceView(nullptr, &nullSRVDesc, nullSRV.cpu); // リソースと紐づけしないのでnull
 	return true;
 }
 
@@ -481,7 +497,8 @@ void GraphicsResourceManager::Shutdown()
 			releaseGPUBuffer(buffer);
 		}
 	}
-
+	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, nullSRV);
+	nullSRV = {};
 	// 生存しているmodel
 	modelSlots.clear(); // ComPtrも解放
 	// Unload済みで解放待ちだったmodel
@@ -1997,6 +2014,39 @@ bool GraphicsResourceManager::SetMaterialParameter(MaterialHandle _handle, size_
 	return true;
 }
 
+bool GraphicsResourceManager::SetMaterialTexture(MaterialHandle _material, std::size_t _slot, TexHandle _texture)
+{
+	if (_slot >= MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT)
+	{
+		DEBUG_LOG_ERROR("設定されたSlot数が不正です\n");
+		return false;
+	}
+
+	MaterialData* materialData{ Lookup(_material) };
+	if (!materialData)
+	{
+		DEBUG_LOG_ERROR("MaterilaのLookupに失敗しました\n");
+		return false;
+	}
+
+	// 使用用途の確認
+	switch (materialData->usage)
+	{
+	case ShaderUsage::Model:
+	case ShaderUsage::PostEffect:
+	case ShaderUsage::Sprite:
+		break;
+	case ShaderUsage::Compute:
+	default:
+		DEBUG_LOG_ERROR("不正なUsageがMaterialに設定されています\n");
+		return false;
+	}
+
+	// あえてIsValid検査をしていないのは描画時に空ならnullSRV,Lookup失敗ならErrorTextureを区別するため
+	materialData->textureSlots[_slot] = _texture;
+	return true;
+}
+
 ComputePipelineHandle GraphicsResourceManager::RegisterComputePipeline(ComputePipelineData _data)
 {
 	if (!_data.pipelineState || !_data.rootSignature)
@@ -2192,6 +2242,23 @@ void GraphicsResourceManager::Unload(GPUBufferHandle _handle)
 	// Handleへ格納できる世代の間だけSlotを再利用する
 	constexpr uint32_t MAX_GENERATION{ static_cast<uint32_t>((std::numeric_limits<int>::max)() >> INDEX_BITS) };
 	if (gpuBufferSlots[index].generation <= MAX_GENERATION) gpuBufferFreeList.push(index);
+}
+
+D3D12_GPU_DESCRIPTOR_HANDLE GraphicsResourceManager::ResolveMaterialTextureSRV(TexHandle _handle)
+{
+	if (!_handle.IsValid()) return nullSRV.gpu; // 空ならnullSRV
+	TextureData* data{ Lookup(_handle) };
+	if (!data)
+	{
+		TextureData* errorData{ Lookup(errorTexture) };
+		if (!errorData)
+		{
+			DEBUG_LOG_ERROR("渡されたハンドルが不正なデータだったのでエラーテクスチャを出力使用としましたがLookupに失敗しました\n");
+			return nullSRV.gpu; // エラーも失敗したらログを出しつつnullSRVを返す
+		}
+		return errorData->srvHandle.gpu;
+	}
+	return data->srvHandle.gpu;
 }
 
 TexHandle GraphicsResourceManager::CreateTextureFromScratch(const DirectX::ScratchImage& _scratch, const DirectX::TexMetadata& _meta)

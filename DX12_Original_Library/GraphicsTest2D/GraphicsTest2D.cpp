@@ -50,6 +50,13 @@ struct AtlasParameter
 	float padding[3]; 
 };
 
+// 追加Textureのテスト
+struct SlotSelectParameter
+{
+	int slotIndex{ 0 };
+	float padding[3]{ 0.0f, 0.0f, 0.0f };
+};
+
 // エントリーポイント
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
@@ -92,17 +99,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	bool hasLoadedRuntimeTexture{ false };
 
 	// Atlas
-	Gfx::TextureAtlas idleAnim{ Gfx::LoadTextureAtlas("Res/Idle.png", 8, 1, 8) }; // IdleMotion
-	Gfx::TextureAtlas runAnim{ Gfx::LoadTextureAtlas("Res/Run.png", 8, 1, 8) }; // RunMotion
-	Gfx::TextureAtlas attack01Anim{ Gfx::LoadTextureAtlas("Res/Attack1.png", 8, 1, 8) }; // Attack01Motion
-	Gfx::TextureAtlas attack02Anim{ Gfx::LoadTextureAtlas("Res/Attack2.png", 8, 1, 8) }; // Attack01Motion
-	Gfx::TextureAtlas JumpAnim{ Gfx::LoadTextureAtlas("Res/Jump.png", 2, 1, 2) }; // JumpMotion
-	Gfx::TextureAtlas FallAnim{ Gfx::LoadTextureAtlas("Res/Fall.png", 2, 1, 2) }; // FallMotion
+	TextureAtlas idleAnim{ Gfx::LoadTextureAtlas("Res/Idle.png", 8, 1, 8) }; // IdleMotion
+	TextureAtlas runAnim{ Gfx::LoadTextureAtlas("Res/Run.png", 8, 1, 8) }; // RunMotion
+	TextureAtlas attack01Anim{ Gfx::LoadTextureAtlas("Res/Attack1.png", 8, 1, 8) }; // Attack01Motion
+	TextureAtlas attack02Anim{ Gfx::LoadTextureAtlas("Res/Attack2.png", 8, 1, 8) }; // Attack01Motion
+	TextureAtlas JumpAnim{ Gfx::LoadTextureAtlas("Res/Jump.png", 2, 1, 2) }; // JumpMotion
+	TextureAtlas FallAnim{ Gfx::LoadTextureAtlas("Res/Fall.png", 2, 1, 2) }; // FallMotion
 	// アトラスをまとめた配列
-	Gfx::TextureAtlas atlasAnims[]{ idleAnim, runAnim, attack01Anim, attack02Anim, JumpAnim, FallAnim };
+	TextureAtlas atlasAnims[]{ idleAnim, runAnim, attack01Anim, attack02Anim, JumpAnim, FallAnim };
 	// アトラス配列と順をそろえる
-	Gfx::SpriteAnimationState atlasAnimDescs[]{ {0, idleAnim.frameCount - 1,0.1f, true}, {0, runAnim.frameCount - 1, 0.1f, true}, {0, attack01Anim.frameCount - 1, 0.1f, false}, {0, JumpAnim.frameCount - 1, 0.1f, true} }; 
-	Gfx::SpriteFlip flip{ Gfx::SpriteFlip::None };
+	SpriteAnimationState atlasAnimDescs[]{ {0, idleAnim.frameCount - 1,0.1f, true}, {0, runAnim.frameCount - 1, 0.1f, true}, {0, attack01Anim.frameCount - 1, 0.1f, false}, {0, JumpAnim.frameCount - 1, 0.1f, true} }; 
+	SpriteFlip flip{ SpriteFlip::None };
 	int atlasAnimIndex{ 0 };
 	int atlasDescIndex{ 0 };
 	bool isAttacking{ false };
@@ -118,6 +125,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	float timeScale{ 1.0f };
 	float time{ 0.0f };
 	int spriteAnimTime{ 0 };
+
+	// 追加tテクスチャチェック(未設定確認のため用意しているが03は読み込んでない)
+	constexpr int TEST_TEXTURES_COUNT{ 4 };
+	int slotIndex{ 0 };
+	TexHandle testTex0{ Gfx::LoadTexture("Res/vfx_test_t0_checker.png", TextureUsage::Color) };
+	TexHandle testTex1{ Gfx::LoadTexture("Res/vfx_test_t1_gradient.png", TextureUsage::Color) };
+	TexHandle testTex2{ Gfx::LoadTexture("Res/vfx_test_t2_radial.png", TextureUsage::Color) };
+	ShaderHandle userTextureShader{ Gfx::LoadShader(L"Shaders/UserTextureShaderPS.hlsl", ShaderUsage::Sprite, ShaderStage::Pixel) };
+	MaterialHandle userTextureMaterial{ Gfx::CreateMaterial(userTextureShader) };
+	// 実際の外部textureの設定
+	Gfx::SetMaterialTexture(userTextureMaterial, 0, testTex0);
+	Gfx::SetMaterialTexture(userTextureMaterial, 1, testTex1);
+	Gfx::SetMaterialTexture(userTextureMaterial, 2, testTex2);
 
 	Debug::SetOverlayVisible(true); // 表示する
 
@@ -144,7 +164,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		{ 
 			// 移動と反転
 			dir.x -= 1.0f;  
-			if(!isAttacking && Time::GetTimeScale() != 0.0f) flip = Gfx::SpriteFlip::Horizontal; 
+			if(!isAttacking && Time::GetTimeScale() != 0.0f) flip = SpriteFlip::Horizontal; 
 		}
 		if (Input::IsKeyPress(KeyCode::Button::S))
 		{
@@ -154,14 +174,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		{
 			// 移動と反転
 			dir.x += 1.0f;
-			if (!isAttacking && Time::GetTimeScale() != 0.0f) flip = Gfx::SpriteFlip::None;
+			if (!isAttacking && Time::GetTimeScale() != 0.0f) flip = SpriteFlip::None;
 		}
 		const Vector2 padMove{ Input::GetPadStickValue(PadCode::Stick::LEFT) };
 		dir += padMove;
 		if (!isAttacking && Time::GetTimeScale() != 0.0f)
 		{
-			if (padMove.x < 0.0f) flip = Gfx::SpriteFlip::Horizontal;
-			else if (padMove.x > 0.0f) flip = Gfx::SpriteFlip::None;
+			if (padMove.x < 0.0f) flip = SpriteFlip::Horizontal;
+			else if (padMove.x > 0.0f) flip = SpriteFlip::None;
 		}
 		dir.Normalize();
 
@@ -236,7 +256,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (isAttacking && atlasAnimDescs[ATTACK_INDEX].isFinished) isAttacking = false;
 
 		// 現在描画するアトラスとフレーム(シェーダー側で使うため計算)
-		const Gfx::TextureAtlas& currentAtlas{ atlasAnims[atlasAnimIndex] };
+		const TextureAtlas& currentAtlas{ atlasAnims[atlasAnimIndex] };
 		const int frameIndex{ atlasAnimDescs[atlasDescIndex].GetFrameIndex() };
 		// 一次元のフレーム番号を列・行へ変換
 		const int column{ frameIndex % currentAtlas.columns };
@@ -249,6 +269,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		atlasParameter.atlasUVRect = { column * cellWidth, row * cellHeight, (column + 1) * cellWidth, (row + 1) * cellHeight };
 		atlasParameter.bandCount = 128.0f;
 		
+		// 追加テクスチャテスト
+		if (Input::IsKeyPushed(KeyCode::Button::F11)) slotIndex = (slotIndex + 1) % TEST_TEXTURES_COUNT;
+		Gfx::SetMaterialParameter(userTextureMaterial, SlotSelectParameter{ static_cast<int>(slotIndex) });
+		if (Input::IsKeyPushed(KeyCode::Button::U))
+		{
+			Gfx::Unload(testTex0);
+			testTex0 = {};
+		}
 
 		// FPS操作
 		if (Input::IsKeyPushed(KeyCode::Button::D3) || Input::IsPadPushed(PadCode::Button::DOWN)) Time::SetTargetFPS(30); // 30FPS
@@ -268,21 +296,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::ClearScreen(); // 画面クリア(黒)
 
 		// スプライトバッチテスト
-		Gfx::DrawSpriteSized(background, { 0.0f, 0.0f }, windowSize, 0.0f, Gfx::SpriteFlip::None, Vector4::One, Vector2::Zero, Vector2::One, RenderLayer::BackGround);
+		Gfx::DrawSpriteSized(background, { 0.0f, 0.0f }, windowSize, 0.0f, SpriteFlip::None, Vector4::One, Vector2::Zero, Vector2::One, RenderLayer::BackGround);
 
 		// Shaderテスト
-		Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, Vector2::One, 0.0f, Gfx::SpriteFlip::None, { 1.0f, 0.0f, 0.0f, 1.0f });
+		Gfx::DrawSprite(enemy, { 100.0f, 300.0f }, Vector2::One, 0.0f, SpriteFlip::None, { 1.0f, 0.0f, 0.0f, 1.0f });
 
 		Gfx::DrawSprite(minivan, { 300.0f, 300.0f });
 
 		Gfx::DrawSprite(enemy, { 500.0f, 300.0f }, inverseSpriteMaterial);
 
-		Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, inverseSpriteMaterial, Vector2::One, 0.0f, Gfx::SpriteFlip::None, { 1.0f, 1.0f, 1.0f, 0.5f + 0.5f * sinf(time) });
+		Gfx::DrawSprite(minivan, { 800.0f, 300.0f }, inverseSpriteMaterial, Vector2::One, 0.0f, SpriteFlip::None, { 1.0f, 1.0f, 1.0f, 0.5f + 0.5f * sinf(time) });
 
-		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, Vector2::One, 0.0f, Gfx::SpriteFlip::Vertical, { 1.0f, 1.0f, 1.0f, 0.5f });
+		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, Vector2::One, 0.0f, SpriteFlip::Vertical, { 1.0f, 1.0f, 1.0f, 0.5f });
 
 		Gfx::SetMaterialParameter(glitchMaterial, 2, fullParameter);
-		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, glitchMaterial, { 1.0f, 1.0f }, 0.0f, Gfx::SpriteFlip::Horizontal);
+		Gfx::DrawSprite(enemy, { 900.0f, 300.0f }, glitchMaterial, { 1.0f, 1.0f }, 0.0f, SpriteFlip::Horizontal);
 
 		// if (runtimeTexture.IsValid()) Gfx::DrawSprite(runtimeTexture, { 500.0f, 300.0f });
 
@@ -297,6 +325,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		//Gfx::DrawBox(testRect01.GetMinPos(), testRect01.GetMaxPos());
 		//Gfx::DrawBox(testRect02.GetMinPos(), testRect02.GetMaxPos(), 0.0f, debugColor);
+
+		// 追加テクスチャ
+		Gfx::DrawSprite(enemy, { 800.0f, 800.0f }, userTextureMaterial);
+
 		Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });
 		Gfx::DrawString(targetFPS.c_str(), { 0.0f, 30.0f });
 		Gfx::DrawString(unscaledDeltaTime.c_str(), { 0.0f, 60.0f });
@@ -310,7 +342,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		constexpr Vector2 GUIDE_POSITION{ 1380.0f, 695.0f };
 		constexpr Vector2 GUIDE_SCALE{ 0.3f, 0.3f };
-		if (inputGuide.IsValid()) Gfx::DrawSprite(inputGuide, GUIDE_POSITION, GUIDE_SCALE, 0.0f, Gfx::SpriteFlip::None, {1.0f, 1.0f, 1.0f, 0.5f});
+		if (inputGuide.IsValid()) Gfx::DrawSprite(inputGuide, GUIDE_POSITION, GUIDE_SCALE, 0.0f, SpriteFlip::None, {1.0f, 1.0f, 1.0f, 0.5f});
 
 		TSLib::EndFrame(); // フレーム終了処理
 	}

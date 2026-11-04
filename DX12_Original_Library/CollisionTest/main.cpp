@@ -167,10 +167,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::ClearScreen();
 
 		// 形状をDebugLineで表示
-		Gfx::DrawCapsule3D(fixedCapsule.startPos, fixedCapsule.endPos, fixedCapsule.radius, { 0.2f, 0.6f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::Fill);
+		Gfx::DrawCapsule3D(fixedCapsule.startPos, fixedCapsule.endPos, fixedCapsule.radius, { 0.2f, 0.6f, 1.0f, 1.0f }, Primitive3DStyle::Fill);
 
 		// 操作対象は通常緑、衝突中だけ赤にする
-		Gfx::DrawCapsule3D(movingCapsule.startPos, movingCapsule.endPos, movingCapsule.radius, hit ? Vector4{ 1.0f, 0.2f, 0.2f, 1.0f } : Vector4{ 0.2f, 1.0f, 0.3f, 1.0f }, Gfx::Primitive3DStyle::Fill);
+		Gfx::DrawCapsule3D(movingCapsule.startPos, movingCapsule.endPos, movingCapsule.radius, hit ? Vector4{ 1.0f, 0.2f, 0.2f, 1.0f } : Vector4{ 0.2f, 1.0f, 0.3f, 1.0f }, Primitive3DStyle::Fill);
 
 		Gfx::DrawString("WASD: move  Q/E: rotate capsule  Right drag: camera  ESC: exit", { 20.0f, 20.0f });
 		Gfx::DrawString(hit ? "COLLISION: HIT" : "COLLISION: NONE", { 20.0f, 55.0f }, 1.0f, hit ? Vector4{ 1.0f, 0.3f, 0.3f, 1.0f } : Vector4{ 0.3f, 1.0f, 0.3f, 1.0f });
