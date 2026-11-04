@@ -29,7 +29,9 @@ constexpr size_t MAX_CUSTOM_SHADER_COUNT{ 64 }; // 登録できるShaderの最�
 constexpr size_t MAX_MATERIAL_COUNT{ 64 }; // 登録できるmaterialの最大数
 constexpr size_t MAX_COMPUTE_PIPELINE_COUNT{ 64 }; // 登録できるComputePipelineの最大数
 constexpr size_t MATERIAL_PARAMETER_SLOT_COUNT{ 4 }; // materialが保持できるユーザーパラメータスロット数
+constexpr size_t MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT{ 4 }; // materialが保持できるユーザーテクスチャパラメータスロット数
 constexpr UINT MATERIAL_PARAMETER_REGISTER_BASE{ 0 }; // ユーザーパラメータが使用するHLSL側の先頭レジスタのベース番号
+constexpr UINT MATERIAL_TEXTURE_REGISTER_BASE{ 0 }; // ユーザーテクスチャが使用するHLSL側の先頭レジスタのベース番号
 constexpr UINT USER_DEFINE_REGISTER_SPACE_NUM{ 1 }; // ユーザーが定義したマテリアルパラメータが置かれるレジスタースペース番号
 constexpr size_t SPRITE_BATCH_COUNT{ 2 }; // 現在存在するspritebatchの数(backとforground)
 constexpr size_t MAX_ANIM_INSTANCE_COUNT{ 1024 }; // 同時に存在できるアニメーション個体数
@@ -41,5 +43,5 @@ constexpr UINT64 MAX_UPLOAD_POOL_BYTES{ 256ull * 1024 * 1024 }; // 転送用Buff
 // 1フレームで発生しうるMaterialParamerter更新の最大数
 // 全Spriteが別Runかつ4スロット全使用する最悪条件にPostEffectの4スロットを追加する
 constexpr size_t MAX_MATERIAL_PARAMETER_UPDATE_PER_FRAME{ MAX_SPRITE_COUNT * SPRITE_BATCH_COUNT * MATERIAL_PARAMETER_SLOT_COUNT + MATERIAL_PARAMETER_SLOT_COUNT };
-/// 全Modelが別のPacketかつ全て異なる値の場合の最悪条件の4スロット + 1ゼロダミー用
+// 全Modelが別のPacketかつ全て異なる値の場合の最悪条件の4スロット + 1ゼロダミー用
 constexpr size_t MAX_MODEL_MATERIAL_PARAMETER_UPDATE_PER_FRAME{ MAX_MODEL_DRAW_PACKET_COUNT * MATERIAL_PARAMETER_SLOT_COUNT + 1 };

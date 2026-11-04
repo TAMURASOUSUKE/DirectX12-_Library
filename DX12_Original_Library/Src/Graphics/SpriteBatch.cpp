@@ -3,14 +3,14 @@
 #include <cstring>
 #include "../Debug/DebugLogs.h"
 #include "GraphicsConstant.h"
+#include "../Core/Handle/TexHandle.h"
 #include "GraphicsDevice.h"
 #include "GraphicsMetrics.h"
 #include "DescriptorManager.h"
 #include "GraphicsResourceManager.h"
 #include "SpriteBatch.h"
 
-namespace
-{
+namespace {
 	// 2つのMaterialパラメータ集合が同じGPUデータか調べるヘルパー
 	bool IsSameMaterialParameters(const MaterialParameterSet& _lhs, const MaterialParameterSet& _rhs)
 	{
@@ -23,6 +23,17 @@ namespace
 			if (lhs.parameterSize != rhs.parameterSize) return false; // サイズは一致しているか
 			if (!lhs.hasParameter) continue; // 両方未設定ならこのスロットの中身を見る必要はないのでスキップ
 			if (std::memcmp(lhs.parameterData.data(), rhs.parameterData.data(), lhs.parameterSize) != 0) return false; // ユーザーが定義した実データを比較する(256byte全体を比較しなくていい)
+		}
+		return true;
+	}
+
+	// 2つのMaterialTextuer集合が同じGPUDataか調べる
+	bool IsSameMaterialTextures(const MaterialTextureSet& _lhs, const MaterialTextureSet& _rhs)
+	{
+		for (size_t i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+		{
+			// 二つのハンドルを比較して同じものかを判断する
+			if (_lhs[i] != _rhs[i]) return false;
 		}
 		return true;
 	}
@@ -76,7 +87,7 @@ void SpriteBatch::Shutdown()
 	gpuVirtualAddres = nullptr;
 }
 
-void SpriteBatch::RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipelineState, const MaterialParameterSet* _parameters, Vector2 _position, Vector2 _size, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax)
+void SpriteBatch::RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipelineState, const MaterialParameterSet* _parameters, const std::array<TexHandle, MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT>* _textures, Vector2 _position, Vector2 _size, float _radRotation, Vector4 _color, Vector2 _uvMin, Vector2 _uvMax)
 {
 	if (!_handle.IsValid())
 	{
@@ -139,16 +150,21 @@ void SpriteBatch::RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipeli
 
 	// 内蔵のSpriteなどのMaterialを使わない空の場合のデータ
 	static const MaterialParameterSet EMPTY_PARAMETERS{};
+	static const MaterialTextureSet EMPTY_TEXTURES{};
 	const MaterialParameterSet& useParameters{ _parameters ? *_parameters : EMPTY_PARAMETERS };
+	const MaterialTextureSet& useTextures{ _textures ? *_textures : EMPTY_TEXTURES };
+	
 
 	// run(描画順)を管理する
 	// 空、一つ前とハンドルが違う、一つ前とPSOが違う、一つ前とパラメータが違う条件で新しく描画区間を作る
-	if (runs.empty() || runs.back().tex != _handle || runs.back().pipelineState != _pipelineState || !IsSameMaterialParameters(runs.back().parameters, useParameters))
+	if (runs.empty() || runs.back().tex != _handle || runs.back().pipelineState != _pipelineState ||
+		!IsSameMaterialParameters(runs.back().parameters, useParameters) || !IsSameMaterialTextures(runs.back().useTextures, useTextures))
 	{
 		SpriteDrawRun run{};
 		run.tex = _handle;
 		run.pipelineState = _pipelineState;
 		run.parameters = useParameters; // この時点の値をコピー
+		run.useTextures = useTextures;
 		run.startSprite = spriteCounter;
 		run.count = 1;
 		runs.push_back(std::move(run));
@@ -204,6 +220,7 @@ void SpriteBatch::Flush(RingConstantBuffer& _parameterRing, ID3D12Resource* _zer
 		cmd->SetGraphicsRootDescriptorTable(0, data->srvHandle.gpu); // ルートシグネチャの0番にテクスチャのGPUハンドルをセット
 		
 		constexpr UINT SPRITE_MATERIAL_ROOT_PARAM_BASE{ 2 }; // MaterialslotはRootParam[2]から始まる
+		constexpr UINT SPRITE_TEXTURE_MATERIAL_ROOT_PARAM_BASE{ 6 }; // MaterialSlotはRootParam[6]から始まる
 		const D3D12_GPU_VIRTUAL_ADDRESS zeroParamterAddress{_zeroParameterBuffer->GetGPUVirtualAddress()};
 		
 		for (size_t i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
@@ -227,6 +244,14 @@ void SpriteBatch::Flush(RingConstantBuffer& _parameterRing, ID3D12Resource* _zer
 			}
 			cmd->SetGraphicsRootConstantBufferView(SPRITE_MATERIAL_ROOT_PARAM_BASE + static_cast<UINT>(i), parameterAddress);
 		}
+
+		for (std::size_t i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+		{
+			// 必要なDescriptorHandleを出す(空ならnullSRV)
+			D3D12_GPU_DESCRIPTOR_HANDLE texture{ GraphicsResourceManager::Instance().ResolveMaterialTextureSRV(run.useTextures[i]) };
+			cmd->SetGraphicsRootDescriptorTable(SPRITE_TEXTURE_MATERIAL_ROOT_PARAM_BASE + i, texture);
+		}
+
 		GraphicsMetrics::RecordDrawCall(_pass);
 		cmd->DrawIndexedInstanced(run.count * 6, 1, 0, run.startSprite * 4, 0); // 区間情報から描画位置を特定して描画する(読むインデックスの数,  開始位置)
 	}

@@ -54,7 +54,7 @@ namespace {
 	}
 
 	// DescriptorTableでのSRV作成
-	RootParamDesc MakeSRVTable(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility)
+	RootParamDesc MakeSRVTable(UINT _shaderRegister, D3D12_SHADER_VISIBILITY _visibility, UINT _registerSpace = 0)
 	{
 		RootParamDesc desc{};
 		desc.type = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // ディスクリプタ―テーブル指定
@@ -64,7 +64,7 @@ namespace {
 		range.type = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // SRV指定
 		range.numDescriptors = 1;
 		range.baseShaderRegister = _shaderRegister;
-		range.registerSpace = 0;
+		range.registerSpace = _registerSpace;
 		desc.ranges.push_back(range);
 		return desc;
 	}
@@ -440,9 +440,14 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	{
 		texture.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}
-
+	// ユーザーテクスチャを追加する RootParam[6] - [9] HLSL側ではt0-t3
+	for (UINT i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+	{
+		texture.parameters.push_back(MakeSRVTable(MATERIAL_TEXTURE_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
+	}
 	texture.staticSamplers.push_back(MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL)); // staticSampler0番目(s0)
 	descs.push_back(std::move(texture)); // texture変数は使わないのでmoveして空にする(コピーの必要性なし)
+
 	// ModelRootSignature
 	RootSignatureDesc model{};
 	model.rootSignatureID = RootSigID::Model;
@@ -463,6 +468,11 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 		model.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}
 	model.staticSamplers.push_back(MakeShadowComparisonSampler(1, D3D12_SHADER_VISIBILITY_PIXEL)); // ShadowMap比較用のSampler(s1)
+	// ユーザーテクスチャを追加する RootParam[13] - [16] HLSL側ではt0-t3
+	for (UINT i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+	{
+		model.parameters.push_back(MakeSRVTable(MATERIAL_TEXTURE_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
+	}
 	descs.push_back(std::move(model)); // model変数は使わないのでmoveして空にする(コピーの必要性なし)
 	// Shape用
 	RootSignatureDesc shape{};
@@ -492,6 +502,11 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 		// RootParam[1]-[4]へmaterial slot0-3を追加する
 		 // ユーザーが定義した定数バッファを受け取る 内蔵と番号の重複に耐えるためにregisterSpaceを1に設定
 		postEffect.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
+	}
+	// ユーザーテクスチャを追加する RootParam[5] - [8] HLSL側ではt0-t3
+	for (UINT i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+	{
+		postEffect.parameters.push_back(MakeSRVTable(MATERIAL_TEXTURE_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}
 	D3D12_STATIC_SAMPLER_DESC sampler{ MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL) };
 	// 画面端で反対側のピクセルを拾わないようにClampする

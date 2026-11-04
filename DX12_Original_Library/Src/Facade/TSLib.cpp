@@ -159,13 +159,13 @@ namespace
 			transform.SetPosition(command.center);
 			transform.SetScale({ diameter, diameter, diameter });
 
-			Gfx::DrawSphere3D(transform, command.color, Gfx::Primitive3DStyle::DebugLine);
+			Gfx::DrawSphere3D(transform, command.color, Primitive3DStyle::DebugLine);
 		}
 
 		// capsule
 		for (const DebugCapsuleCommand& command : debugFrame.capsuleCommands)
 		{
-			Gfx::DrawCapsule3D(command.start, command.end, command.radius, command.color, Gfx::Primitive3DStyle::DebugLine);
+			Gfx::DrawCapsule3D(command.start, command.end, command.radius, command.color, Primitive3DStyle::DebugLine);
 		}
 	}
 

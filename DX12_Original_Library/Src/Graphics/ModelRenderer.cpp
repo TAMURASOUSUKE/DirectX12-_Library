@@ -214,6 +214,7 @@ bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet, GraphicsPass _pa
 	cmd->SetPipelineState(pipeline);
 
 	constexpr UINT MODEL_MATERIAL_ROOT_PARAM_BASE{ 9 }; // モデル用ルートパラメータ先頭番号
+	constexpr UINT MODEL_MATERIAL_TEXTURE_ROOT_PARAM_BASE{ 13 }; // モデル用ユーザーテクスチャ先頭番号
 	// ユーザーが設定したカスタムMaterialが有効な場合それをGPUに送るループを行う
 	if (activeMaterial)
 	{
@@ -222,6 +223,7 @@ bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet, GraphicsPass _pa
 			DEBUG_LOG_ERROR("ゼロダミーアドレスが無効な値になっています\n");
 			return false;
 		}
+
 		for (std::size_t i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
 		{
 			D3D12_GPU_VIRTUAL_ADDRESS parameterAddress{ zeroMaterialParameterAddress }; // ゼロダミーで初期化
@@ -238,6 +240,13 @@ bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet, GraphicsPass _pa
 			}
 			// CBVをセット
 			cmd->SetGraphicsRootConstantBufferView(MODEL_MATERIAL_ROOT_PARAM_BASE + static_cast<UINT>(i), parameterAddress);
+		}
+
+		for (std::size_t i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+		{
+			// 必要なDescriptorHandleを出す(空ならnullSRV)
+			D3D12_GPU_DESCRIPTOR_HANDLE texture{ GraphicsResourceManager::Instance().ResolveMaterialTextureSRV(activeMaterial->textureSlots[i]) };
+			cmd->SetGraphicsRootDescriptorTable(MODEL_MATERIAL_TEXTURE_ROOT_PARAM_BASE + i, texture);
 		}
 	}
 

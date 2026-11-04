@@ -283,11 +283,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		else Gfx::DrawAnimatedModel(toonModelAnim, toonTransform, threeToneMaterial); // 静的モデル(toon)
 
 		// 3D基礎図形
-		Gfx::DrawBox3D(cube, { 1.0f, 0.0f, 1.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
-		Gfx::DrawSphere3D(sphere, { 0.0f, 0.5f, 0.0f, 1.0f }, Gfx::Primitive3DStyle::MeshWireframe);
-		Gfx::DrawCylinder3D(cylinder, { 0.0f, 1.0f, 0.0f, 1.0f }, Gfx::Primitive3DStyle::DebugLine);
-		Gfx::DrawCapsule3D({ 0.0f, -2.0f, 5.0f }, { 0.0f,  0.0f, 5.0f }, 0.5f, { 0.2f, 1.0f, 0.3f }, Gfx::Primitive3DStyle::Fill);
-		Gfx::DrawPlane3D(plane, { 0.0f, 0.3f, 0.4f }, Gfx::Primitive3DStyle::Fill);
+		Gfx::DrawBox3D(cube, { 1.0f, 0.0f, 1.0f, 1.0f }, Primitive3DStyle::DebugLine);
+		Gfx::DrawSphere3D(sphere, { 0.0f, 0.5f, 0.0f, 1.0f }, Primitive3DStyle::MeshWireframe);
+		Gfx::DrawCylinder3D(cylinder, { 0.0f, 1.0f, 0.0f, 1.0f }, Primitive3DStyle::DebugLine);
+		Gfx::DrawCapsule3D({ 0.0f, -2.0f, 5.0f }, { 0.0f,  0.0f, 5.0f }, 0.5f, { 0.2f, 1.0f, 0.3f }, Primitive3DStyle::Fill);
+		Gfx::DrawPlane3D(plane, { 0.0f, 0.3f, 0.4f }, Primitive3DStyle::Fill);
 		//Gfx::DrawLine3D({ 2.0f, 1.0f, 6.0f }, {-1.0f, -3.0f, 6.0f});
 		// Gfx::DrawGrid3D({ 0.0f, -1.0f, 5.0f }, Quaternion::FromEuler(-45.0f * Math::DEG_TO_RAD, 0.0f, 0.0f), 10, 1.0f, {0.4f, 0.4f, 0.4f, 1.0f});
 		 Gfx::DrawWorldAxisGrid3D({ 0.0f, -1.0f, 5.0f }, 10, 1.0f,{1.0f, 1.0f, 1.0f, 1.0}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f});

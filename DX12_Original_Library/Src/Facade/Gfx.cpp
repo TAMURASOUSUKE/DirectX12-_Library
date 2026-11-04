@@ -51,7 +51,7 @@ namespace {
 	ModelRenderSystem modelRenderSystem{}; // モデルを描画するためのシステム
 	TerrainSystem terrainSystem{}; // テライン描画を行うためのシステム
 	ShadowSystem shadowSystem{}; // 平行光源ShadowMapを管理
-	Gfx::BitmapFont defaultFont; // デフォルト用の文字列
+	BitmapFont defaultFont; // デフォルト用の文字列
 	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
 	MaterialHandle currentPostEffectMaterial{}; // 現在画面全体へ適用しているポストエフェクトmaterial(無効ハンドルなら内蔵の素通しPSOを使う)
 	DirectionalShadowSettings shadowSettings{}; // 最初は固定範囲でShadow Mappingを検証する
@@ -166,7 +166,7 @@ namespace {
 		}
 
 		// 指定したアトラスのセル番号からUV範囲を計算する
-		bool TryCalculateAtlasUV(const Gfx::TextureAtlas& _atlas, int _frameIndex, Vector2& _outUVMin, Vector2& _outUVMax)
+		bool TryCalculateAtlasUV(const TextureAtlas& _atlas, int _frameIndex, Vector2& _outUVMin, Vector2& _outUVMax)
 		{
 			// 失敗時に以前の結果が残らないように初期化
 			_outUVMax = Vector2::Zero;
@@ -202,22 +202,22 @@ namespace {
 		}
 
 		// UV計算をおこない指定フラグから画像を反転させるなどする
-		void ApplySpriteFlip(Gfx::SpriteFlip _flip, Vector2& _uvMin, Vector2& _uvMax)
+		void ApplySpriteFlip(SpriteFlip _flip, Vector2& _uvMin, Vector2& _uvMax)
 		{
 			switch (_flip)
 			{
-			case Gfx::SpriteFlip::None:
+			case SpriteFlip::None:
 				// そのまま反転なし
 				break;
-			case Gfx::SpriteFlip::Horizontal:
+			case SpriteFlip::Horizontal:
 				// 水平反転
 				std::swap(_uvMin.x, _uvMax.x);
 				break;
-			case Gfx::SpriteFlip::Vertical:
+			case SpriteFlip::Vertical:
 				// 垂直反転
 				std::swap(_uvMin.y, _uvMax.y);
 				break;
-			case Gfx::SpriteFlip::Both:
+			case SpriteFlip::Both:
 				// 両方
 				std::swap(_uvMin.x, _uvMax.x);
 				std::swap(_uvMin.y, _uvMax.y);
@@ -228,15 +228,15 @@ namespace {
 		}
 
 		// 3D基礎図形の描画方法を内部の型に変換するヘルパー
-		Primitive3DDrawMode ConvertPrimitive3DStyle(Gfx::Primitive3DStyle _style)
+		Primitive3DDrawMode ConvertPrimitive3DStyle(Primitive3DStyle _style)
 		{
 			switch (_style)
 			{
-			case Gfx::Primitive3DStyle::Fill:
+			case Primitive3DStyle::Fill:
 				return Primitive3DDrawMode::Fill;
-			case Gfx::Primitive3DStyle::MeshWireframe:
+			case Primitive3DStyle::MeshWireframe:
 				return Primitive3DDrawMode::MeshWireframe;
-			case Gfx::Primitive3DStyle::DebugLine:
+			case Primitive3DStyle::DebugLine:
 				return Primitive3DDrawMode::DebugLine;
 			default:
 				return Primitive3DDrawMode::Fill;
@@ -724,6 +724,7 @@ void GfxInternal::EndFrame()
 			// RootSignatureの0番へシーンRTのSRVを渡す
 			cmd->SetGraphicsRootDescriptorTable(0, sceneRT->srvHandle.gpu);
 			constexpr UINT POSTEFFECT_MATERIAL_ROOT_PARAM_BASE{ 1 }; // RootParamの0はシーンRTのため1から始まるようにする
+			constexpr UINT POSTEFFECT_MATERIAL_TEXTURE_ROOT_PARAM_BASE{ 5 }; // ユーザー作成のカスタムテクスチャ開始番号
 			D3D12_GPU_VIRTUAL_ADDRESS zeroParameterAddress{ zeroMaterialParameterBuffer.resource->GetGPUVirtualAddress() }; // 全ての未設定スロットで共有するGPUアドレス
 
 			// GPUへの送信
@@ -755,6 +756,16 @@ void GfxInternal::EndFrame()
 				// Slot0ならRootParam[1]へ設定してHLSL側でb4
 				// Slot1ならRootParam[2]へ設定してHLSL側でb5
 				cmd->SetGraphicsRootConstantBufferView(POSTEFFECT_MATERIAL_ROOT_PARAM_BASE + static_cast<UINT>(i), parameterAddress);
+			}
+
+			if (activePostEffectMaterial)
+			{
+				for (std::size_t i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+				{
+					// 必要なDescriptorHandleを出す(空ならnullSRV)
+					D3D12_GPU_DESCRIPTOR_HANDLE texture{ GraphicsResourceManager::Instance().ResolveMaterialTextureSRV(activePostEffectMaterial->textureSlots[i]) };
+					cmd->SetGraphicsRootDescriptorTable(POSTEFFECT_MATERIAL_TEXTURE_ROOT_PARAM_BASE + i, texture);
+				}
 			}
 
 			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -963,7 +974,7 @@ TexHandle Gfx::LoadTexture(const char* _filePath, TextureUsage _usage)
 	return GraphicsResourceManager::Instance().LoadTexture(_filePath, isData);
 }
 
-Gfx::TextureAtlas Gfx::LoadTextureAtlas(const char* _filePath, int _columns, int _rows, int _frameCount)
+TextureAtlas Gfx::LoadTextureAtlas(const char* _filePath, int _columns, int _rows, int _frameCount)
 {
 	if (!_filePath || _filePath[0] == '\0')
 	{
@@ -1282,6 +1293,7 @@ void Gfx::DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelS
 {
 	ID3D12PipelineState* usePipeline{ shaderSystem.GetPipeline(PipelineID::Sprite) }; // 最初は内蔵SpritePSO
 	const MaterialParameterSet* useParameters{ nullptr }; // 内蔵Spriteならnull
+	const MaterialTextureSet* useTextures{ nullptr }; // 追加Textureがないならnull
 	// 外部materialが指定されている場合
 	if (_material.IsValid())
 	{
@@ -1304,7 +1316,10 @@ void Gfx::DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelS
 			usePipeline = material->pipelineState.Get();
 			// RegisterSprite内で値をコピーするためフレーム中は保持しない
 			useParameters = &material->parameters;
+			useTextures = &material->textureSlots;
 		}
+
+
 	}
 
 	// この関数の引数が値渡しなのでここでFlip関数内で入れ替えても呼び出し元の値には影響がない
@@ -1313,10 +1328,10 @@ void Gfx::DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelS
 	switch (_layer)
 	{
 	case RenderLayer::BackGround:
-		bgBatch.RegisterSprite(_texture, usePipeline, useParameters, _position, _pixelSize, _radRotation, _color, _uvMin, _uvMax);
+		bgBatch.RegisterSprite(_texture, usePipeline, useParameters, useTextures, _position, _pixelSize, _radRotation, _color, _uvMin, _uvMax);
 		break;
 	case RenderLayer::ForeGround:
-		fgBatch.RegisterSprite(_texture, usePipeline, useParameters, _position, _pixelSize, _radRotation, _color, _uvMin, _uvMax);
+		fgBatch.RegisterSprite(_texture, usePipeline, useParameters, useTextures,_position, _pixelSize, _radRotation, _color, _uvMin, _uvMax);
 		break;
 	default:
 		break;
@@ -1342,10 +1357,7 @@ bool Gfx::UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _st
 		return false;
 	}
 
-	if (_deltaTime <= 0.0f || _state.isFinished)
-	{
-		return true;
-	}
+	if (_deltaTime <= 0.0f || _state.isFinished) return true;
 
 	_state.elapsedTime += _deltaTime;
 
@@ -1356,10 +1368,7 @@ bool Gfx::UpdateSpriteAnim(const TextureAtlas& _atlas, SpriteAnimationState& _st
 		_state.currentFrame++;
 
 		// まだ範囲内なら次のコマへ
-		if (_state.currentFrame <= _state.lastFrame)
-		{
-			continue; // コマを切り替えたら飛ばす
-		}
+		if (_state.currentFrame <= _state.lastFrame) continue; // コマを切り替えたら飛ばす
 
 		if (_state.isLoop)
 		{
@@ -1625,9 +1634,16 @@ void Gfx::Unload(ShaderHandle _handle)
 
 void Gfx::Unload(MaterialHandle _handle)
 {
-	if (currentPostEffectMaterial == _handle)
-	{
-		currentPostEffectMaterial = {};
-	}
+	if (currentPostEffectMaterial == _handle) currentPostEffectMaterial = {};
 	GraphicsResourceManager::Instance().Unload(_handle);
+}
+
+bool Gfx::SetMaterialTexture(MaterialHandle _material, std::size_t _slot, TexHandle _texture)
+{
+	return GraphicsResourceManager::Instance().SetMaterialTexture(_material, _slot, _texture);
+}
+
+bool Gfx::SetMaterialTexture(MaterialHandle _material, TexHandle _texture)
+{
+	return SetMaterialTexture(_material, 0, _texture);
 }
