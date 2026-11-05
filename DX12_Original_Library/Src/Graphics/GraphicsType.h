@@ -100,6 +100,7 @@ enum class BlendMode
 {
 	Opaque, // 不透明
 	Alpha,  // 透明度計算含み
+	Additive, // 加算合成
 	Count,
 };
 
@@ -349,7 +350,14 @@ enum class MaterialAlphaMode : std::uint32_t
 	Opaque = 0,
 	Mask = 1,
 	Blend = 2,
+	Additive = 3,
 };
+// Modeが半透明かのヘルパー
+inline bool IsTranslucent(MaterialAlphaMode _alphaMode)
+{
+	if (_alphaMode == MaterialAlphaMode::Blend || _alphaMode == MaterialAlphaMode::Additive) return true;
+	return  false;
+}
 
 // material内部のテクスチャ情報等を持つ
 struct PBRMaterialData

@@ -13,6 +13,12 @@ struct alignas(16) ThreeToneParameter
 	float shadowMapThreshold{ 0.50f }; // 影かどうかの判別
 	float padding{ 0.0f };
 };
+
+struct alignas(16) VfxBlendTestParameterCB
+{
+	Vector4 tint{ 1.0f, 1.0f, 1.0f, 1.0f };
+};
+
 static_assert(sizeof(ThreeToneParameter) % 16 == 0, "ThreeToneParameter must be 16-byte aligned");
 
 // エントリーポイント
@@ -137,6 +143,28 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	const DebugBoxCommand debugBox{ frameChannel, { -1.0f, 1.0f, 8.0f }, { 0.75f, 1.0f, 0.5f }, Quaternion::FromAxisAngle(Vector3::Up, 30.0f * Math::DEG_TO_RAD), { 0.2f, 1.0f, 0.2f, 1.0f } };
 	const DebugSphereCommand debugSphere{ frameChannel, { 2.0f, 1.0f, 8.0f }, 1.0f, { 0.2f, 0.5f, 1.0f, 1.0f } };
 	const DebugCapsuleCommand debugCapsule{ frameChannel, { 4.0f, 0.0f, 8.0f }, { 4.0f, 2.0f, 8.0f }, 0.5f, { 1.0f, 1.0f, 0.2f, 1.0f } };
+
+	// VFX02テスト
+	ShaderHandle vfx02Shader{ Gfx::LoadShader(L"VfxBlendTestPS.hlsl", ShaderUsage::Model, ShaderStage::Pixel) };
+	MaterialRenderDesc blendDesc{};
+	blendDesc.blendMode = MaterialBlendMode::Blend;
+	blendDesc.doubleSided = false;
+	MaterialRenderDesc AdditiveDesc{};
+	AdditiveDesc.blendMode = MaterialBlendMode::Additive;
+	AdditiveDesc.doubleSided = false;
+	MaterialRenderDesc blendDoubleSidedDesc{};
+	blendDoubleSidedDesc.blendMode = MaterialBlendMode::Blend;
+	blendDoubleSidedDesc.doubleSided = true;
+	MaterialHandle blendHandle{ Gfx::CreateMaterial(vfx02Shader, blendDesc) };
+	MaterialHandle additiveHandle{ Gfx::CreateMaterial(vfx02Shader, AdditiveDesc) };
+	MaterialHandle blendDoubleSidedHandle{ Gfx::CreateMaterial(vfx02Shader, blendDoubleSidedDesc) };
+	MaterialHandle testMaterials[3]{ blendHandle, additiveHandle, blendDoubleSidedHandle };
+	Transform testPlayerVfx02Transform{};
+	const Vector3 testVfx02Pos{ 0.0f, 40.0f, 0.0f };
+	testPlayerVfx02Transform.SetPosition(testVfx02Pos);
+	Gfx::SetMaterialParameter(blendHandle, VfxBlendTestParameterCB{ {1.0f, 0.0f, 0.0f, 0.5f} });
+	Gfx::SetMaterialParameter(additiveHandle, VfxBlendTestParameterCB{ {0.0f, 1.0f, 0.0f, 0.5f} });
+	Gfx::SetMaterialParameter(blendDoubleSidedHandle, VfxBlendTestParameterCB{ {0.0f, 0.0f, 1.0f, 0.5f} });
 
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC) && !Input::IsPadPushed(PadCode::Button::BACK))
@@ -295,18 +323,25 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		 //Gfx::DrawAABB3D(playerAABB,hitColor);
 		 //Gfx::DrawAABB3D(debugCube,{ 0.0f, 0.0f, 1.0f, 1.0f });
 
-		float scale{ 10.0f };
-		for (int x = 0; x < 10; x++)
-		{
-			for (int z = 0; z < 10; z++)
-			{
-				Gfx::DrawTerrain({ -15.0f + (x * scale), -4.0f, 3.0f + (z * scale)}, scale, tessFactor, heightFactor, {1.0f, 0.0f, 0.0f, 1.0f}, heightMap);
-			}
-		}
+		//float scale{ 10.0f };
+		//for (int x = 0; x < 10; x++)
+		//{
+		//	for (int z = 0; z < 10; z++)
+		//	{
+		//		Gfx::DrawTerrain({ -15.0f + (x * scale), -4.0f, 3.0f + (z * scale)}, scale, tessFactor, heightFactor, {1.0f, 0.0f, 0.0f, 1.0f}, heightMap);
+		//	}
+		//}
 
 		// LOD描画
 		Gfx::DrawLODModel(levels, lodFieldState,lodFieldPosition, LOD_HYSTERESIS_DISTANCE);
 		Gfx::DrawAxis3D(lodFieldPosition.GetPosition(), lodFieldPosition.GetRotation(), 10.0f);
+
+		// VFXTest
+		for (std::size_t i = 0; i < 3; i++)
+		{
+			testPlayerVfx02Transform.SetPosition(testVfx02Pos + Vector3{ 2.0f * i, 0.0f, 0.0f });
+			Gfx::DrawAnimatedModel(toonModelAnim, testPlayerVfx02Transform, testMaterials[i]);
+		}
 
 		//Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });
 		//Gfx::DrawString(targetFPS.c_str(), { 0.0f, 30.0f });

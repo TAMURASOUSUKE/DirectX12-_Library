@@ -1935,7 +1935,7 @@ ShaderHandle GraphicsResourceManager::RegisterShader(ShaderUsage _usage, ShaderS
 	return ShaderHandle{ PassKey{}, packed };
 }
 
-MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, ComPtr<ID3D12PipelineState> _pipelineState)
+MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, ComPtr<ID3D12PipelineState> _pipelineState, const MaterialRenderState& _renderState)
 {
 	ShaderData* shaderData{ Lookup(_shader) };
 	if (!shaderData)
@@ -1962,6 +1962,7 @@ MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, C
 	data.pipelineSource = MaterialPipelineSource::Custom; // この時点でpipelineStateが非nullであるのでSourceがCustom,Stateがnullは起こらない
 	data.usage = shaderData->usage;
 	data.pipelineState = std::move(_pipelineState);
+	data.renderState = _renderState; // 台帳に記録
 	int index{};
 	if (!materialFreeList.empty())
 	{

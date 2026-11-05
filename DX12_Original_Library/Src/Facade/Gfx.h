@@ -47,9 +47,9 @@ namespace Gfx
 	// Shader読み込み
 	ShaderHandle LoadShader(const wchar_t* _filePath, ShaderUsage _usage, ShaderStage _stage);
 	// material読み込み(内蔵VSを使う簡易版)
-	MaterialHandle CreateMaterial(ShaderHandle _pixel);
+	MaterialHandle CreateMaterial(ShaderHandle _pixel, const MaterialRenderDesc& _materialRenderDesc = {});
 	// material読み込み(VSも指定する版)
-	MaterialHandle CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader);
+	MaterialHandle CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader, const MaterialRenderDesc& _materialRenderDesc = {});
 	// モデルをもとにアニメーション個体の作成
 	AnimInstanceHandle CreateAnimInstance(ModelHandle _handle);
 

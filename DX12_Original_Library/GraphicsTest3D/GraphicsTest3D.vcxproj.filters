@@ -15,5 +15,8 @@
     <FxCompile Include="ThreeToneModelPS.hlsl">
       <Filter>ソース ファイル</Filter>
     </FxCompile>
+    <FxCompile Include="VfxBlendTestPS.hlsl">
+      <Filter>ソース ファイル</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

@@ -346,7 +346,7 @@ bool ShaderSystem::RegisterBuiltinPipeline(const GraphicsPipelineDesc& _desc)
 	return true;
 }
 
-ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _usage, ID3DBlob* _vertexShader, ID3DBlob* _pixelShader)
+ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _usage, ID3DBlob* _vertexShader, ID3DBlob* _pixelShader, const MaterialRenderState& _renderState)
 {
 	if (!device)
 	{
@@ -363,6 +363,35 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _us
 	// 頂点シェーダーが入力されいていない場合は内蔵のものを使う
 	BuiltinShaderID defaultVertexShader{ BuiltinShaderID::None };
 	GraphicsPipelineDesc desc{};
+	// 指定されたAlphaModeからBlendとDepthを設定する(Spriteは深度を持たせないので引数で指定)
+	const auto choosBlendAndDepth
+	{
+		[&desc, &_renderState](bool _isSprite)
+		{
+			// Spriteの状態ではdepthの設定は必要ないので省略する
+			desc.depth = DepthParam::None; // 最初にNoneにしておく
+			switch (_renderState.alphaMode)
+			{
+			case MaterialAlphaMode::Opaque:
+			case MaterialAlphaMode::Mask:
+				desc.blend = BlendMode::Opaque;
+				if(!_isSprite) desc.depth = DepthParam::ReadWrite;
+				break;
+			case MaterialAlphaMode::Blend:
+				desc.blend = BlendMode::Alpha;
+				if (!_isSprite) desc.depth = DepthParam::ReadOnly;
+				break;
+			case MaterialAlphaMode::Additive:
+				desc.blend = BlendMode::Additive;
+				if (!_isSprite) desc.depth = DepthParam::ReadOnly;
+				break;
+				default:
+					DEBUG_LOG_ERROR("不正な状態が渡されました\n");
+					return false;
+			}
+			return true;
+		}
+	};
 
 	switch (_usage)
 	{
@@ -391,21 +420,19 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _us
 		// 動的なMaterialなので固定PipelineIDは使用しない
 		desc.pipelineID = PipelineID::Count;
 		desc.layout = InputLayout::Sprite;
-		desc.blend = BlendMode::Alpha;
-		desc.depth = DepthParam::None;
 		desc.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 		desc.fillMode = D3D12_FILL_MODE_SOLID;
+		if (!choosBlendAndDepth(true)) return nullptr; // Spriteなのでblendだけ設定
 		break;
 	case ShaderUsage::Model:
 		defaultVertexShader = BuiltinShaderID::ModelVS;
 		desc.rootSignatureID = RootSigID::Model;
 		desc.pipelineID = PipelineID::Count;
 		desc.layout = InputLayout::Model;
-		desc.blend = BlendMode::Opaque; // 現状一旦不透明
-		desc.depth = DepthParam::ReadWrite; // 書き込みと読みが可能
 		desc.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 		desc.fillMode = D3D12_FILL_MODE_SOLID; // 一旦塗りつぶし
-		desc.cullMode = D3D12_CULL_MODE_BACK; // 一旦背面固定
+		desc.cullMode = _renderState.doubleSided ? D3D12_CULL_MODE_NONE : D3D12_CULL_MODE_BACK; // 設定されていれば両面そうでなければ背面カリング
+		if (!choosBlendAndDepth(false)) return nullptr; // blendとdepthを条件によって設定する
 		break;
 	default:
 		DEBUG_LOG_ERROR("不明なShaderUsageです\n");
