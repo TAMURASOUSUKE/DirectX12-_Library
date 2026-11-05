@@ -18,5 +18,5 @@ struct ModelDrawPacket
 	PipelineID pipelineID{ PipelineID::Count }; // OpaqueかBlendか片面か両面かの組み合わせを事前に決定する
 	float sortDepth{ 0.0f }; // 半透明、LOD、距離カリングで使うカメラ距離
 	PreparedModelDrawData preparedData{}; // 共有するアドレス
-	MaterialHandle effectiveMaterial{}; // 最終的に適用されるmaterial
+	const MaterialData* material{}; // 最終的に適用されるmaterialのデータ BuildDrawPacketsとFlush群はEndFrame内で連続で実行されるがその間データは変わらないので const Data*で保持する
 };

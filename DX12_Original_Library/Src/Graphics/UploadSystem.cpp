@@ -978,7 +978,7 @@ UploadResult  UploadSystem::CreateUploadPage(UINT64 _minimumSize, std::size_t& _
 		// 使われていないものを解放した状態でもう一度容量ないか確かめる
 		if (!isWithinCapacity())
 		{
-			DEBUG_LOG_ERROR("転送用メモリの確保上限を超えます\n"); // それでもだめなら超える
+			DEBUG_LOG_WARNING("転送用メモリの確保上限を超えます\n"); // それでもだめなら超える
 			return UploadResult::OverBudget;
 		}
 	}

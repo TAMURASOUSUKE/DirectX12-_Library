@@ -10,7 +10,7 @@ namespace
 	// 渡されたmaterialからパイプラインIDを返すヘルパー
 	PipelineID SelectModelPipeline(const Material& _material)
 	{
-		const bool isBlend{ _material.alphaMode == MaterialAlphaMode::Blend };
+		const bool isBlend{ IsTranslucent(_material.alphaMode) };
 		// Blendなら両面か判断して返す
 		if (isBlend) return _material.doubleSided ? PipelineID::ModelBlendDoubleSided : PipelineID::ModelBlend;
 		// Blendでは無い場合も同様に両面か判断する
@@ -267,14 +267,41 @@ bool ModelRenderSystem::AppendDrawPackets(const ModelData& _model, const AnimIns
 	for (const SubMesh& subMesh : _model.subMeshes)
 	{
 		MaterialHandle resultMateral{}; // ユーザーが定義したmaterialを使う場合は中身が入り、そうでないなら空のまま渡される
-
+		MaterialData* materialData{ nullptr };
 		if (_drawMaterialOverride.IsValid()) resultMateral = _drawMaterialOverride; // ユーザー定義かつこの描画だけに適用する
 		else if (subMesh.materialOverride.IsValid()) resultMateral = subMesh.materialOverride; // ユーザー定義かつSetMaterial関数によって全体に適用されるmaterial
 
-		ModelDrawPacket packet{ &subMesh, SelectModelPipeline(subMesh.material), sortDepth, preparedData, resultMateral }; // GPUへ送る描画単位の作成
+		// ここでDataに分解して検証する 内蔵なら空なので100%失敗するのでカスタムだった場合の検証とlookupは有効性を確認してから行う
+		if (resultMateral.IsValid())
+		{
+			materialData = GraphicsResourceManager::Instance().Lookup(resultMateral);
+			// 失敗したら内蔵に戻すのでログだけ
+			if (!materialData)
+			{
+				DEBUG_LOG_ERROR("SubMesh内のLookup処理に失敗しました\n");
+			}
+			else if (!materialData->pipelineState)
+			{
+				DEBUG_LOG_ERROR("SubMesh内のPSOが不正です\n");
+				materialData = nullptr;
+			}
+			else if (materialData->usage != ShaderUsage::Model)
+			{
+				DEBUG_LOG_ERROR("SubMeshのmaterialに不正なUsageが付与されています\n");
+				materialData = nullptr;
+			}
+			else if (materialData->pipelineSource != MaterialPipelineSource::Custom)
+			{
+				DEBUG_LOG_ERROR("SubMeshのMaterialのPipelineSourceが不正です\n");
+				materialData = nullptr;
+			}
+		}
 
-		// alphaModeで比較してvectorへのpushを選択する
-		if (subMesh.material.alphaMode == MaterialAlphaMode::Blend) blendModels.push_back(packet);
+		ModelDrawPacket packet{ &subMesh, SelectModelPipeline(subMesh.material), sortDepth, preparedData, materialData }; // GPUへ送る描画単位の作成
+
+		// ユーザーmaterialのalphaで比較して無ければglTF側のmaterialで比較してvectorへのpushを選択する
+		const MaterialAlphaMode alphaMode{ materialData ? materialData->renderState.alphaMode : subMesh.material.alphaMode }; // ユーザのmaterial->glTFmaterial
+		if (IsTranslucent(alphaMode)) blendModels.push_back(packet);
 		else opaqueModels.push_back(packet);
 	}
 	return true;

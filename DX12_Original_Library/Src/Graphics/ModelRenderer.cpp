@@ -181,31 +181,15 @@ bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet, GraphicsPass _pa
 	// とりあえず最初は内蔵PSOを選択しておく
 	ID3D12PipelineState* const  defaultPipeline{ shaderSystem->GetPipeline(_packet.pipelineID) }; // デフォルトのPSOキャッシュ(ポインタそのもの書き換え禁止)
 	ID3D12PipelineState* pipeline{	defaultPipeline };
-	MaterialData* activeMaterial{ nullptr }; // 有効なマテリアル
+	const MaterialData* activeMaterial{ nullptr }; // 有効なマテリアル
 	// ユーザーが適用したmaterialが有効か
-	if (_packet.effectiveMaterial.IsValid()) 
+	if (_packet.material) 
 	{
-		MaterialData* customMateiral{ GraphicsResourceManager::Instance().Lookup(_packet.effectiveMaterial) };
-		if (!customMateiral)
-		{
-			DEBUG_LOG_ERROR("カスタムされたMaterialのlookupに失敗しました\n");
-			pipeline = defaultPipeline; // 失敗した場合は内蔵へ
-		}
-		else
-		{
-			// usageが正しくモデルか、ソースは正しいか、pipelineStateは生きているかチェックする
-			if (customMateiral->usage == ShaderUsage::Model && customMateiral->pipelineSource == MaterialPipelineSource::Custom && customMateiral->pipelineState)
-			{
-				pipeline = customMateiral->pipelineState.Get(); // カスタムしたPSOを持ってくる
-				activeMaterial = customMateiral;
-			}
-			else
-			{
-				DEBUG_LOG_ERROR("カスタムされたMaterialのUsageが不正です\n");
-				pipeline = defaultPipeline;
-			}
-		}
+		pipeline = _packet.material->pipelineState.Get(); // カスタムしたPSOを持ってくる
+		activeMaterial = _packet.material;
 	}
+
+
 	if (!pipeline)
 	{
 		DEBUG_LOG_ERROR("モデル用Pipelineの取得に失敗しました\n");

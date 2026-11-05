@@ -23,7 +23,7 @@ public:
 	bool RegisterBuiltinPipeline(const GraphicsPipelineDesc& _desc);
 
 	// Material用のPSOを作成する作成したPSOは固定Pipeline台帳には登録せず呼び出し元へ返す(VSがない場合は内蔵を指定する必要があるほか、usageによってrootsigを台帳から引くためSystem内に置く)
-	ComPtr<ID3D12PipelineState> CreateMaterialPipeline(ShaderUsage _usage, ID3DBlob* _vertexShader, ID3DBlob* _pixelShader);
+	ComPtr<ID3D12PipelineState> CreateMaterialPipeline(ShaderUsage _usage, ID3DBlob* _vertexShader, ID3DBlob* _pixelShader, const MaterialRenderState& _renderState);
 
 	// 汎用RootSignatureDescを作成する関数
 	std::vector<RootSignatureDesc> MakeRootSignatureDescs() const;

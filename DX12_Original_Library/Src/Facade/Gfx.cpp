@@ -1094,13 +1094,13 @@ ShaderHandle Gfx::LoadShader(const wchar_t* _filePath, ShaderUsage _usage, Shade
 	return GraphicsResourceManager::Instance().RegisterShader(_usage, _stage, std::move(shaderBlob));
 }
 
-MaterialHandle Gfx::CreateMaterial(ShaderHandle _pixelShader)
+MaterialHandle Gfx::CreateMaterial(ShaderHandle _pixelShader, const MaterialRenderDesc& _materialRenderDesc)
 {
 	// 内蔵VSを使うのでvertexは空を渡す
-	return CreateMaterial(ShaderHandle{}, _pixelShader);
+	return CreateMaterial(ShaderHandle{}, _pixelShader, _materialRenderDesc);
 }
 
-MaterialHandle Gfx::CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader)
+MaterialHandle Gfx::CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader, const MaterialRenderDesc& _materialRenderDesc)
 {
 	GraphicsResourceManager& resourceManager{ GraphicsResourceManager::Instance() };
 	ShaderData* pixelData{ resourceManager.Lookup(_pixelShader) };
@@ -1114,6 +1114,28 @@ MaterialHandle Gfx::CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pix
 		DEBUG_LOG_ERROR("PixelShaderの場所にPixel以外のshaderが渡されました\n");
 		return MaterialHandle{};
 	}
+
+	// 公開型と内部型で対応させる
+	MaterialRenderState renderState{};
+	switch (_materialRenderDesc.blendMode)
+	{
+	case MaterialBlendMode::Opaque:
+		renderState.alphaMode = MaterialAlphaMode::Opaque;
+		break;
+	case MaterialBlendMode::Mask:
+		renderState.alphaMode = MaterialAlphaMode::Mask;
+		break;
+	case MaterialBlendMode::Blend:
+		renderState.alphaMode = MaterialAlphaMode::Blend;
+		break;
+	case MaterialBlendMode::Additive:
+		renderState.alphaMode = MaterialAlphaMode::Additive;
+		break;
+	default:
+		DEBUG_LOG_ERROR("不正なBlendModeが渡されました BlendMode : {}\n", static_cast<std::size_t>(_materialRenderDesc.blendMode));
+		return MaterialHandle{};
+	}
+	renderState.doubleSided = _materialRenderDesc.doubleSided;
 
 	ID3DBlob* vertexBlob{ nullptr };
 	// VertexShaderが指定されている場合
@@ -1138,14 +1160,14 @@ MaterialHandle Gfx::CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pix
 		vertexBlob = vertexData->blob.Get();
 	}
 
-	ComPtr<ID3D12PipelineState> pipeline{ shaderSystem.CreateMaterialPipeline(pixelData->usage, vertexBlob, pixelData->blob.Get()) };
+	ComPtr<ID3D12PipelineState> pipeline{ shaderSystem.CreateMaterialPipeline(pixelData->usage, vertexBlob, pixelData->blob.Get(), renderState) };
 	if (!pipeline)
 	{
 		DEBUG_LOG_ERROR("Material用PSOの作成に失敗しました\n");
 		return MaterialHandle{};
 	}
 
-	return resourceManager.RegisterMaterial(_pixelShader, std::move(pipeline));
+	return resourceManager.RegisterMaterial(_pixelShader, std::move(pipeline), renderState);
 }
 
 AnimInstanceHandle Gfx::CreateAnimInstance(ModelHandle _handle)

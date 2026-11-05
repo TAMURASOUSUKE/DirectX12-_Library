@@ -99,7 +99,7 @@ public:
 	ShaderHandle RegisterShader(ShaderUsage _usage, ShaderStage _stage ,ComPtr<ID3DBlob> _shaderBlob);
 
 	// 作成済みPSOをMaterial台帳へ登録する(RegisterMaterialは外部Shaderから生成したPSOを登録するカスタム関数として登録)
-	MaterialHandle RegisterMaterial(ShaderHandle _shader, ComPtr<ID3D12PipelineState> _pipelineState);
+	MaterialHandle RegisterMaterial(ShaderHandle _shader, ComPtr<ID3D12PipelineState> _pipelineState, const MaterialRenderState& _renderState);
 
 	// Materialへユーザーパラメータのバイト列を保存する
 	bool SetMaterialParameter(MaterialHandle _handle, std::size_t _slot, const void* _data, std::size_t _dataSize);

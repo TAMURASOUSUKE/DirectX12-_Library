@@ -24,12 +24,21 @@ enum class RenderLayer
 	ForeGround, // 3D描画より手前
 };
 
-// モデルマテリアルの透明表現
+// モデルのglTFマテリアルの透明表現
 enum class ModelAlphaMode
 {
 	Opaque, // 完全不透明
 	Mask, // AlphaCutoffを基準に描画するか完全破棄する
 	Blend, // 背景色とAlphaで混ぜる
+};
+
+// ユーザーが作るMaterialのPSOを組む時の設定
+enum class MaterialBlendMode
+{
+	Opaque, // 不透明
+	Mask, // 閾値以下は破棄
+	Blend, // 背景とAlphaで混ぜる
+	Additive, // 加算合成を行う
 };
 
 // シェーダーを適用する描画用途
@@ -224,4 +233,11 @@ struct ComputeDispatchDesc
 	std::uint32_t groupCountX{ 1 };
 	std::uint32_t groupCountY{ 1 };
 	std::uint32_t groupCountZ{ 1 };
+};
+
+// PSO作成時に使われるMaterialの設定
+struct MaterialRenderDesc
+{
+	MaterialBlendMode blendMode{ MaterialBlendMode::Opaque }; // 色をどう混ぜ合わせるか
+	bool doubleSided{ false }; // 両面を描画するか
 };

@@ -184,6 +184,7 @@ namespace
 		const D3D12_INPUT_ELEMENT_DESC* elements;
 		UINT count;
 	};
+
 	// enumと同じ順に並べたlayout
 	constexpr LayoutEntry LAYOUT_TABLE[]{
 		// None
@@ -204,8 +205,8 @@ namespace
 	// 不透明
 	constexpr D3D12_RENDER_TARGET_BLEND_DESC BLEND_OPAQUE
 	{
-		false, // Enable
-		false, // LogicOpEnable
+		FALSE, // Enable
+		FALSE, // LogicOpEnable
 		D3D12_BLEND_ONE, // SrcBlend
 		D3D12_BLEND_ZERO, // DestBlend
 		D3D12_BLEND_OP_ADD, // BlendOp
@@ -231,8 +232,23 @@ namespace
 		static_cast<UINT8>(D3D12_COLOR_WRITE_ENABLE_ALL)
 	};
 
+	// 加算
+	constexpr D3D12_RENDER_TARGET_BLEND_DESC BLEND_ADDITIVE
+	{
+		TRUE, // BlendEnable
+		FALSE, // LogicOpEnable
+		D3D12_BLEND_SRC_ALPHA, // SrcBlend
+		D3D12_BLEND_ONE,  // DestBlend
+		D3D12_BLEND_OP_ADD, // BlendOp
+		D3D12_BLEND_ONE,  // SrcBlendAlpha
+		D3D12_BLEND_ONE, // DestBlendAlpha
+		D3D12_BLEND_OP_ADD, // BlendOpAlpha
+		D3D12_LOGIC_OP_NOOP, // LogicOp
+		static_cast<UINT8>(D3D12_COLOR_WRITE_ENABLE_ALL)
+	};
+
 	// BlendModeをenumと同期させる
-	constexpr D3D12_RENDER_TARGET_BLEND_DESC BLEND_TABLE[]{ BLEND_OPAQUE, BLEND_ALPHA };
+	constexpr D3D12_RENDER_TARGET_BLEND_DESC BLEND_TABLE[]{ BLEND_OPAQUE, BLEND_ALPHA, BLEND_ADDITIVE };
 	static_assert(_countof(BLEND_TABLE) == static_cast<size_t>(BlendMode::Count), "BlendModeのID数と実値の総数が合いません\n");
 
 	// ステンシルを使わない場合の共通設定
@@ -242,7 +258,6 @@ namespace
 		D3D12_STENCIL_OP_KEEP, //StencilDepthFailOp = stencilテストに成功したが深度テストに失敗したとき
 		D3D12_STENCIL_OP_KEEP, //StencilPassOp = stencilテスト、深度テストに成功したとき
 		D3D12_COMPARISON_FUNC_ALWAYS, //StencilFunc = stencil比較関数
-
 	};
 
 	// 深度なし
