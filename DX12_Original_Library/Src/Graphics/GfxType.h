@@ -2,6 +2,9 @@
 #include <cstddef>
 #include <array>
 #include <cstdint>
+#include "../Math/Vector/Vector2.h"
+#include "../Math/Vector/Vector3.h"
+#include "../Math/Vector/Vector4.h"
 #include "../Core/Handle/GPUBufferHandle.h"
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ComputePipelineHandle.h"
@@ -48,6 +51,7 @@ enum class ShaderUsage
 	Sprite, 
 	Model, 
 	Compute,
+	VFX,
 };
 
 // シェーダーステージの種類
@@ -162,6 +166,14 @@ enum class Primitive3DStyle
 	DebugLine, // あたり判定可視化などデバッグ途用として余計な線を描画しないワイヤー表示
 };
 
+// ビルボードの状態を表す列挙体
+enum class BuillboadMode
+{
+	None, // 向きはTransformに合わせる
+	FaceCamera, // 常にカメラ方向を向く
+	AxisY, // Y軸を固定して水平方向だけカメラを向く
+};
+
 // 1段階分のLOD設定
 struct ModelLODLevel
 {
@@ -241,3 +253,12 @@ struct MaterialRenderDesc
 	MaterialBlendMode blendMode{ MaterialBlendMode::Opaque }; // 色をどう混ぜ合わせるか
 	bool doubleSided{ false }; // 両面を描画するか
 };
+
+// VFXに使われる頂点の情報をまとめた型
+struct VFXVertex
+{
+	Vector3 position{ Vector3::Zero }; // 位置
+	Vector2 uv{ Vector2::Zero }; // UV
+	Vector4 color{ Vector4::One }; // 色
+};
+
