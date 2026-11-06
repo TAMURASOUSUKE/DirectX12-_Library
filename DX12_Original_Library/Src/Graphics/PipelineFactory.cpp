@@ -178,6 +178,40 @@ namespace
 		},
 	};
 
+	// VFX用の入力レイアウト
+	constexpr D3D12_INPUT_ELEMENT_DESC  VFX_MESH_LAYOUT[]
+	{
+		// position
+		{
+			"POSITION",
+			0,
+			DXGI_FORMAT_R32G32B32_FLOAT,
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		},
+		// UV
+		{
+			"TEXCOORD", // HLSL側のセマンティクス
+			0, // セマンティクス番号
+			DXGI_FORMAT_R32G32_FLOAT, // float2
+			0, // 入力スロット
+			D3D12_APPEND_ALIGNED_ELEMENT, // 頂点構造体のオフセット
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		},
+		// color
+		{
+			"COLOR",  // セマンティクス名
+			0,  // セマンティクス番号
+			DXGI_FORMAT_R32G32B32A32_FLOAT, // float4
+			0, // 入力スロット
+			D3D12_APPEND_ALIGNED_ELEMENT,   // 前の要素の直後に配置
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		},
+	};
 	// Layoutをenumと同期させる
 	struct LayoutEntry
 	{
@@ -198,7 +232,9 @@ namespace
 		// Shape
 		{SHAPE_LAYOUT, _countof(SHAPE_LAYOUT)},
 		// Primitive3D
-		{PRIMITIVE_3D_LAYOUT, _countof(PRIMITIVE_3D_LAYOUT)}
+		{PRIMITIVE_3D_LAYOUT, _countof(PRIMITIVE_3D_LAYOUT)},
+		// VFX
+		{VFX_MESH_LAYOUT, _countof(VFX_MESH_LAYOUT) }
 	};
 	static_assert(_countof(LAYOUT_TABLE) == static_cast<size_t>(InputLayout::Count), "InputLayoutのID数と実値の総数が合いません\n");
 
