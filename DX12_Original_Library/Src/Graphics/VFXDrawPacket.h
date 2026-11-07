@@ -3,9 +3,18 @@
 #include "../Core/Handle/MaterialHandle.h"
 #include "../Math/Vector/Vector3.h"
 
+// 命令の種類
+enum class VFXDrawKind
+{
+	Mesh,
+	Instance,
+};
+
 // VFXMeshSystemへ登録された描画単位(1メッシュ = Draw1回)
 struct VFXDrawPacket
 {
+	VFXDrawKind vfxDrawKind{ VFXDrawKind::Mesh }; // 描画命令の種類
+	UINT instanceCount{ 0 }; // 描画命令を出している数
 	UINT vertexStart{ 0 }; // 現在フレームの頂点領域の中での開始位置(頂点数単位)
 	UINT vertexCount{ 0 }; // TRIANGLESTRIPの頂点数(板なら4、帯なら点の数×2)
 	Vector3 sortPosition{ Vector3::Zero }; // 並べ替えの代表位置(頂点の重心)

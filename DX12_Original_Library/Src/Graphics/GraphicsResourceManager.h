@@ -102,10 +102,13 @@ public:
 	MaterialHandle RegisterMaterial(ShaderHandle _shader, ComPtr<ID3D12PipelineState> _pipelineState, const MaterialRenderState& _renderState);
 
 	// Materialへユーザーパラメータのバイト列を保存する
-	bool SetMaterialParameter(MaterialHandle _handle, std::size_t _slot, const void* _data, std::size_t _dataSize);
+	bool SetMaterialParameter(MaterialHandle _material, std::size_t _slot, const void* _data, std::size_t _dataSize);
 
 	// Materialへユーザーが持ってきたTextureを保存する
 	bool SetMaterialTexture(MaterialHandle _material, std::size_t _slot, TexHandle _texture);
+
+	// Materialへユーザーが持ってきたBufferを保存する
+	bool SetMaterialBuffer(MaterialHandle _material, std::size_t _slot, GPUBufferHandle _gpuBuffer);
 
 	// 作成済みPSOとRootSignatureをComputePipeline台帳へ登録する
 	ComputePipelineHandle RegisterComputePipeline(ComputePipelineData _data);
@@ -129,8 +132,8 @@ public:
 	void Unload(ComputePipelineHandle _handle);
 	void Unload(GPUBufferHandle _handle);
 
-	// TextureHandleを分解して空だったらnullSRV,Lookupに失敗したらErrorTextureを返す
-	D3D12_GPU_DESCRIPTOR_HANDLE ResolveMaterialTextureSRV(TexHandle _handle);
+	// Texture若しくはBufferを分解して空だったらnullSRV,Lookupに失敗したらTextureならErrorTextureを返すbufferなら空
+	D3D12_GPU_DESCRIPTOR_HANDLE ResolveMaterialResourceSRV(MaterialResourceSlot _resourceSlot);
 	// デフォルト用の白テクスチャを取得する
 	TexHandle GetDefaultTexture() const { return defaultTexture; }
 	// エラー用のピンクテクスチャを取得する
@@ -158,7 +161,8 @@ private:
 
 	TexHandle defaultTexture; // デフォルトの白テクスチャ
 	TexHandle errorTexture; // エラー用のピンクテクスチャ
-	DescriptorHandle nullSRV{}; // ユーザー定義のSRVが未入力だった場合に使われるSRV
+	DescriptorHandle nullTexSRV{}; // ユーザー定義TextureのSRVが未入力だった場合に使われるSRV
+	DescriptorHandle nullBufferSRV{}; // ユーザー定義BufferのSRVが未入力だった場合に使われるSRV
 
 	std::vector<TextureSlot> texSlots; // テクスチャリソースのスロット
 	std::vector <ModelSlot> modelSlots; // モデルリソースのスロット

@@ -139,13 +139,42 @@ bool VFXMeshSystem::Register(std::span<const VFXVertex> _vertices, MaterialHandl
 	packet.vertexCount = static_cast<UINT>(vertexCount);
 	packet.sortPosition = centroid;
 	packet.material = _material;
+	packet.instanceCount = 1;
 	drawPackets.push_back(packet);
 
 	writtenVertexCount += static_cast<UINT>(vertexCount); // 次の書き込み位置へ進める
 	return true;
 }
 
-bool VFXMeshSystem::Flush(const Mat4x4& _viewProjection, const Vector3& _cameraPosition)
+bool VFXMeshSystem::RegisterInstanced(MaterialHandle _material, UINT _instanceCount, const Vector3& _sortPosition)
+{
+	if (!isInitialized) return false;
+
+	if (_instanceCount == 0 || drawPackets.size() >= MAX_VFX_DRAW_COUNT)
+	{
+		droppedPacketCount++;
+		return false;
+	}
+
+	if (!_material.IsValid())
+	{
+		DEBUG_LOG_ERROR("VFX粒子に無効なMaterialHandleが渡されました\n");
+		return false;
+	}
+
+	// 描画単位として記録する
+	VFXDrawPacket packet{};
+	packet.vfxDrawKind = VFXDrawKind::Instance;
+	packet.instanceCount = _instanceCount;
+	packet.sortPosition = _sortPosition;
+	packet.material = _material;
+	packet.vertexStart = 0;
+	packet.vertexCount = 4;
+	drawPackets.push_back(packet);
+	return true;
+}
+
+bool VFXMeshSystem::Flush(const Mat4x4& _viewProjection, const Vector3& _cameraPosition, const Quaternion& _cameraRotation)
 {
 	if (!isInitialized) return false;
 	if (drawPackets.empty()) return true; // 描画対象がなくても異常ではない
@@ -161,7 +190,17 @@ bool VFXMeshSystem::Flush(const Mat4x4& _viewProjection, const Vector3& _cameraP
 
 	// VP行列を1回だけGPUへ送る
 	VFXFrameCB frameData{};
+	const Vector3 cameraRight{ _cameraRotation.RotateVector(Vector3::Right) };
+	const Vector3 cameraUp{ _cameraRotation.RotateVector(Vector3::Up) };
 	frameData.viewProjection = _viewProjection;
+	frameData.cameraRight[0] = cameraRight.x;
+	frameData.cameraRight[1] = cameraRight.y;
+	frameData.cameraRight[2] = cameraRight.z;
+	frameData.cameraRight[3] = 0.0f;
+	frameData.cameraUp[0] = cameraUp.x;
+	frameData.cameraUp[1] = cameraUp.y;
+	frameData.cameraUp[2] = cameraUp.z;
+	frameData.cameraUp[3] = 0.0f;
 	const D3D12_GPU_VIRTUAL_ADDRESS frameAddress{ frameRingCBV.Update(&frameData, static_cast<UINT>(sizeof(frameData))) };
 	if (frameAddress == 0)
 	{
@@ -221,9 +260,9 @@ bool VFXMeshSystem::Flush(const Mat4x4& _viewProjection, const Vector3& _cameraP
 		}
 
 		// SetMaterialTextureのスロットごとに結びつける(空ならnullSRV、Lookup失敗ならエラーテクスチャ)
-		for (std::size_t i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+		for (std::size_t i = 0; i < MATERIAL_RESOURCE_PARAMETER_SLOT_COUNT; i++)
 		{
-			const D3D12_GPU_DESCRIPTOR_HANDLE texture{ resourceManager.ResolveMaterialTextureSRV(material->textureSlots[i]) };
+			const D3D12_GPU_DESCRIPTOR_HANDLE texture{ resourceManager.ResolveMaterialResourceSRV(material->resourceSlots[i]) };
 			cmd->SetGraphicsRootDescriptorTable(MATERIAL_TEXTURE_ROOT_PARAM_BASE + static_cast<UINT>(i), texture);
 		}
 
@@ -233,7 +272,7 @@ bool VFXMeshSystem::Flush(const Mat4x4& _viewProjection, const Vector3& _cameraP
 		view.SizeInBytes = packet.vertexCount * VERTEX_STRIDE;
 		view.StrideInBytes = VERTEX_STRIDE;
 		cmd->IASetVertexBuffers(0, 1, &view);
-		cmd->DrawInstanced(packet.vertexCount, 1, 0, 0);
+		cmd->DrawInstanced(packet.vertexCount, packet.instanceCount, 0, 0);
 		GraphicsMetrics::RecordDrawCall(GraphicsPass::VFXMesh); // 描画回数の計測
 	}
 

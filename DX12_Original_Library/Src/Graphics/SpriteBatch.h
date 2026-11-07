@@ -1,7 +1,6 @@
 #pragma once
 #include <array>
 #include "../Core/Handle/TexHandle.h"
-#include "../Math/TSMath.h"
 #include "RingConstantBuffer.h"
 #include "GraphicsType.h"
 #include "GraphicsMetrics.h"
@@ -12,7 +11,7 @@ struct SpriteDrawRun
 	TexHandle tex{}; // ハンドル
 	ID3D12PipelineState* pipelineState{ nullptr }; // この区間で使用するPSO
 	MaterialParameterSet parameters{}; // DrawSpriteが呼ばれた時点でのMateriualパラメータ
-	std::array<TexHandle, MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT> useTextures{}; // ユーザーが追加定義するテクスチャ
+	MaterialResourceSet useResources{}; // ユーザーが追加定義するテクスチャ
 	UINT startSprite{ 0 }; // スタート位置
 	UINT count{ 0 }; // 同じテクスチャが何枚連続しているか
 };
@@ -26,7 +25,7 @@ public:
 	// 終了処理
 	void Shutdown();
 	// スプライトの登録(画像とパイプラインとパラメータと位置とサイズと回転角度とUV空間)
-	void RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipelineState, const MaterialParameterSet* _parameters, const std::array<TexHandle, MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT>* _textures, Vector2 _position, Vector2 _size, float _radRotation = 0.0f, Vector4 _color = Vector4::One, Vector2 _uvMin = {Vector2::Zero}, Vector2 _uvMax = {Vector2::One});
+	void RegisterSprite(TexHandle _handle, ID3D12PipelineState* _pipelineState, const MaterialParameterSet* _parameters, const MaterialResourceSet* _textures, Vector2 _position, Vector2 _size, float _radRotation = 0.0f, Vector4 _color = Vector4::One, Vector2 _uvMin = {Vector2::Zero}, Vector2 _uvMax = {Vector2::One});
 	// まとめてDrawCallをする
 	void Flush(RingConstantBuffer& _parameterRing, ID3D12Resource* _zeroParameterBuffer, GraphicsPass _pass);
 	// カウンター等をリセットする

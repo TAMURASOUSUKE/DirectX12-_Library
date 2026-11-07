@@ -661,7 +661,7 @@ void GfxInternal::EndFrame()
 		const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::VFXMesh) }; // 計測開始
 		GPU_MARKER("VFXMesh");
 		// 一部のメッシュが失敗してもフレームの残り(前面Sprite・Present)は続ける
-		if (!vfxMeshSystem.Flush(cameraSystem.GetViewProjectionMatrix(), cameraSystem.GetCameraPosition())) DEBUG_LOG_ERROR("VFXメッシュの描画に失敗しました\n");
+		if (!vfxMeshSystem.Flush(cameraSystem.GetViewProjectionMatrix(), cameraSystem.GetCameraPosition(), cameraSystem.GetCameraRotation())) DEBUG_LOG_ERROR("VFXメッシュの描画に失敗しました\n");
 		EndGPUTimingPass(GraphicsPass::VFXMesh, gpuTimingStarted); // 計測終了
 	}
 
@@ -779,10 +779,10 @@ void GfxInternal::EndFrame()
 
 			if (activePostEffectMaterial)
 			{
-				for (std::size_t i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+				for (std::size_t i = 0; i < MATERIAL_RESOURCE_PARAMETER_SLOT_COUNT; i++)
 				{
 					// 必要なDescriptorHandleを出す(空ならnullSRV)
-					D3D12_GPU_DESCRIPTOR_HANDLE texture{ GraphicsResourceManager::Instance().ResolveMaterialTextureSRV(activePostEffectMaterial->textureSlots[i]) };
+					D3D12_GPU_DESCRIPTOR_HANDLE texture{ GraphicsResourceManager::Instance().ResolveMaterialResourceSRV(activePostEffectMaterial->resourceSlots[i]) };
 					cmd->SetGraphicsRootDescriptorTable(POSTEFFECT_MATERIAL_TEXTURE_ROOT_PARAM_BASE + i, texture);
 				}
 			}
@@ -1332,7 +1332,7 @@ void Gfx::DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelS
 {
 	ID3D12PipelineState* usePipeline{ shaderSystem.GetPipeline(PipelineID::Sprite) }; // 最初は内蔵SpritePSO
 	const MaterialParameterSet* useParameters{ nullptr }; // 内蔵Spriteならnull
-	const MaterialTextureSet* useTextures{ nullptr }; // 追加Textureがないならnull
+	const MaterialResourceSet* useTextures{ nullptr }; // 追加Textureがないならnull
 	// 外部materialが指定されている場合
 	if (_material.IsValid())
 	{
@@ -1355,7 +1355,7 @@ void Gfx::DrawSpriteSized(TexHandle _texture, Vector2 _position, Vector2 _pixelS
 			usePipeline = material->pipelineState.Get();
 			// RegisterSprite内で値をコピーするためフレーム中は保持しない
 			useParameters = &material->parameters;
-			useTextures = &material->textureSlots;
+			useTextures = &material->resourceSlots;
 		}
 
 
@@ -1485,6 +1485,8 @@ namespace
 		vertex.color[3] = _color.w;
 		return vertex;
 	}
+
+	std::vector<VFXVertex> trailVertexScratch{}; // DrawTrail3Dが毎回確保しないための使い回し領域(clearしてもcapacityは残る)
 }
 
 void Gfx::DrawQuad3D(Vector3 _center, Vector2 _size, MaterialHandle _material, BillboardMode _mode, Quaternion _rotation, Vector4 _color)
@@ -1547,8 +1549,9 @@ void Gfx::DrawTrail3D(std::span<const Vector3> _left, std::span<const Vector3> _
 	}
 
 	// 点ごとに左右の2頂点を並べる: L0, R0, L1, R1, ... (TRIANGLESTRIPで隣り合う4頂点が四角形になる)
-	std::vector<VFXVertex> vertices{};
-	vertices.reserve(pointCount * 2);
+	std::vector<VFXVertex>& vertices{ trailVertexScratch };
+	vertices.clear(); // 中身だけ捨てて確保済みの領域は使い回す
+	vertices.reserve(pointCount * 2); // 初回か、前より長い帯のときだけ確保が起きる
 	const float lengthStep{ 1.0f / static_cast<float>(pointCount - 1) }; // 長さ方向のUV(0→1)
 	for (std::size_t i = 0; i < pointCount; i++)
 	{
@@ -1561,7 +1564,7 @@ void Gfx::DrawTrail3D(std::span<const Vector3> _left, std::span<const Vector3> _
 
 void Gfx::DrawVFXMesh(std::span<const VFXVertex> _vertices, MaterialHandle _material)
 {
-	// Materialの用途がVFXでなければ描かない(DrawSpriteと同じ検査)
+	// Materialの用途がVFXでなければ描かない
 	const MaterialData* material{ GraphicsResourceManager::Instance().Lookup(_material) };
 	if (!material)
 	{
@@ -1575,6 +1578,22 @@ void Gfx::DrawVFXMesh(std::span<const VFXVertex> _vertices, MaterialHandle _mate
 	}
 	// ホットパスなのでここではログを出さない(上限超過はBeginFrameでまとめて警告される)
 	if (!vfxMeshSystem.Register(_vertices, _material)) return;
+}
+
+void Gfx::DrawVFXInstanced(MaterialHandle _material, UINT _instanceCount, const Vector3& _sortPosition)
+{
+	const MaterialData* material{ GraphicsResourceManager::Instance().Lookup(_material) };
+	if (!material)
+	{
+		DEBUG_LOG_ERROR("VFXメッシュに無効なMaterialHandleが渡されました\n");
+		return;
+	}
+	if (material->usage != ShaderUsage::VFX)
+	{
+		DEBUG_LOG_ERROR("VFXメッシュにVFX用途以外のMaterialが渡されました\n");
+		return;
+	}
+	if (!vfxMeshSystem.RegisterInstanced(_material, _instanceCount, _sortPosition)) return;
 }
 
 void Gfx::DrawGrid3D(Vector3 _center, Quaternion _rotation, unsigned int _halfCellCount, float _cellSize, Vector4 _color)
@@ -1794,4 +1813,14 @@ bool Gfx::SetMaterialTexture(MaterialHandle _material, std::size_t _slot, TexHan
 bool Gfx::SetMaterialTexture(MaterialHandle _material, TexHandle _texture)
 {
 	return SetMaterialTexture(_material, 0, _texture);
+}
+
+bool Gfx::SetMaterialBuffer(MaterialHandle _material, std::size_t _slot, GPUBufferHandle _gpuBuffer)
+{
+	return GraphicsResourceManager::Instance().SetMaterialBuffer(_material, _slot, _gpuBuffer);
+}
+
+bool Gfx::SetMaterialBuffer(MaterialHandle _material, GPUBufferHandle _gpuBuffer)
+{
+	return SetMaterialBuffer(_material, 0, _gpuBuffer);
 }

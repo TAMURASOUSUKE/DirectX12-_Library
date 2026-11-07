@@ -601,40 +601,75 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 	}
 
 	transitionAllResourceBarriers.clear(); // あらかじめクリアしておく
-	// TextureはCommonへ減衰しない、自動昇格もないので明示的にTransitionする
+
+	// Buffer若しくはTextureのリソースとStateをみてバリアに積む
+	const auto& transitionToAllShaderResource
+	{
+		[this, &resourceManager](const ComputeResourceBinding& _binding)
+		{
+			ID3D12Resource* resource{nullptr};
+			D3D12_RESOURCE_STATES* currentState{ nullptr };
+			switch (_binding.type)
+			{
+			case ComputeResourceType::Buffer:
+			{
+				GPUBufferData* data{ resourceManager.Lookup(_binding.buffer) };
+				if (!data)
+				{
+					DEBUG_LOG_ERROR("GPUBufferのLookupに失敗しました\n");
+					return false;
+				}
+				resource = data->resource.Get();
+				currentState = &data->currentState;
+			}
+				break;
+			case ComputeResourceType::Texture:
+			{
+				TextureData* data{ resourceManager.Lookup(_binding.texture) };
+				if (!data)
+				{
+					DEBUG_LOG_ERROR("TextureのLookupに失敗しました\n");
+					return false;
+				}
+				resource = data->resource.Get();
+				currentState = &data->currentState;
+			}
+				break;
+			case ComputeResourceType::None:
+				break;
+			default:
+				DEBUG_LOG_ERROR("不正なtypeが指定されています\n");
+				return false;
+			}
+
+			if (!resource) return true;
+
+			// 現在の状態がALL_SHADER_RESOURCEを含んでいれば弾く
+			if (IsComputeSatisfied(*currentState, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE)) return true;
+			// Barrierの作成
+			D3D12_RESOURCE_BARRIER barrier{ CD3DX12_RESOURCE_BARRIER::Transition(resource, *currentState, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
+			transitionAllResourceBarriers.push_back(barrier);
+			// 追加したので現在の状態を更新
+			*currentState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+
+			return true;
+		}
+	};
+
+	// TextureとBufferを明示的にTransitionする
 	for (const auto& command : commands)
 	{
 		// 入力
 		for (std::size_t i = 0; i < MAX_COMPUTE_SRV_COUNT; i++)
 		{
 			const ComputeResourceBinding& binding{ command.desc.inputs[i] };
-			if (binding.type != ComputeResourceType::Texture) continue; // Textureのみ判定
-			
-			TextureData* data{ resourceManager.Lookup(binding.texture) };
-			// 現在の状態がALL_SHADER_RESOURCEを含んでいれば弾く
-			if (IsComputeSatisfied(data->currentState, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE)) continue;
-
-			// Barrierの作成
-			D3D12_RESOURCE_BARRIER barrier{ CD3DX12_RESOURCE_BARRIER::Transition(data->resource.Get(), data->currentState, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
-			transitionAllResourceBarriers.push_back(barrier);
-			// 追加したので現在の状態を更新
-			data->currentState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+			if (!transitionToAllShaderResource(binding)) DEBUG_LOG_WARNING("渡されたリソースをbarrierに積めません\n");
 		}
 
 		for (std::size_t i = 0; i < MAX_COMPUTE_UAV_COUNT; i++)
 		{
 			const ComputeResourceBinding& binding{ command.desc.outputs[i] };
-			if (binding.type != ComputeResourceType::Texture) continue; // Textureのみ判定
-
-			TextureData* data{ resourceManager.Lookup(binding.texture) };
-			// 現在の状態がALL_SHADER_RESOURCEを含んでいれば弾く
-			if (IsComputeSatisfied(data->currentState, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE)) continue;
-
-			// Barrierの作成
-			D3D12_RESOURCE_BARRIER barrier{ CD3DX12_RESOURCE_BARRIER::Transition(data->resource.Get(), data->currentState, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
-			transitionAllResourceBarriers.push_back(barrier);
-			// 追加したので現在の状態を更新
-			data->currentState = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+			if (!transitionToAllShaderResource(binding)) DEBUG_LOG_WARNING("渡されたリソースをbarrierに積めません\n");
 		}
 	}
 	// 終了前に遷移をする

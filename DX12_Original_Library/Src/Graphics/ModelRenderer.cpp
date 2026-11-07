@@ -226,10 +226,10 @@ bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet, GraphicsPass _pa
 			cmd->SetGraphicsRootConstantBufferView(MODEL_MATERIAL_ROOT_PARAM_BASE + static_cast<UINT>(i), parameterAddress);
 		}
 
-		for (std::size_t i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+		for (std::size_t i = 0; i < MATERIAL_RESOURCE_PARAMETER_SLOT_COUNT; i++)
 		{
 			// 必要なDescriptorHandleを出す(空ならnullSRV)
-			D3D12_GPU_DESCRIPTOR_HANDLE texture{ GraphicsResourceManager::Instance().ResolveMaterialTextureSRV(activeMaterial->textureSlots[i]) };
+			D3D12_GPU_DESCRIPTOR_HANDLE texture{ GraphicsResourceManager::Instance().ResolveMaterialResourceSRV(activeMaterial->resourceSlots[i]) };
 			cmd->SetGraphicsRootDescriptorTable(MODEL_MATERIAL_TEXTURE_ROOT_PARAM_BASE + i, texture);
 		}
 	}

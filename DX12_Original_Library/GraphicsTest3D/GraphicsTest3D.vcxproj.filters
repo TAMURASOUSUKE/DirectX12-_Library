@@ -21,10 +21,30 @@
     <FxCompile Include="VfxMeshTestPS.hlsl">
       <Filter>ソース ファイル</Filter>
     </FxCompile>
+    <FxCompile Include="ParticlePS.hlsl">
+      <Filter>ソース ファイル</Filter>
+    </FxCompile>
+    <FxCompile Include="ParticleResetCounterCS.hlsl">
+      <Filter>ソース ファイル</Filter>
+    </FxCompile>
+    <FxCompile Include="ParticleUpdateCS.hlsl">
+      <Filter>ソース ファイル</Filter>
+    </FxCompile>
+    <FxCompile Include="ParticleVS.hlsl">
+      <Filter>ソース ファイル</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="VfxMeshTest.h">
       <Filter>ソース ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="VfxParticleTest.h">
+      <Filter>ソース ファイル</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Particle.hlsli">
+      <Filter>ソース ファイル</Filter>
+    </None>
   </ItemGroup>
 </Project>
