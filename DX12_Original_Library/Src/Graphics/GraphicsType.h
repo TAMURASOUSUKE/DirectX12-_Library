@@ -520,6 +520,12 @@ struct TerrainCB
 	float padding[2]{};
 };
 
+// VFX描画に必要なCB
+struct VFXFrameCB
+{
+	Mat4x4 viewProjection{ Mat4x4::Identity }; // vp行列
+};
+
 // オフスクリーン描画先1個分
 struct RenderTargetData
 {

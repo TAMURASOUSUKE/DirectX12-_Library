@@ -18,5 +18,13 @@
     <FxCompile Include="VfxBlendTestPS.hlsl">
       <Filter>ソース ファイル</Filter>
     </FxCompile>
+    <FxCompile Include="VfxMeshTestPS.hlsl">
+      <Filter>ソース ファイル</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="VfxMeshTest.h">
+      <Filter>ソース ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,6 +1,5 @@
 #pragma once
 #include <d3d12.h>
-#include "../Core/Handle/MaterialHandle.h"
 #include "GraphicsType.h"
 
 // パケット転送の際に無駄な転送を避けるためGPUアドレスを共有するための構造体

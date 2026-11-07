@@ -314,6 +314,8 @@
     <ClInclude Include="Src\Graphics\TerrainSystem.h" />
     <ClInclude Include="Src\Graphics\UploadSystem.h" />
     <ClInclude Include="Src\Graphics\UploadType.h" />
+    <ClInclude Include="Src\Graphics\VFXDrawPacket.h" />
+    <ClInclude Include="Src\Graphics\VFXMeshSystem.h" />
     <ClInclude Include="Src\Input\ActionInput.h" />
     <ClInclude Include="Src\Input\AxisType.h" />
     <ClInclude Include="Src\Input\InputBase.h" />
@@ -404,6 +406,7 @@
     <ClCompile Include="Src\Graphics\SpriteBatch.cpp" />
     <ClCompile Include="Src\Graphics\TerrainSystem.cpp" />
     <ClCompile Include="Src\Graphics\UploadSystem.cpp" />
+    <ClCompile Include="Src\Graphics\VFXMeshSystem.cpp" />
     <ClCompile Include="Src\Input\ActionInput.cpp" />
     <ClCompile Include="Src\Input\GamePadInput.cpp" />
     <ClCompile Include="Src\Input\InputMethodTracker.cpp" />
@@ -475,6 +478,9 @@
     <FxCompile Include="Src\Shaders\TextureVS.hlsl">
       <ShaderType>Vertex</ShaderType>
     </FxCompile>
+    <FxCompile Include="Src\Shaders\VFXVS.hlsl">
+      <ShaderType>Vertex</ShaderType>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Src\Shaders\Lighting.hlsli">
@@ -518,6 +524,14 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Src\Shaders\VFXContract.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">true</ExcludedFromBuild>
     </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

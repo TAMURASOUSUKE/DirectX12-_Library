@@ -25,9 +25,6 @@
     <Filter Include="Src\Shaders">
       <UniqueIdentifier>{089b40b5-9882-4b43-8472-da62484e9438}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Src\Input">
-      <UniqueIdentifier>{fca35b9b-1a6e-4f77-9191-f2684bb4710f}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Src\Facade">
       <UniqueIdentifier>{b1eee5cb-29ef-4f3d-b2cf-32bce221a04b}</UniqueIdentifier>
     </Filter>
@@ -66,6 +63,9 @@
     </Filter>
     <Filter Include="Src\Debug">
       <UniqueIdentifier>{bcbb2943-5265-438b-8294-19078d92d994}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Src\Graphics\Input">
+      <UniqueIdentifier>{fca35b9b-1a6e-4f77-9191-f2684bb4710f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -118,16 +118,16 @@
       <Filter>Src\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="Src\Input\KeyboardInput.h">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClInclude>
     <ClInclude Include="Src\Input\InputName.h">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClInclude>
     <ClInclude Include="Src\Input\InputBase.h">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClInclude>
     <ClInclude Include="Src\Input\InputConstant.h">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClInclude>
     <ClInclude Include="Src\Facade\Gfx.h">
       <Filter>Src\Facade</Filter>
@@ -193,13 +193,13 @@
       <Filter>Src\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="Src\Input\GamePadInput.h">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClInclude>
     <ClInclude Include="Src\Input\MouseInput.h">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClInclude>
     <ClInclude Include="Src\Input\ActionInput.h">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClInclude>
     <ClInclude Include="Src\Facade\Sound.h">
       <Filter>Src\Facade</Filter>
@@ -316,13 +316,13 @@
       <Filter>Src\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="Src\Input\AxisInput.h">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClInclude>
     <ClInclude Include="Src\Input\AxisType.h">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClInclude>
     <ClInclude Include="Src\Input\InputMethodTracker.h">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClInclude>
     <ClInclude Include="Src\Facade\UI.h">
       <Filter>Src\Facade</Filter>
@@ -429,6 +429,12 @@
     <ClInclude Include="Src\Graphics\PipelineFactory.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Graphics\VFXMeshSystem.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Graphics\VFXDrawPacket.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -465,7 +471,7 @@
       <Filter>Src\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Src\Input\KeyboardInput.cpp">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClCompile>
     <ClCompile Include="Src\Facade\Gfx.cpp">
       <Filter>Src\Facade</Filter>
@@ -498,13 +504,13 @@
       <Filter>Src\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Src\Input\GamePadInput.cpp">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClCompile>
     <ClCompile Include="Src\Input\MouseInput.cpp">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClCompile>
     <ClCompile Include="Src\Input\ActionInput.cpp">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClCompile>
     <ClCompile Include="Src\Facade\Sound.cpp">
       <Filter>Src\Facade</Filter>
@@ -573,10 +579,10 @@
       <Filter>Src\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Src\Input\AxisInput.cpp">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClCompile>
     <ClCompile Include="Src\Input\InputMethodTracker.cpp">
-      <Filter>Src\Input</Filter>
+      <Filter>Src\Graphics\Input</Filter>
     </ClCompile>
     <ClCompile Include="Src\Facade\UI.cpp">
       <Filter>Src\Facade</Filter>
@@ -641,6 +647,9 @@
     <ClCompile Include="Src\Graphics\PipelineFactory.cpp">
       <Filter>Src\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Graphics\VFXMeshSystem.cpp">
+      <Filter>Src\Graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Src\Shaders\TexturePS.hlsl">
@@ -691,6 +700,9 @@
     <FxCompile Include="Src\Shaders\ModelShadowVS.hlsl">
       <Filter>Src\Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="Src\Shaders\VFXVS.hlsl">
+      <Filter>Src\Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Src\Shaders\Terrain.hlsli">
@@ -712,6 +724,9 @@
       <Filter>Src\Shaders</Filter>
     </None>
     <None Include="Src\Shaders\ModelContract.hlsli">
+      <Filter>Src\Shaders</Filter>
+    </None>
+    <None Include="Src\Shaders\VFXContract.hlsli">
       <Filter>Src\Shaders</Filter>
     </None>
   </ItemGroup>

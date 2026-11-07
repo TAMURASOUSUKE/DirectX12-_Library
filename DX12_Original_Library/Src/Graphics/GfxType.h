@@ -167,7 +167,7 @@ enum class Primitive3DStyle
 };
 
 // ビルボードの状態を表す列挙体
-enum class BuillboadMode
+enum class BillboardMode
 {
 	None, // 向きはTransformに合わせる
 	FaceCamera, // 常にカメラ方向を向く
@@ -255,10 +255,12 @@ struct MaterialRenderDesc
 };
 
 // VFXに使われる頂点の情報をまとめた型
+// Vector3/Vector4はalignas(16)で詰め物が入り入力レイアウト(詰めて並べる)とずれるため、SpriteVertexと同じくfloat配列で持つ
 struct VFXVertex
 {
-	Vector3 position{ Vector3::Zero }; // 位置
-	Vector2 uv{ Vector2::Zero }; // UV
-	Vector4 color{ Vector4::One }; // 色
+	float position[3]{ 0.0f, 0.0f, 0.0f }; // ワールド位置
+	float uv[2]{ 0.0f, 0.0f }; // UV
+	float color[4]{ 1.0f, 1.0f, 1.0f, 1.0f }; // 頂点色(αは不透明度または加算の強さ)
 };
+static_assert(sizeof(VFXVertex) == sizeof(float) * 9, "VFXVertexは詰め物なしの36バイトである必要があります(入力レイアウトと一致させる)");
 

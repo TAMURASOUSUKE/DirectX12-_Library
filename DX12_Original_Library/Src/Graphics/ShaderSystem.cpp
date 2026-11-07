@@ -28,6 +28,8 @@
 #include "Primitive3DUnlitPSBytecode.h"
 #include "Primitive3DLitPSBytecode.h"
 
+#include "VFXVSBytecode.h"
+
 namespace {
 	// 共通部品作成ヘルパー関数
 	// CBV作成
@@ -135,7 +137,9 @@ namespace {
 		MakeShaderBytecode(g_TerrainPS, sizeof(g_TerrainPS)),
 
 		MakeShaderBytecode(g_PostEffectVS, sizeof(g_PostEffectVS)),
-		MakeShaderBytecode(g_PostEffectPS, sizeof(g_PostEffectPS))
+		MakeShaderBytecode(g_PostEffectPS, sizeof(g_PostEffectPS)),
+
+		MakeShaderBytecode(g_VFXVS, sizeof(g_VFXVS)),
 	};
 
 	// ID追加時にバイトコード表の追加忘れを検出する
@@ -430,7 +434,17 @@ ComPtr<ID3D12PipelineState> ShaderSystem::CreateMaterialPipeline(ShaderUsage _us
 		desc.pipelineID = PipelineID::Count;
 		desc.layout = InputLayout::Model;
 		desc.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-		desc.fillMode = D3D12_FILL_MODE_SOLID; // 一旦塗りつぶし
+		desc.fillMode = D3D12_FILL_MODE_SOLID;
+		desc.cullMode = _renderState.doubleSided ? D3D12_CULL_MODE_NONE : D3D12_CULL_MODE_BACK; // 設定されていれば両面そうでなければ背面カリング
+		if (!choosBlendAndDepth(false)) return nullptr; // blendとdepthを条件によって設定する
+		break;
+	case ShaderUsage::VFX:
+		defaultVertexShader = BuiltinShaderID::VFXVS;
+		desc.rootSignatureID = RootSigID::VFX;
+		desc.pipelineID = PipelineID::Count;
+		desc.layout = InputLayout::VFX;
+		desc.topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		desc.fillMode = D3D12_FILL_MODE_SOLID;
 		desc.cullMode = _renderState.doubleSided ? D3D12_CULL_MODE_NONE : D3D12_CULL_MODE_BACK; // 設定されていれば両面そうでなければ背面カリング
 		if (!choosBlendAndDepth(false)) return nullptr; // blendとdepthを条件によって設定する
 		break;
@@ -552,6 +566,23 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	primitive3D.parameters.push_back(MakeRootSRV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // RootParameter[1]
 	primitive3D.parameters.push_back(MakeRootCBV(3, D3D12_SHADER_VISIBILITY_PIXEL)); // b3(ライティング)
 	descs.push_back(std::move(primitive3D));
+	// VFX
+	RootSignatureDesc vfxDesc{};
+	vfxDesc.rootSignatureID = RootSigID::VFX;
+	vfxDesc.parameters.push_back(MakeRootCBV(0, D3D12_SHADER_VISIBILITY_VERTEX)); // RootParameter[0]
+	for (UINT i = 0; i < MATERIAL_PARAMETER_SLOT_COUNT; i++)
+	{
+		 // RootParam[1]-[4]へmaterial slot0-3を追加する
+		 // ユーザーが定義した定数バッファを受け取る 内蔵と番号の重複に耐えるためにregisterSpaceを1に設定
+		vfxDesc.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
+	}
+	// ユーザーテクスチャを追加する RootParam[5] - [8] HLSL側ではt0-t3
+	for (UINT i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+	{
+		vfxDesc.parameters.push_back(MakeSRVTable(MATERIAL_TEXTURE_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
+	}
+	vfxDesc.staticSamplers.push_back(MakeLinearWrapSampler(0, D3D12_SHADER_VISIBILITY_PIXEL)); // staticSampler0番目(s0)
+	descs.push_back(std::move(vfxDesc));
 	return descs;
 }
 

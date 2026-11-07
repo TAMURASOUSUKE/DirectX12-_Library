@@ -16,6 +16,7 @@ enum class GraphicsPass : std::uint8_t
 	DebugPreview,
 	PostEffect,
 	Terrain,
+	VFXMesh, // ワールド空間のVFXメッシュ(板・帯)
 	Count
 };
 
