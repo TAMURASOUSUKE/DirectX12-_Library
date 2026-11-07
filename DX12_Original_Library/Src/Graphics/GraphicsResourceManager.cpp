@@ -381,20 +381,34 @@ bool GraphicsResourceManager::Setup(ID3D12Device* _device)
 	}
 
 	// nullSRVの作成(何もリソースが紐づけされていないディスクリプタ)
-	nullSRV = DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV); // ヒープを確保
-	if (!nullSRV.IsValid())
+	nullTexSRV = DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV); // ヒープを確保
+	if (!nullTexSRV.IsValid())
 	{
 		DEBUG_LOG_ERROR("ユーザー未入力用のTextureSlot用SRVの確保に失敗しました\n");
 		Shutdown(); 
 		return false;
 	}
+	nullBufferSRV = DescriptorManager::Instance().Allocate(HeapType::CBV_SRV_UAV); // ヒープを確保
+	if (!nullBufferSRV.IsValid())
+	{
+		DEBUG_LOG_ERROR("ユーザー未入力用のBufferSlot用SRVの確保に失敗しました\n");
+		Shutdown();
+		return false;
+	}
 
-	D3D12_SHADER_RESOURCE_VIEW_DESC nullSRVDesc{};
-	nullSRVDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // 線形
-	nullSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; // Shader側でtexture2Dで宣言するので食い違いがないようにする
-	nullSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; // 入れられた色通りにする
-	nullSRVDesc.Texture2D.MipLevels = 1; // nullなので1枚だけの設定
-	_device->CreateShaderResourceView(nullptr, &nullSRVDesc, nullSRV.cpu); // リソースと紐づけしないのでnull
+	D3D12_SHADER_RESOURCE_VIEW_DESC nullTexSRVDesc{};
+	nullTexSRVDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // 線形
+	nullTexSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; // Shader側でtexture2Dで宣言するので食い違いがないようにする
+	nullTexSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; // 入れられた色通りにする
+	nullTexSRVDesc.Texture2D.MipLevels = 1; // nullなので1枚だけの設定
+	_device->CreateShaderResourceView(nullptr, &nullTexSRVDesc, nullTexSRV.cpu); // リソースと紐づけしないのでnull
+	D3D12_SHADER_RESOURCE_VIEW_DESC nullBufferSRVDesc{};
+	nullBufferSRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+	nullBufferSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+	nullBufferSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; // 入れられた色通りにする
+	nullBufferSRVDesc.Buffer.NumElements = 1;
+	nullBufferSRVDesc.Buffer.StructureByteStride = 4;
+	_device->CreateShaderResourceView(nullptr, &nullBufferSRVDesc, nullBufferSRV.cpu); // リソースと紐づけしないのでnull
 	return true;
 }
 
@@ -497,8 +511,10 @@ void GraphicsResourceManager::Shutdown()
 			releaseGPUBuffer(buffer);
 		}
 	}
-	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, nullSRV);
-	nullSRV = {};
+	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, nullTexSRV);
+	nullTexSRV = {};
+	DescriptorManager::Instance().Free(HeapType::CBV_SRV_UAV, nullBufferSRV);
+	nullBufferSRV = {};
 	// 生存しているmodel
 	modelSlots.clear(); // ComPtrも解放
 	// Unload済みで解放待ちだったmodel
@@ -1982,9 +1998,9 @@ MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, C
 	return MaterialHandle{ PassKey{}, packed };
 }
 
-bool GraphicsResourceManager::SetMaterialParameter(MaterialHandle _handle, size_t _slot, const void* _data, size_t _dataSize)
+bool GraphicsResourceManager::SetMaterialParameter(MaterialHandle _material, size_t _slot, const void* _data, size_t _dataSize)
 {
-	MaterialData* material{ Lookup(_handle) };
+	MaterialData* material{ Lookup(_material) };
 	if (!material)
 	{
 		DEBUG_LOG_ERROR("SetMaterialParameterに無効なハンドルが渡されました\n");
@@ -2017,7 +2033,7 @@ bool GraphicsResourceManager::SetMaterialParameter(MaterialHandle _handle, size_
 
 bool GraphicsResourceManager::SetMaterialTexture(MaterialHandle _material, std::size_t _slot, TexHandle _texture)
 {
-	if (_slot >= MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT)
+	if (_slot >= MATERIAL_RESOURCE_PARAMETER_SLOT_COUNT)
 	{
 		DEBUG_LOG_ERROR("設定されたSlot数が不正です\n");
 		return false;
@@ -2044,8 +2060,49 @@ bool GraphicsResourceManager::SetMaterialTexture(MaterialHandle _material, std::
 		return false;
 	}
 
+	MaterialResourceSlot materialSlot{};
+	materialSlot.texture = _texture;
+	materialSlot.gpuBuffer = {}; // 明示的に空にする
+
 	// あえてIsValid検査をしていないのは描画時に空ならnullSRV,Lookup失敗ならErrorTextureを区別するため
-	materialData->textureSlots[_slot] = _texture;
+	materialData->resourceSlots[_slot] = materialSlot;
+	return true;
+}
+
+bool GraphicsResourceManager::SetMaterialBuffer(MaterialHandle _material, std::size_t _slot, GPUBufferHandle _gpuBuffer)
+{
+	if (_slot >= MATERIAL_RESOURCE_PARAMETER_SLOT_COUNT)
+	{
+		DEBUG_LOG_ERROR("設定されたSlot数が不正です\n");
+		return false;
+	}
+
+	MaterialData* materialData{ Lookup(_material) };
+	if (!materialData)
+	{
+		DEBUG_LOG_ERROR("MaterilaのLookupに失敗しました\n");
+		return false;
+	}
+
+	// 使用用途の確認
+	switch (materialData->usage)
+	{
+	case ShaderUsage::Model:
+	case ShaderUsage::PostEffect:
+	case ShaderUsage::Sprite:
+	case ShaderUsage::VFX:
+		break;
+	case ShaderUsage::Compute:
+	default:
+		DEBUG_LOG_ERROR("不正なUsageがMaterialに設定されています\n");
+		return false;
+	}
+
+	MaterialResourceSlot materialSlot{};
+	materialSlot.texture = {}; // 明示的に空にする
+	materialSlot.gpuBuffer = _gpuBuffer;
+
+	materialData->resourceSlots[_slot] = materialSlot;
 	return true;
 }
 
@@ -2246,17 +2303,29 @@ void GraphicsResourceManager::Unload(GPUBufferHandle _handle)
 	if (gpuBufferSlots[index].generation <= MAX_GENERATION) gpuBufferFreeList.push(index);
 }
 
-D3D12_GPU_DESCRIPTOR_HANDLE GraphicsResourceManager::ResolveMaterialTextureSRV(TexHandle _handle)
+D3D12_GPU_DESCRIPTOR_HANDLE GraphicsResourceManager::ResolveMaterialResourceSRV(MaterialResourceSlot _resourceSlot)
 {
-	if (!_handle.IsValid()) return nullSRV.gpu; // 空ならnullSRV
-	TextureData* data{ Lookup(_handle) };
+	if (_resourceSlot.gpuBuffer.IsValid())
+	{
+		GPUBufferData* gpuBufferData{ Lookup(_resourceSlot.gpuBuffer) };
+		if (!gpuBufferData)
+		{
+			DEBUG_LOG_ERROR("渡されたGPUBufferHandleが不正なデータでした\n");
+			return nullBufferSRV.gpu;
+		}
+		return gpuBufferData->srvHandle.gpu;
+	}
+
+
+	if (!_resourceSlot.texture.IsValid()) return nullTexSRV.gpu; // 空ならnullSRV
+	TextureData* data{ Lookup(_resourceSlot.texture) };
 	if (!data)
 	{
 		TextureData* errorData{ Lookup(errorTexture) };
 		if (!errorData)
 		{
 			DEBUG_LOG_ERROR("渡されたハンドルが不正なデータだったのでエラーテクスチャを出力使用としましたがLookupに失敗しました\n");
-			return nullSRV.gpu; // エラーも失敗したらログを出しつつnullSRVを返す
+			return nullTexSRV.gpu; // エラーも失敗したらログを出しつつnullSRVを返す
 		}
 		return errorData->srvHandle.gpu;
 	}

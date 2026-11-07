@@ -24,14 +24,21 @@ public:
 
 	// VFX用RootSignature(非所有)を受け取り、フレームごとの頂点領域と定数バッファを作る
 	bool Setup(ID3D12RootSignature* _rootSignature);
+
 	// GPUリソースとCPU側の登録情報を解放する
 	void Shutdown();
+
 	// フレーム先頭で呼ぶ 書き込み位置と登録を戻し、未設定スロット用のゼロ番地を作り直す
 	void Reset();
+
 	// 1メッシュ分の頂点(TRIANGLESTRIP、3頂点以上)をMaterialつきで登録する 上限超過・不正時はfalse
 	bool Register(std::span<const VFXVertex> _vertices, MaterialHandle _material);
+
+	// 頂点を持たない描画単位を登録する
+	bool RegisterInstanced(MaterialHandle _material, UINT _instanceCount, const Vector3& _sortPosition);
+
 	// 登録済みメッシュをカメラから遠い順に描画する(半透明Modelの後に呼ぶ)
-	bool Flush(const Mat4x4& _viewProjection, const Vector3& _cameraPosition);
+	bool Flush(const Mat4x4& _viewProjection, const Vector3& _cameraPosition, const Quaternion& _cameraRotation);
 
 private:
 	static constexpr UINT VERTEX_STRIDE{ static_cast<UINT>(sizeof(VFXVertex)) }; // 1頂点のバイト数

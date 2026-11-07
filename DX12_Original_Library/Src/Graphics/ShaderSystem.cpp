@@ -482,7 +482,7 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 		texture.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}
 	// ユーザーテクスチャを追加する RootParam[6] - [9] HLSL側ではt0-t3
-	for (UINT i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+	for (UINT i = 0; i < MATERIAL_RESOURCE_PARAMETER_SLOT_COUNT; i++)
 	{
 		texture.parameters.push_back(MakeSRVTable(MATERIAL_TEXTURE_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}
@@ -510,7 +510,7 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 	}
 	model.staticSamplers.push_back(MakeShadowComparisonSampler(1, D3D12_SHADER_VISIBILITY_PIXEL)); // ShadowMap比較用のSampler(s1)
 	// ユーザーテクスチャを追加する RootParam[13] - [16] HLSL側ではt0-t3
-	for (UINT i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+	for (UINT i = 0; i < MATERIAL_RESOURCE_PARAMETER_SLOT_COUNT; i++)
 	{
 		model.parameters.push_back(MakeSRVTable(MATERIAL_TEXTURE_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}
@@ -545,7 +545,7 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 		postEffect.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}
 	// ユーザーテクスチャを追加する RootParam[5] - [8] HLSL側ではt0-t3
-	for (UINT i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+	for (UINT i = 0; i < MATERIAL_RESOURCE_PARAMETER_SLOT_COUNT; i++)
 	{
 		postEffect.parameters.push_back(MakeSRVTable(MATERIAL_TEXTURE_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}
@@ -577,7 +577,7 @@ std::vector<RootSignatureDesc> ShaderSystem::MakeRootSignatureDescs() const
 		vfxDesc.parameters.push_back(MakeRootCBV(MATERIAL_PARAMETER_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}
 	// ユーザーテクスチャを追加する RootParam[5] - [8] HLSL側ではt0-t3
-	for (UINT i = 0; i < MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT; i++)
+	for (UINT i = 0; i < MATERIAL_RESOURCE_PARAMETER_SLOT_COUNT; i++)
 	{
 		vfxDesc.parameters.push_back(MakeSRVTable(MATERIAL_TEXTURE_REGISTER_BASE + i, D3D12_SHADER_VISIBILITY_ALL, USER_DEFINE_REGISTER_SPACE_NUM));
 	}

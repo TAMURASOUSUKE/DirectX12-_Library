@@ -524,6 +524,8 @@ struct TerrainCB
 struct VFXFrameCB
 {
 	Mat4x4 viewProjection{ Mat4x4::Identity }; // vp行列
+	float cameraUp[4]{ 0.0f, 0.0f, 0.0f, 0.0f }; // カメラ上方向
+	float cameraRight[4]{ 0.0f, 0.0f, 0.0f, 0.0f }; // カメラ右方向
 };
 
 // オフスクリーン描画先1個分
@@ -566,8 +568,25 @@ struct MaterialParameterBlock
 	bool hasParameter{ false }; // 一度でもパラメータが設定されたか
 };
 
+// TextureとGPUBufferを持つVFXParticleで扱うslot
+struct MaterialResourceSlot
+{
+	TexHandle texture{};
+	GPUBufferHandle gpuBuffer{};
+
+	bool operator==(const MaterialResourceSlot& _other) const
+	{
+		return texture == _other.texture && gpuBuffer == _other.gpuBuffer;
+	}
+
+	bool operator!=(const MaterialResourceSlot& _other) const
+	{
+		return !(*this  == _other);
+	}
+};
+
 using MaterialParameterSet = std::array<MaterialParameterBlock, MATERIAL_PARAMETER_SLOT_COUNT>;
-using MaterialTextureSet = std::array<TexHandle, MATERIAL_TEXTURE_PARAMETER_SLOT_COUNT>;
+using MaterialResourceSet = std::array<MaterialResourceSlot, MATERIAL_RESOURCE_PARAMETER_SLOT_COUNT>;
 
 // PSOの状態が内蔵か外部Shaderから作られたものかを設定する
 enum class MaterialPipelineSource
@@ -583,7 +602,7 @@ struct MaterialData
 	ComPtr<ID3D12PipelineState> pipelineState{}; // Shaderと用途ごとのPSO設定から生成したもの(内蔵PSOならShaderSystemでIDから生成するが外部はそのIDに登録できないのでmaterialが直接持つ)
 	MaterialPipelineSource pipelineSource{ MaterialPipelineSource::Builtin }; // PSOの状態
 	MaterialParameterSet parameters{}; // slot0-3のユーザーパラメータ
-	MaterialTextureSet textureSlots{}; // ユーザーが定義するテクスチャのスロット
+	MaterialResourceSet resourceSlots{}; // ユーザーが定義するリソースのスロット
 	PBRMaterialData pbr{}; // 表面をどう表現するか
 	MaterialRenderState renderState{}; // どう描画するか
 };

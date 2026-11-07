@@ -108,6 +108,8 @@ namespace Gfx
 	void DrawTrail3D(std::span<const Vector3> _left, std::span<const Vector3> _right, std::span<const Vector4> _colors, MaterialHandle _material);
 	// 頂点列(TRIANGLESTRIP、3頂点以上)をそのままMaterialつきで描画する低水準API DrawQuad3D/DrawTrail3Dはこれを使う
 	void DrawVFXMesh(std::span<const VFXVertex> _vertices, MaterialHandle _material);
+	// VFXをメッシュ無しで描画(粒子ならこちらを使ってください)
+	void DrawVFXInstanced(MaterialHandle _material, UINT _instanceCount, const Vector3& _sortPosition);
 	// 平面上に3DGridを描画する(中心座標、中心から片側端までのCell数、Cell1つ分のサイズ(デフォルトは1m), 色)
 	void DrawGrid3D(Vector3 _center, Quaternion _rotation = Quaternion::Identity,unsigned int _halfCellCount = 10, float _cellSize = 1.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f });
 	// ワールド空間の座標軸に沿ったグリッドを生成する(中心座標、中心から片側端までのCell数、Cell1つ分のサイズ(デフォルトは1m), 各軸のグリッドの色(デフォルトはX = 赤 Y = 緑 Z = 青です))
@@ -229,7 +231,7 @@ namespace Gfx
 	/// <param name="_material">設定したいmaterial</param>
 	/// <param name="_slot">設定するスロット</param>
 	/// <param name="_texture">入れるtexture</param>
-	/// <returns></returns>
+	/// <returns>成功したか</returns>
 	bool SetMaterialTexture(MaterialHandle _material, std::size_t _slot, TexHandle _texture);
 
 	/// <summary>
@@ -241,6 +243,32 @@ namespace Gfx
 	/// </summary>
 	/// <param name="_material">設定したいmaterial</param>
 	/// <param name="_texture">入れるtexture</param>
-	/// <returns></returns>
+	/// <returns>成功したか</returns>
 	bool SetMaterialTexture(MaterialHandle _material, TexHandle _texture);
+
+	/// <summary>
+	/// <para>任意のmaterialに対してComputeで作ったBufferを設定する</para>
+	/// <para>TextureとBufferは同じ4つのスロット(t0〜t3, space1)を共有し、1つのスロットにはどちらか一方しか置けません。後から設定した方が有効になります</para>
+	/// <para>HLSL側ではStructuredBufferとして宣言し要素の型はCreateGPUBuffer時のelementStrideと同じ大きさにしてください</para>
+	/// <para>定義例 : StructuredBuffer&lt;Particle&gt; particles : register(t0, space1)</para>
+	/// <para>Compute側で書き込んだBufferはEndFrame内のCompute実行後に読み取り状態へ移されるので同じフレームのDispatch結果をそのまま描画で読めます</para>
+	/// </summary>
+	/// <param name="_material">設定したいmaterial</param>
+	/// <param name="_slot">設定するSlot</param>
+	/// <param name="_gpuBuffer">入れるBuffer</param>
+	/// <returns>成功したか</returns>
+	bool SetMaterialBuffer(MaterialHandle _material, std::size_t _slot, GPUBufferHandle _gpuBuffer);
+
+	/// <summary>
+	/// <para>任意のmaterialに対してComputeで作ったBufferを設定する</para>
+	/// <para>TextureとBufferは同じ4つのスロット(t0〜t3, space1)を共有し、1つのスロットにはどちらか一方しか置けません。後から設定した方が有効になります</para>
+	/// <para>HLSL側ではStructuredBufferとして宣言し要素の型はCreateGPUBuffer時のelementStrideと同じ大きさにしてください</para>
+	/// <para>定義例 : StructuredBuffer&lt;Particle&gt; particles : register(t0, space1)</para>
+	/// <para>Compute側で書き込んだBufferはEndFrame内のCompute実行後に読み取り状態へ移されるので同じフレームのDispatch結果をそのまま描画で読めます</para>
+	/// <para> この関数ではslotを省略して自動的に0番に置きます</para>
+	/// </summary>
+	/// <param name="_material">設定したいmaterial</param>
+	/// <param name="_gpuBuffer">入れるBuffer</param>
+	/// <returns></returns>
+	bool SetMaterialBuffer(MaterialHandle _material, GPUBufferHandle _gpuBuffer);
 }

@@ -17,6 +17,8 @@
 cbuffer VFXFrameCB : register(b0)
 {
 	float4x4 viewProjection; // VP行列
+	float4 cameraUp; // カメラ上方向
+	float4 cameraRight; // カメラ右方向
 };
 
 // VFXが読み取る標準サンプラー

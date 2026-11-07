@@ -2,6 +2,7 @@
 #include <string> // テスト用
 #include <algorithm>
 #include "VfxMeshTest.h"
+#include "VfxParticleTest.h"
 
 struct alignas(16) ThreeToneParameter
 {
@@ -29,7 +30,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	// 初期化 失敗したら-1を返す
 	if (!TSLib::Initialize(L"GraphicsTest3D", static_cast<int>(windowSize.x), static_cast<int>(windowSize.y)))return -1;
-	Time::SetTargetFPS(0);
+	Time::SetTargetFPS(60);
 
 	// マウスカーソルの状態を設定
 	bool isLocked{ true }; // Initialize直後にLockedにした状態と合わせる
@@ -170,6 +171,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	VfxMeshTest vfxMeshTest{};
 	if (!vfxMeshTest.Setup()) DEBUG_LOG_ERROR("VfxMeshTestの初期化に失敗しました\n");
 
+	VfxParticleTest vfxParticleTest{};
+	if (!vfxParticleTest.Setup()) DEBUG_LOG_ERROR("VfxParticleTestの初期化に失敗しました\n");
+
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC) && !Input::IsPadPushed(PadCode::Button::BACK))
 	{
@@ -309,6 +313,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	
 		vfxMeshTest.Update(Time::UnscaledDeltaTime());
 
+		vfxParticleTest.Update(Time::UnscaledDeltaTime());
+
 		Gfx::ClearScreen(); // 画面クリア
 		
 		Gfx::DrawAnimatedModel(alienModelAnim, objectPosition); // 3Dモデルアニメーション
@@ -349,6 +355,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			Gfx::DrawAnimatedModel(toonModelAnim, testPlayerVfx02Transform, testMaterials[i]);
 		}
 
+		vfxParticleTest.Draw();
+
 		vfxMeshTest.Draw();
 
 		//Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });
@@ -371,6 +379,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	}
 
 	vfxMeshTest.Shutdown();
+	vfxParticleTest.Shutdown();
 	TSLib::Finish(); // 終了
 	return 0;
 }
