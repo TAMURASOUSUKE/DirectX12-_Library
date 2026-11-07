@@ -29,6 +29,7 @@
 #include "../Graphics/CameraSystem.h"
 #include "../Graphics/LightSystem.h"
 #include "../Graphics/GraphicsSystem.h"
+#include "../Graphics/VFXMeshSystem.h"
 #include "GfxInternal.h" // 外部公開しないもの
 #include "Gfx.h" // 外部公開するもの
 
@@ -51,6 +52,7 @@ namespace {
 	ModelRenderSystem modelRenderSystem{}; // モデルを描画するためのシステム
 	TerrainSystem terrainSystem{}; // テライン描画を行うためのシステム
 	ShadowSystem shadowSystem{}; // 平行光源ShadowMapを管理
+	VFXMeshSystem vfxMeshSystem{}; // VFXのシステム
 	BitmapFont defaultFont; // デフォルト用の文字列
 	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
 	MaterialHandle currentPostEffectMaterial{}; // 現在画面全体へ適用しているポストエフェクトmaterial(無効ハンドルなら内蔵の素通しPSOを使う)
@@ -333,6 +335,7 @@ namespace {
 			shapeBatch.Shutdown();
 			primitive3DSystem.Shutdown();
 			lightSystem.Shutdown();
+			vfxMeshSystem.Shutdown();
 
 
 			// 正射影CBを解放する
@@ -409,6 +412,12 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	if (!shadowSystem.Setup(GraphicsDevice::Instance().GetDevice(), SHADOW_MAP_RESOLUTION))
 	{
 		DEBUG_LOG_ERROR("ShadowSystemの初期化に失敗しました\n");
+		return false;
+	}
+
+	if (!vfxMeshSystem.Setup(shaderSystem.GetRootSignature(RootSigID::VFX)))
+	{
+		DEBUG_LOG_ERROR("VFXのMeshのシステムの初期化に失敗しました\n");
 		return false;
 	}
 
@@ -526,6 +535,7 @@ void GfxInternal::BeginFrame()
 	lightSystem.BeginFrame();
 	shadowSystem.BeginFrame();
 	modelRenderSystem.BeginFrame();
+	vfxMeshSystem.Reset();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto dsv{ GraphicsDevice::Instance().GetDSV() };
@@ -638,12 +648,21 @@ void GfxInternal::EndFrame()
 		EndGPUTimingPass(GraphicsPass::Terrain, gpuTimingStarted); // 計測終了
 	}
 
-	// モデル描画
+	// 半透明モデル描画
 	{
 		const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::BlendModel) }; // 計測開始
 		GPU_MARKER("BlendModel");
 		modelRenderSystem.FlushBlend(shadowFrameAddress, shadowMapSRV);
 		EndGPUTimingPass(GraphicsPass::BlendModel, gpuTimingStarted); // 計測終了
+	}
+
+	// VFXメッシュ描画(半透明モデルの後、深度は読むだけ)
+	{
+		const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::VFXMesh) }; // 計測開始
+		GPU_MARKER("VFXMesh");
+		// 一部のメッシュが失敗してもフレームの残り(前面Sprite・Present)は続ける
+		if (!vfxMeshSystem.Flush(cameraSystem.GetViewProjectionMatrix(), cameraSystem.GetCameraPosition())) DEBUG_LOG_ERROR("VFXメッシュの描画に失敗しました\n");
+		EndGPUTimingPass(GraphicsPass::VFXMesh, gpuTimingStarted); // 計測終了
 	}
 
 	// 前面2DSprite
@@ -910,6 +929,7 @@ bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _s
 	case ShaderUsage::PostEffect:
 	case ShaderUsage::Sprite:
 	case ShaderUsage::Model:
+	case ShaderUsage::VFX:
 		// GPUへの配達に対応している
 		break;
 	default:
@@ -1044,6 +1064,7 @@ ShaderHandle Gfx::LoadShader(const wchar_t* _filePath, ShaderUsage _usage, Shade
 	case ShaderUsage::Sprite:
 	case ShaderUsage::Model:
 	case ShaderUsage::Compute:
+	case ShaderUsage::VFX:
 		break;
 	default:
 		DEBUG_LOG_ERROR("不明なShaderUsageが指定されました\n");
@@ -1077,11 +1098,7 @@ ShaderHandle Gfx::LoadShader(const wchar_t* _filePath, ShaderUsage _usage, Shade
 		target = nullptr;
 		break;
 	}
-
-	if (!target)
-	{
-		return ShaderHandle{};
-	}
+	if (!target) return ShaderHandle{};
 
 	ComPtr<ID3DBlob> shaderBlob{ PipelineFactory::Compile(_filePath, "main", target) }; // Shaderに対応するtargetでコンパイルする
 	if (!shaderBlob)
@@ -1449,6 +1466,115 @@ void Gfx::DrawLine3D(Vector3 _start, Vector3 _end, Vector4 _color)
 {
 	// ホットパスなのでログを出さない(溢れないようにする)
 	if (!primitive3DSystem.RegisterLine(_start, _end, _color)) return;
+}
+
+namespace
+{
+	// 計算用の型(整列あり)から、GPUへ送る詰め物なしの頂点を作る
+	VFXVertex MakeVFXVertex(const Vector3& _position, float _u, float _v, const Vector4& _color)
+	{
+		VFXVertex vertex{};
+		vertex.position[0] = _position.x;
+		vertex.position[1] = _position.y;
+		vertex.position[2] = _position.z;
+		vertex.uv[0] = _u;
+		vertex.uv[1] = _v;
+		vertex.color[0] = _color.x;
+		vertex.color[1] = _color.y;
+		vertex.color[2] = _color.z;
+		vertex.color[3] = _color.w;
+		return vertex;
+	}
+}
+
+void Gfx::DrawQuad3D(Vector3 _center, Vector2 _size, MaterialHandle _material, BillboardMode _mode, Quaternion _rotation, Vector4 _color)
+{
+	// 板の右と上の向き(ワールド空間)をモードごとに決める
+	Vector3 right{ Vector3::Right };
+	Vector3 up{ Vector3::Up };
+	switch (_mode)
+	{
+	case BillboardMode::None:
+		// 指定された回転のまま
+		right = _rotation.RotateVector(Vector3::Right);
+		up = _rotation.RotateVector(Vector3::Up);
+		break;
+	case BillboardMode::FaceCamera:
+	{
+		// カメラの右・上をそのまま使えば常に正面を向く
+		const Quaternion cameraRotation{ cameraSystem.GetCameraRotation() };
+		right = cameraRotation.RotateVector(Vector3::Right);
+		up = cameraRotation.RotateVector(Vector3::Up);
+		break;
+	}
+	case BillboardMode::AxisY:
+	{
+		// 上はワールドのYに固定し、右は「上 × カメラから板への向き」で作る(左手系: X = Y Cross Z)
+		const Vector3 forward{ Vector3::Normalized(_center - cameraSystem.GetCameraPosition()) };
+		right = Vector3::Cross(Vector3::Up, forward);
+		// 真上・真下から見ていると外積が0になるので、その時だけワールドの右に逃がす
+		if (right.LengthSquared() < Math::EPSILON) right = Vector3::Right;
+		else right.Normalize();
+		up = Vector3::Up;
+		break;
+	}
+	default:
+		DEBUG_LOG_ERROR("不明なBillboardModeが渡されました\n");
+		return;
+	}
+
+	const Vector3 halfRight{ right * (_size.x * 0.5f) };
+	const Vector3 halfUp{ up * (_size.y * 0.5f) };
+
+	// TRIANGLESTRIPの並び: 左上、右上、左下、右下(カメラから見て時計回り = 表)
+	const std::array<VFXVertex, 4> vertices
+	{
+		MakeVFXVertex(_center - halfRight + halfUp, 0.0f, 0.0f, _color),
+		MakeVFXVertex(_center + halfRight + halfUp, 1.0f, 0.0f, _color),
+		MakeVFXVertex(_center - halfRight - halfUp, 0.0f, 1.0f, _color),
+		MakeVFXVertex(_center + halfRight - halfUp, 1.0f, 1.0f, _color),
+	};
+	DrawVFXMesh(vertices, _material);
+}
+
+void Gfx::DrawTrail3D(std::span<const Vector3> _left, std::span<const Vector3> _right, std::span<const Vector4> _colors, MaterialHandle _material)
+{
+	const std::size_t pointCount{ _left.size() };
+	if (pointCount < 2 || _right.size() != pointCount || _colors.size() != pointCount)
+	{
+		DEBUG_LOG_ERROR("DrawTrail3Dの点列の長さが不正です(左右・色は同じ長さで2点以上)\n");
+		return;
+	}
+
+	// 点ごとに左右の2頂点を並べる: L0, R0, L1, R1, ... (TRIANGLESTRIPで隣り合う4頂点が四角形になる)
+	std::vector<VFXVertex> vertices{};
+	vertices.reserve(pointCount * 2);
+	const float lengthStep{ 1.0f / static_cast<float>(pointCount - 1) }; // 長さ方向のUV(0→1)
+	for (std::size_t i = 0; i < pointCount; i++)
+	{
+		const float u{ lengthStep * static_cast<float>(i) };
+		vertices.push_back(MakeVFXVertex(_left[i], u, 0.0f, _colors[i]));
+		vertices.push_back(MakeVFXVertex(_right[i], u, 1.0f, _colors[i]));
+	}
+	DrawVFXMesh(vertices, _material);
+}
+
+void Gfx::DrawVFXMesh(std::span<const VFXVertex> _vertices, MaterialHandle _material)
+{
+	// Materialの用途がVFXでなければ描かない(DrawSpriteと同じ検査)
+	const MaterialData* material{ GraphicsResourceManager::Instance().Lookup(_material) };
+	if (!material)
+	{
+		DEBUG_LOG_ERROR("VFXメッシュに無効なMaterialHandleが渡されました\n");
+		return;
+	}
+	if (material->usage != ShaderUsage::VFX)
+	{
+		DEBUG_LOG_ERROR("VFXメッシュにVFX用途以外のMaterialが渡されました\n");
+		return;
+	}
+	// ホットパスなのでここではログを出さない(上限超過はBeginFrameでまとめて警告される)
+	if (!vfxMeshSystem.Register(_vertices, _material)) return;
 }
 
 void Gfx::DrawGrid3D(Vector3 _center, Quaternion _rotation, unsigned int _halfCellCount, float _cellSize, Vector4 _color)

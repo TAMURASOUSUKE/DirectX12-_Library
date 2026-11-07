@@ -21,6 +21,8 @@ public:
 	const Mat4x4& GetViewProjectionMatrix() const { return viewProjectionMatrix; }
 	// 現在設定されているカメラの現在位置の取得
 	Vector3 GetCameraPosition() const { return currentCamera.transform.GetPosition(); }
+	// 現在設定されているカメラの向きの取得(Billboardでカメラの右・上の向きを作るために使う)
+	Quaternion GetCameraRotation() const { return currentCamera.transform.GetRotation(); }
 
 private:
 	// 現在のカメラ設定から行列を再計算する

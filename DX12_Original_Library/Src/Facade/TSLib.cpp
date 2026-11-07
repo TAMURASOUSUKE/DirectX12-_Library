@@ -54,6 +54,7 @@ namespace {
 		std::string_view{ "Debug Preview" },
 		std::string_view{ "PostEffect" },
 		std::string_view{ "Terrain" },
+		std::string_view{ "VFX Mesh" },
 	};
 	std::array<DebugMetricID, PASS_COUNT> passDrawCallID{};
 	static_assert(passName.size() == PASS_COUNT, "表示名がパスの数とあっていません");

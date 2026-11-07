@@ -2,6 +2,9 @@
 #include <cstddef>
 #include <array>
 #include <cstdint>
+#include "../Math/Vector/Vector2.h"
+#include "../Math/Vector/Vector3.h"
+#include "../Math/Vector/Vector4.h"
 #include "../Core/Handle/GPUBufferHandle.h"
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ComputePipelineHandle.h"
@@ -48,6 +51,7 @@ enum class ShaderUsage
 	Sprite, 
 	Model, 
 	Compute,
+	VFX,
 };
 
 // シェーダーステージの種類
@@ -162,6 +166,14 @@ enum class Primitive3DStyle
 	DebugLine, // あたり判定可視化などデバッグ途用として余計な線を描画しないワイヤー表示
 };
 
+// ビルボードの状態を表す列挙体
+enum class BillboardMode
+{
+	None, // 向きはTransformに合わせる
+	FaceCamera, // 常にカメラ方向を向く
+	AxisY, // Y軸を固定して水平方向だけカメラを向く
+};
+
 // 1段階分のLOD設定
 struct ModelLODLevel
 {
@@ -241,3 +253,14 @@ struct MaterialRenderDesc
 	MaterialBlendMode blendMode{ MaterialBlendMode::Opaque }; // 色をどう混ぜ合わせるか
 	bool doubleSided{ false }; // 両面を描画するか
 };
+
+// VFXに使われる頂点の情報をまとめた型
+// Vector3/Vector4はalignas(16)で詰め物が入り入力レイアウト(詰めて並べる)とずれるため、SpriteVertexと同じくfloat配列で持つ
+struct VFXVertex
+{
+	float position[3]{ 0.0f, 0.0f, 0.0f }; // ワールド位置
+	float uv[2]{ 0.0f, 0.0f }; // UV
+	float color[4]{ 1.0f, 1.0f, 1.0f, 1.0f }; // 頂点色(αは不透明度または加算の強さ)
+};
+static_assert(sizeof(VFXVertex) == sizeof(float) * 9, "VFXVertexは詰め物なしの36バイトである必要があります(入力レイアウトと一致させる)");
+

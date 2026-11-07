@@ -1,6 +1,7 @@
 #include "../Src/Facade/TSLib.h"
 #include <string> // テスト用
 #include <algorithm>
+#include "VfxMeshTest.h"
 
 struct alignas(16) ThreeToneParameter
 {
@@ -166,6 +167,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	Gfx::SetMaterialParameter(additiveHandle, VfxBlendTestParameterCB{ {0.0f, 1.0f, 0.0f, 0.5f} });
 	Gfx::SetMaterialParameter(blendDoubleSidedHandle, VfxBlendTestParameterCB{ {0.0f, 0.0f, 1.0f, 0.5f} });
 
+	VfxMeshTest vfxMeshTest{};
+	if (!vfxMeshTest.Setup()) DEBUG_LOG_ERROR("VfxMeshTestの初期化に失敗しました\n");
+
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC) && !Input::IsPadPushed(PadCode::Button::BACK))
 	{
@@ -303,6 +307,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			Gfx::SetSceneLight(sceneLight);
 		}
 	
+		vfxMeshTest.Update(Time::UnscaledDeltaTime());
+
 		Gfx::ClearScreen(); // 画面クリア
 		
 		Gfx::DrawAnimatedModel(alienModelAnim, objectPosition); // 3Dモデルアニメーション
@@ -343,6 +349,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			Gfx::DrawAnimatedModel(toonModelAnim, testPlayerVfx02Transform, testMaterials[i]);
 		}
 
+		vfxMeshTest.Draw();
+
 		//Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });
 		//Gfx::DrawString(targetFPS.c_str(), { 0.0f, 30.0f });
 		//Gfx::DrawString(unscaledDeltaTime.c_str(), { 0.0f, 60.0f });
@@ -362,6 +370,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		TSLib::EndFrame(); // フレーム終了処理
 	}
 
+	vfxMeshTest.Shutdown();
 	TSLib::Finish(); // 終了
 	return 0;
 }

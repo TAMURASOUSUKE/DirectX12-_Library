@@ -2036,6 +2036,7 @@ bool GraphicsResourceManager::SetMaterialTexture(MaterialHandle _material, std::
 	case ShaderUsage::Model:
 	case ShaderUsage::PostEffect:
 	case ShaderUsage::Sprite:
+	case ShaderUsage::VFX:
 		break;
 	case ShaderUsage::Compute:
 	default:

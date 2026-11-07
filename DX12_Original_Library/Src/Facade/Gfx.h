@@ -102,6 +102,12 @@ namespace Gfx
 	void DrawPlane3D(const Transform& _transform, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f }, Primitive3DStyle _style = Primitive3DStyle::Fill);
 	// 単位Lineを始点と終点で配置する
 	void DrawLine3D(Vector3 _start, Vector3 _end, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f});
+	// Materialつきの板をワールド空間へ描画する(中心、幅と高さ、VFX用途のMaterial、向きの決め方、Noneのときの回転、頂点色)
+	void DrawQuad3D(Vector3 _center, Vector2 _size, MaterialHandle _material, BillboardMode _mode = BillboardMode::FaceCamera, Quaternion _rotation = Quaternion::Identity, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f });
+	// Materialつきの帯をワールド空間へ描画する(左の点列、右の点列、点ごとの色、VFX用途のMaterial) 3つは同じ長さで2点以上
+	void DrawTrail3D(std::span<const Vector3> _left, std::span<const Vector3> _right, std::span<const Vector4> _colors, MaterialHandle _material);
+	// 頂点列(TRIANGLESTRIP、3頂点以上)をそのままMaterialつきで描画する低水準API DrawQuad3D/DrawTrail3Dはこれを使う
+	void DrawVFXMesh(std::span<const VFXVertex> _vertices, MaterialHandle _material);
 	// 平面上に3DGridを描画する(中心座標、中心から片側端までのCell数、Cell1つ分のサイズ(デフォルトは1m), 色)
 	void DrawGrid3D(Vector3 _center, Quaternion _rotation = Quaternion::Identity,unsigned int _halfCellCount = 10, float _cellSize = 1.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f });
 	// ワールド空間の座標軸に沿ったグリッドを生成する(中心座標、中心から片側端までのCell数、Cell1つ分のサイズ(デフォルトは1m), 各軸のグリッドの色(デフォルトはX = 赤 Y = 緑 Z = 青です))

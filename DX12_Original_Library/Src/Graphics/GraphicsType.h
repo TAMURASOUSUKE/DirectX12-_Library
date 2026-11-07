@@ -40,6 +40,8 @@ enum class BuiltinShaderID : size_t
 	PostEffectVS,
 	PostEffectPS,
 
+	VFXVS,
+
 	Count,
 
 	// Shaderを使用しない場合用
@@ -83,6 +85,7 @@ enum class RootSigID
 	Terrain, // テッセレーションデモ
 	PostEffect, // シーンRTのSRVのPSから読むためのルートシグネチャ
 	Compute, // Compute計算を行う
+	VFX, // VFX用
 	Count,
 };
 
@@ -113,6 +116,7 @@ enum class InputLayout
 	Model, // 3Dモデル
 	Shape, // 2D形状
 	Primitive3D, // 3D基礎図形
+	VFX, // VFX用
 	Count,
 };
 
@@ -514,6 +518,12 @@ struct TerrainCB
 	float heightScale{ 1.0f }; // 高さ具合
 	float tessFactor{ 4.0f }; // 分割係数
 	float padding[2]{};
+};
+
+// VFX描画に必要なCB
+struct VFXFrameCB
+{
+	Mat4x4 viewProjection{ Mat4x4::Identity }; // vp行列
 };
 
 // オフスクリーン描画先1個分
