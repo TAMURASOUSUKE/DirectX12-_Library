@@ -60,6 +60,15 @@ void ComputeInternal::Finish()
 	rootSig.Reset();
 }
 
+void ComputeInternal::RegisterDispatches(const std::vector<ComputeDispatchRequest>& _requests)
+{
+	for (const ComputeDispatchRequest& request : _requests)
+	{
+		const void* data{ request.parameterSize > 0 ? request.parameter.data() : nullptr };
+		if (!computeSystem.RegisterDispatch(request.desc, data, request.parameterSize)) DEBUG_LOG_ERROR("仲介されたComputeの実行要求の登録に失敗しました\n");
+	}
+}
+
 ShaderHandle Compute::LoadShader(const wchar_t* _filePath)
 {
 	if (!_filePath || _filePath[0] == L'\0')

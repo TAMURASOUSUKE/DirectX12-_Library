@@ -1,4 +1,7 @@
 #pragma once
+#include <vector>
+
+struct ComputeDispatchRequest;
 
 // Computeに関するユーザーから隠蔽するべき機能を作成する
 namespace ComputeInternal
@@ -15,4 +18,6 @@ namespace ComputeInternal
 	// 終了処理
 	void Finish();
 
+	// Compute実行要求を登録する
+	void RegisterDispatches(const std::vector<ComputeDispatchRequest>& _requests);
 }

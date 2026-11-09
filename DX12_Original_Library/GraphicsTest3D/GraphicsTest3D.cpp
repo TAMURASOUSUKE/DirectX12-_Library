@@ -355,8 +355,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			Gfx::DrawAnimatedModel(toonModelAnim, testPlayerVfx02Transform, testMaterials[i]);
 		}
 
-		vfxParticleTest.Draw();
-
 		vfxMeshTest.Draw();
 
 		//Gfx::DrawString(fpsValue.c_str(), { 0.0f, 0.0f });

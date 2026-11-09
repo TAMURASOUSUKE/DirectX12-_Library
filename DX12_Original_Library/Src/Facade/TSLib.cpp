@@ -350,6 +350,7 @@ void TSLib::EndFrame()
 	DebugInternal::EndFrame(); // デバッグ表示用のフレームの最後の処理
 	DebugDraw(); // デバッグパラメータなどの描画
 	GfxInternal::RecordUpload(); // リソースのUpload命令記録
+	ComputeInternal::RegisterDispatches(GfxInternal::GetVFXDispatchRequests()); // Gfx側のVFXが積んだCompute要求をTSLibが仲介して渡す
 	ComputeInternal::EndFrame(); // Computeのフレーム最後の処理
 	GfxInternal::EndFrame(); // グラフィックのフレーム最後の処理
 	InputInternal::EndFrame(); // 入力関連のフレーム最後の処理

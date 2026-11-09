@@ -1998,6 +1998,39 @@ MaterialHandle GraphicsResourceManager::RegisterMaterial(ShaderHandle _shader, C
 	return MaterialHandle{ PassKey{}, packed };
 }
 
+MaterialHandle GraphicsResourceManager::CloneMaterial(MaterialHandle _source)
+{
+	MaterialData* source{ Lookup(_source) };
+	if (!source)
+	{
+		DEBUG_LOG_ERROR("渡されたMaterialが不正です\n");
+		return MaterialHandle{};
+	}
+
+	const bool canRegister{ !materialFreeList.empty() || materialSlots.size() < MAX_MATERIAL_COUNT };
+	if (!canRegister)
+	{
+		DEBUG_LOG_ERROR("Materialの登録上限に達しました\n");
+		return MaterialHandle{};
+	}
+
+	MaterialData data{ *source }; // push_backで配列が伸びるとsourceが無効になるので、先に写す
+	int index{};
+	if (!materialFreeList.empty())
+	{
+		index = materialFreeList.top();
+		materialFreeList.pop();
+		materialSlots[index].data = std::move(data);
+	}
+	else
+	{
+		index = static_cast<int>(materialSlots.size());
+		materialSlots.push_back({ std::move(data), 0 });
+	}
+
+	return MaterialHandle{ PassKey{}, Pack(index, materialSlots[index].generation) };
+}
+
 bool GraphicsResourceManager::SetMaterialParameter(MaterialHandle _material, size_t _slot, const void* _data, size_t _dataSize)
 {
 	MaterialData* material{ Lookup(_material) };

@@ -1,6 +1,8 @@
 #pragma once
 #include <windows.h>
+#include <vector>
 
+struct ComputeDispatchRequest;
 struct GraphicsFrameMetrics;
 struct GraphicsGPUTimingFrame;
 
@@ -29,4 +31,6 @@ namespace GfxInternal
 	const GraphicsFrameMetrics& GetLastFrameMetrics();
 	// 完成済みのGPU時間計測結果を取得する
 	const GraphicsGPUTimingFrame& GetLastGPUTimingFrame();
+	// VFXの再生管理がこのフレームに積んだCompute実行要求を取得する
+	const std::vector<ComputeDispatchRequest>& GetVFXDispatchRequests();
 }

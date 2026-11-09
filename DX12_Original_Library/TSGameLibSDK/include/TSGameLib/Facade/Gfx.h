@@ -7,8 +7,8 @@
 #include "../Core/Handle/ShaderHandle.h"
 #include "../Core/Handle/MaterialHandle.h"
 #include "../Core/Handle/AnimInstanceHandle.h"
-#include "../Core/Handle/ComputePipelineHandle.h"
-#include "../Core/Handle/GPUBufferHandle.h"
+#include "../Core/Handle/VFXHandle.h"
+#include "../Core/Handle/VFXParticleTypeHandle.h"
 #include "../Graphics/GfxType.h"
 #include "../Component/Transform.h"
 #include "../Component/Camera.h"
@@ -27,97 +27,6 @@ namespace Gfx
 		// テンプレートから呼び出される内部実装
 		bool SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _slot , const void* _data, size_t _dataSize);
 	}
-
-	// フォントアトラスの設定構造体(デフォルトでフォントを用意しているが変更したい時にここを設定してもらう)
-	struct BitmapFont
-	{
-		TexHandle texture; // アトラス画像のハンドル
-		int texWidth{ 0 }; // テクスチャ全体の幅(px)
-		int texHeight{ 0 }; // テクスチャ全体の高さ(px)
-		int cellWidth{ 0 }; // 1セルの幅(px)
-		int cellHeight{ 0 }; // 1セルの高さ(px)
-		int cols{ 0 }; // 1行あたりのセルの量
-		int firstCode{ 0 }; // 先頭セルが表す文字コード(CP437配列なら0, スペース始まりなら32)
-	};
-
-	// 画像の状態
-	enum class SpriteFlip
-	{
-		None,
-		Horizontal,
-		Vertical,
-		Both
-	};
-
-	// 等間隔のグリッド状に分割されたテクスチャアトラス
-	struct TextureAtlas
-	{
-		TexHandle texture{}; // アトラス画像本体
-		int columns{ 0 };    // 横方向の分割数
-		int rows{ 0 };       // 縦方向の分割数
-		int frameCount{ 0 }; // 実際に使用するセル数
-
-		bool IsValid() const 
-		{
-			const long long capacity{ static_cast<long long>(columns) * rows };
-			return texture.IsValid() && columns > 0 && rows > 0 && frameCount > 0 && frameCount <= capacity;
-		}
-	};
-
-	// スプライトアニメーションの設定と再生状態
-	struct SpriteAnimationState
-	{
-		int firstFrame{ 0 };   // 使用する最初のセル
-		int lastFrame{ 0 };    // 使用する最後のセル（この番号を含む）
-		int currentFrame{ 0 }; // 現在表示しているセル
-
-		float secondsPerFrame{ 0.1f }; // 1コマの表示秒数
-		float elapsedTime{ 0.0f };     // コマ送り用の蓄積時間
-
-		bool isLoop{ true }; // ループするか
-		bool isFinished{ false }; // アニメーションが終了したか
-
-		SpriteAnimationState() = default;
-
-		// 必要な設定を引数だけで指定する
-		SpriteAnimationState(int _firstFrame, int _lastFrame, float _secondsPerFrame, bool _isLoop = true) :
-			firstFrame{ _firstFrame }, lastFrame{ _lastFrame }, currentFrame{ _firstFrame }, secondsPerFrame{ _secondsPerFrame }, isLoop{ _isLoop } {}
-
-		bool IsValid(const TextureAtlas& _atlas) const
-		{
-			return _atlas.IsValid()
-				&& firstFrame >= 0
-				&& lastFrame >= firstFrame
-				&& lastFrame < _atlas.frameCount
-				&& currentFrame >= firstFrame
-				&& currentFrame <= lastFrame
-				&& secondsPerFrame > 0.0f;
-		}
-
-		int GetFrameIndex() const { return currentFrame; }
-
-		void Reset()
-		{
-			currentFrame = firstFrame;
-			elapsedTime = 0.0f;
-			isFinished = false;
-		}
-	};
-
-	// 画像をどの用途として読み込むか
-	enum class TextureUsage
-	{
-		Color, // 表示用カラー画像(sRGBとして読み込む) 
-		Data, // ハイトマップやノーマルマップなどの数値データ,Linerとして読み込む	
-	};
-
-	// 3Dの基本図形の描画方法を設定する
-	enum class Primitive3DStyle
-	{
-		Fill, // 塗りつぶし
-		MeshWireframe, // メッシュをワイヤー表示
-		DebugLine, // あたり判定可視化などデバッグ途用として余計な線を描画しないワイヤー表示
-	};
 
 	// 2D描画で使用している仮想解像度を取得する
 	Vector2Int GetVirtualSize();
@@ -140,9 +49,9 @@ namespace Gfx
 	// Shader読み込み
 	ShaderHandle LoadShader(const wchar_t* _filePath, ShaderUsage _usage, ShaderStage _stage);
 	// material読み込み(内蔵VSを使う簡易版)
-	MaterialHandle CreateMaterial(ShaderHandle _pixel);
+	MaterialHandle CreateMaterial(ShaderHandle _pixel, const MaterialRenderDesc& _materialRenderDesc = {});
 	// material読み込み(VSも指定する版)
-	MaterialHandle CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader);
+	MaterialHandle CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader, const MaterialRenderDesc& _materialRenderDesc = {});
 	// モデルをもとにアニメーション個体の作成
 	AnimInstanceHandle CreateAnimInstance(ModelHandle _handle);
 
@@ -195,6 +104,14 @@ namespace Gfx
 	void DrawPlane3D(const Transform& _transform, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f }, Primitive3DStyle _style = Primitive3DStyle::Fill);
 	// 単位Lineを始点と終点で配置する
 	void DrawLine3D(Vector3 _start, Vector3 _end, Vector4 _color = {1.0f, 1.0f, 1.0f, 1.0f});
+	// Materialつきの板をワールド空間へ描画する(中心、幅と高さ、VFX用途のMaterial、向きの決め方、Noneのときの回転、頂点色)
+	void DrawQuad3D(Vector3 _center, Vector2 _size, MaterialHandle _material, BillboardMode _mode = BillboardMode::FaceCamera, Quaternion _rotation = Quaternion::Identity, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f });
+	// Materialつきの帯をワールド空間へ描画する(左の点列、右の点列、点ごとの色、VFX用途のMaterial) 3つは同じ長さで2点以上
+	void DrawTrail3D(std::span<const Vector3> _left, std::span<const Vector3> _right, std::span<const Vector4> _colors, MaterialHandle _material);
+	// 頂点列(TRIANGLESTRIP、3頂点以上)をそのままMaterialつきで描画する低水準API DrawQuad3D/DrawTrail3Dはこれを使う
+	void DrawVFXMesh(std::span<const VFXVertex> _vertices, MaterialHandle _material);
+	// VFXをメッシュ無しで描画(粒子ならこちらを使ってください)
+	void DrawVFXInstanced(MaterialHandle _material, UINT _instanceCount, const Vector3& _sortPosition);
 	// 平面上に3DGridを描画する(中心座標、中心から片側端までのCell数、Cell1つ分のサイズ(デフォルトは1m), 色)
 	void DrawGrid3D(Vector3 _center, Quaternion _rotation = Quaternion::Identity,unsigned int _halfCellCount = 10, float _cellSize = 1.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f, 1.0f });
 	// ワールド空間の座標軸に沿ったグリッドを生成する(中心座標、中心から片側端までのCell数、Cell1つ分のサイズ(デフォルトは1m), 各軸のグリッドの色(デフォルトはX = 赤 Y = 緑 Z = 青です))
@@ -244,6 +161,19 @@ namespace Gfx
 	void SetPostEffect(MaterialHandle _material);
 	// モデルのサブメッシュが使用するAlphaModeを変更するMaskの場合はalphaCutoff未満のピクセルを破棄する
 	bool SetModelAlphaMode(ModelHandle _model, int _subMeshIndex, ModelAlphaMode _alphaMode, float _alphaCutoff = 0.5f);
+
+	// 粒子VFXの種類を登録する materialはテンプレートでライブラリが同時再生数ぶん複製し枠ごとの粒子Bufferをslot0へ結ぶ
+	VFXParticleTypeHandle RegisterVFXParticle(const VFXParticleDesc& _desc);
+	// 再生開始する
+	VFXHandle PlayVFX(VFXParticleTypeHandle _particleType, const Vector3& _position);
+	// 毎フレーム呼ぶ 経過を進めてComputeと描画の登録を行う 終了した更新でfalse(dt = 0 ならヒットストップ)
+	bool UpdateVFX(VFXHandle _handle, float _deltaTime);
+	// 発生位置を動かす 発生速度は位置の差分からライブラリが出す
+	bool SetVFXPosition(VFXHandle _handle, const Vector3& _position);
+	// 終了していればtrue(無効ハンドル 古いハンドルもtrue)
+	bool IsFinishedVFX(VFXHandle _handle);
+	// 既定は発生だけ止めて余韻を残す _immediateなら全粒子を消して枠を返す
+	bool StopVFX(VFXHandle _handle, bool _immediate = false);
 	
 	/// <summary>
 	/// <para>ModelLODLevelを使って作成した配列を受け取って設定した距離によってモデルを変えるLOD関数(静的モデルのみ対応)</para>
@@ -305,4 +235,55 @@ namespace Gfx
 	{
 		return SetMaterialParameter(_handle, 0, _parameter);
 	}
+
+	/// <summary>
+	/// <\para>任意のmaterialに対してテクスチャを設定する<\para>
+	/// <\para>テクスチャは最大4まで設定できます<\para>
+	/// <para>ユーザーが使えるregister spaceは1番なのでTexture2D宣言の後にはspace1を入れてください</para>
+	/// <para>定義例 : Texture2D Example : register(t0, space1)</para>
+	/// <para>レジスタの0-3まで置かれるので0を指定したらHLSL側ではt0, 1ならt1...となりt3まで使えます</para>
+	/// </summary>
+	/// <param name="_material">設定したいmaterial</param>
+	/// <param name="_slot">設定するスロット</param>
+	/// <param name="_texture">入れるtexture</param>
+	/// <returns>成功したか</returns>
+	bool SetMaterialTexture(MaterialHandle _material, std::size_t _slot, TexHandle _texture);
+
+	/// <summary>
+	/// <\para>任意のmaterialに対してテクスチャを設定する<\para>
+	/// <\para>テクスチャは最大4まで設定できます<\para>
+	/// <\para>この関数ではスロットを指定していないので0が使われます<\para>
+	/// <para>ユーザーが使えるregister spaceは1番なのでTexture2D宣言の後にはspace1を入れてください</para>
+	/// <para>定義例 : Texture2D Example : register(t0, space1)</para>
+	/// </summary>
+	/// <param name="_material">設定したいmaterial</param>
+	/// <param name="_texture">入れるtexture</param>
+	/// <returns>成功したか</returns>
+	bool SetMaterialTexture(MaterialHandle _material, TexHandle _texture);
+
+	/// <summary>
+	/// <para>任意のmaterialに対してComputeで作ったBufferを設定する</para>
+	/// <para>TextureとBufferは同じ4つのスロット(t0〜t3, space1)を共有し、1つのスロットにはどちらか一方しか置けません。後から設定した方が有効になります</para>
+	/// <para>HLSL側ではStructuredBufferとして宣言し要素の型はCreateGPUBuffer時のelementStrideと同じ大きさにしてください</para>
+	/// <para>定義例 : StructuredBuffer&lt;Particle&gt; particles : register(t0, space1)</para>
+	/// <para>Compute側で書き込んだBufferはEndFrame内のCompute実行後に読み取り状態へ移されるので同じフレームのDispatch結果をそのまま描画で読めます</para>
+	/// </summary>
+	/// <param name="_material">設定したいmaterial</param>
+	/// <param name="_slot">設定するSlot</param>
+	/// <param name="_gpuBuffer">入れるBuffer</param>
+	/// <returns>成功したか</returns>
+	bool SetMaterialBuffer(MaterialHandle _material, std::size_t _slot, GPUBufferHandle _gpuBuffer);
+
+	/// <summary>
+	/// <para>任意のmaterialに対してComputeで作ったBufferを設定する</para>
+	/// <para>TextureとBufferは同じ4つのスロット(t0〜t3, space1)を共有し、1つのスロットにはどちらか一方しか置けません。後から設定した方が有効になります</para>
+	/// <para>HLSL側ではStructuredBufferとして宣言し要素の型はCreateGPUBuffer時のelementStrideと同じ大きさにしてください</para>
+	/// <para>定義例 : StructuredBuffer&lt;Particle&gt; particles : register(t0, space1)</para>
+	/// <para>Compute側で書き込んだBufferはEndFrame内のCompute実行後に読み取り状態へ移されるので同じフレームのDispatch結果をそのまま描画で読めます</para>
+	/// <para> この関数ではslotを省略して自動的に0番に置きます</para>
+	/// </summary>
+	/// <param name="_material">設定したいmaterial</param>
+	/// <param name="_gpuBuffer">入れるBuffer</param>
+	/// <returns></returns>
+	bool SetMaterialBuffer(MaterialHandle _material, GPUBufferHandle _gpuBuffer);
 }

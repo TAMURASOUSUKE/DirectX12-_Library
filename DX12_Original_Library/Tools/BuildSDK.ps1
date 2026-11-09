@@ -343,6 +343,7 @@ try
     $shaderContractFiles = @(
         "PostEffectContract.hlsli"
         "SpriteContract.hlsli"
+        "VFXContract.hlsli"
     )
 
     foreach ($shaderContractFile in $shaderContractFiles)

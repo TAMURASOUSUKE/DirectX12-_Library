@@ -607,6 +607,41 @@ struct MaterialData
 	MaterialRenderState renderState{}; // どう描画するか
 };
 
+// Computeの実行要求
+struct ComputeDispatchRequest
+{
+	ComputeDispatchDesc desc{};
+	std::array<std::byte, MAX_COMPUTE_PARAMETER_SIZE> parameter{};
+	std::size_t parameterSize{ 0 };
+};
+
+// VFXの粒子の種類一つ分のデータ(再生中に変わらない設定と この種類が持つ再生枠の番号)
+struct VFXParticleTypeData
+{
+	VFXParticleDesc desc{}; // 登録時に受け取った設定
+	std::vector<int> slotIndices{}; // この種類が持つ再生枠の番号 Playはこの中から空きを線形に探す
+};
+
+// VFXの再生枠一つ分の状態
+struct VFXPlayData
+{
+	int particleTypeIndex{ -1 }; // どの種類の枠か
+	bool isPlaying{ false }; // 再生中か
+	float elapsed{ 0.0f }; // 再生開始からの経過時間
+	Vector3 position{}; // 発生位置
+	Vector3 previousPosition{}; // 前回更新時の発生位置(発生速度 = 差分 / dt)
+	GPUBufferHandle particleBuffer{}; // この枠の粒子Buffer
+	GPUBufferHandle counterBuffer{}; // この枠の空き取り合いカウンタ
+	MaterialHandle material{}; // 定義のMaterialの複製 slot0にこの枠の粒子Bufferを結んである
+};
+
+// VFXの再生枠を管理するスロット
+struct VFXPlaySlot
+{
+	VFXPlayData data{}; // 再生枠の状態
+	uint32_t generation{ 0 }; // 古いハンドルを見分ける世代
+};
+
 // materialを管理するスロット
 struct MaterialSlot
 {

@@ -17,6 +17,8 @@ Core/Handle/AnimInstanceHandle.h
 Core/Handle/UIButtonHandle.h
 Core/Handle/ComputePipelineHandle.h
 Core/Handle/GPUBufferHandle.h
+Core/Handle/VFXHandle.h
+Core/Handle/VFXParticleTypeHandle.h
 
 Debug/DebugLogs.h
 Debug/CPUTimingScope.h

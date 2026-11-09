@@ -7,6 +7,8 @@
 #include "../Core/Handle/ShaderHandle.h"
 #include "../Core/Handle/MaterialHandle.h"
 #include "../Core/Handle/AnimInstanceHandle.h"
+#include "../Core/Handle/VFXHandle.h"
+#include "../Core/Handle/VFXParticleTypeHandle.h"
 #include "../Graphics/GfxType.h"
 #include "../Component/Transform.h"
 #include "../Component/Camera.h"
@@ -159,6 +161,19 @@ namespace Gfx
 	void SetPostEffect(MaterialHandle _material);
 	// モデルのサブメッシュが使用するAlphaModeを変更するMaskの場合はalphaCutoff未満のピクセルを破棄する
 	bool SetModelAlphaMode(ModelHandle _model, int _subMeshIndex, ModelAlphaMode _alphaMode, float _alphaCutoff = 0.5f);
+
+	// 粒子VFXの種類を登録する materialはテンプレートでライブラリが同時再生数ぶん複製し枠ごとの粒子Bufferをslot0へ結ぶ
+	VFXParticleTypeHandle RegisterVFXParticle(const VFXParticleDesc& _desc);
+	// 再生開始する
+	VFXHandle PlayVFX(VFXParticleTypeHandle _particleType, const Vector3& _position);
+	// 毎フレーム呼ぶ 経過を進めてComputeと描画の登録を行う 終了した更新でfalse(dt = 0 ならヒットストップ)
+	bool UpdateVFX(VFXHandle _handle, float _deltaTime);
+	// 発生位置を動かす 発生速度は位置の差分からライブラリが出す
+	bool SetVFXPosition(VFXHandle _handle, const Vector3& _position);
+	// 終了していればtrue(無効ハンドル 古いハンドルもtrue)
+	bool IsFinishedVFX(VFXHandle _handle);
+	// 既定は発生だけ止めて余韻を残す _immediateなら全粒子を消して枠を返す
+	bool StopVFX(VFXHandle _handle, bool _immediate = false);
 	
 	/// <summary>
 	/// <para>ModelLODLevelを使って作成した配列を受け取って設定した距離によってモデルを変えるLOD関数(静的モデルのみ対応)</para>
