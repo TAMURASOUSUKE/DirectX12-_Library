@@ -435,6 +435,15 @@
     <ClInclude Include="Src\Graphics\VFXDrawPacket.h">
       <Filter>Src\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Core\Handle\VFXParticleTypeHandle.h">
+      <Filter>Src\Core\Handle</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Handle\VFXHandle.h">
+      <Filter>Src\Core\Handle</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Graphics\VFXPlaySystem.h">
+      <Filter>Src\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -648,6 +657,9 @@
       <Filter>Src\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Src\Graphics\VFXMeshSystem.cpp">
+      <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Graphics\VFXPlaySystem.cpp">
       <Filter>Src\Graphics</Filter>
     </ClCompile>
   </ItemGroup>

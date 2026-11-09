@@ -15,6 +15,7 @@ constexpr size_t MAX_SHAPE_COUNT{ 1024 }; // 登録できる最大の基礎画�
 constexpr size_t MAX_PRIMITIVE_3D_INSTANCE_COUNT{ 8192 }; // 1フレームに登録できる3D基礎図形インスタンスの総数
 constexpr size_t MAX_VFX_VERTEX_COUNT{ 8192 }; // 1フレームのVFXの頂点上限
 constexpr size_t MAX_VFX_DRAW_COUNT{ 256 }; // 登録できるVFXの描画命令
+constexpr size_t MAX_VFX_PLAY_SLOT_COUNT{ 256 }; // 全定義を合わせたVFX再生枠の上限
 constexpr size_t CIRCLE_DIVISION{ 32 }; // 円を描画するときの三角形分割数
 constexpr size_t MAX_CB_PER_FRAME{ 256 }; // フレーム内で使える定数バッファの最大数
 constexpr size_t MAX_BONE_NUM{ 256 }; // 最大ボーン数

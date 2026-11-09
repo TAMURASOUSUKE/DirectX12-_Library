@@ -247,6 +247,8 @@
     <ClInclude Include="Src\Core\Handle\SoundHandle.h" />
     <ClInclude Include="Src\Core\Handle\TexHandle.h" />
     <ClInclude Include="Src\Core\Handle\UIButtonHandle.h" />
+    <ClInclude Include="Src\Core\Handle\VFXParticleTypeHandle.h" />
+    <ClInclude Include="Src\Core\Handle\VFXHandle.h" />
     <ClInclude Include="Src\Core\TextEncoding.h" />
     <ClInclude Include="Src\Debug\CPUFrameTimingSystem.h" />
     <ClInclude Include="Src\Debug\CPUTimingScope.h" />
@@ -316,6 +318,7 @@
     <ClInclude Include="Src\Graphics\UploadType.h" />
     <ClInclude Include="Src\Graphics\VFXDrawPacket.h" />
     <ClInclude Include="Src\Graphics\VFXMeshSystem.h" />
+    <ClInclude Include="Src\Graphics\VFXPlaySystem.h" />
     <ClInclude Include="Src\Input\ActionInput.h" />
     <ClInclude Include="Src\Input\AxisType.h" />
     <ClInclude Include="Src\Input\InputBase.h" />
@@ -407,6 +410,7 @@
     <ClCompile Include="Src\Graphics\TerrainSystem.cpp" />
     <ClCompile Include="Src\Graphics\UploadSystem.cpp" />
     <ClCompile Include="Src\Graphics\VFXMeshSystem.cpp" />
+    <ClCompile Include="Src\Graphics\VFXPlaySystem.cpp" />
     <ClCompile Include="Src\Input\ActionInput.cpp" />
     <ClCompile Include="Src\Input\GamePadInput.cpp" />
     <ClCompile Include="Src\Input\InputMethodTracker.cpp" />

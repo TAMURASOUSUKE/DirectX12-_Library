@@ -2,9 +2,7 @@
 #include <cstddef>
 #include <array>
 #include <cstdint>
-#include "../Math/Vector/Vector2.h"
-#include "../Math/Vector/Vector3.h"
-#include "../Math/Vector/Vector4.h"
+#include "../Core/Handle/MaterialHandle.h"
 #include "../Core/Handle/GPUBufferHandle.h"
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ComputePipelineHandle.h"
@@ -255,7 +253,6 @@ struct MaterialRenderDesc
 };
 
 // VFXに使われる頂点の情報をまとめた型
-// Vector3/Vector4はalignas(16)で詰め物が入り入力レイアウト(詰めて並べる)とずれるため、SpriteVertexと同じくfloat配列で持つ
 struct VFXVertex
 {
 	float position[3]{ 0.0f, 0.0f, 0.0f }; // ワールド位置
@@ -264,3 +261,44 @@ struct VFXVertex
 };
 static_assert(sizeof(VFXVertex) == sizeof(float) * 9, "VFXVertexは詰め物なしの36バイトである必要があります(入力レイアウトと一致させる)");
 
+// パーティクルの更新で行うパラメータ
+struct alignas(16) ParticleUpdateParameter
+{
+	float emitPosition[3]{ 0.0f, 0.0f, 0.0f }; // 発生地点
+	float deltaTime{ 0.0f }; // 更新時間
+	float gravity[3]{ 0.0f, -9.8f, 0.0f }; // 重力
+	std::uint32_t emitCount{ 0 }; // 生成数
+	std::uint32_t particleCount{ 0 }; // パーティクルの数
+	std::uint32_t randomSeed{ 0 }; // ランダム
+	float lifeMin{ 0.5f }; // 寿命の最短
+	float lifeMax{ 1.5f }; // 寿命の最長
+	float speedMin{ 5.0f }; // スピードの下限
+	float speedMax{ 12.0f }; // スピードの上限
+	float size{ 0.1f }; // サイズ
+	float drag{ 0.6f }; // 空気抵抗 減衰率
+	float color[4]{ 1.0f, 0.6f, 0.2f, 1.0f }; // 色
+	float emitVelocity[3]{ 0.0f, 0.0f, 0.0f }; // 生成した瞬間の速度ベクトル
+	float swirl{ 0.0f }; // 粒子の渦巻などの回転運動の強さ
+	float coneDirection[3]{ 0.0f, 1.0f, 0.0f }; // 円錐状に出す際のベクトル
+	float coneBias{ 0.8f }; // 円錐の広がり具合
+	float spawnRadius{ 0.0f }; // 発生する範囲の半径
+	float groundY{ -1.0e6f }; // 接地判定を行うY座標
+	float bounce{ 0.0f }; // 地面に衝突したときの跳ね返り
+	float sizeSpread{ 0.4f }; // サイズのばらつき具合
+};
+static_assert(sizeof(ParticleUpdateParameter) == 128, "ParticleUpdateParameter must match the HLSL cbuffer (128 bytes)");
+
+constexpr std::uint32_t VFX_PARTICLE_STRIDE{ 64 }; // Particle.hlsli の Particle 1個の大きさ
+constexpr std::uint32_t VFX_PARTICLE_THREAD_PER_GROUP{ 256 }; // 更新CSの numthreads
+// VFXのパーティクルの設定
+struct VFXParticleDesc
+{
+	MaterialHandle material; // 使用するmaterial
+	ComputePipelineHandle updatePipeline; // 更新用のPSO
+	ComputePipelineHandle resetPipeline; // パーティクルをリセットするためのPSO
+	std::uint32_t particleCount{ 0 };   // 枠1つあたりの粒子数
+	std::uint32_t maxInstances{ 0 };    // 同時再生数
+	float duration{ 0.0f };  // 発生を続ける秒数
+	std::uint32_t emitPerFrame{ 0 };   // 発生中の毎フレーム発生数
+	ParticleUpdateParameter parameter; // 再生中に変わらない部分（重力・寿命・速度・色など）
+};

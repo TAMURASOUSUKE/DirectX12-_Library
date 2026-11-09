@@ -101,6 +101,9 @@ public:
 	// 作成済みPSOをMaterial台帳へ登録する(RegisterMaterialは外部Shaderから生成したPSOを登録するカスタム関数として登録)
 	MaterialHandle RegisterMaterial(ShaderHandle _shader, ComPtr<ID3D12PipelineState> _pipelineState, const MaterialRenderState& _renderState);
 
+	// 既存Materialを複製する VFXの再生枠ごとに別の粒子Bufferを紐づけるため使う
+	MaterialHandle CloneMaterial(MaterialHandle _source);
+
 	// Materialへユーザーパラメータのバイト列を保存する
 	bool SetMaterialParameter(MaterialHandle _material, std::size_t _slot, const void* _data, std::size_t _dataSize);
 

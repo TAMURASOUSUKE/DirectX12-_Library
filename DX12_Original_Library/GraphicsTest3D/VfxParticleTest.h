@@ -2,46 +2,21 @@
 #include <vector>
 #include <array>
 #include <cstdint>
-#include <cstddef>
 #include <cmath>
 #include "../Src/Facade/TSLib.h"
 #include "../Src/Facade/Compute.h"
 
-// VFX04（GPU粒子）のテスト
+// VFX04（GPU粒子）+ VFX05（再生管理）のテスト
 // 同じシェーダー3本（ParticleUpdateCS / ParticleVS / ParticlePS）をパラメータだけ変えて、火花・煙・水の3種を出す
 // 使う公開API（ライブラリ側）:
-//   Gfx::SetMaterialBuffer(material, slot, GPUBufferHandle)        t0〜t3 space1 のスロットにBufferのSRVを置く
-//   Gfx::SetMaterialParameter(material, 0, ParticleLookParameter)  b0 space1 に見た目のパラメータを置く
-//   Gfx::DrawVFXInstanced(material, instanceCount, sortPosition)   DrawInstanced(4, instanceCount)
+//   Gfx::SetMaterialParameter(material, 0, ParticleLookParameter)  b0 space1 に見た目のパラメータを置く（粒子Bufferはライブラリが枠ごとに結ぶ）
+//   Gfx::RegisterVFXParticle(VFXParticleDesc)                      粒子の種類を登録し、同時再生数ぶんの枠（Buffer2本 + Materialの複製）を作る
+//   Gfx::PlayVFX(particleType, position)                             空き枠を1つ借りて再生開始
+//   Gfx::UpdateVFX(handle, dt)                                      経過を進め、Dispatchと描画登録を行う。終了した更新で false
+//   Gfx::SetVFXPosition(handle, position)                           発生位置を動かす（発生速度は位置の差分からライブラリが出す）
+//   Gfx::IsFinishedVFX(handle)                                      終了していれば true（無効ハンドルにも true）
 struct VfxParticleTest
 {
-	// ParticleUpdateCS.hlsl の cbuffer と同じ並び（float3+float は同じ16バイトに詰まるので、alignas(16)のVector3は使わずfloatで持つ）
-	struct alignas(16) ParticleUpdateParameter
-	{
-		float emitPosition[3]{ 0.0f, 0.0f, 0.0f };
-		float deltaTime{ 0.0f };
-		float gravity[3]{ 0.0f, -9.8f, 0.0f };
-		std::uint32_t emitCount{ 0 };
-		std::uint32_t particleCount{ 0 };
-		std::uint32_t randomSeed{ 0 };
-		float lifeMin{ 0.5f };
-		float lifeMax{ 1.5f };
-		float speedMin{ 5.0f };
-		float speedMax{ 12.0f };
-		float size{ 0.1f };
-		float drag{ 0.6f };
-		float color[4]{ 1.0f, 0.6f, 0.2f, 1.0f };
-		float emitVelocity[3]{ 0.0f, 0.0f, 0.0f };
-		float swirl{ 0.0f };
-		float coneDirection[3]{ 0.0f, 1.0f, 0.0f };
-		float coneBias{ 0.8f };
-		float spawnRadius{ 0.0f };
-		float groundY{ -1.0e6f };
-		float bounce{ 0.0f };
-		float sizeSpread{ 0.4f };
-	};
-	static_assert(sizeof(ParticleUpdateParameter) == 128, "ParticleUpdateParameter must match the HLSL cbuffer (128 bytes)");
-
 	// ParticleLook.hlsli の cbuffer と同じ並び（SetMaterialParameter slot0）
 	struct alignas(16) ParticleLookParameter
 	{
@@ -62,27 +37,26 @@ struct VfxParticleTest
 	};
 	static_assert(sizeof(ParticleLookParameter) == 80, "ParticleLookParameter must match the HLSL cbuffer (80 bytes)");
 
-	static constexpr std::uint32_t PARTICLE_COUNT{ 16384 }; // Bufferの要素数 = 1種類あたり同時に存在できる最大数
-	static constexpr std::uint32_t PARTICLE_STRIDE{ 64 };   // Particle.hlsli の Particle と同じ64バイト
-	static constexpr std::uint32_t THREAD_PER_GROUP{ 256 }; // ParticleUpdateCS の numthreads
+	static constexpr std::uint32_t PARTICLE_COUNT{ 4096 }; // 枠1つあたりの粒子数
 
-	// 1種類ぶんの発生源。Buffer・Material・パラメータを持つ（シェーダーとCompute PSOは全種で共有）
-	struct Emitter
+	// 1種類ぶんの登録と、その再生の様子
+	struct Kind
 	{
 		const char* name{ "" };
-		ParticleUpdateParameter parameter{};
-		ParticleLookParameter look{};
 		MaterialBlendMode blendMode{ MaterialBlendMode::Additive };
-		std::uint32_t emitPerFrame{ 0 };
-		Vector3 emitCenter{ Vector3::Zero };
-		float orbitRadius{ 0.0f }; // 0なら動かない
-		float orbitSpeed{ 0.0f };  // rad/s
-		float orbitAngle{ 0.0f };
-		Vector3 emitPosition{ Vector3::Zero };
+		ParticleLookParameter look{};
+		VFXParticleDesc desc{};           // material はテンプレート。ライブラリが枠ごとに複製して粒子Bufferを結ぶ
+		float replayInterval{ 1.0f };     // この秒数ごとに新しく再生開始する（同時再生数の枠を使い回す様子を見る）
+		Vector3 center{ Vector3::Zero };
+		float orbitRadius{ 0.0f };        // 0なら動かない
+		float orbitSpeed{ 0.0f };         // rad/s
 
-		GPUBufferHandle particleBuffer{};
-		GPUBufferHandle emitCounterBuffer{};
-		MaterialHandle material{};
+		VFXParticleTypeHandle particleType{};
+		std::vector<VFXHandle> playing{}; // 再生中のハンドル。終了したものは毎フレーム外す
+		float replayTimer{ 0.0f };
+		float orbitAngle{ 0.0f };
+		std::uint32_t playCount{ 0 };     // 再生開始に成功した回数
+		std::uint32_t rejectedCount{ 0 }; // 空き枠が無くて断られた回数
 	};
 
 	ShaderHandle resetCounterCS{};
@@ -92,9 +66,7 @@ struct VfxParticleTest
 	ShaderHandle particleVS{};
 	ShaderHandle particlePS{};
 
-	std::array<Emitter, 3> emitters{};
-	bool emitting{ true }; // キーで止められるように
-	std::uint32_t frameSeed{ 1 };
+	std::array<Kind, 3> kinds{};
 
 	bool Setup()
 	{
@@ -109,23 +81,23 @@ struct VfxParticleTest
 		particlePS = Gfx::LoadShader(L"ParticlePS.hlsl", ShaderUsage::VFX, ShaderStage::Pixel);
 		if (!particleVS.IsValid() || !particlePS.IsValid()) return false;
 
-		SetupSparks(emitters[0]);
-		SetupSmoke(emitters[1]);
-		SetupWater(emitters[2]);
-		for (Emitter& emitter : emitters)
+		SetupSparks(kinds[0]);
+		SetupSmoke(kinds[1]);
+		SetupWater(kinds[2]);
+		for (Kind& kind : kinds)
 		{
-			if (!SetupEmitter(emitter)) return false;
+			if (!RegisterKind(kind)) return false;
 		}
 		return true;
 	}
 
 	void Shutdown()
 	{
-		for (Emitter& emitter : emitters)
+		for (Kind& kind : kinds)
 		{
-			Gfx::Unload(emitter.material);
-			Compute::Unload(emitter.emitCounterBuffer);
-			Compute::Unload(emitter.particleBuffer);
+			for (VFXHandle handle : kind.playing) Gfx::StopVFX(handle, true);
+			kind.playing.clear();
+			Gfx::Unload(kind.desc.material); // 枠ごとの複製はライブラリが持ち、ライブラリの終了で解放される
 		}
 		Gfx::Unload(particlePS);
 		Gfx::Unload(particleVS);
@@ -135,47 +107,44 @@ struct VfxParticleTest
 		Compute::Unload(resetCounterCS);
 	}
 
-	// 毎フレーム：発生源を動かす → カウンタを0に戻す → 更新と発生（Dispatchは EndFrame で描画より前に実行される）
+	// 毎フレーム：一定間隔で再生開始 → 再生中のものは位置を動かして更新 → 終了したものを外す
+	// 描画登録は UpdateVFX の中でライブラリが行うので、Draw は無い
 	void Update(float _deltaTime)
 	{
-		frameSeed++;
-		for (Emitter& emitter : emitters)
+		for (Kind& kind : kinds)
 		{
-			UpdateEmitter(emitter, _deltaTime);
-		}
-	}
-
-	// 毎フレーム：種類ごとに粒子数ぶんの板を1回のDrawで描く（死んでいる粒子はVSが大きさ0にする）
-	void Draw()
-	{
-		for (Emitter& emitter : emitters)
-		{
-			Gfx::DrawVFXInstanced(emitter.material, PARTICLE_COUNT, emitter.emitPosition);
+			UpdateKind(kind, _deltaTime);
 		}
 	}
 
 private:
-	// 火花：加算、速度方向に伸びる尾、白→橙→赤、回る発生源から噴き上げる
-	static void SetupSparks(Emitter& _emitter)
+	// 火花：加算、速度方向に伸びる尾、白→橙→赤、回る発生源から噴き上げる。2秒発生して消え、1.5秒ごとに再生開始（枠2つを交互に使う）
+	static void SetupSparks(Kind& _kind)
 	{
-		_emitter.name = "Sparks";
-		_emitter.blendMode = MaterialBlendMode::Additive;
-		_emitter.emitPerFrame = 240;
-		_emitter.emitCenter = { 0.0f, 44.0f, 0.0f };
-		_emitter.orbitRadius = 3.0f;
-		_emitter.orbitSpeed = 2.5f;
-		// parameter と look は既定値が火花用
+		_kind.name = "Sparks";
+		_kind.blendMode = MaterialBlendMode::Additive;
+		_kind.desc.duration = 2.0f;
+		_kind.desc.emitPerFrame = 240;
+		_kind.desc.maxInstances = 2;
+		_kind.replayInterval = 1.5f;
+		_kind.center = { 0.0f, 44.0f, 0.0f };
+		_kind.orbitRadius = 3.0f;
+		_kind.orbitSpeed = 2.5f;
+		// desc.parameter と look は既定値が火花用
 	}
 
-	// 煙：アルファ合成、ゆっくり昇りながら膨らみ回る、渦の風に乗って流される（移流）
-	static void SetupSmoke(Emitter& _emitter)
+	// 煙：アルファ合成、ゆっくり昇りながら膨らみ回る、渦の風に乗って流される（移流）。3秒発生、余韻4秒
+	static void SetupSmoke(Kind& _kind)
 	{
-		_emitter.name = "Smoke";
-		_emitter.blendMode = MaterialBlendMode::Blend;
-		_emitter.emitPerFrame = 10;
-		_emitter.emitCenter = { -8.0f, 42.0f, 0.0f };
+		_kind.name = "Smoke";
+		_kind.blendMode = MaterialBlendMode::Blend;
+		_kind.desc.duration = 3.0f;
+		_kind.desc.emitPerFrame = 10;
+		_kind.desc.maxInstances = 2;
+		_kind.replayInterval = 4.0f;
+		_kind.center = { -8.0f, 42.0f, 0.0f };
 
-		ParticleUpdateParameter& p{ _emitter.parameter };
+		ParticleUpdateParameter& p{ _kind.desc.parameter };
 		p.gravity[0] = 0.0f; p.gravity[1] = 1.2f; p.gravity[2] = 0.0f; // 浮力として上向き
 		p.lifeMin = 2.5f;
 		p.lifeMax = 4.0f;
@@ -190,7 +159,7 @@ private:
 		p.spawnRadius = 0.4f;
 		p.sizeSpread = 0.4f;
 
-		ParticleLookParameter& l{ _emitter.look };
+		ParticleLookParameter& l{ _kind.look };
 		l.stretchPerSpeed = 0.0f; // 伸ばさない
 		l.growth = 2.0f;          // 寿命の終わりに3倍
 		l.rotationSpeed = 0.6f;
@@ -205,15 +174,18 @@ private:
 		l.additive = 0.0f;
 	}
 
-	// 水：アルファ合成、斜め上へ噴き出して重力で落ち、床で跳ねる。白い芯で光る水滴
-	static void SetupWater(Emitter& _emitter)
+	// 水：アルファ合成、斜め上へ噴き出して重力で落ち、床で跳ねる。白い芯で光る水滴。2.5秒発生、余韻1.8秒
+	static void SetupWater(Kind& _kind)
 	{
-		_emitter.name = "Water";
-		_emitter.blendMode = MaterialBlendMode::Blend;
-		_emitter.emitPerFrame = 150;
-		_emitter.emitCenter = { 8.0f, 41.0f, 0.0f };
+		_kind.name = "Water";
+		_kind.blendMode = MaterialBlendMode::Blend;
+		_kind.desc.duration = 2.5f;
+		_kind.desc.emitPerFrame = 150;
+		_kind.desc.maxInstances = 2;
+		_kind.replayInterval = 3.0f;
+		_kind.center = { 8.0f, 41.0f, 0.0f };
 
-		ParticleUpdateParameter& p{ _emitter.parameter };
+		ParticleUpdateParameter& p{ _kind.desc.parameter };
 		p.gravity[0] = 0.0f; p.gravity[1] = -20.0f; p.gravity[2] = 0.0f;
 		p.lifeMin = 1.0f;
 		p.lifeMax = 1.8f;
@@ -229,7 +201,7 @@ private:
 		p.bounce = 0.35f;
 		p.sizeSpread = 0.3f;
 
-		ParticleLookParameter& l{ _emitter.look };
+		ParticleLookParameter& l{ _kind.look };
 		l.stretchPerSpeed = 0.05f;
 		l.maxStretch = 3.0f;
 		l.glowStrength = 0.6f;
@@ -242,75 +214,76 @@ private:
 		l.additive = 0.0f;
 	}
 
-	bool SetupEmitter(Emitter& _emitter)
+	// テンプレートのMaterialを作って見た目を入れ、粒子の種類として登録する
+	bool RegisterKind(Kind& _kind)
 	{
-		_emitter.emitPosition = _emitter.emitCenter;
-
-		// 粒子Buffer：全要素0で作る（life = 0 なので最初は全部が空き）
-		GPUBufferDesc particleDesc{};
-		particleDesc.elementCount = PARTICLE_COUNT;
-		particleDesc.elementStride = PARTICLE_STRIDE;
-		particleDesc.allowUnorderedAccess = true;
-		const std::vector<std::byte> zeroParticles(static_cast<std::size_t>(PARTICLE_COUNT) * PARTICLE_STRIDE);
-		_emitter.particleBuffer = Compute::CreateGPUBuffer(particleDesc, zeroParticles.data(), zeroParticles.size());
-
-		// 空きの取り合いカウンタ：uint 1個
-		GPUBufferDesc counterDesc{};
-		counterDesc.elementCount = 1;
-		counterDesc.elementStride = sizeof(std::uint32_t);
-		counterDesc.allowUnorderedAccess = true;
-		const std::uint32_t zeroCounter{ 0 };
-		_emitter.emitCounterBuffer = Compute::CreateGPUBuffer(counterDesc, &zeroCounter, sizeof(zeroCounter));
-		if (!_emitter.particleBuffer.IsValid() || !_emitter.emitCounterBuffer.IsValid()) return false;
-
-		// 描画側：共有のVS/PSからこの種類のMaterialを作り、粒子Bufferをslot0へ、見た目をslot0のパラメータへ
 		MaterialRenderDesc renderDesc{};
-		renderDesc.blendMode = _emitter.blendMode;
+		renderDesc.blendMode = _kind.blendMode;
 		renderDesc.doubleSided = true;
-		_emitter.material = Gfx::CreateMaterial(particleVS, particlePS, renderDesc);
-		if (!_emitter.material.IsValid()) return false;
-		if (!Gfx::SetMaterialBuffer(_emitter.material, 0, _emitter.particleBuffer)) return false;
-		if (!Gfx::SetMaterialParameter(_emitter.material, 0, _emitter.look)) return false;
+		_kind.desc.material = Gfx::CreateMaterial(particleVS, particlePS, renderDesc);
+		if (!_kind.desc.material.IsValid()) return false;
+		if (!Gfx::SetMaterialParameter(_kind.desc.material, 0, _kind.look)) return false;
+
+		_kind.desc.updatePipeline = updatePipeline;
+		_kind.desc.resetPipeline = resetCounterPipeline;
+		_kind.desc.particleCount = PARTICLE_COUNT;
+
+		_kind.particleType = Gfx::RegisterVFXParticle(_kind.desc);
+		if (!_kind.particleType.IsValid())
+		{
+			DEBUG_LOG_ERROR("VFX粒子の種類の登録に失敗しました({})\n", _kind.name);
+			return false;
+		}
+		_kind.replayTimer = _kind.replayInterval; // 最初のフレームで1つ目を再生開始する
 		return true;
 	}
 
-	void UpdateEmitter(Emitter& _emitter, float _deltaTime)
+	void UpdateKind(Kind& _kind, float _deltaTime)
 	{
-		// [数学] 角度を進めて円周上の点を取る。前回位置との差を時間で割ると発生源の速度になる
-		Vector3 emitVelocity{ Vector3::Zero };
-		if (_emitter.orbitRadius > 0.0f)
+		// [数学] 角度を進めて円周上の点を取る。発生速度は位置の差分からライブラリが出すので、ここでは位置だけ渡す
+		Vector3 position{ _kind.center };
+		if (_kind.orbitRadius > 0.0f)
 		{
-			_emitter.orbitAngle += _emitter.orbitSpeed * _deltaTime;
-			const Vector3 previous{ _emitter.emitPosition };
-			_emitter.emitPosition = _emitter.emitCenter + Vector3{ std::cos(_emitter.orbitAngle) * _emitter.orbitRadius, 0.0f, std::sin(_emitter.orbitAngle) * _emitter.orbitRadius };
-			if (_deltaTime > 0.0f) emitVelocity = (_emitter.emitPosition - previous) / _deltaTime;
+			_kind.orbitAngle += _kind.orbitSpeed * _deltaTime;
+			position = _kind.center + Vector3{ std::cos(_kind.orbitAngle) * _kind.orbitRadius, 0.0f, std::sin(_kind.orbitAngle) * _kind.orbitRadius };
 		}
 
-		// 1. カウンタを0へ（1スレッド）
-		ComputeDispatchDesc resetDesc{};
-		resetDesc.pipeline = resetCounterPipeline;
-		resetDesc.outputs[0] = _emitter.emitCounterBuffer; // u0
-		resetDesc.groupCountX = 1;
-		if (!Compute::Dispatch(resetDesc)) DEBUG_LOG_ERROR("粒子カウンタのリセットDispatchに失敗しました({})\n", _emitter.name);
+		// 1. 一定間隔で再生開始。空き枠が無ければ無効ハンドルが返る
+		_kind.replayTimer += _deltaTime;
+		if (_kind.replayTimer >= _kind.replayInterval)
+		{
+			_kind.replayTimer = 0.0f;
+			const VFXHandle handle{ Gfx::PlayVFX(_kind.particleType, position) };
+			if (handle.IsValid())
+			{
+				_kind.playing.push_back(handle);
+				_kind.playCount++;
+				DEBUG_LOG("VFX再生開始({}) 累計{}回 再生中{}個\n", _kind.name, _kind.playCount, _kind.playing.size());
+			}
+			else
+			{
+				_kind.rejectedCount++;
+				DEBUG_LOG("VFX再生開始を断られました({}) 累計{}回\n", _kind.name, _kind.rejectedCount);
+			}
+		}
 
-		// 2. 更新と発生（スレッド = 粒子）
-		ParticleUpdateParameter parameter{ _emitter.parameter };
-		parameter.emitPosition[0] = _emitter.emitPosition.x;
-		parameter.emitPosition[1] = _emitter.emitPosition.y;
-		parameter.emitPosition[2] = _emitter.emitPosition.z;
-		parameter.deltaTime = _deltaTime;
-		parameter.emitCount = emitting ? _emitter.emitPerFrame : 0;
-		parameter.particleCount = PARTICLE_COUNT;
-		parameter.randomSeed = frameSeed;
-		parameter.emitVelocity[0] = emitVelocity.x;
-		parameter.emitVelocity[1] = emitVelocity.y;
-		parameter.emitVelocity[2] = emitVelocity.z;
-
-		ComputeDispatchDesc updateDesc{};
-		updateDesc.pipeline = updatePipeline;
-		updateDesc.outputs[0] = _emitter.particleBuffer;    // u0
-		updateDesc.outputs[1] = _emitter.emitCounterBuffer; // u1
-		updateDesc.groupCountX = (PARTICLE_COUNT + THREAD_PER_GROUP - 1) / THREAD_PER_GROUP; // 切り上げ
-		if (!Compute::Dispatch(updateDesc, &parameter, sizeof(parameter))) DEBUG_LOG_ERROR("粒子の更新Dispatchに失敗しました({})\n", _emitter.name);
+		// 2. 再生中のものは位置を渡して更新。終了（false）したものはハンドルを外す
+		for (std::size_t i{ 0 }; i < _kind.playing.size();)
+		{
+			const VFXHandle handle{ _kind.playing[i] };
+			Gfx::SetVFXPosition(handle, position);
+			const bool alive{ Gfx::UpdateVFX(handle, _deltaTime) };
+			if (!alive)
+			{
+				if (!Gfx::IsFinishedVFX(handle)) DEBUG_LOG_ERROR("UpdateVFXがfalseなのにIsFinishedVFXがfalseです({})\n", _kind.name);
+				DEBUG_LOG("VFX終了({}) 再生中{}個\n", _kind.name, _kind.playing.size() - 1);
+				_kind.playing[i] = _kind.playing.back();
+				_kind.playing.pop_back();
+			}
+			else
+			{
+				++i;
+			}
+		}
 	}
 };

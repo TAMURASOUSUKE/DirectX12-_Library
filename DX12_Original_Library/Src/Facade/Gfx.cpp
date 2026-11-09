@@ -30,6 +30,7 @@
 #include "../Graphics/LightSystem.h"
 #include "../Graphics/GraphicsSystem.h"
 #include "../Graphics/VFXMeshSystem.h"
+#include "../Graphics/VFXPlaySystem.h"
 #include "GfxInternal.h" // 外部公開しないもの
 #include "Gfx.h" // 外部公開するもの
 
@@ -53,6 +54,7 @@ namespace {
 	TerrainSystem terrainSystem{}; // テライン描画を行うためのシステム
 	ShadowSystem shadowSystem{}; // 平行光源ShadowMapを管理
 	VFXMeshSystem vfxMeshSystem{}; // VFXのシステム
+	VFXPlaySystem vfxPlaySystem{}; // VFXの再生管理
 	BitmapFont defaultFont; // デフォルト用の文字列
 	bool isSceneRenderTargetActive{ false }; 	// このフレームでシーンRTを描画先として使用できたか
 	MaterialHandle currentPostEffectMaterial{}; // 現在画面全体へ適用しているポストエフェクトmaterial(無効ハンドルなら内蔵の素通しPSOを使う)
@@ -335,6 +337,7 @@ namespace {
 			shapeBatch.Shutdown();
 			primitive3DSystem.Shutdown();
 			lightSystem.Shutdown();
+			vfxPlaySystem.Shutdown();
 			vfxMeshSystem.Shutdown();
 
 
@@ -418,6 +421,12 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 	if (!vfxMeshSystem.Setup(shaderSystem.GetRootSignature(RootSigID::VFX)))
 	{
 		DEBUG_LOG_ERROR("VFXのMeshのシステムの初期化に失敗しました\n");
+		return false;
+	}
+
+	if (!vfxPlaySystem.Setup(vfxMeshSystem))
+	{
+		DEBUG_LOG_ERROR("VFXの再生管理の初期化に失敗しました\n");
 		return false;
 	}
 
@@ -536,6 +545,7 @@ void GfxInternal::BeginFrame()
 	shadowSystem.BeginFrame();
 	modelRenderSystem.BeginFrame();
 	vfxMeshSystem.Reset();
+	vfxPlaySystem.ClearDispatchRequests();
 
 	auto cmdList{ GraphicsDevice::Instance().GetCommandList() }; // コマンドリスト
 	auto dsv{ GraphicsDevice::Instance().GetDSV() };
@@ -783,7 +793,7 @@ void GfxInternal::EndFrame()
 				{
 					// 必要なDescriptorHandleを出す(空ならnullSRV)
 					D3D12_GPU_DESCRIPTOR_HANDLE texture{ GraphicsResourceManager::Instance().ResolveMaterialResourceSRV(activePostEffectMaterial->resourceSlots[i]) };
-					cmd->SetGraphicsRootDescriptorTable(POSTEFFECT_MATERIAL_TEXTURE_ROOT_PARAM_BASE + i, texture);
+					cmd->SetGraphicsRootDescriptorTable(POSTEFFECT_MATERIAL_TEXTURE_ROOT_PARAM_BASE + static_cast<UINT>(i), texture);
 				}
 			}
 
@@ -912,6 +922,11 @@ const GraphicsFrameMetrics& GfxInternal::GetLastFrameMetrics()
 const GraphicsGPUTimingFrame& GfxInternal::GetLastGPUTimingFrame()
 {
 	return gpuTimingSystem.GetLastFrame();
+}
+
+const std::vector<ComputeDispatchRequest>& GfxInternal::GetVFXDispatchRequests()
+{
+	return vfxPlaySystem.GetDispatchRequests();
 }
 
 bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _slot, const void* _data, size_t _dataSize)
@@ -1776,6 +1791,36 @@ bool Gfx::SetModelAlphaMode(ModelHandle _model, int _subMeshIndex, ModelAlphaMod
 	}
 	material.alphaCutoff = _alphaCutoff;
 	return true;
+}
+
+VFXParticleTypeHandle Gfx::RegisterVFXParticle(const VFXParticleDesc& _desc)
+{
+	return vfxPlaySystem.RegisterParticle(_desc);
+}
+
+VFXHandle Gfx::PlayVFX(VFXParticleTypeHandle _particleType, const Vector3& _position)
+{
+	return vfxPlaySystem.Play(_particleType, _position);
+}
+
+bool Gfx::UpdateVFX(VFXHandle _handle, float _deltaTime)
+{
+	return vfxPlaySystem.Update(_handle, _deltaTime);
+}
+
+bool Gfx::SetVFXPosition(VFXHandle _handle, const Vector3& _position)
+{
+	return vfxPlaySystem.SetPosition(_handle, _position);
+}
+
+bool Gfx::IsFinishedVFX(VFXHandle _handle)
+{
+	return vfxPlaySystem.IsFinished(_handle);
+}
+
+bool Gfx::StopVFX(VFXHandle _handle, bool _immediate)
+{
+	return vfxPlaySystem.Stop(_handle, _immediate);
 }
 
 void Gfx::DrawLODModel(std::span<const ModelLODLevel> _levels, ModelLODState& _state, const Transform& _transform, float _hysteresisDistance)

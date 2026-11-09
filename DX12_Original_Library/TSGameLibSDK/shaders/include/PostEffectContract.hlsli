@@ -8,6 +8,10 @@
 // ポストエフェクト対象となるシーン全体の画像
 Texture2D sceneTexture : register(t0);
 
+// ユーザーが作成またはロードしたテクスチャは、
+// SetMaterialTextureのSlot0~3のSpace1として予約されています
+// 外部Shader側で必要なテクスチャを定義してください
+
 // シーン画像を読み取る固定サンプラー
 SamplerState sceneSampler : register(s0);
 
