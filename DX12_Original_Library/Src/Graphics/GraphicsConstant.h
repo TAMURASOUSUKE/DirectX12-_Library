@@ -29,7 +29,7 @@ constexpr UINT SHADOW_MAP_RESOLUTION{ 2048 }; // 影の解像度
 constexpr UINT INVALID_INDEX{ UINT_MAX }; // Descriptorハンドルのindex無効値
 constexpr size_t MAX_RENDER_TARGET_COUNT{ 16 }; // 登録できるRenderTargetの最大数
 constexpr size_t MAX_CUSTOM_SHADER_COUNT{ 64 }; // 登録できるShaderの最大数
-constexpr size_t MAX_MATERIAL_COUNT{ 64 }; // 登録できるmaterialの最大数
+constexpr size_t MAX_MATERIAL_COUNT{ 256 }; // 登録できるmaterialの最大数
 constexpr size_t MAX_COMPUTE_PIPELINE_COUNT{ 64 }; // 登録できるComputePipelineの最大数
 constexpr size_t MATERIAL_PARAMETER_SLOT_COUNT{ 4 }; // materialが保持できるユーザーパラメータスロット数
 constexpr size_t MATERIAL_RESOURCE_PARAMETER_SLOT_COUNT{ 4 }; // materialが保持できるユーザーリソーススロット数

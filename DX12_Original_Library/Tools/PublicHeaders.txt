@@ -19,6 +19,7 @@ Core/Handle/ComputePipelineHandle.h
 Core/Handle/GPUBufferHandle.h
 Core/Handle/VFXHandle.h
 Core/Handle/VFXParticleTypeHandle.h
+Core/Handle/VFXMeshTypeHandle.h
 
 Debug/DebugLogs.h
 Debug/CPUTimingScope.h
