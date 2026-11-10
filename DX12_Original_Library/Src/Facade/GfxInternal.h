@@ -1,10 +1,12 @@
 #pragma once
 #include <windows.h>
+#include <cstdint>
 #include <vector>
 
 struct ComputeDispatchRequest;
 struct GraphicsFrameMetrics;
 struct GraphicsGPUTimingFrame;
+enum class GraphicsPass : std::uint8_t;
 
 // グラフィックに関する関数のInitialize等ユーザーに提供しない部分をまとめた関数
 namespace GfxInternal
@@ -33,4 +35,11 @@ namespace GfxInternal
 	const GraphicsGPUTimingFrame& GetLastGPUTimingFrame();
 	// VFXの再生管理がこのフレームに積んだCompute実行要求を取得する
 	const std::vector<ComputeDispatchRequest>& GetVFXDispatchRequests();
+
+	// 指定PassのGPU時間計測を開始する(Gfx以外のFacadeの計測をTSLibが仲介するために公開する)
+	bool BeginGPUTimingPass(GraphicsPass _pass);
+	// Beginに成功したPassのGPU時間計測を終了する
+	void EndGPUTimingPass(GraphicsPass _pass, bool _isStarted);
+	// 前フレームのVFXメッシュ描画の記録にかかったCPU時間(ミリ秒)を取得する
+	double GetLastVFXFlushCpuMilliseconds();
 }

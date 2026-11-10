@@ -5,6 +5,7 @@
 #include "../External/Common/d3dx12.h"
 #include "GraphicsResourceManager.h"
 #include "DescriptorManager.h"
+#include "GraphicsMetrics.h"
 #include "../Debug/DebugLogs.h"
 #include "ComputeSystem.h"
 
@@ -598,6 +599,7 @@ bool ComputeSystem::Flush(ID3D12GraphicsCommandList* _cmd)
 		// 命令記録
 		if (!RecordComputeBarriers(_cmd, barrierBatch)) return false;
 		_cmd->Dispatch(command.desc.groupCountX, command.desc.groupCountY, command.desc.groupCountZ);
+		GraphicsMetrics::RecordDispatch(); // Dispatch数を記録する
 	}
 
 	transitionAllResourceBarriers.clear(); // あらかじめクリアしておく

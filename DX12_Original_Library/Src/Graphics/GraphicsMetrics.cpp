@@ -32,6 +32,12 @@ void GraphicsMetrics::RecordDrawCall(GraphicsPass _pass)
 	writeFrame.passDrawCallCount[index]++; // 指定パスのドローカウントを増やす
 }
 
+void GraphicsMetrics::RecordDispatch()
+{
+	// Dispatchは描画ではないので全体のドローコールには足さずComputeのパスだけ増やす
+	writeFrame.passDrawCallCount[static_cast<std::size_t>(GraphicsPass::Compute)]++;
+}
+
 const GraphicsFrameMetrics& GraphicsMetrics::GetLastFrame()
 {
 	return readFrame;
