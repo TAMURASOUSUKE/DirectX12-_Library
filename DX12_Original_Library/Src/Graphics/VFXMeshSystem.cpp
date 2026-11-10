@@ -278,3 +278,47 @@ bool VFXMeshSystem::Flush(const Mat4x4& _viewProjection, const Vector3& _cameraP
 
 	return succeeded;
 }
+
+bool VFXMeshSystem::ComputeQuadAxes(BillboardMode _mode, const Quaternion& _rotation, const Vector3& _center, const Quaternion& _cameraRotation, const Vector3& _cameraPosition, Vector3& _outRight, Vector3& _outUp)
+{
+	switch (_mode)
+	{
+	case BillboardMode::None:	// 指定された回転のまま
+		_outRight = _rotation.RotateVector(Vector3::Right);
+		_outUp = _rotation.RotateVector(Vector3::Up);
+		return true;
+	case BillboardMode::FaceCamera:
+		// カメラの右と上をそのまま使えば常に正面を向く
+		_outRight = _cameraRotation.RotateVector(Vector3::Right);
+		_outUp = _cameraRotation.RotateVector(Vector3::Up);
+		return true;
+	case BillboardMode::AxisY:
+	{
+		// 上はワールドのYに固定し 右は 上 × カメラから板への向き で作る
+		const Vector3 forward{ Vector3::Normalized(_center - _cameraPosition) };
+		_outRight = Vector3::Cross(Vector3::Up, forward);
+		// 真上や真下から見ていると外積が0になるのでその時だけワールドの右に逃がす
+		if (_outRight.LengthSquared() < Math::EPSILON) _outRight = Vector3::Right;
+		else _outRight.Normalize();
+		_outUp = Vector3::Up;
+		return true;
+	}
+	default:
+		break;
+	}
+}
+
+VFXVertex VFXMeshSystem::MakeVertex(const Vector3& _position, float _u, float _v, const Vector4& _color)
+{
+	VFXVertex vertex{};
+	vertex.position[0] = _position.x;
+	vertex.position[1] = _position.y;
+	vertex.position[2] = _position.z;
+	vertex.uv[0] = _u;
+	vertex.uv[1] = _v;
+	vertex.color[0] = _color.x;
+	vertex.color[1] = _color.y;
+	vertex.color[2] = _color.z;
+	vertex.color[3] = _color.w;
+	return vertex;
+}

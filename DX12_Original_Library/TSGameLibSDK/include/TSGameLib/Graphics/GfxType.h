@@ -302,3 +302,37 @@ struct VFXParticleDesc
 	std::uint32_t emitPerFrame{ 0 };   // 発生中の毎フレーム発生数
 	ParticleUpdateParameter parameter; // 再生中に変わらない部分（重力・寿命・速度・色など）
 };
+
+// 再生管理で使うMeshの形状
+enum class VFXMeshKind
+{
+	Quad, // 板
+	Trail, // 帯
+};
+
+// VFXのメッシュの種類設定
+struct VFXMeshDesc
+{
+	MaterialHandle material; // 使用するmaterial
+	VFXMeshKind kind{ VFXMeshKind::Quad }; // 板か帯か
+	BillboardMode billboardMode{ BillboardMode::None }; // 板の向きの決め方(帯では使わない)
+	float width{ 1.0f }; // 板の幅
+	float height{ 1.0f }; // 板の高さ
+	float duration{ 0.0f }; // 再生する秒数
+	std::uint32_t maxInstances{ 0 }; // 同時再生数
+	std::uint32_t trailPointCount{ 0 }; // 帯が覚えておく点の数(板では使わない)
+	float trailPointLife{ 0.0f }; // 帯の点が消えるまでの秒数(板では使わない)
+};
+
+constexpr std::size_t VFX_TIME_PARAMETER_SLOT{ 3 }; // ライブラリが時間を書くMaterialParameterのslot
+
+// ライブラリが再生中のMaterialへ毎フレーム書く値
+struct VFXTimeParameter
+{
+	float progress{ 0.0f }; // 進み具合(0で開始1で終了)
+	float elapsed{ 0.0f }; // 開始からの経過時間
+	float duration{ 0.0f }; // 再生する秒数
+	float padding{ 0.0f };
+};
+
+static_assert(sizeof(VFXTimeParameter) == 16, "VFXTimeParameterはHLSLのcbufferと同じ16バイトである必要があります");

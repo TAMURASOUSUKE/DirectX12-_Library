@@ -9,6 +9,7 @@
 #include "../Core/Handle/AnimInstanceHandle.h"
 #include "../Core/Handle/VFXHandle.h"
 #include "../Core/Handle/VFXParticleTypeHandle.h"
+#include "../Core/Handle/VFXMeshTypeHandle.h"
 #include "../Graphics/GfxType.h"
 #include "../Component/Transform.h"
 #include "../Component/Camera.h"
@@ -162,7 +163,7 @@ namespace Gfx
 	// モデルのサブメッシュが使用するAlphaModeを変更するMaskの場合はalphaCutoff未満のピクセルを破棄する
 	bool SetModelAlphaMode(ModelHandle _model, int _subMeshIndex, ModelAlphaMode _alphaMode, float _alphaCutoff = 0.5f);
 
-	// 粒子VFXの種類を登録する materialはテンプレートでライブラリが同時再生数ぶん複製し枠ごとの粒子Bufferをslot0へ結ぶ
+	// 粒子VFXの種類を登録する materialはテンプレートでライブラリが同時再生数ぶん複製し枠ごとの粒子Bufferをslot0へ結びslot3へ時間を書く
 	VFXParticleTypeHandle RegisterVFXParticle(const VFXParticleDesc& _desc);
 	// 再生開始する
 	VFXHandle PlayVFX(VFXParticleTypeHandle _particleType, const Vector3& _position);
@@ -174,6 +175,12 @@ namespace Gfx
 	bool IsFinishedVFX(VFXHandle _handle);
 	// 既定は発生だけ止めて余韻を残す _immediateなら全粒子を消して枠を返す
 	bool StopVFX(VFXHandle _handle, bool _immediate = false);
+	// メッシュVFXの種類を登録する materialはテンプレートでライブラリが同時再生数ぶん複製しslot3へ時間を書く
+	VFXMeshTypeHandle RegisterVFXMesh(const VFXMeshDesc& _desc);
+	// メッシュVFXを再生開始する 板は位置と向きを使う 帯は使わない
+	VFXHandle PlayVFX(VFXMeshTypeHandle _meshType, const Vector3& _position, const Quaternion& _rotation = Quaternion::Identity);
+	// 帯VFXへこのフレームの左右の点を1組渡す
+	bool SetVFXTrailPoint(VFXHandle _handle, const Vector3& _left, const Vector3& _right);
 	
 	/// <summary>
 	/// <para>ModelLODLevelを使って作成した配列を受け取って設定した距離によってモデルを変えるLOD関数(静的モデルのみ対応)</para>
@@ -202,6 +209,7 @@ namespace Gfx
 	/// <para>ユーザーが使えるregister spaceは1番なので定数バッファ宣言の後にはspace1を入れてください</para>
 	/// <para>定義例 : cbuffer Example : register(b0, space1)</para>
 	/// <para>レジスタの0-3まで置かれるので0を指定したらHLSL側ではb0, 1ならb1...となりb3まで使えます</para>
+	/// <para>PlayVFXで再生するmaterialはslot3(b3)へライブラリが毎フレーム時間を書くので、slot3に設定した値は上書きされます(使えるのはslot0-2です)</para>
 	/// </summary>
 	/// <typeparam name="T">ユーザーが作成したパラメータとなるテンプレート</typeparam>
 	/// <param name="_handle">設定したいmaterial</param>

@@ -622,6 +622,21 @@ struct VFXParticleTypeData
 	std::vector<int> slotIndices{}; // この種類が持つ再生枠の番号 Playはこの中から空きを線形に探す
 };
 
+// VFXのメッシュの種類一つ分
+struct VFXMeshTypeData
+{
+	VFXMeshDesc desc{}; // 登録時に受け取った設定
+	std::vector<int> slotIndices{}; // この種類が持つ再生枠の番号
+};
+
+// 帯の点一つ分
+struct VFXTrailPoint
+{
+	Vector3 left{ Vector3::Zero }; // 左の位置
+	Vector3 right{ Vector3::Zero }; // 右の位置
+	float age{ 0.0f }; // 渡されてからの秒数
+};
+
 // VFXの再生枠一つ分の状態
 struct VFXPlayData
 {
@@ -633,6 +648,11 @@ struct VFXPlayData
 	GPUBufferHandle particleBuffer{}; // この枠の粒子Buffer
 	GPUBufferHandle counterBuffer{}; // この枠の空き取り合いカウンタ
 	MaterialHandle material{}; // 定義のMaterialの複製 slot0にこの枠の粒子Bufferを結んである
+	int meshTypeIndex{ -1 }; // メッシュの枠ならどの種類か 粒子の枠は-1
+	Quaternion rotation{}; // 板の向き
+	int trailStart{ 0 }; // 帯の点の区間の開始位置
+	int trailHead{ 0 }; // 帯の区間の一番古い点
+	int trailCount{ 0 }; // 今持っている点の数
 };
 
 // VFXの再生枠を管理するスロット

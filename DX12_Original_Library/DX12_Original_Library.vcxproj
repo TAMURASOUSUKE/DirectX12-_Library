@@ -247,6 +247,7 @@
     <ClInclude Include="Src\Core\Handle\SoundHandle.h" />
     <ClInclude Include="Src\Core\Handle\TexHandle.h" />
     <ClInclude Include="Src\Core\Handle\UIButtonHandle.h" />
+    <ClInclude Include="Src\Core\Handle\VFXMeshTypeHandle.h" />
     <ClInclude Include="Src\Core\Handle\VFXParticleTypeHandle.h" />
     <ClInclude Include="Src\Core\Handle\VFXHandle.h" />
     <ClInclude Include="Src\Core\TextEncoding.h" />

@@ -5,9 +5,20 @@
 // ライブラリ側の行列規約に合わせる
 #pragma pack_matrix(row_major)
 
-// register(b0)～register(b3)は、
-// SetMaterialParameterのSlot0～3として予約されています。
+// register(b0)～register(b2)は、
+// registerSpace1としてSetMaterialParameterのSlot0～2に予約されています。
 // 外部VFXシェーダー側で必要なcbufferを宣言してください。
+
+// register(b3)のregisterSpace1(Slot3)は、
+// PlayVFXで再生している間ライブラリが毎フレーム時間を書き込みます。(SetMaterialParameterでSlot3へ書いた値は上書きされます)
+// 時間を受け取る場合は外部VFXシェーダー側で次の並びのcbufferを宣言してください。
+// cbuffer VFXTimeCB : register(b3, space1)
+// {
+//     float progress; // 進み具合(0で開始 1で終了)
+//     float elapsed;  // 再生開始からの秒数
+//     float duration; // 再生する秒数
+//     float padding;  // 16バイトにそろえる詰め物
+// };
 
 // ユーザーが作成またはロードしたテクスチャは、
 // SetMaterialTextureのSlot0~3のSpace1として予約されています

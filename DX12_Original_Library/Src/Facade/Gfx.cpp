@@ -60,6 +60,7 @@ namespace {
 	MaterialHandle currentPostEffectMaterial{}; // 現在画面全体へ適用しているポストエフェクトmaterial(無効ハンドルなら内蔵の素通しPSOを使う)
 	DirectionalShadowSettings shadowSettings{}; // 最初は固定範囲でShadow Mappingを検証する
 	GraphicsGPUTimingSystem gpuTimingSystem; // GPU実行時間を計測するシステム
+	std::vector<VFXVertex> trailVertexScratch{}; // DrawTrail3Dが毎回確保しないための使い回し領域
 
 	constexpr GraphicsPipelineDesc PIPELINE_TABLE[]{
 		// 図形塗りつぶし
@@ -424,7 +425,7 @@ bool GfxInternal::Initialize(HWND _hwnd, int _clientWidth, int _clientHeight, in
 		return false;
 	}
 
-	if (!vfxPlaySystem.Setup(vfxMeshSystem))
+	if (!vfxPlaySystem.Setup(vfxMeshSystem, cameraSystem))
 	{
 		DEBUG_LOG_ERROR("VFXの再生管理の初期化に失敗しました\n");
 		return false;
@@ -1483,59 +1484,13 @@ void Gfx::DrawLine3D(Vector3 _start, Vector3 _end, Vector4 _color)
 	if (!primitive3DSystem.RegisterLine(_start, _end, _color)) return;
 }
 
-namespace
-{
-	// 計算用の型(整列あり)から、GPUへ送る詰め物なしの頂点を作る
-	VFXVertex MakeVFXVertex(const Vector3& _position, float _u, float _v, const Vector4& _color)
-	{
-		VFXVertex vertex{};
-		vertex.position[0] = _position.x;
-		vertex.position[1] = _position.y;
-		vertex.position[2] = _position.z;
-		vertex.uv[0] = _u;
-		vertex.uv[1] = _v;
-		vertex.color[0] = _color.x;
-		vertex.color[1] = _color.y;
-		vertex.color[2] = _color.z;
-		vertex.color[3] = _color.w;
-		return vertex;
-	}
-
-	std::vector<VFXVertex> trailVertexScratch{}; // DrawTrail3Dが毎回確保しないための使い回し領域(clearしてもcapacityは残る)
-}
-
 void Gfx::DrawQuad3D(Vector3 _center, Vector2 _size, MaterialHandle _material, BillboardMode _mode, Quaternion _rotation, Vector4 _color)
 {
-	// 板の右と上の向き(ワールド空間)をモードごとに決める
+	// 板の右と上の向きをモードごとに決める
 	Vector3 right{ Vector3::Right };
 	Vector3 up{ Vector3::Up };
-	switch (_mode)
+	if (!VFXMeshSystem::ComputeQuadAxes(_mode, _rotation, _center, cameraSystem.GetCameraRotation(), cameraSystem.GetCameraPosition(), right, up))
 	{
-	case BillboardMode::None:
-		// 指定された回転のまま
-		right = _rotation.RotateVector(Vector3::Right);
-		up = _rotation.RotateVector(Vector3::Up);
-		break;
-	case BillboardMode::FaceCamera:
-	{
-		// カメラの右・上をそのまま使えば常に正面を向く
-		const Quaternion cameraRotation{ cameraSystem.GetCameraRotation() };
-		right = cameraRotation.RotateVector(Vector3::Right);
-		up = cameraRotation.RotateVector(Vector3::Up);
-		break;
-	}
-	case BillboardMode::AxisY:
-	{
-		// 上はワールドのYに固定し、右は「上 × カメラから板への向き」で作る(左手系: X = Y Cross Z)
-		const Vector3 forward{ Vector3::Normalized(_center - cameraSystem.GetCameraPosition()) };
-		right = Vector3::Cross(Vector3::Up, forward);
-		// 真上・真下から見ていると外積が0になるので、その時だけワールドの右に逃がす
-		if (right.LengthSquared() < Math::EPSILON) right = Vector3::Right;
-		else right.Normalize();
-		up = Vector3::Up;
-		break;
-	}
-	default:
 		DEBUG_LOG_ERROR("不明なBillboardModeが渡されました\n");
 		return;
 	}
@@ -1546,10 +1501,10 @@ void Gfx::DrawQuad3D(Vector3 _center, Vector2 _size, MaterialHandle _material, B
 	// TRIANGLESTRIPの並び: 左上、右上、左下、右下(カメラから見て時計回り = 表)
 	const std::array<VFXVertex, 4> vertices
 	{
-		MakeVFXVertex(_center - halfRight + halfUp, 0.0f, 0.0f, _color),
-		MakeVFXVertex(_center + halfRight + halfUp, 1.0f, 0.0f, _color),
-		MakeVFXVertex(_center - halfRight - halfUp, 0.0f, 1.0f, _color),
-		MakeVFXVertex(_center + halfRight - halfUp, 1.0f, 1.0f, _color),
+		VFXMeshSystem::MakeVertex(_center - halfRight + halfUp, 0.0f, 0.0f, _color),
+		VFXMeshSystem::MakeVertex(_center + halfRight + halfUp, 1.0f, 0.0f, _color),
+		VFXMeshSystem::MakeVertex(_center - halfRight - halfUp, 0.0f, 1.0f, _color),
+		VFXMeshSystem::MakeVertex(_center + halfRight - halfUp, 1.0f, 1.0f, _color),
 	};
 	DrawVFXMesh(vertices, _material);
 }
@@ -1571,8 +1526,8 @@ void Gfx::DrawTrail3D(std::span<const Vector3> _left, std::span<const Vector3> _
 	for (std::size_t i = 0; i < pointCount; i++)
 	{
 		const float u{ lengthStep * static_cast<float>(i) };
-		vertices.push_back(MakeVFXVertex(_left[i], u, 0.0f, _colors[i]));
-		vertices.push_back(MakeVFXVertex(_right[i], u, 1.0f, _colors[i]));
+		vertices.push_back(VFXMeshSystem::MakeVertex(_left[i], u, 0.0f, _colors[i]));
+		vertices.push_back(VFXMeshSystem::MakeVertex(_right[i], u, 1.0f, _colors[i]));
 	}
 	DrawVFXMesh(vertices, _material);
 }
@@ -1821,6 +1776,21 @@ bool Gfx::IsFinishedVFX(VFXHandle _handle)
 bool Gfx::StopVFX(VFXHandle _handle, bool _immediate)
 {
 	return vfxPlaySystem.Stop(_handle, _immediate);
+}
+
+VFXMeshTypeHandle Gfx::RegisterVFXMesh(const VFXMeshDesc& _desc)
+{
+	return vfxPlaySystem.RegisterMesh(_desc);
+}
+
+VFXHandle Gfx::PlayVFX(VFXMeshTypeHandle _meshType, const Vector3& _position, const Quaternion& _rotation)
+{
+	return vfxPlaySystem.Play(_meshType, _position, _rotation);
+}
+
+bool Gfx::SetVFXTrailPoint(VFXHandle _handle, const Vector3& _left, const Vector3& _right)
+{
+	return vfxPlaySystem.SetTrailPoint(_handle, _left, _right);
 }
 
 void Gfx::DrawLODModel(std::span<const ModelLODLevel> _levels, ModelLODState& _state, const Transform& _transform, float _hysteresisDistance)

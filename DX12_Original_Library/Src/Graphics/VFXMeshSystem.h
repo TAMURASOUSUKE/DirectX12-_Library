@@ -40,6 +40,12 @@ public:
 	// 登録済みメッシュをカメラから遠い順に描画する(半透明Modelの後に呼ぶ)
 	bool Flush(const Mat4x4& _viewProjection, const Vector3& _cameraPosition, const Quaternion& _cameraRotation);
 
+	// 板の右と上の向きをモードから決める 不明なモードならfalse
+	static bool ComputeQuadAxes(BillboardMode _mode, const Quaternion& _rotation, const Vector3& _center, const Quaternion& _cameraRotation, const Vector3& _cameraPosition, Vector3& _outRight, Vector3& _outUp);
+
+	// 計算用の型からGPUへ送る詰め物なしの頂点を作る
+	static VFXVertex MakeVertex(const Vector3& _position, float _u, float _v, const Vector4& _color);
+
 private:
 	static constexpr UINT VERTEX_STRIDE{ static_cast<UINT>(sizeof(VFXVertex)) }; // 1頂点のバイト数
 	static constexpr UINT MATERIAL_PARAMETER_ROOT_PARAM_BASE{ 1 }; // RootParameter[1]〜[4] = b0〜b3 space1(SetMaterialParameter)
