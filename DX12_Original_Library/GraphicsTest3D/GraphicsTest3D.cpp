@@ -3,6 +3,7 @@
 #include <algorithm>
 #include "VfxMeshTest.h"
 #include "VfxParticleTest.h"
+#include "VfxStressTest.h"
 
 struct alignas(16) ThreeToneParameter
 {
@@ -174,6 +175,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	VfxParticleTest vfxParticleTest{};
 	if (!vfxParticleTest.Setup()) DEBUG_LOG_ERROR("VfxParticleTestの初期化に失敗しました\n");
 
+	VfxStressTest vfxStressTest{};
+	if (!vfxStressTest.Setup()) DEBUG_LOG_ERROR("VfxStressTestの初期化に失敗しました\n");
+
 	// ゲームループ
 	while (TSLib::ProcessMessage() && !Input::IsKeyPushed(KeyCode::Button::ESC) && !Input::IsPadPushed(PadCode::Button::BACK))
 	{
@@ -314,6 +318,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		vfxMeshTest.Update(Time::UnscaledDeltaTime());
 
 		vfxParticleTest.Update(Time::UnscaledDeltaTime());
+		vfxStressTest.Update(Time::UnscaledDeltaTime());
 
 		Gfx::ClearScreen(); // 画面クリア
 		
@@ -376,6 +381,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		TSLib::EndFrame(); // フレーム終了処理
 	}
 
+	vfxStressTest.Shutdown();
 	vfxMeshTest.Shutdown();
 	vfxParticleTest.Shutdown();
 	TSLib::Finish(); // 終了
