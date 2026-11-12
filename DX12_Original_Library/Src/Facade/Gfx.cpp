@@ -1229,7 +1229,7 @@ AnimInstanceHandle Gfx::CreateAnimInstance(ModelHandle _handle)
 	return animSystem.Create(_handle);
 }
 
-int Gfx::GetBoneNum(AnimInstanceHandle _handle, const std::string_view _boneName)
+int Gfx::GetBoneIndex(AnimInstanceHandle _handle, const std::string_view _boneName)
 {
 	if (_boneName.empty())
 	{
@@ -1255,15 +1255,24 @@ int Gfx::GetBoneNum(AnimInstanceHandle _handle, const std::string_view _boneName
 	int result{ -1 };
 	for (std::size_t i = 0; i < modelData->bones.size(); i++)
 	{
-		if (modelData->bones[i].name == _boneName) result = static_cast<int>(i);
+		if (modelData->bones[i].name == _boneName)
+		{
+			result = static_cast<int>(i);
+			break;
+		}
 	}
 	return result;
 }
 
-Mat4x4 Gfx::GetBoneMatrix(AnimInstanceHandle _handle, int _boneIndex)
+Mat4x4 Gfx::GetBoneMatrix(AnimInstanceHandle _handle, int _boneIndex, const Transform& _transform)
 {
-	Mat4x4 result{ Mat4x4::Identity };
-	if (!animSystem.GetBoneMatrix(_handle, _boneIndex, result)) DEBUG_LOG_ERROR("Boneの行列取得に失敗しました\n");
+	Mat4x4 boneMat{ Mat4x4::Identity };
+	if (!animSystem.GetBoneMatrix(_handle, _boneIndex, boneMat))
+	{
+		DEBUG_LOG_ERROR("Boneの行列取得に失敗しました\n");
+		return boneMat; // 単位行列の状態のまま返す
+	}
+	Mat4x4 result{ boneMat * _transform.GetWorldMatrix() };
 	return result;
 }
 

@@ -332,7 +332,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Input::IsKeyPushed(KeyCode::Button::M))
 		{
 			std::string_view name{ "mixamorig:Spine2" };
-			int result{ Gfx::GetBoneNum(gamePlayerInstance, name) };
+			int result{ Gfx::GetBoneIndex(gamePlayerInstance, name) };
+			Mat4x4 testMat{ Gfx::GetBoneMatrix(gamePlayerInstance, result, gamePlayerTransform) };
 			DEBUG_LOG("取得したボーン名 {} : 値 {}",  name, result);
 		}
 
