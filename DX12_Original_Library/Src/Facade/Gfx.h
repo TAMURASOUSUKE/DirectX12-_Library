@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <type_traits>
+#include <string_view>
 #include <span>
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
@@ -55,6 +56,10 @@ namespace Gfx
 	MaterialHandle CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader, const MaterialRenderDesc& _materialRenderDesc = {});
 	// モデルをもとにアニメーション個体の作成
 	AnimInstanceHandle CreateAnimInstance(ModelHandle _handle);
+	// 名前からボーンを線形探索してそのボーン番号を返す(失敗は-1)
+	int GetBoneNum(AnimInstanceHandle _handle, const std::string_view _boneName);
+	// ボーン番号からモデル空間のボーン行列を取得する(失敗はIdentity)
+	Mat4x4 GetBoneMatrix(AnimInstanceHandle _handle, int _boneIndex);
 
 	// 矩形描画
 	void DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation = 0.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f }, bool _isWireframe = false);
@@ -149,6 +154,7 @@ namespace Gfx
 	bool SetAnimPlaybackSpeed(AnimInstanceHandle _handle, float _playbackSpeed);
 	// 指定したアニメーションを破棄する
 	bool DestroyAnim(AnimInstanceHandle _handle);
+
 
 	// terrainを描画する : 位置, 大きさ(xz平面にのみかかります), 分割係数 , 高さ ,変形形状を決めるheightMap(無ければplane描画になります)
 	void DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap = {});

@@ -154,6 +154,7 @@ namespace {
 
 			// 親の代入
 			_outBones[b].parentIndex = parentIndices[b];
+			_outBones[b].name = boneNode->name ? boneNode->name : std::string{};
 
 			// localPoseの取得(matrixがある場合とTRS両対応する)
 			Mat4x4 localPose{};

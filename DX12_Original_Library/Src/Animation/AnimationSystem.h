@@ -53,6 +53,9 @@ public:
 	// 世代付きハンドルから個体データを
 	AnimInstanceData* Lookup(AnimInstanceHandle _handle);
 
+	// ハンドルとモデル空間の行列を返す
+	bool GetBoneMatrix(AnimInstanceHandle _handle, int _boneIndex, Mat4x4& _outMatrix);
+
 	// アニメーション個体を破棄して席を返却する
 	bool Destroy(AnimInstanceHandle _handle);
 

@@ -1229,6 +1229,44 @@ AnimInstanceHandle Gfx::CreateAnimInstance(ModelHandle _handle)
 	return animSystem.Create(_handle);
 }
 
+int Gfx::GetBoneNum(AnimInstanceHandle _handle, const std::string_view _boneName)
+{
+	if (_boneName.empty())
+	{
+		DEBUG_LOG_ERROR("Boneの名前が空です\n");
+		return -1;
+	}
+
+	AnimInstanceData* animData{ animSystem.Lookup(_handle)};
+	if (!animData)
+	{
+		DEBUG_LOG_ERROR("指定されたAnimHandleが不正です\n");
+		return -1;
+	}
+
+	ModelData* modelData{ GraphicsResourceManager::Instance().Lookup(animData->modelHandle) };
+	if (!modelData)
+	{
+		DEBUG_LOG_ERROR("中のModelHandleが不正です\n");
+		return -1;
+	}
+
+	// 線形探索をする
+	int result{ -1 };
+	for (std::size_t i = 0; i < modelData->bones.size(); i++)
+	{
+		if (modelData->bones[i].name == _boneName) result = static_cast<int>(i);
+	}
+	return result;
+}
+
+Mat4x4 Gfx::GetBoneMatrix(AnimInstanceHandle _handle, int _boneIndex)
+{
+	Mat4x4 result{ Mat4x4::Identity };
+	if (!animSystem.GetBoneMatrix(_handle, _boneIndex, result)) DEBUG_LOG_ERROR("Boneの行列取得に失敗しました\n");
+	return result;
+}
+
 void Gfx::DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation, Vector4 _color, bool _isWireframe)
 {
 	shapeBatch.RegisterBox(_leftTop, _rightBottom, _radRotation, _color, _isWireframe);
