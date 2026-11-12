@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <utility>
@@ -61,6 +62,7 @@ namespace {
 	DirectionalShadowSettings shadowSettings{}; // 最初は固定範囲でShadow Mappingを検証する
 	GraphicsGPUTimingSystem gpuTimingSystem; // GPU実行時間を計測するシステム
 	std::vector<VFXVertex> trailVertexScratch{}; // DrawTrail3Dが毎回確保しないための使い回し領域
+	double lastVFXFlushCpuMilliseconds{ 0.0 }; // 前フレームのVFXメッシュ描画の記録にかかったCPU時間
 
 	constexpr GraphicsPipelineDesc PIPELINE_TABLE[]{
 		// 図形塗りつぶし
@@ -672,7 +674,9 @@ void GfxInternal::EndFrame()
 		const bool gpuTimingStarted{ BeginGPUTimingPass(GraphicsPass::VFXMesh) }; // 計測開始
 		GPU_MARKER("VFXMesh");
 		// 一部のメッシュが失敗してもフレームの残り(前面Sprite・Present)は続ける
+		const std::chrono::steady_clock::time_point vfxFlushStart{ std::chrono::steady_clock::now() }; // CPU時間の計測開始
 		if (!vfxMeshSystem.Flush(cameraSystem.GetViewProjectionMatrix(), cameraSystem.GetCameraPosition(), cameraSystem.GetCameraRotation())) DEBUG_LOG_ERROR("VFXメッシュの描画に失敗しました\n");
+		lastVFXFlushCpuMilliseconds = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - vfxFlushStart).count();
 		EndGPUTimingPass(GraphicsPass::VFXMesh, gpuTimingStarted); // 計測終了
 	}
 
@@ -928,6 +932,23 @@ const GraphicsGPUTimingFrame& GfxInternal::GetLastGPUTimingFrame()
 const std::vector<ComputeDispatchRequest>& GfxInternal::GetVFXDispatchRequests()
 {
 	return vfxPlaySystem.GetDispatchRequests();
+}
+
+bool GfxInternal::BeginGPUTimingPass(GraphicsPass _pass)
+{
+	// 無名名前空間の同名の関数を呼ぶ
+	return ::BeginGPUTimingPass(_pass);
+}
+
+void GfxInternal::EndGPUTimingPass(GraphicsPass _pass, bool _isStarted)
+{
+	// 無名名前空間の同名の関数を呼ぶ
+	::EndGPUTimingPass(_pass, _isStarted);
+}
+
+double GfxInternal::GetLastVFXFlushCpuMilliseconds()
+{
+	return lastVFXFlushCpuMilliseconds;
 }
 
 bool Gfx::Detail::SetMaterialParameterRaw(MaterialHandle _handle, std::size_t _slot, const void* _data, size_t _dataSize)

@@ -17,6 +17,7 @@ enum class GraphicsPass : std::uint8_t
 	PostEffect,
 	Terrain,
 	VFXMesh, // ワールド空間のVFXメッシュ(板・帯)
+	Compute, // ComputeShaderの実行(描画ではないが時間と回数を同じ仕組みで計測する)
 	Count
 };
 
@@ -52,6 +53,9 @@ namespace GraphicsMetrics
 
 	// 実際にDraw命令を1回発行するときに呼ぶ
 	void RecordDrawCall(GraphicsPass _pass);
+
+	// ComputeのDispatch命令を1回発行するときに呼ぶ(全体のドローコールには数えない)
+	void RecordDispatch();
 
 	// 完成済みの前フレーム値を取得する
 	const GraphicsFrameMetrics& GetLastFrame();

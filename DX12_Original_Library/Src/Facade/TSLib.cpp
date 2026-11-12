@@ -40,6 +40,8 @@ namespace {
 	DebugMetricID soundUpdateCpuMetricID{};
 	DebugMetricID debugBeginCpuMetricID{};
 	DebugMetricID debugMetricSubmitCpuMetricID{};
+	DebugMetricID computeEndCpuMetricID{};
+	DebugMetricID vfxFlushCpuMetricID{};
 
 	// パスごとの表示名(個数を推論させることでstatic_assertに引っかかるようにする)
 	constexpr auto passName = std::array
@@ -55,6 +57,7 @@ namespace {
 		std::string_view{ "PostEffect" },
 		std::string_view{ "Terrain" },
 		std::string_view{ "VFX Mesh" },
+		std::string_view{ "Compute" },
 	};
 	std::array<DebugMetricID, PASS_COUNT> passDrawCallID{};
 	static_assert(passName.size() == PASS_COUNT, "表示名がパスの数とあっていません");
@@ -84,6 +87,8 @@ namespace
 		debugBeginCpuMetricID = Debug::RegisterMetric({ "Debug Begin CPU", debugChannelID, DebugMetricUnit::Milliseconds, DebugMetricAggregation::Set, DebugMetricDisplayMode::WindowStatistics });
 		// CPU・GPU結果の提出箇所が二つに分かれるためAddで合計する
 		debugMetricSubmitCpuMetricID = Debug::RegisterMetric({ "Metric Submit CPU", debugChannelID, DebugMetricUnit::Milliseconds, DebugMetricAggregation::Add, DebugMetricDisplayMode::WindowStatistics });
+		computeEndCpuMetricID = Debug::RegisterMetric({ "Compute End CPU", renderingChannelID, DebugMetricUnit::Milliseconds, DebugMetricAggregation::Set, DebugMetricDisplayMode::WindowStatistics });
+		vfxFlushCpuMetricID = Debug::RegisterMetric({ "VFX Flush CPU", renderingChannelID, DebugMetricUnit::Milliseconds, DebugMetricAggregation::Set, DebugMetricDisplayMode::WindowStatistics });
 		// デバッグ機能の失敗でゲームを機能不能にはしない
 		if (!renderingChannelID.IsValid() || !drawCallMetricID.IsValid() || !graphicsBeginCpuMetricID.IsValid()) DEBUG_LOG_ERROR("内蔵Rendering Metricの登録に失敗しました\n");
 		if (!cpuFrameTimeMetricID.IsValid() || !cpuBudgetUsageMetricID.IsValid() || !gpuBudgetUsageMetricID.IsValid()) DEBUG_LOG_ERROR("内蔵Frame Metricの登録に失敗しました\n");
@@ -118,6 +123,7 @@ namespace
 
 		const GraphicsFrameMetrics& graphicsMetrics{ GfxInternal::GetLastFrameMetrics() }; // 前フレームの値を検出
 		Debug::SubmitMetric(drawCallMetricID, static_cast<double>(graphicsMetrics.drawCallCount)); // 全体個数書き込み
+		if (vfxFlushCpuMetricID.IsValid()) Debug::SubmitMetric(vfxFlushCpuMetricID, GfxInternal::GetLastVFXFlushCpuMilliseconds()); // 前フレームのVFXメッシュ描画のCPU時間
 
 		for (std::size_t i = 0; i < PASS_COUNT; i++)
 		{
@@ -350,8 +356,14 @@ void TSLib::EndFrame()
 	DebugInternal::EndFrame(); // デバッグ表示用のフレームの最後の処理
 	DebugDraw(); // デバッグパラメータなどの描画
 	GfxInternal::RecordUpload(); // リソースのUpload命令記録
-	ComputeInternal::RegisterDispatches(GfxInternal::GetVFXDispatchRequests()); // Gfx側のVFXが積んだCompute要求をTSLibが仲介して渡す
-	ComputeInternal::EndFrame(); // Computeのフレーム最後の処理
+	{
+		// Computeの記録にかかるCPU時間と実行にかかるGPU時間を計測する(GfxとComputeは互いを知らないのでTSLibが仲介する)
+		const auto timing{ Debug::BeginCPUTiming(computeEndCpuMetricID) };
+		const bool gpuTimingStarted{ GfxInternal::BeginGPUTimingPass(GraphicsPass::Compute) };
+		ComputeInternal::RegisterDispatches(GfxInternal::GetVFXDispatchRequests()); // Gfx側のVFXが積んだCompute要求をTSLibが仲介して渡す
+		ComputeInternal::EndFrame(); // Computeのフレーム最後の処理
+		GfxInternal::EndGPUTimingPass(GraphicsPass::Compute, gpuTimingStarted);
+	}
 	GfxInternal::EndFrame(); // グラフィックのフレーム最後の処理
 	InputInternal::EndFrame(); // 入力関連のフレーム最後の処理
 	cpuFrameTimingSystem.EndFrame(Time::GetTargetFPS()); // 計測の終了
