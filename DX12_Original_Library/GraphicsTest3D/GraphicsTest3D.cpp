@@ -61,6 +61,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// CrossFadeには遷移元が必要なので、最初は通常再生で開始する
 	Gfx::PlayAnim(alienModelAnim, ALIEN_ANIM_0, true, 1.0f);
 
+	// ゲーム用モデル
+	ModelHandle gameModel{ Gfx::LoadModel("Res/Player.glb") };
+	AnimInstanceHandle gamePlayerInstance{ Gfx::CreateAnimInstance(gameModel) };
+	Transform gamePlayerTransform{};
+	gamePlayerTransform.SetPosition({2.0f, 1.0f, 0.0f});
+	Gfx::PlayAnim(gamePlayerInstance, 0, true);
+
 	// Shader
 	ShaderHandle threeTonePS{ Gfx::LoadShader(L"ThreeToneModelPS.hlsl", ShaderUsage::Model, ShaderStage::Pixel) };
 	MaterialHandle threeToneMaterial{ Gfx::CreateMaterial(threeTonePS) };
@@ -320,9 +327,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		vfxParticleTest.Update(Time::UnscaledDeltaTime());
 		vfxStressTest.Update(Time::UnscaledDeltaTime());
 
+		Gfx::UpdateAnim(gamePlayerInstance, Time::DeltaTime());
+
+		if (Input::IsKeyPushed(KeyCode::Button::M))
+		{
+			std::string_view name{ "mixamorig:Spine2" };
+			int result{ Gfx::GetBoneIndex(gamePlayerInstance, name) };
+			Mat4x4 testMat{ Gfx::GetBoneMatrix(gamePlayerInstance, result, gamePlayerTransform) };
+			DEBUG_LOG("取得したボーン名 {} : 値 {}",  name, result);
+		}
+
 		Gfx::ClearScreen(); // 画面クリア
 		
 		Gfx::DrawAnimatedModel(alienModelAnim, objectPosition); // 3Dモデルアニメーション
+		Gfx::DrawAnimatedModel(gamePlayerInstance, gamePlayerTransform);
 
 		if (!useThreeTone) Gfx::DrawAnimatedModel(toonModelAnim, toonTransform); // 静的モデル(非toon)
 		else Gfx::DrawAnimatedModel(toonModelAnim, toonTransform, threeToneMaterial); // 静的モデル(toon)

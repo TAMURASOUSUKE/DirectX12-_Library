@@ -495,6 +495,26 @@ AnimInstanceData* AnimationSystem::Lookup(AnimInstanceHandle _handle)
 	return &slot.data; // 実体を返す
 }
 
+bool AnimationSystem::GetBoneMatrix(AnimInstanceHandle _handle, int _boneIndex, Mat4x4& _outMatrix)
+{
+	AnimInstanceData* data{ Lookup(_handle) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("AnimInstanceDataのlookupに失敗しました\n");
+		return false;
+	}
+
+	std::size_t boneIndex{ static_cast<std::size_t>(_boneIndex)};
+	if (boneIndex >= data->globalPoses.size())
+	{
+		DEBUG_LOG_ERROR("boneIndexが配列外です\n");
+		return false;
+	}
+
+	_outMatrix = data->globalPoses[boneIndex];
+	return true;
+}
+
 bool AnimationSystem::Destroy(AnimInstanceHandle _handle)
 {
 	// ハンドルの正当性をLookupで検査する

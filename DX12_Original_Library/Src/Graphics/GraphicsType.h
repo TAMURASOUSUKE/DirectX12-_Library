@@ -5,6 +5,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include "GfxType.h"
 #include "../Math/TSMath.h"
 #include "../Core/Handle/TexHandle.h"
@@ -414,6 +415,7 @@ struct Bone
 	Vector3 bindTranslation{ Vector3::Zero };
 	Quaternion bindRotation{ Quaternion::Identity };
 	Vector3 bindScale{ Vector3::Zero };
+	std::string name{}; // Bone名
 };
 
 // アニメーションのパスを明示的に出せるようにする名前空間
