@@ -112,6 +112,23 @@ namespace {
 		return defaultBuffer;
 	}
 
+	// cglTFのfloat[16]から行優先でMat4x4を作る補助関数
+	Mat4x4 MakeMat4x4FromCglTFFloat(const cgltf_float* _matData)
+	{
+		if (!_matData)
+		{
+			DEBUG_LOG_ERROR("渡されたcglTFのfloatが不正です\n");
+			return Mat4x4{ Mat4x4::Identity };
+		}
+		return Mat4x4
+		{
+			Vector4{_matData[0], _matData[1], _matData[2], _matData[3]},
+			Vector4{_matData[4], _matData[5], _matData[6], _matData[7]},
+			Vector4{_matData[8], _matData[9], _matData[10], _matData[11]},
+			Vector4{_matData[12], _matData[13], _matData[14], _matData[15]},
+		};
+	}
+
 	// ボーンをロードするヘルパー関数(コピーコストを完全に0にする + 意図を明確にするため参照で受ける)
 	void LoadBone(const cgltf_skin& _skin, const cgltf_data* _data, std::vector<Bone>& _outBones, Mat4x4& _outSkeletonRoot)
 	{
@@ -1121,13 +1138,7 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 		cgltf_node_transform_world(node, nodeColMajor); // 列優先の16要素で親をたどり最終的なワールド行列を計算する(列優先 + 16要素は下で解決)
 
 		// 列優先　-> 行優先に変更
-		Mat4x4 nodeMat
-		{
-			Vector4{ nodeColMajor[0],  nodeColMajor[1],  nodeColMajor[2],  nodeColMajor[3]  },
-			Vector4{ nodeColMajor[4],  nodeColMajor[5],  nodeColMajor[6],  nodeColMajor[7]  },
-			Vector4{ nodeColMajor[8],  nodeColMajor[9],  nodeColMajor[10], nodeColMajor[11] },
-			Vector4{ nodeColMajor[12], nodeColMajor[13], nodeColMajor[14], nodeColMajor[15] },
-		};
+		Mat4x4 nodeMat{ MakeMat4x4FromCglTFFloat(nodeColMajor) };
 		//　右手系から左手系に
 		Mat4x4 zFlip{ Mat4x4::MakeScaling(Vector3{1.0f, 1.0f, -1.0f}) };
 		Mat4x4 finalMat{ nodeMat * zFlip };
@@ -1187,7 +1198,7 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 				// とりあえずnormalは今は生のまま読む
 				cgltf_accessor_read_float(normalAccessor, k, verticesData[k].normal, 3);
 
-				//uv
+				// uv
 				cgltf_accessor_read_float(uvAccessor, k, verticesData[k].uv, 2);
 
 				// weightがあれば読む(無ければ0番に100%)
