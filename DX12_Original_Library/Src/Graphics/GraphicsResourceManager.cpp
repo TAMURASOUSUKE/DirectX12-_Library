@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <cstring>
+#include <span>
 #include <unordered_map>
 #include <utility>
 #include <limits>
@@ -110,6 +111,67 @@ namespace {
 		}
 
 		return defaultBuffer;
+	}
+
+	// cglTFのfloat[16]から行優先でMat4x4を作る補助関数
+	Mat4x4 MakeMat4x4FromCglTFFloat(const cgltf_float* _matData)
+	{
+		if (!_matData)
+		{
+			DEBUG_LOG_ERROR("渡されたcglTFのfloatが不正です\n");
+			return Mat4x4{ Mat4x4::Identity };
+		}
+		return Mat4x4
+		{
+			Vector4{_matData[0], _matData[1], _matData[2], _matData[3]},
+			Vector4{_matData[4], _matData[5], _matData[6], _matData[7]},
+			Vector4{_matData[8], _matData[9], _matData[10], _matData[11]},
+			Vector4{_matData[12], _matData[13], _matData[14], _matData[15]},
+		};
+	}
+
+	// 親をたどって見つけたBoneとそこまでの変換
+	struct AncestorBone
+	{
+		int boneIndex{ -1 }; // 見つからなければ-1
+		Mat4x4 localToBone{ Mat4x4::Identity }; // 頂点をBoneの空間へ移す行列
+	};
+
+	// 親をたどってボーンを探す関数
+	AncestorBone FindAncestorBone(const cgltf_node* _node, const cgltf_data* _data, std::span<const int> _nodeToBone)
+	{
+		if (!_node)
+		{
+			DEBUG_LOG_ERROR("渡されたnodeが不正です\n");
+			return AncestorBone{};
+		}
+
+		if (!_data)
+		{
+			DEBUG_LOG_ERROR("渡されたdataが不正です\n");
+			return AncestorBone{};
+		}
+
+		if (_nodeToBone.empty())
+		{
+			DEBUG_LOG_ERROR("渡された変換表が不正です\n");
+			return AncestorBone{};
+		}
+
+		Mat4x4 localToBone{ Mat4x4::Identity }; // たどったnodeの変換を溜める
+		for (const cgltf_node* current{ _node }; current; current = current->parent)
+		{
+			// currentがnodesの何番目かをポインタ演算で求めて表を引く
+			const std::size_t nodeIndex{ static_cast<std::size_t>(current - _data->nodes) };
+			const int boneIndex{ _nodeToBone[nodeIndex] };
+			if (boneIndex >= 0) return AncestorBone{ boneIndex, localToBone };
+
+			// Boneではないnodeは自分の変換を掛けて親の空間へ上がる
+			cgltf_float local[16]{};
+			cgltf_node_transform_local(current, local);
+			localToBone = localToBone * MakeMat4x4FromCglTFFloat(local);
+		}
+		return AncestorBone{}; // Boneの下にいないmesh
 	}
 
 	// ボーンをロードするヘルパー関数(コピーコストを完全に0にする + 意図を明確にするため参照で受ける)
@@ -1110,24 +1172,52 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 			return loadedTexture;
 		};
 
+	std::vector<int> nodeToBone(data->nodes_count, -1); // ノード数分確保して-1で埋める
+	// 変換表 スキンがあるときだけ変換する
+	if (data->skins && data->skins_count > 0)
+	{
+		for (cgltf_size b = 0; b < data->skins->joints_count; b++)
+		{
+			// joint[b]はcgltf_node*型なのでnodeIndexに変換が必要
+			cgltf_node* jointNode{ data->skins[0].joints[b] };
+			// jointNodeがdata->nodesの何番目か
+			int nodeIndex{ static_cast<int>(jointNode - data->nodes) }; // ポインタ演算でノード番号を求める
+			nodeToBone[nodeIndex] = static_cast<int>(b);
+		}
+	}
+
 	// node配列を見て基準にループする
 	for (cgltf_size i = 0; i < data->nodes_count; i++)
 	{
 		cgltf_node* node{ &data->nodes[i] }; // 現在のnode
 		if (!node->mesh) continue; // meshを持たないnode(空ノード,ライト,カメラ等)はスキップ
 
+		// スキンモデルの中のスキンのないモデルは親をたどってボーンへ付ける
+		AncestorBone ancestorBone{};
+		Mat4x4 attachMatrix{ Mat4x4::Identity }; // 頂点をBoneのバインド時の空間へ移す行列
+		if (data->skins_count > 0)
+		{
+			ancestorBone = FindAncestorBone(node, data, nodeToBone);
+			if (ancestorBone.boneIndex >= 0)
+			{
+				Mat4x4 inverseBindMatrix{ Mat4x4::Identity }; // IBMが無いglTFは単位行列として扱う
+				if (data->skins[0].inverse_bind_matrices)
+				{
+					cgltf_float ibmRaw[16]{};
+					cgltf_accessor_read_float(data->skins[0].inverse_bind_matrices, static_cast<cgltf_size>(ancestorBone.boneIndex), ibmRaw, 16);
+					inverseBindMatrix = MakeMat4x4FromCglTFFloat(ibmRaw);
+				}
+				// 頂点 * localToBone でBoneの空間 さらにIBMの逆を掛けてスキンのmeshと同じ空間へ
+				attachMatrix = ancestorBone.localToBone * inverseBindMatrix.MakeAffineInverse();
+			}
+		}
+
 		// nodeのワールド変換行列を取得する
 		float nodeColMajor[16]{};
 		cgltf_node_transform_world(node, nodeColMajor); // 列優先の16要素で親をたどり最終的なワールド行列を計算する(列優先 + 16要素は下で解決)
 
 		// 列優先　-> 行優先に変更
-		Mat4x4 nodeMat
-		{
-			Vector4{ nodeColMajor[0],  nodeColMajor[1],  nodeColMajor[2],  nodeColMajor[3]  },
-			Vector4{ nodeColMajor[4],  nodeColMajor[5],  nodeColMajor[6],  nodeColMajor[7]  },
-			Vector4{ nodeColMajor[8],  nodeColMajor[9],  nodeColMajor[10], nodeColMajor[11] },
-			Vector4{ nodeColMajor[12], nodeColMajor[13], nodeColMajor[14], nodeColMajor[15] },
-		};
+		Mat4x4 nodeMat{ MakeMat4x4FromCglTFFloat(nodeColMajor) };
 		//　右手系から左手系に
 		Mat4x4 zFlip{ Mat4x4::MakeScaling(Vector3{1.0f, 1.0f, -1.0f}) };
 		Mat4x4 finalMat{ nodeMat * zFlip };
@@ -1143,6 +1233,7 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 			const cgltf_accessor* uvAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_texcoord, 0) }; // uvのアクセサ
 			const cgltf_accessor* weightAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_weights, 0) }; // 重みのアクセサ
 			const cgltf_accessor* boneAccessor{ cgltf_find_accessor(&prim, cgltf_attribute_type_joints, 0) }; // ボーンのアクセサ
+			const bool isAttachedToBone{ data->skins_count > 0 && !boneAccessor && ancestorBone.boneIndex >= 0 }; // スキンモデルの中でjointの属性を持たず親にBoneがいるmeshか
 
 			// 属性が欠けているprimitiveはスキップする
 			if (!positionAccessor || !normalAccessor || !uvAccessor)
@@ -1168,7 +1259,14 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 				// スキンがない場合は焼きこみそうでない場合は焼きこまない(行なのでv * M)
 				Vector4 p{ localPos[0], localPos[1], localPos[2], 1.0f };
 				Vector4 worldPos;
-				if (data->skins_count > 0)  // スキンモデル
+
+
+				if (isAttachedToBone) // Boneへ付けるmesh
+				{
+					// 付けるBoneのバインド時の空間へ移す
+					worldPos = Mat4x4::Mul(p, attachMatrix);
+				}
+				else if (data->skins_count > 0)  // スキンモデル
 				{
 					// ノード変換を焼かない（ローカル座標のまま）
 					worldPos = Vector4{ localPos[0], localPos[1], localPos[2], 1.0f };
@@ -1187,7 +1285,17 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 				// とりあえずnormalは今は生のまま読む
 				cgltf_accessor_read_float(normalAccessor, k, verticesData[k].normal, 3);
 
-				//uv
+				// Boneへ付けるmeshは位置と同じ変換で法線の向きも移す
+				if (isAttachedToBone)
+				{
+					Vector3 normal{ attachMatrix.TransformDirection(Vector3{ verticesData[k].normal[0], verticesData[k].normal[1], verticesData[k].normal[2] }) };
+					normal.Normalize();
+					verticesData[k].normal[0] = normal.x;
+					verticesData[k].normal[1] = normal.y;
+					verticesData[k].normal[2] = normal.z;
+				}
+
+				// uv
 				cgltf_accessor_read_float(uvAccessor, k, verticesData[k].uv, 2);
 
 				// weightがあれば読む(無ければ0番に100%)
@@ -1210,7 +1318,7 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 				}
 				else
 				{
-					verticesData[k].bones[0] = 0;  // 全部ボーン0（ダミー）
+					verticesData[k].bones[0] = isAttachedToBone ? static_cast<uint32_t>(ancestorBone.boneIndex) : 0;  // 付けるBone 無ければボーン0（ダミー）
 					verticesData[k].bones[1] = 0;
 					verticesData[k].bones[2] = 0;
 					verticesData[k].bones[3] = 0;

@@ -203,6 +203,37 @@ Vector3 Mat4x4::TransformDirection(const Vector3& _dir) const
 	return mulTransformMat.ToVec3(); // Vec3に戻す
 }
 
+Mat4x4 Mat4x4::MakeAffineInverse() const
+{
+	const Vector3 a{ rows[0].ToVec3()}; // 変換後のX軸の向きと長さ
+	const Vector3 b{ rows[1].ToVec3() }; // 変換後のY軸の向きと長さ
+	const Vector3 c{ rows[2].ToVec3() }; // 変換後のZ軸の向きと長さ
+	const Vector3 t{ rows[3].ToVec3() }; // 移動
+
+	// それぞれ外積を出す
+	const Vector3 cCrossa{ Vector3::Cross(c, a) };
+	const Vector3 bCrossc{ Vector3::Cross(b, c) };
+	const Vector3 aCrossb{ Vector3::Cross(a, b) };
+
+	// 行列式を出す
+	const float det{ Vector3::Dot(a, bCrossc) };
+	if (std::abs(det) <= Math::EPSILON) return Identity;
+
+	// 外積を行列式の値で割って列を出す
+	Vector4 column0{ bCrossc / det };
+	Vector4 column1{ cCrossa / det };
+	Vector4 column2{ aCrossb / det };
+
+	// 平行移動は元の4行目を-にして対応列と内積を取ることで出す
+	return Mat4x4
+	{
+		Vector4{column0.x, column1.x, column2.x, 0},
+		Vector4{column0.y, column1.y, column2.y, 0},
+		Vector4{column0.z, column1.z, column2.z, 0},
+		Vector4{Vector3::Dot(-t, column0.ToVec3()), Vector3::Dot(-t, column1.ToVec3()), Vector3::Dot(-t, column2.ToVec3()), 1},
+	};
+}
+
 // 行列同士の乗算
 Mat4x4 Mat4x4::operator *(const Mat4x4& _other) const
 {
