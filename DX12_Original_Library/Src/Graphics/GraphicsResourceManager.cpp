@@ -154,7 +154,7 @@ namespace {
 
 		if (_nodeToBone.empty())
 		{
-			DEBUG_LOG_ERROR("渡されたnodeが不正です\n");
+			DEBUG_LOG_ERROR("渡された変換表が不正です\n");
 			return AncestorBone{};
 		}
 
