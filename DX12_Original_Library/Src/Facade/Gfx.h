@@ -56,10 +56,16 @@ namespace Gfx
 	MaterialHandle CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader, const MaterialRenderDesc& _materialRenderDesc = {});
 	// モデルをもとにアニメーション個体の作成
 	AnimInstanceHandle CreateAnimInstance(ModelHandle _handle);
+
 	// 名前からボーンを線形探索してそのボーン番号を返す(失敗は-1)
 	int GetBoneIndex(AnimInstanceHandle _handle, const std::string_view _boneName);
 	// ボーン番号からボーンのワールド行列を取得する(失敗はIdentity)
 	Mat4x4 GetBoneMatrix(AnimInstanceHandle _handle, int _boneIndex, const Transform& _transform);
+
+	// 名前からSocket(Boneに付いているnode)を線形探索してその番号を返す(失敗は-1)
+	int GetSocketIndex(AnimInstanceHandle _handle, const std::string_view _socketName);
+	// Socket番号からSocketのワールド行列を取得する(失敗はIdentity)
+	Mat4x4 GetSocketMatrix(AnimInstanceHandle _handle, int _socketIndex, const Transform& _transform);
 
 	// 矩形描画
 	void DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation = 0.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f }, bool _isWireframe = false);

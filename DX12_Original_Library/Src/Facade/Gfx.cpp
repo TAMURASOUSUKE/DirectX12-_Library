@@ -1276,6 +1276,53 @@ Mat4x4 Gfx::GetBoneMatrix(AnimInstanceHandle _handle, int _boneIndex, const Tran
 	return result;
 }
 
+int Gfx::GetSocketIndex(AnimInstanceHandle _handle, const std::string_view _socketName)
+{
+	if (_socketName.empty())
+	{
+		DEBUG_LOG_ERROR("Socketの名前が空です\n");
+		return -1;
+	}
+
+	AnimInstanceData* animData{ animSystem.Lookup(_handle) };
+	if (!animData)
+	{
+		DEBUG_LOG_ERROR("指定されたAnimHandleが不正です\n");
+		return -1;
+	}
+
+	ModelData* modelData{ GraphicsResourceManager::Instance().Lookup(animData->modelHandle) };
+	if (!modelData)
+	{
+		DEBUG_LOG_ERROR("中のModelHandleが不正です\n");
+		return -1;
+	}
+
+	// 線形探索をする
+	int result{ -1 };
+	for (std::size_t i = 0; i < modelData->sockets.size(); i++)
+	{
+		if (modelData->sockets[i].name == _socketName)
+		{
+			result = static_cast<int>(i);
+			break;
+		}
+	}
+	return result;
+}
+
+Mat4x4 Gfx::GetSocketMatrix(AnimInstanceHandle _handle, int _socketIndex, const Transform& _transform)
+{
+	Mat4x4 socketMat{ Mat4x4::Identity };
+	if (!animSystem.GetSocketMatrix(_handle, _socketIndex, socketMat))
+	{
+		DEBUG_LOG_ERROR("Socketの行列取得に失敗しました\n");
+		return socketMat; // 単位行列の状態のまま返す
+	}
+	Mat4x4 result{ socketMat * _transform.GetWorldMatrix() };
+	return result;
+}
+
 void Gfx::DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation, Vector4 _color, bool _isWireframe)
 {
 	shapeBatch.RegisterBox(_leftTop, _rightBottom, _radRotation, _color, _isWireframe);

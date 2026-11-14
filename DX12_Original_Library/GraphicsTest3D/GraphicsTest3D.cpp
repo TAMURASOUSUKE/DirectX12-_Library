@@ -4,6 +4,7 @@
 #include "VfxMeshTest.h"
 #include "VfxParticleTest.h"
 #include "VfxStressTest.h"
+#include "SocketTest.h"
 
 struct alignas(16) ThreeToneParameter
 {
@@ -67,6 +68,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	Transform gamePlayerTransform{};
 	gamePlayerTransform.SetPosition({2.0f, 1.0f, 0.0f});
 	Gfx::PlayAnim(gamePlayerInstance, 0, true);
+	SocketTest socketTest{};
+	if (!socketTest.Setup(gamePlayerInstance)) DEBUG_LOG_ERROR("SocketTestの初期化に失敗しました\n");
 
 	// Shader
 	ShaderHandle threeTonePS{ Gfx::LoadShader(L"ThreeToneModelPS.hlsl", ShaderUsage::Model, ShaderStage::Pixel) };
@@ -329,13 +332,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::UpdateAnim(gamePlayerInstance, Time::DeltaTime());
 
-		if (Input::IsKeyPushed(KeyCode::Button::M))
-		{
-			std::string_view name{ "mixamorig:Spine2" };
-			int result{ Gfx::GetBoneIndex(gamePlayerInstance, name) };
-			Mat4x4 testMat{ Gfx::GetBoneMatrix(gamePlayerInstance, result, gamePlayerTransform) };
-			DEBUG_LOG("取得したボーン名 {} : 値 {}",  name, result);
-		}
+		socketTest.Update(gamePlayerInstance, gamePlayerTransform, Time::DeltaTime());
 
 		Gfx::ClearScreen(); // 画面クリア
 		

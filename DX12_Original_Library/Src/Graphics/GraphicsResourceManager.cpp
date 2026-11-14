@@ -1440,6 +1440,24 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 	{
 		LoadBone(data->skins[0], data, modelData.bones, modelData.skeletonRoot);
 
+		// BoneではないがBoneの子孫になっているnodeをsocketとして集める
+		for (cgltf_size i = 0; i < data->nodes_count; i++)
+		{
+			if (nodeToBone[i] >= 0) continue; // Bone自身は対象外
+
+			const cgltf_node* socketNode{ &data->nodes[i] };
+			if (!socketNode->name) continue; // 名前がないと探せない
+			
+			const AncestorBone socketBone{ FindAncestorBone(socketNode, data, nodeToBone) };
+			if (socketBone.boneIndex < 0) continue; // Boneの下にいないnode
+
+			ModelSocket socket{};
+			socket.boneIndex = socketBone.boneIndex;
+			socket.name = socketNode->name;
+			socket.localToBone = socketBone.localToBone;
+			modelData.sockets.push_back(socket);
+		}
+
 		if (data->animations_count > 0)
 		{
 			LoadAnimation(data, modelData.animations);

@@ -306,6 +306,7 @@ bool VFXMeshSystem::ComputeQuadAxes(BillboardMode _mode, const Quaternion& _rota
 	default:
 		break;
 	}
+	return false;
 }
 
 VFXVertex VFXMeshSystem::MakeVertex(const Vector3& _position, float _u, float _v, const Vector4& _color)
