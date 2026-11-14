@@ -65,17 +65,15 @@ public:
 private:
 
 	// 行列化する前のボーン1本分のローカル姿勢
-	struct BoneLocalPose
-	{
-		Vector3 translation{ Vector3::Zero };
-		Quaternion rotation{ Quaternion::Identity };
-		Vector3 scale{ Vector3::One };
-	};
+	using BoneLocalPose = AnimBoneLocalPose;
+
+	// 個体の現在時刻のローカル姿勢を求める(クロスフェード中は混ぜた姿勢) 戻り値は内部キャッシュを指す
+	const std::vector<BoneLocalPose>* ComputeFinalLocalPose(AnimInstanceData& _instance, const ModelData& _model);
 
 	// 個体の現在時刻からグローバル姿勢とスキニング行列を計算する
 	void UpdateGlobalPose(AnimInstanceData& _instance);
 	
-	// クリップをボーン事のローカルTRSとしてサンプリングする
+	// クリップをボーン毎のローカルTRSとしてサンプリングする
 	void SampleAnimationTRS(const Animation& _animation, const std::vector<Bone>& _bones, float _time, std::vector<BoneLocalPose>& _outPoses);
 
 	// 1チャンネル内の前後キーフレームを補間する
