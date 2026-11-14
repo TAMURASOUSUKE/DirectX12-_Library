@@ -257,7 +257,7 @@ namespace {
 			// IBM
 			float ibmRaw[16];
 			cgltf_accessor_read_float(_skin.inverse_bind_matrices, b, ibmRaw, 16); // b番目の16要素を取り出す
-			// 列優先の一時的な行列オブジェクト
+			// 行優先の一時的な行列オブジェクト
 			Mat4x4 ibmTmp
 			{
 				Vector4{ibmRaw[0], ibmRaw[1], ibmRaw[2], ibmRaw[3]},
