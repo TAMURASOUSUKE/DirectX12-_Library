@@ -46,9 +46,12 @@ struct SocketTest
 		if (handBone < 0 || bladeRootSocket < 0 || bladeTipSocket < 0) return;
 
 		// 行列の原点を移した先がそのnodeのワールド位置
-		const Vector3 handPosition{ Gfx::GetBoneMatrix(_instance, handBone, _transform).TransformPoint(Vector3::Zero) };
-		const Vector3 rootPosition{ Gfx::GetSocketMatrix(_instance, bladeRootSocket, _transform).TransformPoint(Vector3::Zero) };
-		const Vector3 tipPosition{ Gfx::GetSocketMatrix(_instance, bladeTipSocket, _transform).TransformPoint(Vector3::Zero) };
+		//const Vector3 handPosition{ Gfx::GetBoneMatrix(_instance, handBone, _transform).TransformPoint(Vector3::Zero) };
+		//const Vector3 rootPosition{ Gfx::GetSocketMatrix(_instance, bladeRootSocket, _transform).TransformPoint(Vector3::Zero) };
+		//const Vector3 tipPosition{ Gfx::GetSocketMatrix(_instance, bladeTipSocket, _transform).TransformPoint(Vector3::Zero) };
+		const Vector3 handPosition{ Gfx::GetBonePosition(_instance, handBone, _transform) };
+		const Vector3 rootPosition{ Gfx::GetSocketPosition(_instance, bladeRootSocket, _transform) };
+		const Vector3 tipPosition{ Gfx::GetSocketPosition(_instance, bladeTipSocket, _transform) };
 
 		// 根本から先端へ線を引く 絵の剣と重なれば位置が合っている
 		Gfx::DrawLine3D(rootPosition, tipPosition, { 1.0f, 1.0f, 0.0f, 1.0f });
