@@ -230,7 +230,7 @@ bool ModelRenderer::DrawSubMesh(const ModelDrawPacket& _packet, GraphicsPass _pa
 		{
 			// 必要なDescriptorHandleを出す(空ならnullSRV)
 			D3D12_GPU_DESCRIPTOR_HANDLE texture{ GraphicsResourceManager::Instance().ResolveMaterialResourceSRV(activeMaterial->resourceSlots[i]) };
-			cmd->SetGraphicsRootDescriptorTable(MODEL_MATERIAL_TEXTURE_ROOT_PARAM_BASE + i, texture);
+			cmd->SetGraphicsRootDescriptorTable(MODEL_MATERIAL_TEXTURE_ROOT_PARAM_BASE + static_cast<UINT>(i), texture);
 		}
 	}
 

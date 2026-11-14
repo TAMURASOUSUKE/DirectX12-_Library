@@ -445,6 +445,13 @@ struct Animation
 	std::vector<AnimChannel> channels; // アニメーションのチャンネル配列
 };
 
+// Boneの子になっているBoneではないNode
+struct ModelSocket
+{
+	std::string name{}; // 名前
+	int boneIndex{ -1 }; // boneの番号
+	Mat4x4 localToBone{ Mat4x4::Identity }; // このnodeの空間からboneの空間への変換
+};
 
 // モデルそのものを構成する構造体
 struct ModelData
@@ -454,6 +461,7 @@ struct ModelData
 	std::vector<Animation> animations; // 構成するアニメーション
 	Mat4x4 skeletonRoot{ Mat4x4::Identity }; // Armature変換用(ルートの親)
 	std::vector<TexHandle> ownedTextures; // モデル読み込み時にこのモデル用としてReosurceManagerが用意したTexture群
+	std::vector<ModelSocket> sockets; // Boneに付いているnode
 };
 
 // アニメーションブレンド中に必要な遷移元の再生状態

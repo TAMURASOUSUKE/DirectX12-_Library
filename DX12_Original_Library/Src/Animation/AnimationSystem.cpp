@@ -515,6 +515,43 @@ bool AnimationSystem::GetBoneMatrix(AnimInstanceHandle _handle, int _boneIndex, 
 	return true;
 }
 
+bool AnimationSystem::GetSocketMatrix(AnimInstanceHandle _handle, int _socketIndex, Mat4x4& _outMatrix)
+{
+	AnimInstanceData* data{ Lookup(_handle) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("AnimInstanceHandleのLookupに失敗しました\n");
+		return false;
+	}
+
+	ModelData* modelData{ GraphicsResourceManager::Instance().Lookup(data->modelHandle) };
+	if (!modelData)
+	{
+		DEBUG_LOG_ERROR("AnimData内のModleHandleのLookupに失敗しました\n");
+		return false;
+	}
+
+	std::size_t socketIndex{ static_cast<std::size_t>(_socketIndex) };
+	if (socketIndex >= modelData->sockets.size())
+	{
+		DEBUG_LOG_ERROR("socketIndexが配列外です\n");
+		return false;
+	}
+
+	const ModelSocket& socket{ modelData->sockets[socketIndex] };
+	std::size_t boneIndex{ static_cast<std::size_t>(socket.boneIndex) };
+	if (boneIndex >= data->globalPoses.size())
+	{
+		DEBUG_LOG_ERROR("Socketが付いているboneIndexが配列外です\n");
+		return false;
+	}
+
+	// 行ベクトルなので Socketの空間 → Boneの空間 → モデル空間 の順に掛ける
+	_outMatrix = socket.localToBone * data->globalPoses[boneIndex];
+	return true;
+
+}
+
 bool AnimationSystem::Destroy(AnimInstanceHandle _handle)
 {
 	// ハンドルの正当性をLookupで検査する

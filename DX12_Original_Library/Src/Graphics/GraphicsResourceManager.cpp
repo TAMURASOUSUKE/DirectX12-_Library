@@ -257,7 +257,7 @@ namespace {
 			// IBM
 			float ibmRaw[16];
 			cgltf_accessor_read_float(_skin.inverse_bind_matrices, b, ibmRaw, 16); // b番目の16要素を取り出す
-			// 列優先の一時的な行列オブジェクト
+			// 行優先の一時的な行列オブジェクト
 			Mat4x4 ibmTmp
 			{
 				Vector4{ibmRaw[0], ibmRaw[1], ibmRaw[2], ibmRaw[3]},
@@ -1439,6 +1439,24 @@ ModelHandle GraphicsResourceManager::LoadModel(const char* _filePath)
 	if (data->skins_count > 0)
 	{
 		LoadBone(data->skins[0], data, modelData.bones, modelData.skeletonRoot);
+
+		// BoneではないがBoneの子孫になっているnodeをsocketとして集める
+		for (cgltf_size i = 0; i < data->nodes_count; i++)
+		{
+			if (nodeToBone[i] >= 0) continue; // Bone自身は対象外
+
+			const cgltf_node* socketNode{ &data->nodes[i] };
+			if (!socketNode->name) continue; // 名前がないと探せない
+			
+			const AncestorBone socketBone{ FindAncestorBone(socketNode, data, nodeToBone) };
+			if (socketBone.boneIndex < 0) continue; // Boneの下にいないnode
+
+			ModelSocket socket{};
+			socket.boneIndex = socketBone.boneIndex;
+			socket.name = socketNode->name;
+			socket.localToBone = socketBone.localToBone;
+			modelData.sockets.push_back(socket);
+		}
 
 		if (data->animations_count > 0)
 		{

@@ -292,6 +292,7 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SocketTest.h" />
     <ClInclude Include="VfxMeshTest.h" />
     <ClInclude Include="VfxParticleTest.h" />
   </ItemGroup>

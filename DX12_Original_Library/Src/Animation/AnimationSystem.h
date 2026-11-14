@@ -56,6 +56,9 @@ public:
 	// ハンドルとモデル空間の行列を返す
 	bool GetBoneMatrix(AnimInstanceHandle _handle, int _boneIndex, Mat4x4& _outMatrix);
 
+	// Socket番号からモデル空間の行列を返す
+	bool GetSocketMatrix(AnimInstanceHandle _handle, int _socketIndex, Mat4x4& _outMatrix);
+
 	// アニメーション個体を破棄して席を返却する
 	bool Destroy(AnimInstanceHandle _handle);
 

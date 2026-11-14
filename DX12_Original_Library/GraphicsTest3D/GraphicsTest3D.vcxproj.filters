@@ -41,6 +41,9 @@
     <ClInclude Include="VfxParticleTest.h">
       <Filter>ソース ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="SocketTest.h">
+      <Filter>ソース ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Particle.hlsli">
