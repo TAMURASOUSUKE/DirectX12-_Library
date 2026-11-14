@@ -464,6 +464,14 @@ struct ModelData
 	std::vector<ModelSocket> sockets; // Boneに付いているnode
 };
 
+// 行列にする前のBone1本分のローカル姿勢
+struct  AnimBoneLocalPose
+{
+	Vector3 translation{ Vector3::Zero };
+	Quaternion rotation{ Quaternion::Identity };
+	Vector3 scale{ Vector3::One };
+};
+
 // アニメーションブレンド中に必要な遷移元の再生状態
 struct AnimationBlendState
 {
@@ -487,6 +495,9 @@ struct AnimationBlendState
 	bool sourceIsLoop{ true };
 	// 現在クロスフェード中か
 	bool isActive{ false };
+
+	// 遷移元がクリップではなく割り込んだ瞬間の姿勢か
+	bool isFromSnapshot{ false };
 };
 
 // 個体ごとのアニメーションの状態
@@ -505,6 +516,7 @@ struct AnimInstanceData
 	bool isPlaying{ false };   // 現在時間を進めるか
 	bool isFinished{ false };  // 非ループ再生が最後まで到達したか
 	AnimationBlendState blend{}; // 現在行っているアニメーションブレンドの状態
+	std::vector<AnimBoneLocalPose> blendSnapshot{}; // クロスフェード中に割り込まれた瞬間の混ざった姿勢
 }; 
 
 struct AnimInstanceSlot

@@ -313,36 +313,41 @@ bool AnimationSystem::Update(AnimInstanceHandle _handle, float _deltaTime)
 	if (instance->blend.isActive)
 	{
 		AnimationBlendState& blend{ instance->blend };
-		if (blend.sourceAnim < 0 || static_cast<std::size_t>(blend.sourceAnim) >= model->animations.size())
+
+		// 遷移元が保存した姿勢(1つの止まった姿勢)のときは再生時刻が無いので 遷移元クリップの時刻は進めない
+		if (!blend.isFromSnapshot)
 		{
-			DEBUG_LOG_ERROR("遷移元のアニメーションクリップ番号が範囲外です\n");
-			blend.isActive = false;
-			return false;
-		}
-		const float sourceRangeDuration{ blend.sourceEndTime - blend.sourceStartTime };
-		if (!std::isfinite(sourceRangeDuration) || sourceRangeDuration <= 0.0f)
-		{
-			DEBUG_LOG_ERROR("遷移元の再生区間が不正です\n");
-			blend.isActive = false;
-			return false;
-		}
-		blend.sourceTime += _deltaTime * blend.sourcePlaybackSpeed;
-		// ループ処理
-		if (blend.sourceIsLoop)
-		{
-			float offset{ std::fmod(blend.sourceTime - blend.sourceStartTime, sourceRangeDuration) };
-			if (offset < 0.0f) offset += sourceRangeDuration;
-			blend.sourceTime = blend.sourceStartTime + offset;
-		}
-		else if (blend.sourcePlaybackSpeed > 0.0f && blend.sourceTime >= blend.sourceEndTime)
-		{
-			// 通常再生
-			blend.sourceTime = blend.sourceEndTime;
-		}
-		else if (blend.sourcePlaybackSpeed < 0.0f && blend.sourceTime <= blend.sourceStartTime)
-		{
-			// 逆再生
-			blend.sourceTime = blend.sourceStartTime;
+			if (blend.sourceAnim < 0 || static_cast<std::size_t>(blend.sourceAnim) >= model->animations.size())
+			{
+				DEBUG_LOG_ERROR("遷移元のアニメーションクリップ番号が範囲外です\n");
+				blend.isActive = false;
+				return false;
+			}
+			const float sourceRangeDuration{ blend.sourceEndTime - blend.sourceStartTime };
+			if (!std::isfinite(sourceRangeDuration) || sourceRangeDuration <= 0.0f)
+			{
+				DEBUG_LOG_ERROR("遷移元の再生区間が不正です\n");
+				blend.isActive = false;
+				return false;
+			}
+			blend.sourceTime += _deltaTime * blend.sourcePlaybackSpeed;
+			// ループ処理
+			if (blend.sourceIsLoop)
+			{
+				float offset{ std::fmod(blend.sourceTime - blend.sourceStartTime, sourceRangeDuration) };
+				if (offset < 0.0f) offset += sourceRangeDuration;
+				blend.sourceTime = blend.sourceStartTime + offset;
+			}
+			else if (blend.sourcePlaybackSpeed > 0.0f && blend.sourceTime >= blend.sourceEndTime)
+			{
+				// 通常再生
+				blend.sourceTime = blend.sourceEndTime;
+			}
+			else if (blend.sourcePlaybackSpeed < 0.0f && blend.sourceTime <= blend.sourceStartTime)
+			{
+				// 逆再生
+				blend.sourceTime = blend.sourceStartTime;
+			}
 		}
 
 		blend.elapsedTime += _deltaTime;
@@ -407,21 +412,17 @@ bool  AnimationSystem::CrossFade(AnimInstanceHandle _handle, int _clipIndex, flo
 		DEBUG_LOG_ERROR("遷移先のアニメーションクリップ番号が範囲外です\n");
 		return false;
 	}
-	if (!std::isfinite(_duration) || _duration <= 0.0f || !std::isfinite(_playbackSpeed) || _playbackSpeed == 0.0)
-	{
-		DEBUG_LOG_ERROR("アニメーションの設定値に不正な値が渡されています\n");
-		return false;
-	}
-	if (instance->blend.isActive)
-	{
-		DEBUG_LOG_ERROR("すでにクロスフェード中です\n");
-		return false;
-	}
 
 	const Animation& destination{ model->animations[_clipIndex] };
 	if (!std::isfinite(destination.duration) || destination.duration <= 0.0f)
 	{
 		DEBUG_LOG_ERROR("遷移先クリップの長さが不正です\n");
+		return false;
+	}
+
+	if (!std::isfinite(_duration) || _duration <= 0.0f || !std::isfinite(_playbackSpeed) || _playbackSpeed == 0.0)
+	{
+		DEBUG_LOG_ERROR("アニメーションの設定値に不正な値が渡されています\n");
 		return false;
 	}
 
@@ -442,6 +443,14 @@ bool  AnimationSystem::CrossFade(AnimInstanceHandle _handle, int _clipIndex, flo
 		return false;
 	}
 
+	// クロスフェード中の割り込みなら今行っている姿勢を保存してそれを遷移元にする
+	const bool isInterrupting{ instance->blend.isActive };
+	if (isInterrupting)
+	{
+		const  std::vector<BoneLocalPose>* currentPose{ ComputeFinalLocalPose(*instance, *model) };
+		instance->blendSnapshot = *currentPose;
+	}
+
 	// ブレンド設定をローカルに
 	AnimationBlendState& blend{ instance->blend };
 	blend.sourceAnim = instance->currentAnim;
@@ -452,6 +461,7 @@ bool  AnimationSystem::CrossFade(AnimInstanceHandle _handle, int _clipIndex, flo
 
 	blend.elapsedTime = 0.0f;
 	blend.duration = _duration;
+	blend.isFromSnapshot = isInterrupting;
 	blend.isActive = true;
 
 	blend.sourcePlaybackSpeed = instance->playbackSpeed;
@@ -569,6 +579,55 @@ bool AnimationSystem::Destroy(AnimInstanceHandle _handle)
 	return true;
 }
 
+const std::vector<AnimationSystem::BoneLocalPose>* AnimationSystem::ComputeFinalLocalPose(AnimInstanceData& _instance, const ModelData& _model)
+{
+	const Animation& destination{ _model.animations[_instance.currentAnim] }; // アニメーションを取り出す
+	SampleAnimationTRS(destination, _model.bones, _instance.currentTime, destinationPoseCache);
+
+	AnimationBlendState& blend{ _instance.blend };
+	if (!blend.isActive) return &destinationPoseCache;
+
+	// 遷移元の姿勢を決める 割り込み後は保存した姿勢 そうでなければ遷移元クリップから読む
+	const std::vector<BoneLocalPose>* sourcePoses{ &sourcePoseCache };
+	if (blend.isFromSnapshot)
+	{
+		if (_instance.blendSnapshot.size() != _model.bones.size())
+		{
+			DEBUG_LOG_ERROR("クロスフェードの遷移元として保存した姿勢のBone数が合いません\n");
+			blend.isActive = false;
+			return &destinationPoseCache;
+		}
+		sourcePoses = &_instance.blendSnapshot;
+	}
+	else
+	{
+		const bool hasValidSource{ blend.sourceAnim >= 0 && static_cast<std::size_t>(blend.sourceAnim) < _model.animations.size() }; // 遷移元が範囲内か
+		if (!hasValidSource)
+		{
+			DEBUG_LOG_ERROR("クロスフェードの遷移元が無効です\n");
+			blend.isActive = false;
+			return &destinationPoseCache;
+		}
+		const Animation& source{ _model.animations[blend.sourceAnim] };
+		SampleAnimationTRS(source, _model.bones, blend.sourceTime, sourcePoseCache);
+	}
+
+	const float t{ std::clamp(blend.elapsedTime / blend.duration, 0.0f, 1.0f) }; // 混ぜ具合
+	blendedPoseCache.resize(_model.bones.size());
+	for (std::size_t i = 0; i < _model.bones.size(); i++)
+	{
+		const BoneLocalPose& sourcePose{ (*sourcePoses)[i] };
+		const BoneLocalPose& destinationPose{ destinationPoseCache[i] };
+		BoneLocalPose& blendedPose{ blendedPoseCache[i] };
+
+		// 各ポーズを補間
+		blendedPose.translation = Vector3::Lerp(sourcePose.translation, destinationPose.translation, t);
+		blendedPose.rotation = Quaternion::Slerp(sourcePose.rotation, destinationPose.rotation, t);
+		blendedPose.scale = Vector3::Lerp(sourcePose.scale, destinationPose.scale, t);
+	}
+	return &blendedPoseCache;
+}
+
 void AnimationSystem::UpdateGlobalPose(AnimInstanceData& _instance)
 {
 	ModelData* model{ GraphicsResourceManager::Instance().Lookup(_instance.modelHandle) }; // データ部分を分解する
@@ -590,37 +649,7 @@ void AnimationSystem::UpdateGlobalPose(AnimInstanceData& _instance)
 	localPoseCache.resize(model->bones.size());
 	if (hasValidAnimation)
 	{
-		const Animation& destination{ model->animations[_instance.currentAnim] }; // 指定の遷移先アニメーションを取り出す
-		SampleAnimationTRS(destination, model->bones, _instance.currentTime, destinationPoseCache);
-		const std::vector<BoneLocalPose>* finalPose{ &destinationPoseCache }; // 最終的なポーズ
-
-		AnimationBlendState& blend{ _instance.blend };
-		const bool hasValidSource{ blend.sourceAnim >= 0 && static_cast<std::size_t>(blend.sourceAnim) < model->animations.size() }; // 遷移元が範囲内か
-		if (blend.isActive && !hasValidSource)
-		{
-			DEBUG_LOG_ERROR("クロスフェードの遷移元が無効です\n");
-			blend.isActive = false;
-		}
-		else if (blend.isActive)
-		{
-			const Animation& source{ model->animations[blend.sourceAnim] };
-			SampleAnimationTRS(source, model->bones, blend.sourceTime, sourcePoseCache);
-			const float t{ std::clamp(blend.elapsedTime / blend.duration, 0.0f, 1.0f) }; // 混ぜ具合
-
-			blendedPoseCache.resize(model->bones.size());
-			for (std::size_t i = 0; i < model->bones.size(); i++)
-			{
-				const BoneLocalPose& sourcePose{ sourcePoseCache[i] };
-				const BoneLocalPose& destinationPose{ destinationPoseCache[i] };
-				BoneLocalPose& blendedPose{ blendedPoseCache[i] };
-
-				// 各ポーズを補間
-				blendedPose.translation = Vector3::Lerp(sourcePose.translation, destinationPose.translation, t);
-				blendedPose.rotation = Quaternion::Slerp(sourcePose.rotation, destinationPose.rotation, t);
-				blendedPose.scale = Vector3::Lerp(sourcePose.scale, destinationPose.scale, t);
-			}
-			finalPose = &blendedPoseCache;
-		}
+		const std::vector<BoneLocalPose>* finalPose{ ComputeFinalLocalPose(_instance, *model) }; // 最終的なポーズ
 		for (std::size_t i = 0; i < model->bones.size(); i++)
 		{
 			const BoneLocalPose& pose{ (*finalPose)[i] };

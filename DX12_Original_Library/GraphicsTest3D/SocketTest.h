@@ -3,15 +3,6 @@
 #include "../Src/Facade/TSLib.h"
 
 // L3(Socketの番号と行列)のテスト 対象はPlayer.glb
-// 使う公開API（ライブラリ側）:
-//   Gfx::GetBoneIndex(instance, name)                  名前からBone番号(無ければ-1)
-//   Gfx::GetBoneMatrix(instance, index, transform)     Boneのワールド行列
-//   Gfx::GetSocketIndex(instance, name)                名前からSocket番号(無ければ-1)
-//   Gfx::GetSocketMatrix(instance, index, transform)   Socketのワールド行列
-// 見て確かめること:
-//   1. 起動時のログで Blade_Root / Blade_Tip が0以上 無い名前が-1
-//   2. 黄色の線が絵の剣と重なり アニメーション中も離れない(Socketが手に追従している)
-//   3. 1秒ごとのログで 剣の長さが0.890 手と根本の距離が0.158 のまま変わらない(Transformの拡縮が1のとき)
 struct SocketTest
 {
 	// 写しのテストで測った値(拡縮1のとき)
