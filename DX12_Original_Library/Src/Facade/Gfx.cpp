@@ -1279,7 +1279,6 @@ Mat4x4 Gfx::GetBoneMatrix(AnimInstanceHandle _handle, int _boneIndex, const Tran
 Vector3 Gfx::GetBonePosition(AnimInstanceHandle _handle, int _boneIndex, const Transform& _transform)
 {
 	Vector3 result{ GetBoneMatrix(_handle, _boneIndex, _transform).TransformPoint(Vector3::Zero) };
-	if (result == Vector3::Zero) DEBUG_LOG_ERROR("Boneの一取得に失敗しました\n");
 	return result;
 }
 
@@ -1333,7 +1332,6 @@ Mat4x4 Gfx::GetSocketMatrix(AnimInstanceHandle _handle, int _socketIndex, const 
 Vector3 Gfx::GetSocketPosition(AnimInstanceHandle _handle, int _socketIndex, const Transform& _transform)
 {
 	Vector3 result{ GetSocketMatrix(_handle, _socketIndex, _transform).TransformPoint(Vector3::Zero) };
-	if (result == Vector3::Zero) DEBUG_LOG_ERROR("Socketの一取得に失敗しました\n");
 	return result;
 }
 
