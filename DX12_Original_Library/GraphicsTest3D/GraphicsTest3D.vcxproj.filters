@@ -47,6 +47,9 @@
     <ClInclude Include="CrossFadeTest.h">
       <Filter>ソース ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="RootMotionTest.h">
+      <Filter>ソース ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Particle.hlsli">

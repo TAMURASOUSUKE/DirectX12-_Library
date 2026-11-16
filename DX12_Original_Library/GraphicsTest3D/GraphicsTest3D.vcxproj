@@ -293,6 +293,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CrossFadeTest.h" />
+    <ClInclude Include="RootMotionTest.h" />
     <ClInclude Include="SocketTest.h" />
     <ClInclude Include="VfxMeshTest.h" />
     <ClInclude Include="VfxParticleTest.h" />

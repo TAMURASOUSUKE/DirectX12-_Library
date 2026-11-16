@@ -282,6 +282,7 @@ bool AnimationSystem::Update(AnimInstanceHandle _handle, float _deltaTime)
 	}
 
 	// 速度を考慮して加算
+	const float previousTime{ instance->currentTime }; // Root Motionの差分を取るために進める前の時刻を覚える
 	 instance->currentTime += _deltaTime * instance->playbackSpeed;
 
 	if (instance->isLoop)
@@ -309,6 +310,15 @@ bool AnimationSystem::Update(AnimInstanceHandle _handle, float _deltaTime)
 		instance->isFinished = true;
 	}
 
+	// Root Motion 進んだ時間ぶんのBoneの水平移動をモデル空間へ直してためる クロスフェード中は遷移先と遷移元の移動量を混ぜ具合で按分する
+	const bool hasRootMotion{ instance->rootMotionBone >= 0 && static_cast<std::size_t>(instance->rootMotionBone) < model->bones.size() };
+	const float destinationWeight{ instance->blend.isActive ? std::clamp(instance->blend.elapsedTime / instance->blend.duration, 0.0f, 1.0f) : 1.0f };
+	if (hasRootMotion)
+	{
+		const Vector3 delta{ ComputeRootMotionDelta(animation, model->bones, instance->rootMotionBone, previousTime, instance->currentTime, instance->playbackStartTime, instance->playbackEndTime, instance->isLoop, instance->playbackSpeed, instance->isRootMotionVertical) };
+		instance->rootMotionDelta += model->skeletonRoot.TransformDirection(delta) * destinationWeight;
+	}
+
 	// ブレンドが有効な場合
 	if (instance->blend.isActive)
 	{
@@ -330,7 +340,10 @@ bool AnimationSystem::Update(AnimInstanceHandle _handle, float _deltaTime)
 				blend.isActive = false;
 				return false;
 			}
+
+			const float previousSourceTime{ blend.sourceTime };
 			blend.sourceTime += _deltaTime * blend.sourcePlaybackSpeed;
+
 			// ループ処理
 			if (blend.sourceIsLoop)
 			{
@@ -347,6 +360,14 @@ bool AnimationSystem::Update(AnimInstanceHandle _handle, float _deltaTime)
 			{
 				// 逆再生
 				blend.sourceTime = blend.sourceStartTime;
+			}
+
+			// 遷移元クリップの移動量は残りの割合ぶんだけ足す
+			if (hasRootMotion)
+			{
+				const Animation& source{ model->animations[blend.sourceAnim] };
+				const Vector3 sourceDelta{ ComputeRootMotionDelta(source, model->bones, instance->rootMotionBone, previousSourceTime, blend.sourceTime, blend.sourceStartTime, blend.sourceEndTime, blend.sourceIsLoop, blend.sourcePlaybackSpeed, instance->isRootMotionVertical) };
+				instance->rootMotionDelta += model->skeletonRoot.TransformDirection(sourceDelta) * (1.0f - destinationWeight);
 			}
 		}
 
@@ -559,7 +580,32 @@ bool AnimationSystem::GetSocketMatrix(AnimInstanceHandle _handle, int _socketInd
 	// 行ベクトルなので Socketの空間 → Boneの空間 → モデル空間 の順に掛ける
 	_outMatrix = socket.localToBone * data->globalPoses[boneIndex];
 	return true;
+}
 
+bool  AnimationSystem::SetRootMotionBone(AnimInstanceHandle _handle, int _boneIndex)
+{
+	AnimInstanceData* data{ Lookup(_handle) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("AnimInstanceDataのlookupに失敗しました\n");
+		return false;
+	}
+	data->rootMotionBone = _boneIndex;
+	data->rootMotionDelta = Vector3::Zero;
+	return true;
+}
+
+bool  AnimationSystem::ConsumeRootMotion(AnimInstanceHandle _handle, Vector3& _outDelta)
+{
+	AnimInstanceData* data{ Lookup(_handle) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("AnimInstanceDataのlookupに失敗しました\n");
+		return false;
+	}
+	_outDelta = data->rootMotionDelta;
+	data->rootMotionDelta = Vector3::Zero;
+	return true;
 }
 
 bool AnimationSystem::Destroy(AnimInstanceHandle _handle)
@@ -583,6 +629,17 @@ const std::vector<AnimationSystem::BoneLocalPose>* AnimationSystem::ComputeFinal
 {
 	const Animation& destination{ _model.animations[_instance.currentAnim] }; // アニメーションを取り出す
 	SampleAnimationTRS(destination, _model.bones, _instance.currentTime, destinationPoseCache);
+
+	// Root Motionを取り出すBoneは水平の位置を再生開始時刻の値に固定する
+	const bool hasRootMotion{ _instance.rootMotionBone >= 0 && static_cast<std::size_t>(_instance.rootMotionBone) < _model.bones.size() };
+	if (hasRootMotion)
+	{
+		const Vector3 anchor{ SampleBoneTranslation(destination, _model.bones, _instance.rootMotionBone, _instance.playbackStartTime) };
+		BoneLocalPose& rootPose{ destinationPoseCache[_instance.rootMotionBone] };
+		rootPose.translation.x = anchor.x;
+		rootPose.translation.z = anchor.z;
+		if (_instance.isRootMotionVertical) rootPose.translation.y = anchor.y;
+	}
 
 	AnimationBlendState& blend{ _instance.blend };
 	if (!blend.isActive) return &destinationPoseCache;
@@ -610,6 +667,15 @@ const std::vector<AnimationSystem::BoneLocalPose>* AnimationSystem::ComputeFinal
 		}
 		const Animation& source{ _model.animations[blend.sourceAnim] };
 		SampleAnimationTRS(source, _model.bones, blend.sourceTime, sourcePoseCache);
+
+		if (hasRootMotion)
+		{
+			const Vector3 anchor{ SampleBoneTranslation(source, _model.bones, _instance.rootMotionBone, blend.sourceStartTime) };
+			BoneLocalPose& rootPose{ sourcePoseCache[_instance.rootMotionBone] };
+			rootPose.translation.x = anchor.x;
+			rootPose.translation.z = anchor.z;
+			if (_instance.isRootMotionVertical) rootPose.translation.y = anchor.y;
+		}
 	}
 
 	const float t{ std::clamp(blend.elapsedTime / blend.duration, 0.0f, 1.0f) }; // 混ぜ具合
@@ -728,6 +794,42 @@ void AnimationSystem::SampleAnimationTRS(const Animation& _animation, const std:
 	}
 }
 
+Vector3 AnimationSystem::SampleBoneTranslation(const Animation& _animation, const std::vector<Bone>& _bones, int _boneIndex, float _time)
+{
+	for (const AnimChannel& ch : _animation.channels)
+	{
+		if (ch.boneIndex != _boneIndex || ch.path != AnimPath::Translation) continue;
+		if (ch.times.empty() || ch.times.size() != ch.values.size()) break;
+		const Vector4 value{ SampleChannel(ch, _time) };
+		return Vector3{ value.x, value.y, value.z };
+	}
+	// このBoneを動かすチャンネルがないクリップはバインド時の位置のまま
+	return _bones[static_cast<std::size_t>(_boneIndex)].bindTranslation;
+}
+
+Vector3 AnimationSystem::ComputeRootMotionDelta(const Animation& _animation, const std::vector<Bone>& _bones, int _boneIndex, float _previousTime, float _currentTime, float _startTime, float _endTime, bool _isLoop, float _playbackSpeed, bool _isVertical)
+{
+	// 前回の時間と今の時間のBoneの平行移動を取り出す
+	const Vector3 previous{ SampleBoneTranslation(_animation, _bones, _boneIndex, _previousTime) };
+	const Vector3 current{ SampleBoneTranslation(_animation, _bones, _boneIndex, _currentTime) };
+
+	// ループで折り返したか 順再生なら時刻が戻り 逆再生なら時刻が進んでいる
+	const bool isWrapped{ _isLoop && ((_playbackSpeed > 0.0f && _currentTime < _previousTime) || (_playbackSpeed < 0.0f && _currentTime > _previousTime)) };
+
+	Vector3 delta{ current - previous };
+	if (isWrapped)
+	{
+		// 折り返しの前(区間の端まで)と後(反対の端から)を別々に足す 単純に引くと1周ぶん逆向きに飛ぶ
+		const Vector3 start{ SampleBoneTranslation(_animation, _bones, _boneIndex, _startTime) };
+		const Vector3 end{ SampleBoneTranslation(_animation, _bones, _boneIndex, _endTime) };
+		delta = _playbackSpeed > 0.0f ? (end - previous) + (current - start) : (start - previous) + (current - end);
+	}
+
+	// 上下の動きは設定されていなければ0にする
+	if (!_isVertical) delta.y = 0.0f;
+	return delta;
+}
+
 Vector4 AnimationSystem::SampleChannel(const AnimChannel& _channel, float _time)
 {
 	if (_channel.times.empty()) { return Vector4{}; } // キーフレームが0個の場合
@@ -743,7 +845,6 @@ Vector4 AnimationSystem::SampleChannel(const AnimChannel& _channel, float _time)
 	int index1{ static_cast<int>(it - _channel.times.begin()) }; // 後の要素のインデックス
 	int index0{ index1 - 1 }; // 前の要素のインデックス
 
-	// 補完を行う(回転はQuaternionで対応する)
 	// 今の場所 / 全体で0-1の補完率を求める
 	float ratio{ (_time - _channel.times[index0]) / (_channel.times[index1] - _channel.times[index0]) }; // 補完率
 	if (_channel.path == AnimPath::Rotation)
