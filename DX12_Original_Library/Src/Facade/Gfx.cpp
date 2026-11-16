@@ -1779,6 +1779,31 @@ bool Gfx::SetAnimPlaybackSpeed(AnimInstanceHandle _handle, float _playbackSpeed)
 	return animSystem.SetAnimPlaybackSpeed(_handle, _playbackSpeed);
 }
 
+bool Gfx::SetAnimRootMotionBone(AnimInstanceHandle _handle, int _boneIndex)
+{
+	return animSystem.SetRootMotionBone(_handle, _boneIndex);
+}
+
+Vector3 Gfx::ConsumeAnimRootMotion(AnimInstanceHandle _handle)
+{
+	Vector3 delta{ Vector3::Zero };
+	if (!animSystem.ConsumeRootMotion(_handle, delta)) DEBUG_LOG_ERROR("Root Motionの移動量の取得に失敗しました\n");
+	return delta;
+}
+
+bool Gfx::SetAnimRootMotionVertical(AnimInstanceHandle _handle, bool _isVertical)
+{
+	AnimInstanceData* data{ animSystem.Lookup(_handle) };
+	if (!data)
+	{
+		DEBUG_LOG_ERROR("AnimInstanceHandleのlookupに失敗しました\n");
+		return false;
+	}
+
+	data->isRootMotionVertical = _isVertical;
+	return true;
+}
+
 bool Gfx::DestroyAnim(AnimInstanceHandle _handle)
 {
 	return animSystem.Destroy(_handle);

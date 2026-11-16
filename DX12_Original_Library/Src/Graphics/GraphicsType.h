@@ -517,6 +517,9 @@ struct AnimInstanceData
 	bool isFinished{ false };  // 非ループ再生が最後まで到達したか
 	AnimationBlendState blend{}; // 現在行っているアニメーションブレンドの状態
 	std::vector<AnimBoneLocalPose> blendSnapshot{}; // クロスフェード中に割り込まれた瞬間の混ざった姿勢
+	int rootMotionBone{ -1 }; // Root Motionを取り出すBone(-1なら取り出さない)
+	Vector3 rootMotionDelta{ Vector3::Zero }; // まだ受け取られていない水平の移動量(モデル空間)
+	bool isRootMotionVertical{ false }; // RootMotionでY軸位置を取り出すか
 }; 
 
 struct AnimInstanceSlot

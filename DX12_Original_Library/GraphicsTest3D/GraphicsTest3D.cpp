@@ -6,6 +6,7 @@
 #include "VfxStressTest.h"
 #include "SocketTest.h"
 #include "CrossFadeTest.h"
+#include "RootMotionTest.h"
 
 struct alignas(16) ThreeToneParameter
 {
@@ -73,6 +74,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	if (!socketTest.Setup(gamePlayerInstance)) DEBUG_LOG_ERROR("SocketTestの初期化に失敗しました\n");
 	CrossFadeTest crossFadeTest{};
 	crossFadeTest.Setup(0);
+	RootMotionTest rootMotionTest{};
+	if (!rootMotionTest.Setup(gamePlayerInstance, gamePlayerTransform)) DEBUG_LOG_ERROR("RootMotionTestの初期化に失敗しました\n");
 
 	// Shader
 	ShaderHandle threeTonePS{ Gfx::LoadShader(L"ThreeToneModelPS.hlsl", ShaderUsage::Model, ShaderStage::Pixel) };
@@ -335,6 +338,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		Gfx::UpdateAnim(gamePlayerInstance, Time::DeltaTime());
 
+		rootMotionTest.Update(gamePlayerInstance, gamePlayerTransform, Time::DeltaTime());
 		socketTest.Update(gamePlayerInstance, gamePlayerTransform, Time::DeltaTime());
 		crossFadeTest.Update(gamePlayerInstance, Time::DeltaTime());
 

@@ -59,6 +59,12 @@ public:
 	// Socket番号からモデル空間の行列を返す
 	bool GetSocketMatrix(AnimInstanceHandle _handle, int _socketIndex, Mat4x4& _outMatrix);
 
+	// Root Motionを取り出すBoneを設定するとそのBoneの水平移動は姿勢から抜かれ移動量としてたまる
+	bool SetRootMotionBone(AnimInstanceHandle _handle, int _boneIndex);
+
+	// たまっているRoot Motionの移動量(モデル空間 水平のみ)を受け取り0に戻す
+	bool ConsumeRootMotion(AnimInstanceHandle _handle, Vector3& _outDelta);
+
 	// アニメーション個体を破棄して席を返却する
 	bool Destroy(AnimInstanceHandle _handle);
 
@@ -75,6 +81,12 @@ private:
 	
 	// クリップをボーン毎のローカルTRSとしてサンプリングする
 	void SampleAnimationTRS(const Animation& _animation, const std::vector<Bone>& _bones, float _time, std::vector<BoneLocalPose>& _outPoses);
+
+	// クリップの指定時刻でのBoneの平行移動を読む(チャンネルが無ければバインド時の値)
+	static Vector3 SampleBoneTranslation(const Animation& _animation, const std::vector<Bone>& _bones, int _boneIndex, float _time);
+
+	// 再生時刻が_previousTimeから_currentTimeへ進んだ間のBoneの水平移動を返す(フラグがあればY軸も取り出す)
+	static Vector3 ComputeRootMotionDelta(const Animation& _animation, const std::vector<Bone>& _bones, int _boneIndex, float _previousTime, float _currentTime, float _startTime, float _endTime, bool _isLoop, float _playbackSpeed, bool _isVertical);
 
 	// 1チャンネル内の前後キーフレームを補間する
 	static Vector4 SampleChannel(const AnimChannel& _channel, float _time);

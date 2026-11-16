@@ -162,6 +162,12 @@ namespace Gfx
 	bool IsFinishedAnim(AnimInstanceHandle _handle);
 	// 指定したアニメーションの再生速度を変更する(負数なら逆再生になります)
 	bool SetAnimPlaybackSpeed(AnimInstanceHandle _handle, float _playbackSpeed);
+	// Root Motionを取り出すBoneを設定する(-1で無効) そのBoneの水平移動は姿勢から抜かれ移動量としてたまる
+	bool SetAnimRootMotionBone(AnimInstanceHandle _handle, int _boneIndex);
+	// たまっているRoot Motionの移動量(モデル空間 水平のみ)を受け取る 受け取ると0に戻る(失敗はZero)
+	Vector3 ConsumeAnimRootMotion(AnimInstanceHandle _handle);
+	// Root Motionで高さも取り出すかを切り替える(倒れる動きなど高さを絵に残したいクリップではfalse)
+	bool SetAnimRootMotionVertical(AnimInstanceHandle _handle, bool _isVertical);
 	// 指定したアニメーションを破棄する
 	bool DestroyAnim(AnimInstanceHandle _handle);
 
