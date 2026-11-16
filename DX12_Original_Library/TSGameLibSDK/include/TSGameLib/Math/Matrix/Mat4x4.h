@@ -80,6 +80,9 @@ struct Mat4x4
 	// 自身と引数を乗算し方向として変換する(w = 0つまり平行移動の影響を受けない)
 	Vector3 TransformDirection(const Vector3& _dir) const;
 
+	// 回転拡縮移動にのみ使える逆行列作成関数 (計算に失敗したらIdentityを返す)
+	Mat4x4 MakeAffineInverse() const;
+
 	// 演算
 
 	Mat4x4 operator *(const Mat4x4& _other) const; // 行列同士の乗算

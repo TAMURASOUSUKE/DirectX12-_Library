@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <type_traits>
+#include <string_view>
 #include <span>
 #include "../Core/Handle/TexHandle.h"
 #include "../Core/Handle/ModelHandle.h"
@@ -55,6 +56,20 @@ namespace Gfx
 	MaterialHandle CreateMaterial(ShaderHandle _vertexShader, ShaderHandle _pixelShader, const MaterialRenderDesc& _materialRenderDesc = {});
 	// モデルをもとにアニメーション個体の作成
 	AnimInstanceHandle CreateAnimInstance(ModelHandle _handle);
+
+	// 名前からボーンを線形探索してそのボーン番号を返す(失敗は-1)
+	int GetBoneIndex(AnimInstanceHandle _handle, const std::string_view _boneName);
+	// ボーン番号からボーンのワールド行列を取得する(失敗はIdentity)
+	Mat4x4 GetBoneMatrix(AnimInstanceHandle _handle, int _boneIndex, const Transform& _transform);
+	// ボーン番号からボーンの位置を取得する(失敗は0)
+	Vector3 GetBonePosition(AnimInstanceHandle _handle, int _boneIndex, const Transform& _transform);
+
+	// 名前からSocket(Boneに付いているnode)を線形探索してその番号を返す(失敗は-1)
+	int GetSocketIndex(AnimInstanceHandle _handle, const std::string_view _socketName);
+	// Socket番号からSocketのワールド行列を取得する(失敗はIdentity)
+	Mat4x4 GetSocketMatrix(AnimInstanceHandle _handle, int _socketIndex, const Transform& _transform);
+	// Socket番号からSocketの位置を取得する(失敗は0)
+	Vector3 GetSocketPosition(AnimInstanceHandle _handle, int _socketIndex, const Transform& _transform);
 
 	// 矩形描画
 	void DrawBox(Vector2 _leftTop, Vector2 _rightBottom, float _radRotation = 0.0f, Vector4 _color = { 1.0f, 1.0f, 1.0f ,1.0f }, bool _isWireframe = false);
@@ -147,8 +162,15 @@ namespace Gfx
 	bool IsFinishedAnim(AnimInstanceHandle _handle);
 	// 指定したアニメーションの再生速度を変更する(負数なら逆再生になります)
 	bool SetAnimPlaybackSpeed(AnimInstanceHandle _handle, float _playbackSpeed);
+	// Root Motionを取り出すBoneを設定する(-1で無効) そのBoneの水平移動は姿勢から抜かれ移動量としてたまる
+	bool SetAnimRootMotionBone(AnimInstanceHandle _handle, int _boneIndex);
+	// たまっているRoot Motionの移動量(モデル空間 水平のみ)を受け取る 受け取ると0に戻る(失敗はZero)
+	Vector3 ConsumeAnimRootMotion(AnimInstanceHandle _handle);
+	// Root Motionで高さも取り出すかを切り替える(倒れる動きなど高さを絵に残したいクリップではfalse)
+	bool SetAnimRootMotionVertical(AnimInstanceHandle _handle, bool _isVertical);
 	// 指定したアニメーションを破棄する
 	bool DestroyAnim(AnimInstanceHandle _handle);
+
 
 	// terrainを描画する : 位置, 大きさ(xz平面にのみかかります), 分割係数 , 高さ ,変形形状を決めるheightMap(無ければplane描画になります)
 	void DrawTerrain(Vector3 _position, float _scale, float _tessFactor, float _heightScale, Vector4 _color, TexHandle _heightMap = {});
