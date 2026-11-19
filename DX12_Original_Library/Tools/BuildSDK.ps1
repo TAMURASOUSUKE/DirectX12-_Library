@@ -344,6 +344,9 @@ try
         "PostEffectContract.hlsli"
         "SpriteContract.hlsli"
         "VFXContract.hlsli"
+        "ModelContract.hlsli"
+        "Lighting.hlsli"
+        "PBRLighting.hlsli"
     )
 
     foreach ($shaderContractFile in $shaderContractFiles)
@@ -394,6 +397,9 @@ try
         (Join-Path -Path $stagingDirectory -ChildPath "samples/Minimal/main.cpp")
         (Join-Path -Path $stagingDirectory -ChildPath "shaders/include/PostEffectContract.hlsli")
         (Join-Path -Path $stagingDirectory -ChildPath "shaders/include/SpriteContract.hlsli")
+        (Join-Path -Path $stagingDirectory -ChildPath "shaders/include/ModelContract.hlsli")
+        (Join-Path -Path $stagingDirectory -ChildPath "shaders/include/Lighting.hlsli")
+        (Join-Path -Path $stagingDirectory -ChildPath "shaders/include/PBRLighting.hlsli")
     )
 
     foreach ($configuration in $configurations)
