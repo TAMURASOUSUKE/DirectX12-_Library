@@ -28,5 +28,5 @@ struct BodySlot
 {
 	BodyData data{}; // 実データ
 	std::uint32_t generation{ 0 }; // 世代
-	bool isActive{ false }; // 生存フラグ
+	bool isAlive{ false }; // 生存フラグ
 };
