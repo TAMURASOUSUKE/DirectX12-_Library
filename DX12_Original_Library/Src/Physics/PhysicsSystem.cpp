@@ -48,7 +48,8 @@ namespace
 		data.position = _desc.position;
 		data.rotation = _desc.rotation;
 		data.velocity = isStatic ? Vector3::Zero : _desc.velocity; // Staticは速度を持たない
-		data.massInverse = isDynamic ? 1 / _desc.mass : 0.0f; // 0は力では動かないことを表す
+		data.massInverse = isDynamic ? 1.0f / _desc.mass : 0.0f; // 0は力では動かないことを表す
+		data.angularVelocity = _desc.angularVelocity;
 		data.friction = _desc.friction;
 		data.motionType = _desc.motionType;
 		data.isTrigger = _desc.isTrigger;
@@ -69,13 +70,13 @@ void PhysicsSystem::Setup()
 void PhysicsSystem::Shutdown()
 {
 	slots.clear();
-	while (!freeList.emplace())
+	while (!freeList.empty())
 	{
 		freeList.pop();
 	}
 }
 
-BodyHandle PhysicsSystem::CreateBody(BodyDesc _desc)
+BodyHandle PhysicsSystem::CreateBody(const BodyDesc& _desc)
 {
 	if (!IsValidDesc(_desc))
 	{
@@ -84,7 +85,7 @@ BodyHandle PhysicsSystem::CreateBody(BodyDesc _desc)
 	}
 
 	// 新しく確保できるか再利用できるか
-	const bool canRegister{ !freeList.empty() && static_cast<int>(slots.size()) < MAX_BODY_COUNT };
+	const bool canRegister{ !freeList.empty() || static_cast<int>(slots.size()) < MAX_BODY_COUNT };
 	DEBUG_ASSERT(canRegister && "Bodyの登録上限に達しました\n");
 	if (!canRegister) return BodyHandle{};
 

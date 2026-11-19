@@ -21,7 +21,7 @@ public:
 	void Shutdown();
 
 	// 設定データからBodyを作成する
-	BodyHandle CreateBody(BodyDesc _desc);
+	BodyHandle CreateBody(const BodyDesc& _desc);
 	// 指定ハンドルの削除
 	bool DestroyBody(BodyHandle _handle);
 

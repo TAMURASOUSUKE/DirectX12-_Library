@@ -2,7 +2,6 @@
 #include <cstddef>
 #include <array>
 #include <string_view>
-#include <array>
 #include "../Debug/DebugLogs.h"
 #include "../Graphics/GraphicsMetrics.h"
 #include "../Debug/CPUFrameTimingSystem.h"
