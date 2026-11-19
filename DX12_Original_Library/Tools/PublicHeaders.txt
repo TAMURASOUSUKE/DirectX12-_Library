@@ -20,6 +20,7 @@ Core/Handle/GPUBufferHandle.h
 Core/Handle/VFXHandle.h
 Core/Handle/VFXParticleTypeHandle.h
 Core/Handle/VFXMeshTypeHandle.h
+Core/Handle/BodyHandle.h
 
 Debug/DebugLogs.h
 Debug/CPUTimingScope.h
@@ -36,8 +37,10 @@ Facade/System.h
 Facade/File.h
 Facade/UI.h
 Facade/Compute.h
+Facade/Physics.h
 
 Graphics/GfxType.h
+Physics/PhysicsType.h
 File/CSVTable.h
 
 Input/InputName.h

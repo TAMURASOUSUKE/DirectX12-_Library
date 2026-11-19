@@ -24,6 +24,7 @@
 #include "File.h"
 #include "UI.h"
 #include "Compute.h"
+#include "Physics.h"
 
 
 // 初期化などlibrary全体の機能をまとめてユーザーに提供する

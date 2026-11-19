@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <cstddef>
+#include <array>
 #include <string_view>
 #include <array>
 #include "../Debug/DebugLogs.h"
@@ -12,9 +13,9 @@
 #include "SoundInternal.h"
 #include "TimeInternal.h"
 #include "SystemInternal.h"
-#include <array>
 #include "UIInternal.h"
 #include "DebugInternal.h"
+#include "PhysicsInternal.h"
 #include "TSLib.h"
 
 namespace {
@@ -285,7 +286,8 @@ bool TSLib::Initialize(const wchar_t* _title, int _virtualWidth, int _virtualHei
 	result = InputInternal::Initialize(SystemInternal::GetHWND());
 	DEBUG_ASSERT(result && "入力処理の初期化に失敗しました\n");
 	if (!result) return result;
-	UIInternal::Initialize(); // UIはvoidなのでチェックなし
+	UIInternal::Initialize(); 
+	PhysicsInternal::Initialize();
 	result = SoundInternal::Initialize(); // XAudio2はCoInitializeに依存するため初期化が行われるGfxの後に初期化
 	DEBUG_ASSERT(result && "音処理の初期化に失敗しました\n");
 	if (!result) return result;
@@ -372,6 +374,7 @@ void TSLib::EndFrame()
 
 void TSLib::Finish()
 {
+	PhysicsInternal::Finish(); // 物理の終了
 	SoundInternal::Finish(); // 音の終了処理
 	UIInternal::Finish(); // 入力更新より前に終了処理
 	InputInternal::Finish(); // 入力の終了処理
