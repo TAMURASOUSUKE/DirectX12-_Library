@@ -347,6 +347,10 @@
     <ClInclude Include="Src\Math\Vector\Vector3IntFormat.h" />
     <ClInclude Include="Src\Math\Vector\Vector4.h" />
     <ClInclude Include="Src\Math\Vector\Vector4Format.h" />
+    <ClInclude Include="Src\Physics\PhysicsConstant.h" />
+    <ClInclude Include="Src\Physics\PhysicsInternalType.h" />
+    <ClInclude Include="Src\Physics\PhysicsSystem.h" />
+    <ClInclude Include="Src\Physics\PhysicsType.h" />
     <ClInclude Include="Src\Sound\SoundConstant.h" />
     <ClInclude Include="Src\Sound\SoundResourceManager.h" />
     <ClInclude Include="Src\Sound\SoundSystem.h" />
@@ -426,6 +430,7 @@
     <ClCompile Include="Src\Math\Vector\Vector3.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector3Int.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector4.cpp" />
+    <ClCompile Include="Src\Physics\PhysicsSystem.cpp" />
     <ClCompile Include="Src\Sound\SoundResourceManager.cpp" />
     <ClCompile Include="Src\Sound\SoundSystem.cpp" />
     <ClCompile Include="Src\UI\UIButton.cpp" />

@@ -1,9 +1,11 @@
 #pragma once
-#include <cstddef>
+#include <cstdint>
 #include <variant>
 #include "../Collision/Collider.h"
 #include "../Math/Vector/Vector3.h"
 #include "../Math/Quaternion/Quaternion.h"
+
+// 物理に関係するユーザーに公開する型などを定義する
 
 // 物理における物の動かし方
 enum  class MotionType
@@ -11,6 +13,14 @@ enum  class MotionType
 	Static, // 静的な物体 物理演算による移動や速度を持たない
 	Kinematic, // 運動学的物体 物理シミュレーションでは動かないが速度を持ちDynamicな物体を押し出すことができる ユーザーが直接制御する
 	Dynamic, // 動的物体 すべての物理シミュレーションの影響を受ける
+};
+
+// Bodyの今の状態をまとめて受け取るためのデータ
+struct BodyState
+{
+	Vector3 position{ Vector3::Zero }; // 位置
+	Quaternion rotation{ Quaternion::Identity }; // 回転
+	Vector3 velocity{ Vector3::Zero }; // 速度
 };
 
 using Shape = std::variant<Box, Capsule, Sphere>;

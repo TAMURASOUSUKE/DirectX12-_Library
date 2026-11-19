@@ -67,6 +67,9 @@
     <Filter Include="Src\Graphics\Input">
       <UniqueIdentifier>{fca35b9b-1a6e-4f77-9191-f2684bb4710f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Physics">
+      <UniqueIdentifier>{3268f0d7-48ba-44f2-84ac-887f6c75e91e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Math\MathConstant.h">
@@ -450,6 +453,18 @@
     <ClInclude Include="Src\Core\Handle\BodyHandle.h">
       <Filter>Src\Core\Handle</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Physics\PhysicsType.h">
+      <Filter>Src\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Physics\PhysicsInternalType.h">
+      <Filter>Src\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Physics\PhysicsConstant.h">
+      <Filter>Src\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Physics\PhysicsSystem.h">
+      <Filter>Src\Physics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Math\Vector\Vector2.cpp">
@@ -667,6 +682,9 @@
     </ClCompile>
     <ClCompile Include="Src\Graphics\VFXPlaySystem.cpp">
       <Filter>Src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Physics\PhysicsSystem.cpp">
+      <Filter>Src\Physics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

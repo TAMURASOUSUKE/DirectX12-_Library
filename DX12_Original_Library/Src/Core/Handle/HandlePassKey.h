@@ -5,6 +5,7 @@ class SoundResourceManager;
 class AnimationSystem;
 class UIButtonSystem;
 class VFXPlaySystem;
+class PhysicsSystem;
 // 必要なものだけが生成できるアクセス用の鍵を作る
 class PassKey
 {
@@ -16,4 +17,5 @@ private:
 	friend class AnimationSystem;
 	friend class UIButtonSystem;
 	friend class VFXPlaySystem;
+	friend class PhysicsSystem;
 };
