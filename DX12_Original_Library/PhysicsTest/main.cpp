@@ -33,9 +33,31 @@ TestResult RunPhysicsTests()
 			result.failedCount++;
 			if (result.firstFailure.empty()) result.firstFailure = _name;
 		};
-	(void)check; // 項目を書くまで未使用の警告を出さない
-
 	// 書き方 : check("項目の名前", 成り立つべき条件);
+
+	// Staticをわざと動かそうとしても動かないこと
+	{
+		constexpr int STEP_COUNT{ 60 }; // 1秒分進める
+		BodyDesc desc{};
+		desc.shapeData = Box{ Vector3::Zero, { 1.0f, 1.0f, 1.0f } };
+		desc.position = { 1.0f, 2.0f, 3.0f };
+		desc.motionType = MotionType::Static;
+		desc.velocity = { 5.0f, 5.0f, 5.0f }; // わざと初速を入れる
+		desc.isGravityEnabled = true; // わざと重力も有効にする
+
+		const BodyHandle body{ Physics::CreateBody(desc) };
+		check("static: created", body.IsValid());
+		// 作成時に渡した初速は捨てられる
+		check("static: initial velocity ignored", Physics::GetVelocity(body) == Vector3::Zero);
+		// 後から速度を入れようとしても断られ、値も変わらない
+		check("static: SetVelocity rejected", !Physics::SetVelocity(body, { 0.0f, 10.0f, 0.0f }));
+		check("static: velocity stays zero", Physics::GetVelocity(body) == Vector3::Zero);
+		// 重力が有効でもStepで位置と速度が変わらない
+		for (int i{ 0 }; i < STEP_COUNT; i++) Physics::Step(Time::FixedDeltaTime());
+		check("static: position unchanged after steps", Physics::GetPosition(body) == desc.position);
+		check("static: velocity unchanged after steps", Physics::GetVelocity(body) == Vector3::Zero);
+		check("static: destroyed", Physics::DestroyBody(body));
+	}
 
 	return result;
 }
