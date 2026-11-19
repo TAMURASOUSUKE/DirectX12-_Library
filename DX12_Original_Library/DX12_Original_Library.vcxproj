@@ -236,6 +236,7 @@
     <ClInclude Include="Src\Component\Shadow.h" />
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\AnimInstanceHandle.h" />
+    <ClInclude Include="Src\Core\Handle\BodyHandle.h" />
     <ClInclude Include="Src\Core\Handle\ComputePipelineHandle.h" />
     <ClInclude Include="Src\Core\Handle\GPUBufferHandle.h" />
     <ClInclude Include="Src\Core\Handle\HandlePacking.h" />
@@ -274,6 +275,8 @@
     <ClInclude Include="Src\Facade\GfxInternal.h" />
     <ClInclude Include="Src\Facade\Input.h" />
     <ClInclude Include="Src\Facade\InputInternal.h" />
+    <ClInclude Include="Src\Facade\Physics.h" />
+    <ClInclude Include="Src\Facade\PhysicsInternal.h" />
     <ClInclude Include="Src\Facade\Sound.h" />
     <ClInclude Include="Src\Facade\SoundInternal.h" />
     <ClInclude Include="Src\Facade\System.h" />
@@ -346,6 +349,10 @@
     <ClInclude Include="Src\Math\Vector\Vector3IntFormat.h" />
     <ClInclude Include="Src\Math\Vector\Vector4.h" />
     <ClInclude Include="Src\Math\Vector\Vector4Format.h" />
+    <ClInclude Include="Src\Physics\PhysicsConstant.h" />
+    <ClInclude Include="Src\Physics\PhysicsInternalType.h" />
+    <ClInclude Include="Src\Physics\PhysicsSystem.h" />
+    <ClInclude Include="Src\Physics\PhysicsType.h" />
     <ClInclude Include="Src\Sound\SoundConstant.h" />
     <ClInclude Include="Src\Sound\SoundResourceManager.h" />
     <ClInclude Include="Src\Sound\SoundSystem.h" />
@@ -377,6 +384,7 @@
     <ClCompile Include="Src\Facade\File.cpp" />
     <ClCompile Include="Src\Facade\Gfx.cpp" />
     <ClCompile Include="Src\Facade\Input.cpp" />
+    <ClCompile Include="Src\Facade\Physics.cpp" />
     <ClCompile Include="Src\Facade\Sound.cpp" />
     <ClCompile Include="Src\Facade\System.cpp" />
     <ClCompile Include="Src\Facade\TSTime.cpp" />
@@ -425,6 +433,7 @@
     <ClCompile Include="Src\Math\Vector\Vector3.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector3Int.cpp" />
     <ClCompile Include="Src\Math\Vector\Vector4.cpp" />
+    <ClCompile Include="Src\Physics\PhysicsSystem.cpp" />
     <ClCompile Include="Src\Sound\SoundResourceManager.cpp" />
     <ClCompile Include="Src\Sound\SoundSystem.cpp" />
     <ClCompile Include="Src\UI\UIButton.cpp" />

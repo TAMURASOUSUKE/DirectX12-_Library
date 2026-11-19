@@ -26,6 +26,9 @@
   <Project Path="MathTest/MathTest.vcxproj" Id="89e6f130-5fbf-4caa-8763-de78e013c946">
     <BuildType Solution="Profile|*" Project="Release" />
   </Project>
+  <Project Path="PhysicsTest/PhysicsTest.vcxproj" Id="0b49df88-5f72-4db6-8c86-66059a711446">
+    <BuildType Solution="Profile|*" Project="Release" />
+  </Project>
   <Project Path="SoundTest/SoundTest.vcxproj" Id="c13ccc51-b0c9-43c7-b3b6-c08e0b45f79d">
     <BuildType Solution="Profile|*" Project="Release" />
   </Project>
