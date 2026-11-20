@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <span>
 #include <string>
 #include <variant>
 #include <vector>
@@ -98,6 +99,14 @@ std::vector<TestBody> MakeTestBodies()
 	capsuleDesc.velocity = { 0.0f, 0.5f, 0.0f };
 	bodies.push_back({ "Kinematic Capsule", capsuleDesc, { 0.2f, 0.6f, 1.0f, 1.0f } });
 
+	// 床に少しめり込ませて置く球(重力なし 接触の点と法線を止まった状態で見るため)
+	BodyDesc restingDesc{};
+	restingDesc.shapeData = Sphere{ Vector3::Zero, 0.5f };
+	restingDesc.position = { 0.0f, 0.4f, 0.0f };
+	restingDesc.motionType = MotionType::Dynamic;
+	restingDesc.isGravityEnabled = false;
+	bodies.push_back({ "Resting Sphere (no gravity)", restingDesc, { 1.0f, 0.4f, 0.8f, 1.0f } });
+
 	return bodies;
 }
 
@@ -161,6 +170,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	int stepCount{ 0 }; // 作り直してからStepを呼んだ回数
 	double lastStepMilliseconds{ 0.0 }; // 直近のStep一回の時間
 	double maxStepMilliseconds{ 0.0 }; // 作り直してからの最大
+	int lastContactCount{ -1 }; // 前のフレームの接触の数(変わったときだけログへ出す)
+	constexpr float CONTACT_POINT_RADIUS{ 0.06f }; // 接触の点を表す球の半径
+	constexpr float CONTACT_NORMAL_LENGTH{ 0.6f }; // 法線を表す線の長さ
 
 	// 注視点の周りを回るカメラ
 	Camera camera{};
@@ -235,6 +247,36 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			std::visit([&state, color](const auto& _shape) { DrawShape(_shape, state, color); }, body.desc.shapeData);
 		}
 
+		// 接触の点(赤い球)と法線(黄色い線 A->B)の描画 Stepの後に一覧を読む
+		const std::span<const BodyToBodyResult> contacts{ Physics::GetContacts() };
+		for (const BodyToBodyResult& contact : contacts)
+		{
+			const ShapeToShapeResult& shapeResult{ contact.shapeToShapeResult };
+			for (int i = 0; i < shapeResult.pointCount; i++)
+			{
+				const Vector3 point{ shapeResult.points[i].worldPosition };
+				Gfx::DrawCapsule3D(point, point, CONTACT_POINT_RADIUS, { 1.0f, 0.2f, 0.2f, 1.0f }, Primitive3DStyle::Fill);
+				Gfx::DrawLine3D(point, point + shapeResult.normal * CONTACT_NORMAL_LENGTH, { 1.0f, 1.0f, 0.2f, 1.0f });
+			}
+		}
+
+		// 接触の数が変わったときだけログへ出す(毎フレームは出さない)
+		const int contactCount{ static_cast<int>(contacts.size()) };
+		if (contactCount != lastContactCount)
+		{
+			DEBUG_LOG("接触の数 : {}\n", contactCount);
+			for (const BodyToBodyResult& contact : contacts)
+			{
+				const ShapeToShapeResult& shapeResult{ contact.shapeToShapeResult };
+				if (shapeResult.pointCount <= 0) continue;
+				const CollisionPoint& point{ shapeResult.points[0] };
+				DEBUG_LOG("  法線({}, {}, {})  深さ {}  点({}, {}, {})\n",
+					shapeResult.normal.x, shapeResult.normal.y, shapeResult.normal.z, point.depth,
+					point.worldPosition.x, point.worldPosition.y, point.worldPosition.z);
+			}
+			lastContactCount = contactCount;
+		}
+
 		// 操作と計測の表示
 		char text[256]{};
 		float textY{ 20.0f };
@@ -248,6 +290,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		textY += LINE_HEIGHT;
 
 		std::snprintf(text, sizeof(text), "Physics::Step  last: %.4f ms  max: %.4f ms", lastStepMilliseconds, maxStepMilliseconds);
+		Gfx::DrawString(text, { 20.0f, textY });
+		textY += LINE_HEIGHT;
+
+		std::snprintf(text, sizeof(text), "contacts: %d", contactCount);
 		Gfx::DrawString(text, { 20.0f, textY });
 		textY += LINE_HEIGHT;
 

@@ -1,5 +1,6 @@
 #include <cmath>
 #include <variant>
+#include <array>
 #include "../Core/Handle/HandlePacking.h"
 #include "../Debug/DebugLogs.h"
 #include "PhysicsConstant.h"
@@ -59,6 +60,61 @@ namespace
 		data.userData = _desc.userData;
 		return data;
 	}
+
+	// 形の中の相対位置をBodyの位置と回転でワールドへ直す
+	Vector3 ToWorldPoint(const Vector3& _localPoint, const BodyData& _body)
+	{
+		return _body.position + _body.rotation.RotateVector(_localPoint);
+	}
+
+	Sphere ToWorldShape(const Sphere& _sphere, const BodyData& _body)
+	{
+		return Sphere{ ToWorldPoint(_sphere.center, _body), _sphere.radius };
+	}
+
+	Capsule ToWorldShape(const Capsule& _capsule, const BodyData& _body)
+	{
+		return Capsule{ ToWorldPoint(_capsule.startPos, _body), ToWorldPoint(_capsule.endPos, _body), _capsule.radius };
+	}
+
+	Box ToWorldShape(const Box& _box, const BodyData& _body)
+	{
+		// 箱自身の回転を先に掛け、その後にBodyの回転を掛ける
+		return Box{ ToWorldPoint(_box.center, _body), _box.halfSize, _body.rotation * _box.rotation };
+	}
+
+	// Bodyが持っている形(variant)をワールドへ直して返す
+	Shape ToWorldShape(const BodyData& _body)
+	{
+		return std::visit([&_body](const auto& _shape) { return Shape{ ToWorldShape(_shape, _body) }; }, _body.shape);
+	}
+
+	// 表に入れる関数の型(9個とも同じ形にそろえる)
+	using ContactFunction = bool(*)(CollisionSystem& _collisionSystem, const Shape& _shapeA, const Shape& _shapeB, ShapeToShapeResult& _result);
+
+	// そのまま呼ぶ : variantからAの型とBの型を取り出して計算する
+	template<typename ShapeTypeA, typename ShapeTypeB>
+	bool CallContact(CollisionSystem& _collisionSystem, const Shape& _shapeA, const Shape& _shapeB, ShapeToShapeResult& _result)
+	{
+		return _collisionSystem.ComputeShapeContact(std::get<ShapeTypeA>(_shapeA), std::get<ShapeTypeB>(_shapeB), _result);
+	}
+
+	// 入れ替えて呼ぶ : 用意してある関数は(B, A)の並びなので逆にして呼び、法線の符号を反転する
+	template<typename ShapeTypeA, typename ShapeTypeB>
+	bool CallContactSwapped(CollisionSystem& _collisionSystem, const Shape& _shapeA, const Shape& _shapeB, ShapeToShapeResult& _result)
+	{
+		if (!_collisionSystem.ComputeShapeContact(std::get<ShapeTypeB>(_shapeB), std::get<ShapeTypeA>(_shapeA), _result)) return false;
+		_result.normal = -_result.normal; // 法線はA->B 点は2つの表面の真ん中なので動かない
+		return true;
+	}
+
+	// 形の番号2つで関数を選ぶ表 [Aの番号][Bの番号]  番号はShapeの並び 箱=0 カプセル=1 球=2
+	const std::array<std::array<ContactFunction, 3>, 3> contactFunctionTable{ {
+		{ &CallContact<Box, Box>,     &CallContactSwapped<Box, Capsule>,    &CallContactSwapped<Box, Sphere> },
+		{ &CallContact<Capsule, Box>, &CallContact<Capsule, Capsule>,       &CallContact<Capsule, Sphere> },
+		{ &CallContact<Sphere, Box>,  &CallContactSwapped<Sphere, Capsule>, &CallContact<Sphere, Sphere> },
+	} };
+
 }
 
 void PhysicsSystem::Setup()
