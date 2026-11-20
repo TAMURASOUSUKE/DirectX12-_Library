@@ -882,7 +882,276 @@ bool CollisionSystem::ComputeShapeContact(Capsule _capsuleA, Capsule _capsuleB, 
 		_result.pointCount = 1;
 		return true;
 	}
-
+		
 	return ComputeShapeContact(sphereA, sphereB, _result);
 }
 
+bool CollisionSystem::ComputeShapeContact(Sphere _sphereA, Box _boxB, ShapeToShapeResult& _result)
+{
+	if (!_sphereA.IsValid() || !_boxB.IsValid()) return false;
+
+	// Boxの逆回転で球中心をBoxローカル空間へ移し、回転のないAABBとして計算する。
+	const Quaternion inverse{ Vector4{ -_boxB.rotation.x, -_boxB.rotation.y, -_boxB.rotation.z, _boxB.rotation.w } };
+	const Vector3 center{ inverse.RotateVector(_sphereA.center - _boxB.center) }; // 箱を原点としたうえでの球の中心
+
+	// 球中心の各座標をBox範囲へ収め、Box上で球に最も近い点を求める。
+	const Vector3 nearest{
+		std::clamp(center.x, -_boxB.halfSize.x, _boxB.halfSize.x),
+		std::clamp(center.y, -_boxB.halfSize.y, _boxB.halfSize.y),
+		std::clamp(center.z, -_boxB.halfSize.z, _boxB.halfSize.z)
+	};
+
+	const Vector3 difference{ nearest - center }; // 球から最近点へ
+	Vector3 localNormal{ Vector3::Zero }; // ローカル法線
+	float depth{ 0.0f }; // 深さ
+
+	// ほぼ0つまり箱の中にあるとき
+	if (difference.LengthSquared() <= Math::EPSILON * Math::EPSILON)
+	{
+		// 6面への移動量を比較し、最も近い面から球全体を出す
+		const std::array<float, 3> p{ center.x, center.y, center.z };
+		const std::array<float, 3> h{ _boxB.halfSize.x, _boxB.halfSize.y, _boxB.halfSize.z };
+		float best{ std::numeric_limits<float>::infinity() }; // 戻す量
+		int bestAxis{ 0 }; // 戻す軸
+		for (int axis = 0; axis < 3; axis++)
+		{
+			// 正負それぞれの面を越え球の反対側までBox外へ出す移動量
+			const float positive{ h[axis] + _sphereA.radius - p[axis] };
+			const float negative{ -h[axis] - _sphereA.radius - p[axis] };
+			if (std::abs(positive) < std::abs(best))
+			{
+				best = positive;
+				bestAxis = axis;
+			}
+			if (std::abs(negative) < std::abs(best))
+			{
+				best = negative;
+				bestAxis = axis;
+			}
+		}
+		
+		// bestAxisの結果を見て該当する軸に値を代入する A->Bへ法線が向くので押し戻す方向の逆にする
+		if (bestAxis == 0) localNormal.x = best >= 0 ? -1.0f : 1.0f;
+		else if (bestAxis == 1) localNormal.y = best >= 0 ? -1.0f : 1.0f;
+		else if (bestAxis == 2) localNormal.z = best >= 0 ? -1.0f : 1.0f;
+		depth = std::abs(best);
+	}
+	else
+	{
+		const float length{ difference.Length() };
+		if (length > _sphereA.radius) return false; // 未接触
+		localNormal = difference / length;
+		depth = _sphereA.radius - length;
+	}
+
+	const Vector3 localPoint{ center + localNormal * (_sphereA.radius - depth * 0.5f) };
+	// ワールドに戻す
+	_result.normal = _boxB.rotation.RotateVector(localNormal); 
+	_result.points[0] = CollisionPoint{ _boxB.center + _boxB.rotation.RotateVector(localPoint), depth };
+	_result.pointCount = 1;
+	return true;
+}
+
+bool CollisionSystem::ComputeShapeContact(Capsule _capsuleA, Box _boxB, ShapeToShapeResult& _result)
+{
+	if (!_capsuleA.IsValid() || !_boxB.IsValid()) return false;
+
+	// Boxの逆回転でカプセル中心軸をBoxローカル空間へ移す 回転したOBBを、軸に沿ったAABBとして計算できるようにする
+	const Quaternion inverse{ Vector4{ -_boxB.rotation.x, -_boxB.rotation.y, -_boxB.rotation.z, _boxB.rotation.w } };
+	const Vector3 a{ inverse.RotateVector(_capsuleA.startPos - _boxB.center) };
+	const Vector3 b{ inverse.RotateVector(_capsuleA.endPos - _boxB.center) };
+	const Vector3 direction{ b - a }; // Boxローカル空間でのカプセル中心軸方向
+
+	// X・Y・Zを同じループで処理できるよう配列化する
+	const std::array<float, 3> start{ a.x, a.y, a.z };
+	const std::array<float, 3> dir{ direction.x, direction.y, direction.z };
+	const std::array<float, 3> half{ _boxB.halfSize.x, _boxB.halfSize.y, _boxB.halfSize.z };
+
+	// 線分上の割合tにある点とAABBとの距離の二乗を求める t=0が始点、t=1が終点
+	// 座標をBox範囲へclampすると その点に最も近いBox上の点になる
+	const auto distanceSquaredAt = [&](float t)
+		{
+			const Vector3 point{ a + direction * t };
+			const Vector3 nearest{
+				std::clamp(point.x, -half[0], half[0]),
+				std::clamp(point.y, -half[1], half[1]),
+				std::clamp(point.z, -half[2], half[2])
+			};
+			return (point - nearest).LengthSquared();
+		};
+
+	// 線分上で「最も近いBoxの面」が変わる境界tを保存する
+	// Boxの6面と線分の両端を合わせ、境界は最大8個になる
+	std::array<float, 8> cuts{};
+	int cutCount{ 2 };
+	// 線分の始点t=0と終点t=1は必ず調査対象に含める
+	cuts[0] = 0.0f;
+	cuts[1] = 1.0f;
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		// この軸方向へ動かない線分は面を横切らず、除算もできないため飛ばす。
+		if (std::abs(dir[axis]) <= Math::EPSILON) continue;
+		// 各軸について、Boxのマイナス側とプラス側の面を調べる。
+		for (const int sign : { -1, 1 })
+		{
+			// start+dir*t=sign*halfをtについて解き線分が面を横切る割合を求める。
+			const float t{ (static_cast<float>(sign) * half[axis] - start[axis]) / dir[axis] };
+			// 線分内の境界だけ追加する。両端の0と1は登録済み。
+			if (t > 0.0f && t < 1.0f) cuts[cutCount++] = t;
+		}
+	}
+	// 始点から終点へ向かう順に並べ、隣り合う値を一つの計算区間として扱う。
+	std::sort(cuts.begin(), cuts.begin() + cutCount);
+
+	// 始点を最初の候補としよりBoxに近いtが見つかるたびに更新する
+	float nearestT{ cuts[0] };
+	float minDistanceSquared{ distanceSquaredAt(nearestT) };
+
+	const auto consider = [&](float t)
+		{
+			const float distanceSquared{ distanceSquaredAt(t) };
+			if (distanceSquared < minDistanceSquared)
+			{
+				minDistanceSquared = distanceSquared;
+				nearestT = t;
+			}
+		};
+
+	// 面を横切る境界そのものも最短位置になる可能性があるため調べる。
+	for (int i = 1; i < cutCount; i++)
+	{
+		consider(cuts[i]);
+	}
+
+	// 各区間の内部に存在する最短位置を調べる。
+	// 区間内では各軸がBoxの内側か外側かが変わらず、距離二乗は二次式になる。
+	for (int i = 0; i + 1 < cutCount; i++)
+	{
+		const float left{ cuts[i] };
+		const float right{ cuts[i + 1] };
+
+		// 角を同時に横切ると境界が重複するため、幅のない区間は飛ばす。
+		if (right <= left) continue;
+
+		// 区間中央を代表点にし、各軸がBoxのどの面より外側かを判定する。
+		const float middle{ (left + right) * 0.5f };
+		float numerator{ 0.0f };
+		float denominator{ 0.0f };
+
+		for (int axis = 0; axis < 3; axis++)
+		{
+			const float value{ start[axis] + dir[axis] * middle };
+			float face{};
+
+			// Box外にある軸だけ距離へ寄与する。内側の軸は最近点と同じなので無視する。
+			if (value < -half[axis]) face = -half[axis];
+			else if (value > half[axis]) face = half[axis];
+			else continue;
+
+			// 距離二乗D(t)^2を微分した式の係数を集める。
+			// 最小位置はt=-numerator/denominatorで求められる。
+			numerator += dir[axis] * (start[axis] - face);
+			denominator += dir[axis] * dir[axis];
+		}
+
+		// 求めた最小位置を現在の区間内へ制限して比較する。
+		if (denominator > 0.0f) consider(std::clamp(-numerator / denominator, left, right));
+	}
+
+	// 軸上の点
+	Vector3 axisPoint{ _capsuleA.startPos + (_capsuleA.endPos - _capsuleA.startPos) * nearestT };
+	Sphere nearestSphere{ axisPoint, _capsuleA.radius };
+	return ComputeShapeContact(nearestSphere, _boxB, _result);
+}
+
+bool CollisionSystem::ComputeShapeContact(Box _boxA, Box _boxB, ShapeToShapeResult& _result)
+{
+	if (!Intersect(_boxA, _boxB)) return false; // 未接触
+
+	// 各BoxのローカルX・Y・Z軸を回転させ、ワールド空間での向きを求める
+	const std::array<Vector3, 3> axesA{
+		_boxA.rotation.RotateVector(Vector3::Right),
+		_boxA.rotation.RotateVector(Vector3::Up),
+		_boxA.rotation.RotateVector(Vector3::Forward)
+	};
+	const std::array<Vector3, 3> axesB{
+		_boxB.rotation.RotateVector(Vector3::Right),
+		_boxB.rotation.RotateVector(Vector3::Up),
+		_boxB.rotation.RotateVector(Vector3::Forward)
+	};
+
+	// 各ローカル軸方向の半分の長さ。候補軸への投影半径を求めるときに使う。
+	const std::array<float, 3> halfA{ _boxA.halfSize.x, _boxA.halfSize.y, _boxA.halfSize.z };
+	const std::array<float, 3> halfB{ _boxB.halfSize.x, _boxB.halfSize.y, _boxB.halfSize.z };
+	// 移動側Boxの中心から障害物Boxの中心へ向かうベクトル。
+	const Vector3 centerDelta{ _boxB.center - _boxA.center };
+	// 全候補軸のうち、最も浅い重なりとその分離方向を保持する。
+	float smallestOverlap{ std::numeric_limits<float>::infinity() };
+	Vector3 moveDirection{ Vector3::Right };
+
+	// 一つの分離軸候補へ両Boxを投影し、その軸上の重なり量を調べる。
+	const auto consider = [&](Vector3 axis)
+		{
+			const float lengthSquared{ axis.LengthSquared() };
+			if (lengthSquared <= Math::EPSILON * Math::EPSILON) return; // 平行軸の外積は無効
+			axis /= std::sqrt(lengthSquared); // 異なる軸の深さを比較できるよう単位化
+			const float signedDistance{ Vector3::Dot(centerDelta, axis) }; // 候補軸上の符号付き中心間距離
+			float radiusA{ 0.0f };
+			float radiusB{ 0.0f };
+			// Boxの3本の半辺を候補軸へ投影し、絶対値の合計から投影半径を求める。
+			for (int i = 0; i < 3; i++)
+			{
+				radiusA += halfA[i] * std::abs(Vector3::Dot(axesA[i], axis));
+				radiusB += halfB[i] * std::abs(Vector3::Dot(axesB[i], axis));
+			}
+			// 投影半径の合計から中心間距離を引いた値が、この軸上の重なり量。
+			const float overlap{ std::max(0.0f, radiusA + radiusB - std::abs(signedDistance)) };
+			// 最も浅い重なりの軸が、最小移動で分離できるMTVになる。
+			if (overlap < smallestOverlap)
+			{
+				smallestOverlap = overlap;
+				moveDirection = signedDistance > 0.0f ? -axis : axis; // 障害物とは反対側を選ぶ
+			}
+		};
+
+	// OBB同士のSATで必要な15軸を調べる。
+	// 両Box自身の面法線6軸と、各軸同士の外積9軸。
+	for (const Vector3& axis : axesA)
+	{
+		consider(axis);
+	}
+
+	for (const Vector3& axis : axesB)
+	{
+		consider(axis);
+	}
+
+	for (const Vector3& a : axesA)
+	{
+		for (const Vector3& b : axesB)
+		{
+			consider(Vector3::Cross(a, b));
+		}
+	}
+
+	const Vector3 normal{ -moveDirection }; // 動く方向の逆方向が法線になる
+	const float depth{ smallestOverlap }; 
+
+	// Aの中心から法線の向きに一番突き出た角まで進む
+	Vector3 deepestCorner{ _boxA.center };
+	for (int i = 0; i < 3; i++)
+	{
+		// この軸が法線の向きにどれだけ向いているか
+		const float facing{ Vector3::Dot(axesA[i], normal) };
+		// 向いているなら足す逆を向いているなら引く(半分の長さだけ軸の向きへ進む)
+		if (facing >= 0.0f) deepestCorner += axesA[i] * halfA[i];
+		else deepestCorner -= axesA[i] * halfA[i];
+	}
+
+	// 角はAの表面なので、深さの半分だけ戻すと2つの表面の真ん中になる
+	const Vector3 pointPosition{ deepestCorner - normal * (depth * 0.5f) };
+	_result.normal = normal;
+	_result.points[0] = CollisionPoint{ pointPosition, depth };
+	_result.pointCount = 1;
+	return true;
+}
