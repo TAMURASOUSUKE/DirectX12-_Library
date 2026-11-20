@@ -60,6 +60,71 @@ TestResult RunPhysicsTests()
 		check("static: destroyed", Physics::DestroyBody(body));
 	}
 
+	// 球以外の形が床で止まること と 摩擦が効くこと(床の上面は y=0)
+	{
+		constexpr int STEP_COUNT{ 180 }; // 3秒分進める
+		constexpr float POSITION_TOLERANCE{ 0.03f }; // 止まる高さの許す誤差
+		constexpr float SPEED_TOLERANCE{ 0.05f }; // 止まったとみなす速さ
+
+		BodyDesc floorDesc{};
+		floorDesc.shapeData = Box{ Vector3::Zero, { 10.0f, 0.5f, 10.0f } };
+		floorDesc.position = { 0.0f, -0.5f, 0.0f };
+		floorDesc.motionType = MotionType::Static;
+		floorDesc.friction = 0.6f;
+		const BodyHandle floorBody{ Physics::CreateBody(floorDesc) };
+
+		// 落ちるカプセル(軸の半分0.5 半径0.3 なので止まる高さは0.8)
+		BodyDesc capsuleDesc{};
+		capsuleDesc.shapeData = Capsule{ { 0.0f, -0.5f, 0.0f }, { 0.0f, 0.5f, 0.0f }, 0.3f };
+		capsuleDesc.position = { 0.0f, 2.0f, -6.0f };
+		capsuleDesc.motionType = MotionType::Dynamic;
+		const BodyHandle capsule{ Physics::CreateBody(capsuleDesc) };
+
+		// 落ちる箱(半分の大きさ0.5 なので止まる高さは0.5)
+		BodyDesc boxDesc{};
+		boxDesc.shapeData = Box{ Vector3::Zero, { 0.5f, 0.5f, 0.5f } };
+		boxDesc.position = { 0.0f, 2.0f, -2.0f };
+		boxDesc.motionType = MotionType::Dynamic;
+		const BodyHandle box{ Physics::CreateBody(boxDesc) };
+
+		// 摩擦ありで滑る箱(止まるはず)
+		BodyDesc roughDesc{ boxDesc };
+		roughDesc.position = { -5.0f, 0.5f, 2.0f };
+		roughDesc.velocity = { 3.0f, 0.0f, 0.0f };
+		roughDesc.friction = 0.6f;
+		const BodyHandle roughBox{ Physics::CreateBody(roughDesc) };
+
+		// 摩擦なしで滑る箱(速さが変わらないはず)
+		BodyDesc smoothDesc{ boxDesc };
+		smoothDesc.position = { -5.0f, 0.5f, 6.0f };
+		smoothDesc.velocity = { 1.0f, 0.0f, 0.0f };
+		smoothDesc.friction = 0.0f;
+		const BodyHandle smoothBox{ Physics::CreateBody(smoothDesc) };
+
+		for (int i{ 0 }; i < STEP_COUNT; i++) Physics::Step(Time::FixedDeltaTime());
+
+		const BodyState capsuleState{ Physics::GetState(capsule) };
+		check("capsule: rests on floor", std::abs(capsuleState.position.y - 0.8f) < POSITION_TOLERANCE);
+		check("capsule: stopped", std::abs(capsuleState.velocity.y) < SPEED_TOLERANCE);
+
+		const BodyState boxState{ Physics::GetState(box) };
+		check("box: rests on floor", std::abs(boxState.position.y - 0.5f) < POSITION_TOLERANCE);
+		check("box: stopped", std::abs(boxState.velocity.y) < SPEED_TOLERANCE);
+
+		const BodyState roughState{ Physics::GetState(roughBox) };
+		check("friction: rough box stopped", std::abs(roughState.velocity.x) < SPEED_TOLERANCE);
+		check("friction: rough box stays on floor", std::abs(roughState.position.y - 0.5f) < POSITION_TOLERANCE);
+
+		const BodyState smoothState{ Physics::GetState(smoothBox) };
+		check("friction: smooth box keeps speed", std::abs(smoothState.velocity.x - 1.0f) < SPEED_TOLERANCE);
+
+		Physics::DestroyBody(floorBody);
+		Physics::DestroyBody(capsule);
+		Physics::DestroyBody(box);
+		Physics::DestroyBody(roughBox);
+		Physics::DestroyBody(smoothBox);
+	}
+
 	return result;
 }
 
@@ -73,6 +138,7 @@ std::vector<TestBody> MakeTestBodies()
 	floorDesc.shapeData = Box{ Vector3::Zero, { 5.0f, 0.5f, 5.0f } };
 	floorDesc.position = { 0.0f, -0.5f, 0.0f };
 	floorDesc.motionType = MotionType::Static;
+	floorDesc.friction = 0.6f;
 	bodies.push_back({ "Static Box", floorDesc, { 0.6f, 0.6f, 0.6f, 1.0f } });
 
 	// 重力で落ちる球
@@ -106,6 +172,35 @@ std::vector<TestBody> MakeTestBodies()
 	restingDesc.motionType = MotionType::Dynamic;
 	restingDesc.isGravityEnabled = false;
 	bodies.push_back({ "Resting Sphere (no gravity)", restingDesc, { 1.0f, 0.4f, 0.8f, 1.0f } });
+
+	// 落ちるカプセル(球以外の形が床で止まるかを見る)
+	BodyDesc fallingCapsuleDesc{};
+	fallingCapsuleDesc.shapeData = Capsule{ { 0.0f, -0.5f, 0.0f }, { 0.0f, 0.5f, 0.0f }, 0.3f };
+	fallingCapsuleDesc.position = { 1.5f, 4.0f, 3.0f };
+	fallingCapsuleDesc.motionType = MotionType::Dynamic;
+	bodies.push_back({ "Falling Capsule", fallingCapsuleDesc, { 0.3f, 0.9f, 0.9f, 1.0f } });
+
+	// 落ちる箱
+	BodyDesc fallingBoxDesc{};
+	fallingBoxDesc.shapeData = Box{ Vector3::Zero, { 0.5f, 0.5f, 0.5f } };
+	fallingBoxDesc.position = { -1.5f, 4.0f, 3.0f };
+	fallingBoxDesc.motionType = MotionType::Dynamic;
+	bodies.push_back({ "Falling Box", fallingBoxDesc, { 0.9f, 0.6f, 0.3f, 1.0f } });
+
+	// 摩擦ありで滑る箱(床の上で止まるはず)
+	BodyDesc roughBoxDesc{};
+	roughBoxDesc.shapeData = Box{ Vector3::Zero, { 0.5f, 0.5f, 0.5f } };
+	roughBoxDesc.position = { -4.0f, 0.5f, -2.5f };
+	roughBoxDesc.motionType = MotionType::Dynamic;
+	roughBoxDesc.velocity = { 3.0f, 0.0f, 0.0f };
+	roughBoxDesc.friction = 0.6f;
+	bodies.push_back({ "Sliding Box (friction 0.6)", roughBoxDesc, { 0.8f, 0.3f, 0.3f, 1.0f } });
+
+	// 摩擦なしで滑る箱(同じ速さのまま進み、床の端から落ちるはず)
+	BodyDesc smoothBoxDesc{ roughBoxDesc };
+	smoothBoxDesc.position = { -4.0f, 0.5f, -4.0f };
+	smoothBoxDesc.friction = 0.0f;
+	bodies.push_back({ "Sliding Box (friction 0)", smoothBoxDesc, { 0.5f, 0.5f, 1.0f, 1.0f } });
 
 	return bodies;
 }
