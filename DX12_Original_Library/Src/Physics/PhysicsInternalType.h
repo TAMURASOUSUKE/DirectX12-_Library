@@ -1,5 +1,4 @@
 #pragma once
-#include <array>
 #include "../Math/Vector/Vector3.h"
 #include "PhysicsType.h"
 #include "../Math/Quaternion/Quaternion.h"
@@ -30,20 +29,5 @@ struct BodySlot
 	BodyData data{}; // 実データ
 	std::uint32_t generation{ 0 }; // 世代
 	bool isAlive{ false }; // 生存フラグ
-};
-
-// 接触点
-struct CollisionPoint
-{
-	Vector3 worldPosition{ Vector3::Zero }; // 位置
-	Vector3 depth{ Vector3::Zero }; // 深さ
-};
-
-// 形同士の結果
-struct ShapeToShapeResult
-{
-	Vector3 normal{ Vector3::Zero }; // 法線
-	std::array<CollisionPoint, 4> points; // 点の配列
-	int pointCount{ 0 }; // 入っている点の数
 };
 

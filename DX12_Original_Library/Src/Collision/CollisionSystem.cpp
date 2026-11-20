@@ -2,6 +2,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include "../Debug/DebugLogs.h"
 #include "../Math/TSMath.h"
 #include "CollisionSystem.h"
 
@@ -809,6 +810,26 @@ bool CollisionSystem::ComputePushOut(Capsule _movable, Box _obstacle, Vector3& _
 		if (bestAxis == 2) localMove.z = best;
 	}
 	_outMove = _obstacle.rotation.RotateVector(localMove); // ローカルの移動量をワールド空間へ戻す
+	return true;
+}
+
+bool CollisionSystem::ComputeShapeContact(Sphere _sphereA, Sphere _sphereB, ShapeToShapeResult& _result)
+{
+	if (!_sphereA.IsValid() || !_sphereB.IsValid()) return false;
+
+	const Vector3 dir{ _sphereB.center - _sphereA.center }; // 中心差分
+	const float lengthSqr{ dir.LengthSquared() };
+	const float radiusSum{ _sphereA.radius + _sphereB.radius };
+	if (lengthSqr > radiusSum * radiusSum) return false; // 非接触
+
+	const float length{ std::sqrtf(lengthSqr) };
+	Vector3 normal{ length <= Math::EPSILON ? Vector3::Right : dir / length }; // 法線
+	float depth{ radiusSum - length };
+	Vector3 pointPosition{ _sphereA.center + normal * (_sphereA.radius - depth * 0.5f) }; // 接触した側の表面へ
+	CollisionPoint point{ pointPosition, depth };
+	_result.normal = normal;
+	_result.points[0] = point;
+	_result.pointCount = 1;
 	return true;
 }
 
