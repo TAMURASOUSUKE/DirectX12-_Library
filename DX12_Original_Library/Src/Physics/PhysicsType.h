@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <variant>
 #include "../Collision/Collider.h"
+#include "../Collision/CollisionType.h"
+#include "../Core/Handle/BodyHandle.h"
 #include "../Math/Vector/Vector3.h"
 #include "../Math/Quaternion/Quaternion.h"
 
@@ -40,4 +42,12 @@ struct BodyDesc
 	std::uint32_t layer{ 1u << 0 }; // 自分のレイヤーを表す
 	std::uint32_t collisionMask{ 0xFFFFFFFF }; // どのレイヤーとあたり判定を行うかを表す
 	std::uint64_t userData{ 0 }; // 誰に当たったかを返す際に使うユーザーが定義する値(ID)
+};
+
+// Body同士の結果
+struct BodyToBodyResult
+{
+	ShapeToShapeResult shapeToShapeResult{}; // 形状どうしの衝突結果
+	BodyHandle bodyA{}; // 接触したもの
+	BodyHandle bodyB{}; // 接触されたもの
 };

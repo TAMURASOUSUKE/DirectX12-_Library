@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <span>
 #include <string>
 #include <variant>
 #include <vector>
@@ -59,6 +60,71 @@ TestResult RunPhysicsTests()
 		check("static: destroyed", Physics::DestroyBody(body));
 	}
 
+	// 球以外の形が床で止まること と 摩擦が効くこと(床の上面は y=0)
+	{
+		constexpr int STEP_COUNT{ 180 }; // 3秒分進める
+		constexpr float POSITION_TOLERANCE{ 0.03f }; // 止まる高さの許す誤差
+		constexpr float SPEED_TOLERANCE{ 0.05f }; // 止まったとみなす速さ
+
+		BodyDesc floorDesc{};
+		floorDesc.shapeData = Box{ Vector3::Zero, { 10.0f, 0.5f, 10.0f } };
+		floorDesc.position = { 0.0f, -0.5f, 0.0f };
+		floorDesc.motionType = MotionType::Static;
+		floorDesc.friction = 0.6f;
+		const BodyHandle floorBody{ Physics::CreateBody(floorDesc) };
+
+		// 落ちるカプセル(軸の半分0.5 半径0.3 なので止まる高さは0.8)
+		BodyDesc capsuleDesc{};
+		capsuleDesc.shapeData = Capsule{ { 0.0f, -0.5f, 0.0f }, { 0.0f, 0.5f, 0.0f }, 0.3f };
+		capsuleDesc.position = { 0.0f, 2.0f, -6.0f };
+		capsuleDesc.motionType = MotionType::Dynamic;
+		const BodyHandle capsule{ Physics::CreateBody(capsuleDesc) };
+
+		// 落ちる箱(半分の大きさ0.5 なので止まる高さは0.5)
+		BodyDesc boxDesc{};
+		boxDesc.shapeData = Box{ Vector3::Zero, { 0.5f, 0.5f, 0.5f } };
+		boxDesc.position = { 0.0f, 2.0f, -2.0f };
+		boxDesc.motionType = MotionType::Dynamic;
+		const BodyHandle box{ Physics::CreateBody(boxDesc) };
+
+		// 摩擦ありで滑る箱(止まるはず)
+		BodyDesc roughDesc{ boxDesc };
+		roughDesc.position = { -5.0f, 0.5f, 2.0f };
+		roughDesc.velocity = { 3.0f, 0.0f, 0.0f };
+		roughDesc.friction = 0.6f;
+		const BodyHandle roughBox{ Physics::CreateBody(roughDesc) };
+
+		// 摩擦なしで滑る箱(速さが変わらないはず)
+		BodyDesc smoothDesc{ boxDesc };
+		smoothDesc.position = { -5.0f, 0.5f, 6.0f };
+		smoothDesc.velocity = { 1.0f, 0.0f, 0.0f };
+		smoothDesc.friction = 0.0f;
+		const BodyHandle smoothBox{ Physics::CreateBody(smoothDesc) };
+
+		for (int i{ 0 }; i < STEP_COUNT; i++) Physics::Step(Time::FixedDeltaTime());
+
+		const BodyState capsuleState{ Physics::GetState(capsule) };
+		check("capsule: rests on floor", std::abs(capsuleState.position.y - 0.8f) < POSITION_TOLERANCE);
+		check("capsule: stopped", std::abs(capsuleState.velocity.y) < SPEED_TOLERANCE);
+
+		const BodyState boxState{ Physics::GetState(box) };
+		check("box: rests on floor", std::abs(boxState.position.y - 0.5f) < POSITION_TOLERANCE);
+		check("box: stopped", std::abs(boxState.velocity.y) < SPEED_TOLERANCE);
+
+		const BodyState roughState{ Physics::GetState(roughBox) };
+		check("friction: rough box stopped", std::abs(roughState.velocity.x) < SPEED_TOLERANCE);
+		check("friction: rough box stays on floor", std::abs(roughState.position.y - 0.5f) < POSITION_TOLERANCE);
+
+		const BodyState smoothState{ Physics::GetState(smoothBox) };
+		check("friction: smooth box keeps speed", std::abs(smoothState.velocity.x - 1.0f) < SPEED_TOLERANCE);
+
+		Physics::DestroyBody(floorBody);
+		Physics::DestroyBody(capsule);
+		Physics::DestroyBody(box);
+		Physics::DestroyBody(roughBox);
+		Physics::DestroyBody(smoothBox);
+	}
+
 	return result;
 }
 
@@ -72,6 +138,7 @@ std::vector<TestBody> MakeTestBodies()
 	floorDesc.shapeData = Box{ Vector3::Zero, { 5.0f, 0.5f, 5.0f } };
 	floorDesc.position = { 0.0f, -0.5f, 0.0f };
 	floorDesc.motionType = MotionType::Static;
+	floorDesc.friction = 0.6f;
 	bodies.push_back({ "Static Box", floorDesc, { 0.6f, 0.6f, 0.6f, 1.0f } });
 
 	// 重力で落ちる球
@@ -97,6 +164,43 @@ std::vector<TestBody> MakeTestBodies()
 	capsuleDesc.motionType = MotionType::Kinematic;
 	capsuleDesc.velocity = { 0.0f, 0.5f, 0.0f };
 	bodies.push_back({ "Kinematic Capsule", capsuleDesc, { 0.2f, 0.6f, 1.0f, 1.0f } });
+
+	// 床に少しめり込ませて置く球(重力なし 接触の点と法線を止まった状態で見るため)
+	BodyDesc restingDesc{};
+	restingDesc.shapeData = Sphere{ Vector3::Zero, 0.5f };
+	restingDesc.position = { 0.0f, 0.4f, 0.0f };
+	restingDesc.motionType = MotionType::Dynamic;
+	restingDesc.isGravityEnabled = false;
+	bodies.push_back({ "Resting Sphere (no gravity)", restingDesc, { 1.0f, 0.4f, 0.8f, 1.0f } });
+
+	// 落ちるカプセル(球以外の形が床で止まるかを見る)
+	BodyDesc fallingCapsuleDesc{};
+	fallingCapsuleDesc.shapeData = Capsule{ { 0.0f, -0.5f, 0.0f }, { 0.0f, 0.5f, 0.0f }, 0.3f };
+	fallingCapsuleDesc.position = { 1.5f, 4.0f, 3.0f };
+	fallingCapsuleDesc.motionType = MotionType::Dynamic;
+	bodies.push_back({ "Falling Capsule", fallingCapsuleDesc, { 0.3f, 0.9f, 0.9f, 1.0f } });
+
+	// 落ちる箱
+	BodyDesc fallingBoxDesc{};
+	fallingBoxDesc.shapeData = Box{ Vector3::Zero, { 0.5f, 0.5f, 0.5f } };
+	fallingBoxDesc.position = { -1.5f, 4.0f, 3.0f };
+	fallingBoxDesc.motionType = MotionType::Dynamic;
+	bodies.push_back({ "Falling Box", fallingBoxDesc, { 0.9f, 0.6f, 0.3f, 1.0f } });
+
+	// 摩擦ありで滑る箱(床の上で止まるはず)
+	BodyDesc roughBoxDesc{};
+	roughBoxDesc.shapeData = Box{ Vector3::Zero, { 0.5f, 0.5f, 0.5f } };
+	roughBoxDesc.position = { -4.0f, 0.5f, -2.5f };
+	roughBoxDesc.motionType = MotionType::Dynamic;
+	roughBoxDesc.velocity = { 3.0f, 0.0f, 0.0f };
+	roughBoxDesc.friction = 0.6f;
+	bodies.push_back({ "Sliding Box (friction 0.6)", roughBoxDesc, { 0.8f, 0.3f, 0.3f, 1.0f } });
+
+	// 摩擦なしで滑る箱(同じ速さのまま進み、床の端から落ちるはず)
+	BodyDesc smoothBoxDesc{ roughBoxDesc };
+	smoothBoxDesc.position = { -4.0f, 0.5f, -4.0f };
+	smoothBoxDesc.friction = 0.0f;
+	bodies.push_back({ "Sliding Box (friction 0)", smoothBoxDesc, { 0.5f, 0.5f, 1.0f, 1.0f } });
 
 	return bodies;
 }
@@ -161,6 +265,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	int stepCount{ 0 }; // 作り直してからStepを呼んだ回数
 	double lastStepMilliseconds{ 0.0 }; // 直近のStep一回の時間
 	double maxStepMilliseconds{ 0.0 }; // 作り直してからの最大
+	int lastContactCount{ -1 }; // 前のフレームの接触の数(変わったときだけログへ出す)
+	constexpr float CONTACT_POINT_RADIUS{ 0.06f }; // 接触の点を表す球の半径
+	constexpr float CONTACT_NORMAL_LENGTH{ 0.6f }; // 法線を表す線の長さ
 
 	// 注視点の周りを回るカメラ
 	Camera camera{};
@@ -235,6 +342,36 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			std::visit([&state, color](const auto& _shape) { DrawShape(_shape, state, color); }, body.desc.shapeData);
 		}
 
+		// 接触の点(赤い球)と法線(黄色い線 A->B)の描画 Stepの後に一覧を読む
+		const std::span<const BodyToBodyResult> contacts{ Physics::GetContacts() };
+		for (const BodyToBodyResult& contact : contacts)
+		{
+			const ShapeToShapeResult& shapeResult{ contact.shapeToShapeResult };
+			for (int i = 0; i < shapeResult.pointCount; i++)
+			{
+				const Vector3 point{ shapeResult.points[i].worldPosition };
+				Gfx::DrawCapsule3D(point, point, CONTACT_POINT_RADIUS, { 1.0f, 0.2f, 0.2f, 1.0f }, Primitive3DStyle::Fill);
+				Gfx::DrawLine3D(point, point + shapeResult.normal * CONTACT_NORMAL_LENGTH, { 1.0f, 1.0f, 0.2f, 1.0f });
+			}
+		}
+
+		// 接触の数が変わったときだけログへ出す(毎フレームは出さない)
+		const int contactCount{ static_cast<int>(contacts.size()) };
+		if (contactCount != lastContactCount)
+		{
+			DEBUG_LOG("接触の数 : {}\n", contactCount);
+			for (const BodyToBodyResult& contact : contacts)
+			{
+				const ShapeToShapeResult& shapeResult{ contact.shapeToShapeResult };
+				if (shapeResult.pointCount <= 0) continue;
+				const CollisionPoint& point{ shapeResult.points[0] };
+				DEBUG_LOG("  法線({}, {}, {})  深さ {}  点({}, {}, {})\n",
+					shapeResult.normal.x, shapeResult.normal.y, shapeResult.normal.z, point.depth,
+					point.worldPosition.x, point.worldPosition.y, point.worldPosition.z);
+			}
+			lastContactCount = contactCount;
+		}
+
 		// 操作と計測の表示
 		char text[256]{};
 		float textY{ 20.0f };
@@ -248,6 +385,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		textY += LINE_HEIGHT;
 
 		std::snprintf(text, sizeof(text), "Physics::Step  last: %.4f ms  max: %.4f ms", lastStepMilliseconds, maxStepMilliseconds);
+		Gfx::DrawString(text, { 20.0f, textY });
+		textY += LINE_HEIGHT;
+
+		std::snprintf(text, sizeof(text), "contacts: %d", contactCount);
 		Gfx::DrawString(text, { 20.0f, textY });
 		textY += LINE_HEIGHT;
 

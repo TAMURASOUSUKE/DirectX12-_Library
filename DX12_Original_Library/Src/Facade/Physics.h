@@ -1,4 +1,5 @@
 #pragma once
+#include <span>
 #include "../Physics/PhysicsType.h"
 #include "../Core/Handle/BodyHandle.h"
 
@@ -30,4 +31,7 @@ namespace Physics
 	bool SetRotation(BodyHandle _handle, Quaternion _rotation);
 	// 速度を設定する
 	bool SetVelocity(BodyHandle _handle, Vector3 _velocity);
+
+	// 直近のStepで見つかった接触の一覧を取得する(次のStepまで有効)
+	std::span<const BodyToBodyResult> GetContacts();
 }

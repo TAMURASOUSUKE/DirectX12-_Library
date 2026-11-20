@@ -1,8 +1,10 @@
 #pragma once
 #include <vector>
 #include <stack>
+#include <span>
 #include <cstdint>
 #include "PhysicsInternalType.h"
+#include "../Collision/CollisionSystem.h"
 #include "../Core/Handle/BodyHandle.h"
 
 // Bodyの台帳を持ち、物理のシミュレーションを進める
@@ -39,12 +41,32 @@ public:
 	bool SetRotation(BodyHandle _handle, Quaternion _rotation);
 	bool SetVelocity(BodyHandle _handle, Vector3 _velocity);
 
+	// 直近のStepで見つかった接触の一覧
+	std::span<const BodyToBodyResult> GetContacts() const;
+
 private:
 	// ハンドルを検証してBodyを一つ返す
 	BodyData* Lookup(BodyHandle _handle);
 
+	// Body2つの形をワールドへ直し表から関数を選んで接触を計算する
+	bool ComputeBodyContact(const BodyData& _bodyA, const BodyData& _bodyB, ShapeToShapeResult& _result);
+
+	// 全ての組を調べて接触の一覧を作り直す
+	void UpdateContacts();
+
+	// 接触している組の速度を直す
+	void SolveVelocities();
+
+	// 残っためり込みを位置で戻す
+	void CorrectPositions();
+
 private:
 	std::vector<BodySlot> slots{}; // bodyの台帳
 	std::stack<int> freeList{}; // 再利用できる番号
+
+	std::vector<BodyToBodyResult> contacts{}; // 直近のStepの接触の一覧
+	CollisionSystem collisionSystem{}; // 形どうしの接触を計算する
+
+	std::vector<ContactSolveData> contactSolveData{}; // contactsと同じ並びの解決用データ
 
 };

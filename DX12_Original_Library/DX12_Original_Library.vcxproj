@@ -230,6 +230,8 @@
   <ItemGroup>
     <ClInclude Include="Src\Animation\AnimationSystem.h" />
     <ClInclude Include="Src\Collision\Collider.h" />
+    <ClInclude Include="Src\Collision\CollisionConstant.h" />
+    <ClInclude Include="Src\Collision\CollisionType.h" />
     <ClInclude Include="Src\Collision\CollisionSystem.h" />
     <ClInclude Include="Src\Component\Camera.h" />
     <ClInclude Include="Src\Component\Light.h" />

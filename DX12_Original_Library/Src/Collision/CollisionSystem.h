@@ -1,5 +1,6 @@
 #pragma once
 #include "Collider.h"
+#include "CollisionType.h"
 
 // 衝突や接触判定を行う
 class CollisionSystem
@@ -22,6 +23,14 @@ public:
 	bool ComputePushOut(Capsule _movable, Capsule _obstacle, Vector3& _outMove);
 	bool ComputePushOut(Capsule _movable, Box _obstacle, Vector3& _outMove);
 	bool ComputePushOut(Capsule _movable, Sphere _obstacle, Vector3& _outMove);
+
+	// 型で返す
+	bool ComputeShapeContact(Sphere _sphereA, Sphere _sphereB, ShapeToShapeResult& _result);
+	bool ComputeShapeContact(Capsule _capsuleA, Sphere _sphereB, ShapeToShapeResult& _result);
+	bool ComputeShapeContact(Capsule _capsuleA, Capsule _capsuleB, ShapeToShapeResult& _result);
+	bool ComputeShapeContact(Sphere _sphereA, Box _boxB, ShapeToShapeResult& _result);
+	bool ComputeShapeContact(Capsule _capsuleA, Box _boxB, ShapeToShapeResult& _result);
+	bool ComputeShapeContact(Box _boxA, Box _boxB, ShapeToShapeResult& _result);
 
 private:
 
