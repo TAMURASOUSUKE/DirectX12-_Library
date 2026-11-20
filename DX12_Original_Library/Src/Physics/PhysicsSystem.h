@@ -54,11 +54,19 @@ private:
 	// 全ての組を調べて接触の一覧を作り直す
 	void UpdateContacts();
 
+	// 接触している組の速度を直す
+	void SolveVelocities();
+
+	// 残っためり込みを位置で戻す
+	void CorrectPositions();
+
 private:
 	std::vector<BodySlot> slots{}; // bodyの台帳
 	std::stack<int> freeList{}; // 再利用できる番号
 
 	std::vector<BodyToBodyResult> contacts{}; // 直近のStepの接触の一覧
 	CollisionSystem collisionSystem{}; // 形どうしの接触を計算する
+
+	std::vector<ContactSolveData> contactSolveData{}; // contactsと同じ並びの解決用データ
 
 };

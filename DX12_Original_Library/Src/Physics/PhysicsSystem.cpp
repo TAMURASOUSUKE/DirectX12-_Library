@@ -1,6 +1,7 @@
 #include <cmath>
 #include <variant>
 #include <array>
+#include <algorithm>
 #include "../Core/Handle/HandlePacking.h"
 #include "../Debug/DebugLogs.h"
 #include "PhysicsConstant.h"
@@ -108,6 +109,27 @@ namespace
 		return true;
 	}
 
+	// AとBへ逆向きに同じ力積を与える(速度の変化 = 力積 × 質量の逆数)
+	void ApplyImpulse(BodyData& _bodyA, BodyData& _bodyB, const Vector3& _impulse)
+	{
+		_bodyA.velocity -= _impulse * _bodyA.massInverse;
+		_bodyB.velocity += _impulse * _bodyB.massInverse;
+	}
+
+	// 法線に垂直な向きを2つ作る(摩擦をかける向き)
+	void MakeTangents(const Vector3& _normal, Vector3& _outTangent1, Vector3& _outTangent2)
+	{
+		Vector3 tangent{ Vector3::Cross(_normal, Vector3::Up) };
+		// 法線が上下を向いていると外積が0になるので別の軸を使う
+		if (tangent.LengthSquared() <= Math::EPSILON) tangent = Vector3::Cross(_normal, Vector3::Right);
+		tangent.Normalize();
+		_outTangent1 = tangent;
+		_outTangent2 = Vector3::Cross(_normal, tangent);
+	}
+}
+
+namespace
+{
 	// 形の番号2つで関数を選ぶ表 [Aの番号][Bの番号]  番号はShapeの並び 箱=0 カプセル=1 球=2
 	const std::array<std::array<ContactFunction, 3>, 3> contactFunctionTable{ {
 		{ &CallContact<Box, Box>,     &CallContactSwapped<Box, Capsule>,    &CallContactSwapped<Box, Sphere> },
@@ -122,12 +144,14 @@ void PhysicsSystem::Setup()
 	Shutdown(); // 再初期化対策
 	slots.reserve(MAX_BODY_COUNT); // 最大容量をあらかじめ確保(作成時に再確保させない)
 	contacts.reserve(MAX_CONTACT_COUNT); 
+	contactSolveData.reserve(MAX_CONTACT_COUNT);
 }
 
 void PhysicsSystem::Shutdown()
 {
 	slots.clear();
 	contacts.clear();
+	contactSolveData.clear();
 	while (!freeList.empty())
 	{
 		freeList.pop();
@@ -186,21 +210,31 @@ void PhysicsSystem::Step(float _deltaTime)
 		return;
 	}
 
-	// 台帳を直接回す
+	// 重力を速度へ足す(Dynamicだけ)
+	for (BodySlot& slot : slots)
+	{
+		if (!slot.isAlive) continue;
+		BodyData& data{ slot.data };
+		if (data.motionType == MotionType::Dynamic && data.isGravityEnabled) data.velocity.y += GRAVITY_Y * _deltaTime;
+	}
+
+	// 今の位置で接触を調べる
+	UpdateContacts();
+
+	// 接触している組の速度を直す
+	SolveVelocities();
+
+	// 直した後の速度で位置を進める
 	for (BodySlot& slot : slots)
 	{
 		if (!slot.isAlive) continue;
 		BodyData& data{ slot.data };
 		if (data.motionType == MotionType::Static) continue;
-
-		// 先に速度へ重力を足す(Dynamicだけ)
-		if (data.motionType == MotionType::Dynamic && data.isGravityEnabled) data.velocity.y += GRAVITY_Y * _deltaTime;
-
-		// 足した後の速度で位置を進める
 		data.position += data.velocity * _deltaTime;
 	}
-	// 進めた後の位置で接触を調べる
-	UpdateContacts();
+
+	// 残っためり込みを位置で戻す
+	CorrectPositions();
 }
 
 Vector3 PhysicsSystem::GetPosition(BodyHandle _handle)
@@ -297,6 +331,7 @@ bool PhysicsSystem::ComputeBodyContact(const BodyData& _bodyA, const BodyData& _
 void PhysicsSystem::UpdateContacts()
 {
 	contacts.clear(); // 容量は残るので確保は起きない
+	contactSolveData.clear();
 	const int slotCount{ static_cast<int>(slots.size()) };
 	for (int indexA = 0; indexA < slotCount; indexA++)
 	{
@@ -318,6 +353,76 @@ void PhysicsSystem::UpdateContacts()
 			contact.bodyA = BodyHandle{ PassKey{}, Pack(indexA, static_cast<int>(slotA.generation)) };
 			contact.bodyB = BodyHandle{ PassKey{}, Pack(indexB, static_cast<int>(slotB.generation)) };
 			contacts.push_back(contact);
+
+			ContactSolveData solve{};
+			solve.indexA = indexA;
+			solve.indexB = indexB;
+			solve.inverseMassSum = slotA.data.massInverse + slotB.data.massInverse;
+			solve.friction = std::sqrt(slotA.data.friction * slotB.data.friction);
+			solve.isSolved = !slotA.data.isTrigger && !slotB.data.isTrigger && solve.inverseMassSum > 0.0f;
+			MakeTangents(contact.shapeToShapeResult.normal, solve.tangent1, solve.tangent2);
+			contactSolveData.push_back(solve);
 		}
+	}
+}
+
+void PhysicsSystem::SolveVelocities()
+{
+	const int contactCount{ static_cast<int>(contacts.size()) };
+	for (int iteration = 0; iteration < SOLVER_ITERATION_COUNT; iteration++)
+	{
+		for (int i = 0; i < contactCount; i++)
+		{
+			ContactSolveData& solve{ contactSolveData[i] };
+			if (!solve.isSolved) continue;
+
+			BodyData& bodyA{ slots[solve.indexA].data };
+			BodyData& bodyB{ slots[solve.indexB].data };
+			const Vector3 normal{ contacts[i].shapeToShapeResult.normal };
+
+			// 法線の向きの相対速度 負ならAとBが近づいている
+			const float normalSpeed{ Vector3::Dot(bodyB.velocity - bodyA.velocity, normal) };
+			// 近づく速さをちょうど0にする力積
+			float normalImpulse{ -normalSpeed / solve.inverseMassSum };
+			// 合計が負(引っ張り合う向き)にならないように切る
+			const float previousNormalImpulse{ solve.normalImpulse };
+			solve.normalImpulse = (std::max)(previousNormalImpulse + normalImpulse, 0.0f);
+			normalImpulse = solve.normalImpulse - previousNormalImpulse;
+			ApplyImpulse(bodyA, bodyB, normal * normalImpulse);
+
+			// 摩擦 : 滑る速さを打ち消す ただし「摩擦の強さ × 押し付ける力積」まで
+			const float maxFriction{ solve.friction * solve.normalImpulse };
+			const auto solveTangent = [&](const Vector3& _tangent, float& _accumulated)
+				{
+					const float tangentSpeed{ Vector3::Dot(bodyB.velocity - bodyA.velocity, _tangent) };
+					float tangentImpulse{ -tangentSpeed / solve.inverseMassSum };
+					const float previous{ _accumulated };
+					_accumulated = std::clamp(previous + tangentImpulse, -maxFriction, maxFriction);
+					tangentImpulse = _accumulated - previous;
+					ApplyImpulse(bodyA, bodyB, _tangent * tangentImpulse);
+				};
+
+			solveTangent(solve.tangent1, solve.tangentImpulse1);
+			solveTangent(solve.tangent2, solve.tangentImpulse2);
+		}
+	}
+}
+
+void PhysicsSystem::CorrectPositions()
+{
+	const int contactCount{ static_cast<int>(contacts.size()) };
+	for (int i = 0; i < contactCount; i++)
+	{
+		const ContactSolveData& solve{ contactSolveData[i] };
+		if (!solve.isSolved) continue;
+		const ShapeToShapeResult& result{ contacts[i].shapeToShapeResult };
+		BodyData& bodyA{ slots[solve.indexA].data };
+		BodyData& bodyB{ slots[solve.indexB].data };
+
+		// 許す深さを超えた分だけ、質量の逆数の割合で2つに分けて戻す
+		const float depth{ result.points[0].depth };
+		const float correction{ (std::max)(depth - PENETRATION_SLOP, 0.0f) * PENETRATION_CORRECTION_RATE / solve.inverseMassSum };
+		bodyA.position -= result.normal * (correction * bodyA.massInverse);
+		bodyB.position += result.normal * (correction * bodyB.massInverse);
 	}
 }
