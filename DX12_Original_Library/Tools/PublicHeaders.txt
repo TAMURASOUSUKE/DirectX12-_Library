@@ -41,6 +41,8 @@ Facade/Physics.h
 
 Graphics/GfxType.h
 Physics/PhysicsType.h
+Collision/CollisionType.h
+Collision/CollisionConstant.h
 File/CSVTable.h
 
 Input/InputName.h
