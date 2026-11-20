@@ -66,3 +66,8 @@ bool Physics::SetVelocity(BodyHandle _handle, Vector3 _velocity)
 {
 	return physicsSystem.SetVelocity(_handle, _velocity);
 }
+
+std::span<const BodyToBodyResult> Physics::GetContacts()
+{
+	return physicsSystem.GetContacts();
+}

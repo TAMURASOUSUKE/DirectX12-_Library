@@ -41,7 +41,7 @@ public:
 	bool SetRotation(BodyHandle _handle, Quaternion _rotation);
 	bool SetVelocity(BodyHandle _handle, Vector3 _velocity);
 
-	// 直近のStepで見つかった接触の一覧(次のStepまで有効)
+	// 直近のStepで見つかった接触の一覧
 	std::span<const BodyToBodyResult> GetContacts() const;
 
 private:

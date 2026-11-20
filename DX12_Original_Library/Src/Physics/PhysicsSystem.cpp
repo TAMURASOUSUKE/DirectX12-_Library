@@ -121,11 +121,13 @@ void PhysicsSystem::Setup()
 {
 	Shutdown(); // 再初期化対策
 	slots.reserve(MAX_BODY_COUNT); // 最大容量をあらかじめ確保(作成時に再確保させない)
+	contacts.reserve(MAX_CONTACT_COUNT); 
 }
 
 void PhysicsSystem::Shutdown()
 {
 	slots.clear();
+	contacts.clear();
 	while (!freeList.empty())
 	{
 		freeList.pop();
@@ -197,6 +199,8 @@ void PhysicsSystem::Step(float _deltaTime)
 		// 足した後の速度で位置を進める
 		data.position += data.velocity * _deltaTime;
 	}
+	// 進めた後の位置で接触を調べる
+	UpdateContacts();
 }
 
 Vector3 PhysicsSystem::GetPosition(BodyHandle _handle)
@@ -249,6 +253,11 @@ bool PhysicsSystem::SetVelocity(BodyHandle _handle, Vector3 _velocity)
 	return true;
 }
 
+std::span<const BodyToBodyResult> PhysicsSystem::GetContacts() const
+{
+	return contacts;
+}
+
 BodyData* PhysicsSystem::Lookup(BodyHandle _handle)
 {
 	if (!_handle.IsValid())
@@ -276,4 +285,39 @@ BodyData* PhysicsSystem::Lookup(BodyHandle _handle)
 		return nullptr; // 生存チェック
 	}
 	return &slot.data;
+}
+
+bool PhysicsSystem::ComputeBodyContact(const BodyData& _bodyA, const BodyData& _bodyB, ShapeToShapeResult& _result)
+{
+	const Shape shapeA{ ToWorldShape(_bodyA) };
+	const Shape shapeB{ ToWorldShape(_bodyB) };
+	return contactFunctionTable[shapeA.index()][shapeB.index()](collisionSystem, shapeA, shapeB, _result);
+}
+
+void PhysicsSystem::UpdateContacts()
+{
+	contacts.clear(); // 容量は残るので確保は起きない
+	const int slotCount{ static_cast<int>(slots.size()) };
+	for (int indexA = 0; indexA < slotCount; indexA++)
+	{
+		const BodySlot& slotA{ slots[indexA] };
+		if (!slotA.isAlive) continue;
+
+		// 同じ組を2回調べないようBは必ずAより後ろの番号から始める
+		for (int indexB = indexA + 1; indexB < slotCount; indexB++)
+		{
+			const BodySlot& slotB{ slots[indexB] };
+			if (!slotB.isAlive) continue;
+			// どちらもDynamicでない組は押し合わないので調べない
+			if (slotA.data.motionType != MotionType::Dynamic && slotB.data.motionType != MotionType::Dynamic) continue;
+			// 上限に達したらこのStepはここまで
+			if (static_cast<int>(contacts.size()) >= MAX_CONTACT_COUNT) return;
+
+			BodyToBodyResult contact{};
+			if (!ComputeBodyContact(slotA.data, slotB.data, contact.shapeToShapeResult)) continue;
+			contact.bodyA = BodyHandle{ PassKey{}, Pack(indexA, static_cast<int>(slotA.generation)) };
+			contact.bodyB = BodyHandle{ PassKey{}, Pack(indexB, static_cast<int>(slotB.generation)) };
+			contacts.push_back(contact);
+		}
+	}
 }
