@@ -26,6 +26,8 @@ public:
 
 	// 型で返す
 	bool ComputeShapeContact(Sphere _sphereA, Sphere _sphereB, ShapeToShapeResult& _result);
+	bool ComputeShapeContact(Capsule _capsuleA, Sphere _sphereB, ShapeToShapeResult& _result);
+	bool ComputeShapeContact(Capsule _capsuleA, Capsule _capsuleB, ShapeToShapeResult& _result);
 
 private:
 

@@ -833,3 +833,56 @@ bool CollisionSystem::ComputeShapeContact(Sphere _sphereA, Sphere _sphereB, Shap
 	return true;
 }
 
+bool CollisionSystem::ComputeShapeContact(Capsule _capsuleA, Sphere _sphereB, ShapeToShapeResult& _result)
+{
+	if (!_capsuleA.IsValid() || !_sphereB.IsValid()) return false;
+	const Vector3 closestPoint{ ClosestPointOnSegment(_sphereB.center, _capsuleA.startPos, _capsuleA.endPos) }; // その軸上の最近点
+	const Sphere closestPointSphere{ closestPoint, _capsuleA.radius }; // 最近点から見た球
+
+	const Vector3 difference{ closestPoint - _sphereB.center }; // 球中心からカプセル軸上の最近点への方向
+	const float distanceSquared{ difference.LengthSquared() };
+	const float radiusSum{ _capsuleA.radius + _sphereB.radius };
+
+	// 最近点と球中心が一致すると通常の方向を作れないため、カプセル軸に垂直な方向へ退避する
+	if (distanceSquared <= Math::EPSILON * Math::EPSILON)
+	{
+		const Vector3 normal{ PerpendicularTo(_capsuleA.endPos - _capsuleA.startPos) }; // 軸に垂直な長さ1の向き
+		const float depth{ radiusSum }; // 中心が重なっているので半径の合計だけ離す
+		_result.normal = normal;
+		_result.points[0] = CollisionPoint{ closestPoint + normal * (_capsuleA.radius - depth * 0.5f), depth };
+		_result.pointCount = 1;
+		return true;
+	}
+	return ComputeShapeContact(closestPointSphere, _sphereB, _result);
+}
+
+bool CollisionSystem::ComputeShapeContact(Capsule _capsuleA, Capsule _capsuleB, ShapeToShapeResult& _result)
+{
+	if (!_capsuleA.IsValid() || !_capsuleB.IsValid()) return false;
+
+	const SegmentPair pair{ ClosestSegmentPair(_capsuleA.startPos, _capsuleA.endPos, _capsuleB.startPos, _capsuleB.endPos) };
+	const Sphere sphereA{ pair.first, _capsuleA.radius }; // A側のSphere
+	const Sphere sphereB{ pair.second, _capsuleB.radius }; // B側のSphere
+
+	const Vector3 difference{ pair.second - pair.first }; // Aの最近点からBの最近点へ
+	if (difference.LengthSquared() <= Math::EPSILON * Math::EPSILON)
+	{
+		const Vector3 axisA{ _capsuleA.endPos - _capsuleA.startPos };
+		const Vector3 axisB{ _capsuleB.endPos - _capsuleB.startPos };
+
+		// それぞれの軸に対して垂直な方向へ法線を作る
+		Vector3 normal{ Vector3::Cross(axisA, axisB) };
+		// 平行なら外積は0になるので長いほうの軸に垂直な向きを使う
+		if (normal.LengthSquared() <= Math::EPSILON * Math::EPSILON) normal = PerpendicularTo(axisA.LengthSquared() > axisB.LengthSquared() ? axisA : axisB);
+		else normal.Normalize();
+
+		const float depth{ _capsuleA.radius + _capsuleB.radius };
+		_result.normal = normal;
+		_result.points[0] = CollisionPoint{ pair.first + normal * (_capsuleA.radius - depth * 0.5f), depth };
+		_result.pointCount = 1;
+		return true;
+	}
+
+	return ComputeShapeContact(sphereA, sphereB, _result);
+}
+
