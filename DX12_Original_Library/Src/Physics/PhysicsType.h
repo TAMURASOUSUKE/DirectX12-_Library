@@ -41,3 +41,13 @@ struct BodyDesc
 	std::uint32_t collisionMask{ 0xFFFFFFFF }; // どのレイヤーとあたり判定を行うかを表す
 	std::uint64_t userData{ 0 }; // 誰に当たったかを返す際に使うユーザーが定義する値(ID)
 };
+
+// 形同士の結果
+struct ShapeToShapeResult
+{
+	Vector3 normal{ Vector3::Zero }; // 法線
+	std::array<CollisionPoint, 4> points; // 点の配列
+	int pointCount{ 0 }; // 入っている点の数
+	BodyHandle bodyA{}; // 接触したもの
+	BodyHandle bodyB{}; // 接触されたもの
+};
