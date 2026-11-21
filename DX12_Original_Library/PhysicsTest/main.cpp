@@ -1,6 +1,7 @@
 #include "../Src/Facade/TSLib.h"
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <span>
@@ -569,6 +570,95 @@ void DrawShape(const HeightFieldShape& _heightField, const BodyState& _state, Ve
 	}
 }
 
+// 形がXとZの向きに占める範囲(F7の升の表示で使う ライブラリの中と同じ計算をテスト側でやり直している)
+struct TestRangeXZ
+{
+	bool isValid{ false }; // 範囲を持つ形か(動かない形は持たない)
+	float minX{ 0.0f }; // Xの最小
+	float maxX{ 0.0f }; // Xの最大
+	float minZ{ 0.0f }; // Zの最小
+	float maxZ{ 0.0f }; // Zの最大
+};
+
+TestRangeXZ GetTestRangeXZ(const Sphere& _sphere, const BodyState& _state)
+{
+	const Vector3 center{ _state.position + _state.rotation.RotateVector(_sphere.center) };
+	return TestRangeXZ{ true, center.x - _sphere.radius, center.x + _sphere.radius, center.z - _sphere.radius, center.z + _sphere.radius };
+}
+
+TestRangeXZ GetTestRangeXZ(const Capsule& _capsule, const BodyState& _state)
+{
+	const Vector3 start{ _state.position + _state.rotation.RotateVector(_capsule.startPos) };
+	const Vector3 end{ _state.position + _state.rotation.RotateVector(_capsule.endPos) };
+	return TestRangeXZ{ true,
+		(std::min)(start.x, end.x) - _capsule.radius, (std::max)(start.x, end.x) + _capsule.radius,
+		(std::min)(start.z, end.z) - _capsule.radius, (std::max)(start.z, end.z) + _capsule.radius };
+}
+
+TestRangeXZ GetTestRangeXZ(const Box& _box, const BodyState& _state)
+{
+	const Vector3 center{ _state.position + _state.rotation.RotateVector(_box.center) };
+	const Quaternion rotation{ _state.rotation * _box.rotation };
+	const Vector3 axisX{ rotation.RotateVector(Vector3::Right) };
+	const Vector3 axisY{ rotation.RotateVector(Vector3::Up) };
+	const Vector3 axisZ{ rotation.RotateVector(Vector3::Forward) };
+	const float radiusX{ _box.halfSize.x * std::abs(axisX.x) + _box.halfSize.y * std::abs(axisY.x) + _box.halfSize.z * std::abs(axisZ.x) };
+	const float radiusZ{ _box.halfSize.x * std::abs(axisX.z) + _box.halfSize.y * std::abs(axisY.z) + _box.halfSize.z * std::abs(axisZ.z) };
+	return TestRangeXZ{ true, center.x - radiusX, center.x + radiusX, center.z - radiusZ, center.z + radiusZ };
+}
+
+TestRangeXZ GetTestRangeXZ(const TriangleMeshShape& _mesh, const BodyState& _state)
+{
+	return TestRangeXZ{};
+}
+
+TestRangeXZ GetTestRangeXZ(const HeightFieldShape& _heightField, const BodyState& _state)
+{
+	return TestRangeXZ{};
+}
+
+// 画面の高さの格子の上で 形の範囲が重なっている升を枠と対角線で描く(格子は回転させずに置いている前提)
+void DrawOverlappedFieldCells(const TestRangeXZ& _range, Vector4 _color)
+{
+	if (!_range.isValid) return;
+
+	// ワールドの範囲を格子の角からの位置へ直す
+	const float minX{ _range.minX - FIELD_POSITION.x };
+	const float maxX{ _range.maxX - FIELD_POSITION.x };
+	const float minZ{ _range.minZ - FIELD_POSITION.z };
+	const float maxZ{ _range.maxZ - FIELD_POSITION.z };
+	const float fieldSizeX{ static_cast<float>(FIELD_COUNT_X - 1) * FIELD_CELL_SIZE };
+	const float fieldSizeZ{ static_cast<float>(FIELD_COUNT_Z - 1) * FIELD_CELL_SIZE };
+	if (maxX < 0.0f || minX > fieldSizeX || maxZ < 0.0f || minZ > fieldSizeZ) return; // 格子の外
+
+	// 位置を升の大きさで割って切り捨てると升の番号になる
+	const int cellMinX{ std::clamp(static_cast<int>(std::floor(minX / FIELD_CELL_SIZE)), 0, FIELD_COUNT_X - 2) };
+	const int cellMaxX{ std::clamp(static_cast<int>(std::floor(maxX / FIELD_CELL_SIZE)), 0, FIELD_COUNT_X - 2) };
+	const int cellMinZ{ std::clamp(static_cast<int>(std::floor(minZ / FIELD_CELL_SIZE)), 0, FIELD_COUNT_Z - 2) };
+	const int cellMaxZ{ std::clamp(static_cast<int>(std::floor(maxZ / FIELD_CELL_SIZE)), 0, FIELD_COUNT_Z - 2) };
+
+	constexpr float LIFT{ 0.03f }; // 格子の線と重ならないよう少し浮かせる
+	const auto corner = [LIFT](int _x, int _z)
+		{
+			return FIELD_POSITION + Vector3{ static_cast<float>(_x) * FIELD_CELL_SIZE, FIELD_HEIGHTS[_z * FIELD_COUNT_X + _x] + LIFT, static_cast<float>(_z) * FIELD_CELL_SIZE };
+		};
+	for (int z = cellMinZ; z <= cellMaxZ; z++)
+	{
+		for (int x = cellMinX; x <= cellMaxX; x++)
+		{
+			const Vector3 corner00{ corner(x, z) };
+			const Vector3 corner10{ corner(x + 1, z) };
+			const Vector3 corner01{ corner(x, z + 1) };
+			const Vector3 corner11{ corner(x + 1, z + 1) };
+			Gfx::DrawLine3D(corner00, corner10, _color);
+			Gfx::DrawLine3D(corner10, corner11, _color);
+			Gfx::DrawLine3D(corner11, corner01, _color);
+			Gfx::DrawLine3D(corner01, corner00, _color);
+			Gfx::DrawLine3D(corner00, corner11, _color); // 三角形2枚に割る対角線
+		}
+	}
+}
+
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
 	if (!TSLib::Initialize(L"PhysicsTest", 1280, 720)) return -1;
@@ -586,6 +676,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	CreateBodies(bodies);
 
 	bool isPaused{ false }; // Stepを止めているか
+	bool isFieldCellVisible{ false }; // 高さの格子で調べている升を描くか
 	int stepCount{ 0 }; // 作り直してからStepを呼んだ回数
 	double lastStepMilliseconds{ 0.0 }; // 直近のStep一回の時間
 	double maxStepMilliseconds{ 0.0 }; // 作り直してからの最大
@@ -642,6 +733,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		bool isStepOnceRequested{ isPaused && Input::IsKeyPushed(KeyCode::Button::N) };
 		// F1 : Debug Overlayの切り替え
 		if (Input::IsKeyPushed(KeyCode::Button::F1)) Debug::SetOverlayVisible(!Debug::IsOverlayVisible());
+		// F7 : 高さの格子で調べている升の表示の切り替え
+		if (Input::IsKeyPushed(KeyCode::Button::F7)) isFieldCellVisible = !isFieldCellVisible;
 		// R : 全て破棄して作り直す(破棄と番号の再利用も通る)
 		if (Input::IsKeyPushed(KeyCode::Button::R))
 		{
@@ -687,6 +780,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			std::visit([&state, color](const auto& _shape) { DrawShape(_shape, state, color); }, body.desc.shapeData);
 		}
 
+		// F7 : 形の範囲が重なっている升(高さの格子が実際に調べる升)を赤い枠で描く
+		if (isFieldCellVisible)
+		{
+			for (const TestBody& body : bodies)
+			{
+				const BodyState state{ Physics::GetState(body.handle) };
+				const TestRangeXZ range{ std::visit([&state](const auto& _shape) { return GetTestRangeXZ(_shape, state); }, body.desc.shapeData) };
+				DrawOverlappedFieldCells(range, { 1.0f, 0.2f, 0.2f, 1.0f });
+			}
+		}
+
 		// 接触の点(赤い球)と法線(黄色い線 A->B)の描画 Stepの後に一覧を読む
 		const std::span<const BodyToBodyResult> contacts{ Physics::GetContacts() };
 		for (const BodyToBodyResult& contact : contacts)
@@ -721,7 +825,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		char text[256]{};
 		float textY{ 20.0f };
 		constexpr float LINE_HEIGHT{ 30.0f };
-		Gfx::DrawString("Space: pause  N: step once  R: recreate  F1: overlay  Right drag: rotate  WASD/QE: move  Shift: fast  ESC: exit", { 20.0f, textY });
+		Gfx::DrawString("Space: pause  N: step once  R: recreate  F1: overlay  Right drag: rotate  WASD/QE: move  Shift: fast  F7: field cells  ESC: exit", { 20.0f, textY });
 		textY += LINE_HEIGHT;
 
 		const double simulatedSeconds{ static_cast<double>(stepCount) * static_cast<double>(Time::FixedDeltaTime()) };
