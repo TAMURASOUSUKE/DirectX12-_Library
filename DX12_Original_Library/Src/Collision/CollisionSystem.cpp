@@ -117,6 +117,82 @@ namespace
 		// 割合sとtから、各線分上の最近点を復元して返す。
 		return { a + u * static_cast<float>(s), c + v * static_cast<float>(t) };
 	}
+
+	// 三角形の上の最近点がどこにあったか
+	enum class TriangleRegion
+	{
+		VertexA, // 頂点A
+		VertexB, // 頂点B
+		VertexC, // 頂点C
+		EdgeAB, // 辺AB
+		EdgeBC, // 辺BC
+		EdgeCA, // 辺CA
+		Face, // 面
+	};
+
+	// 三角形の上の最近点とその場所
+	struct TriangleClosestPoint
+	{
+		Vector3 point{ Vector3::Zero }; // 最近点
+		TriangleRegion region{ TriangleRegion::Face }; // 最近点があった場所
+	};
+
+	// 三角形上の最近点を出す
+	TriangleClosestPoint ClosestPointOnTriangle(const Vector3& _point, const Vector3& _a, const Vector3& _b, const Vector3& _c)
+	{
+		// 逆方向は逆ベクトルで対応するためこの三つを基本的には使う
+		const Vector3 AB{ _b - _a }; // A->B
+		const Vector3 AC{ _c - _a }; // A->C
+		const Vector3 BC{ _c - _b }; // B->C
+
+		// 頂点の検査
+
+		// 頂点A
+		const Vector3 AP{ _point - _a }; // A->P
+		const float APdotAB{ Vector3::Dot(AP, AB) };
+		const float APdotAC{ Vector3::Dot(AP, AC) };
+		// どちらの内積も負の値ならABACどちらの辺の逆ベクトル方向に交差した空間内にあるということなので頂点Aを最近点とする
+		if (APdotAB <= 0 && APdotAC <= 0) return TriangleClosestPoint{ _a, TriangleRegion::VertexA };
+
+		// 頂点B
+		const Vector3 BP{ _point - _b }; // B->P
+		const float BPdotBA{ Vector3::Dot(BP, -AB) };
+		const float BPdotBC{ Vector3::Dot(BP, BC) };
+		// どちらの内積も負の値ならBABCどちらの辺の逆ベクトル方向に交差した空間内にあるということなので頂点Bを最近点とする
+		if (BPdotBA <= 0 && BPdotBC <= 0) return TriangleClosestPoint{ _b, TriangleRegion::VertexB };
+
+		// 頂点C
+		const Vector3 CP{ _point - _c }; // C->P
+		const float CPdotCA{ Vector3::Dot(CP, -AC) };
+		const float CPdotCB{ Vector3::Dot(CP, -BC) };
+		// どちらの内積も負の値ならCACBどちらの辺の逆ベクトル方向に交差した空間内にあるということなので頂点Cを最近点とする
+		if (CPdotCA <= 0 && CPdotCB <= 0) return TriangleClosestPoint{ _c, TriangleRegion::VertexC };
+
+		// 辺のチェック
+		const Vector3 n{ Vector3::Cross(AB, AC) }; // 法線
+		// AB
+		const Vector3 nCrossAB{ Vector3::Cross(n, AB) }; // 法線と調べる軸での外積で点が外側にあるか調べるベクトルを出す
+		const float sideAB{ Vector3::Dot(nCrossAB, AP) }; // 調べる軸の内側か外側かを見る
+		// 外側だったときはAB上に最近点があるとみるのでClosestPointOnSegmentで最近点を出す
+		if (sideAB <= 0 && APdotAB >= 0 && BPdotBA >= 0) return TriangleClosestPoint{ ClosestPointOnSegment(_point, _a, _b), TriangleRegion::EdgeAB };
+
+		// BC
+		const Vector3 nCrossBC{ Vector3::Cross(n, BC) }; // 法線と調べる軸での外積で点が外側にあるか調べるベクトルを出す
+		const float sideBC{ Vector3::Dot(nCrossBC, BP) }; // 調べる軸の内側か外側かを見る
+		// 外側だったときはBC上に最近点があるとみるのでClosestPointOnSegmentで最近点を出す
+		if (sideBC <= 0 && BPdotBC >= 0 && CPdotCB >= 0) return TriangleClosestPoint{ ClosestPointOnSegment(_point, _b, _c), TriangleRegion::EdgeBC };
+
+		// CA
+		const Vector3 nCrossCA{ Vector3::Cross(n, -AC) }; // 法線と調べる軸での外積で点が外側にあるか調べるベクトルを出す
+		const float sideCA{ Vector3::Dot(nCrossCA, CP) }; // 調べる軸の内側か外側かを見る
+		// 外側だったときはCA上に最近点があるとみるのでClosestPointOnSegmentで最近点を出す
+		if (sideCA <= 0 && CPdotCA >= 0 && APdotAC >= 0) return TriangleClosestPoint{ ClosestPointOnSegment(_point, _c, _a), TriangleRegion::EdgeCA };
+
+		// ここまで来たら面を探索する
+		const float nLengthSqr{ n.LengthSquared() };
+		const float k{ Vector3::Dot(AP, n) / nLengthSqr }; // n方向にAPを投影した長さがnの長さのうちどのくらいの割合を占めているか
+		return TriangleClosestPoint{ _point - n * k, TriangleRegion::Face }; // 位置から高さだけ引いて面に引き込む
+	}
 }
 
 bool CollisionSystem::Intersect(Rect _rect01, Rect _rect02)

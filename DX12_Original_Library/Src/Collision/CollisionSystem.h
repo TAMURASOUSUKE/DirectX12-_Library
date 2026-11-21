@@ -31,6 +31,7 @@ public:
 	bool ComputeShapeContact(Sphere _sphereA, Box _boxB, ShapeToShapeResult& _result);
 	bool ComputeShapeContact(Capsule _capsuleA, Box _boxB, ShapeToShapeResult& _result);
 	bool ComputeShapeContact(Box _boxA, Box _boxB, ShapeToShapeResult& _result);
+	bool ComputeShapeContact(Sphere _sphereA, Triangle _triangleB, ShapeToShapeResult& _result);
 
 private:
 

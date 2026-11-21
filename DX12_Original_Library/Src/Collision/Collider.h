@@ -84,3 +84,22 @@ struct Capsule
 	Vector3 endPos{ Vector3::Zero }; // 終端 
 	float radius{ 1.0f }; // 半径
 };
+
+// ワールド空間の三角形
+struct Triangle
+{
+	Triangle() = default;
+	// 3つの頂点で初期化する
+	Triangle(Vector3 _a, Vector3 _b, Vector3 _c) : a{ _a }, b{ _b }, c{ _c } {}
+
+	// 頂点が有限値で面積が0でないかを確認
+	bool IsValid() const
+	{
+		if (!Vector3::IsFinite(a) || !Vector3::IsFinite(b) || !Vector3::IsFinite(c)) return false;
+		return Vector3::Cross(b - a, c - a).LengthSquared() > Math::EPSILON * Math::EPSILON; // 3点が一直線だと外積が0になる
+	}
+
+	Vector3 a{ Vector3::Zero }; // 頂点A
+	Vector3 b{ Vector3::Zero }; // 頂点B
+	Vector3 c{ Vector3::Zero }; // 頂点C
+};
