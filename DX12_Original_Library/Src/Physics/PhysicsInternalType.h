@@ -50,6 +50,26 @@ struct TriangleMeshSlot
 	bool isAlive{ false }; // 生存フラグ
 };
 
+// Shapeの並びの中のHeightFieldShapeの番号(shape.index()と比べる)
+constexpr std::size_t HEIGHT_FIELD_SHAPE_INDEX{ 4 };
+
+// 高さの格子一つ分のデータ(格子の角がローカルの原点 XとZの正の向きへ並ぶ)
+struct HeightFieldData
+{
+	int countX{ 0 }; // X方向の点の数
+	int countZ{ 0 }; // Z方向の点の数
+	float cellSize{ 0.0f }; // 升の一辺の長さ
+	std::vector<float> heights{}; // 高さの並び heights[z * countX + x]
+};
+
+// 高さの格子一つ分のスロット
+struct HeightFieldSlot
+{
+	HeightFieldData data{}; // 実データ
+	std::uint32_t generation{ 0 }; // 世代
+	bool isAlive{ false }; // 生存フラグ
+};
+
 // 接触1つ分の解決用データ(contactsと同じ並びで持つ)
 struct ContactSolveData
 {

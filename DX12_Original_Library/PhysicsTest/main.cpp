@@ -1,6 +1,7 @@
 #include "../Src/Facade/TSLib.h"
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <span>
@@ -13,6 +14,7 @@ struct TestResult
 {
 	int failedCount{ 0 };
 	std::string firstFailure{};
+	double largeFieldStepMilliseconds{ 0.0 }; // 広い高さの格子の上でのStep一回の平均時間
 };
 
 // 画面に出すためにテスト側で持つBody一つ分の情報(Physicsは描かないので形状と色はここで覚える)
@@ -34,6 +36,21 @@ const std::vector<Vector3> TENT_VERTICES{
 const std::vector<std::uint32_t> TENT_INDICES{ 0, 1, 2,  1, 3, 2,  2, 3, 4,  3, 5, 4 };
 // 山を置く位置
 const Vector3 TENT_POSITION{ 8.5f, 0.0f, 0.0f };
+
+// 画面に置く高さの格子(点は5x5 升は一辺2 描画にも使うのでテスト側で覚える)
+constexpr int FIELD_COUNT_X{ 5 };
+constexpr int FIELD_COUNT_Z{ 5 };
+constexpr float FIELD_CELL_SIZE{ 2.0f };
+// 高さの並び heights[z * countX + x] 手前が低く奥へ向かって上がる坂と中央のくぼみ
+const std::vector<float> FIELD_HEIGHTS{
+	0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+	0.0f, 0.2f, 0.0f, 0.2f, 0.0f,
+	0.3f, 0.5f, 0.2f, 0.5f, 0.3f,
+	0.8f, 1.0f, 0.8f, 1.0f, 0.8f,
+	1.5f, 1.5f, 1.5f, 1.5f, 1.5f,
+};
+// 高さの格子を置く位置(格子の角)
+const Vector3 FIELD_POSITION{ -15.5f, 0.0f, -4.0f };
 
 // 起動時に一回だけ走る数値テスト 確かめる項目と期待値はここへ書く
 TestResult RunPhysicsTests()
@@ -210,6 +227,120 @@ TestResult RunPhysicsTests()
 		check("mesh: destroyed after body", Physics::DestroyTriangleMesh(mesh));
 	}
 
+	// 高さの格子 登録できること と 球・カプセル・箱が平らな格子の上で止まること と 格子の外では当たらないこと
+	// この項目と期待値はAIが置いた(形の大きさから機械的に決まる確認だけ)
+	{
+		constexpr int STEP_COUNT{ 180 }; // 3秒分進める
+		constexpr float POSITION_TOLERANCE{ 0.03f }; // 止まる高さの許す誤差
+		constexpr float SPEED_TOLERANCE{ 0.05f }; // 止まったとみなす速さ
+
+		// 点は3x3 升は一辺4 高さは全部0 の平らな格子(一辺8)
+		const std::vector<float> heights(9, 0.0f);
+		const HeightFieldHandle field{ Physics::CreateHeightField(3, 3, 4.0f, heights) };
+		check("field: registered", field.IsValid());
+		// 高さの数が合わない並びは登録できない(エラーログが1行出るのは正しい動き)
+		check("field: wrong count rejected", !Physics::CreateHeightField(4, 3, 4.0f, heights).IsValid());
+
+		BodyDesc fieldDesc{};
+		fieldDesc.shapeData = HeightFieldShape{ field };
+		fieldDesc.position = { 20.0f, 0.0f, 20.0f }; // 格子の角
+		fieldDesc.motionType = MotionType::Static;
+		const BodyHandle fieldBody{ Physics::CreateBody(fieldDesc) };
+		check("field: static body created", fieldBody.IsValid());
+
+		// 落ちる球(半径0.5 なので止まる高さは0.5 升の境目と対角線から離れた位置へ落とす)
+		BodyDesc sphereDesc{};
+		sphereDesc.shapeData = Sphere{ Vector3::Zero, 0.5f };
+		sphereDesc.position = { 26.5f, 2.0f, 21.0f };
+		sphereDesc.motionType = MotionType::Dynamic;
+		const BodyHandle sphere{ Physics::CreateBody(sphereDesc) };
+
+		// 落ちるカプセル(止まる高さは0.8)
+		BodyDesc capsuleDesc{};
+		capsuleDesc.shapeData = Capsule{ { 0.0f, -0.5f, 0.0f }, { 0.0f, 0.5f, 0.0f }, 0.3f };
+		capsuleDesc.position = { 22.5f, 2.0f, 21.0f };
+		capsuleDesc.motionType = MotionType::Dynamic;
+		const BodyHandle capsule{ Physics::CreateBody(capsuleDesc) };
+
+		// 落ちる箱(止まる高さは0.5)
+		BodyDesc boxDesc{};
+		boxDesc.shapeData = Box{ Vector3::Zero, { 0.5f, 0.5f, 0.5f } };
+		boxDesc.position = { 26.5f, 2.0f, 25.0f };
+		boxDesc.motionType = MotionType::Dynamic;
+		const BodyHandle box{ Physics::CreateBody(boxDesc) };
+
+		// 升の境目の真上へ落とす球(格子のローカルで x=4 の線の上 境目で落ちないことを見る)
+		BodyDesc borderDesc{ sphereDesc };
+		borderDesc.position = { 24.0f, 2.0f, 22.5f };
+		const BodyHandle border{ Physics::CreateBody(borderDesc) };
+
+		// 格子の外へ落とす球(受ける物が無いので落ち続けるはず)
+		BodyDesc outsideDesc{ sphereDesc };
+		outsideDesc.position = { 17.0f, 2.0f, 21.0f };
+		const BodyHandle outside{ Physics::CreateBody(outsideDesc) };
+
+		for (int i{ 0 }; i < STEP_COUNT; i++) Physics::Step(Time::FixedDeltaTime());
+
+		const BodyState sphereState{ Physics::GetState(sphere) };
+		check("field: sphere rests on field", std::abs(sphereState.position.y - 0.5f) < POSITION_TOLERANCE);
+		check("field: sphere stopped", std::abs(sphereState.velocity.y) < SPEED_TOLERANCE);
+
+		const BodyState capsuleState{ Physics::GetState(capsule) };
+		check("field: capsule rests on field", std::abs(capsuleState.position.y - 0.8f) < POSITION_TOLERANCE);
+
+		const BodyState boxState{ Physics::GetState(box) };
+		check("field: box rests on field", std::abs(boxState.position.y - 0.5f) < POSITION_TOLERANCE);
+
+		check("field: sphere stays on cell border", std::abs(Physics::GetPosition(border).y - 0.5f) < POSITION_TOLERANCE);
+		check("field: no contact outside", Physics::GetPosition(outside).y < -1.0f);
+
+		// Bodyが使っている間は削除できない(エラーログが1行出るのは正しい動き) Bodyを消した後なら削除できる
+		check("field: destroy refused while used", !Physics::DestroyHeightField(field));
+		Physics::DestroyBody(sphere);
+		Physics::DestroyBody(capsule);
+		Physics::DestroyBody(box);
+		Physics::DestroyBody(border);
+		Physics::DestroyBody(outside);
+		Physics::DestroyBody(fieldBody);
+		check("field: destroyed after body", Physics::DestroyHeightField(field));
+	}
+
+	// 広い高さの格子(点は129x129 升は一辺16 一辺2048)の上でも球が止まること と そのときのStepの時間
+	// 時間は画面に出すだけで合否には使わない(基準を決めるのは本人)
+	{
+		constexpr int STEP_COUNT{ 180 }; // 3秒分進める
+		constexpr float POSITION_TOLERANCE{ 0.03f }; // 止まる高さの許す誤差
+		constexpr int LARGE_COUNT{ 129 }; // 一辺の点の数
+
+		const std::vector<float> heights(static_cast<std::size_t>(LARGE_COUNT) * LARGE_COUNT, 0.0f);
+		const HeightFieldHandle field{ Physics::CreateHeightField(LARGE_COUNT, LARGE_COUNT, 16.0f, heights) };
+		check("large field: registered", field.IsValid());
+
+		BodyDesc fieldDesc{};
+		fieldDesc.shapeData = HeightFieldShape{ field };
+		fieldDesc.position = { 1000.0f, 0.0f, 1000.0f }; // 格子の角
+		fieldDesc.motionType = MotionType::Static;
+		const BodyHandle fieldBody{ Physics::CreateBody(fieldDesc) };
+
+		// 格子の中ほどへ落とす球(升の境目と対角線から離れた位置)
+		BodyDesc sphereDesc{};
+		sphereDesc.shapeData = Sphere{ Vector3::Zero, 0.5f };
+		sphereDesc.position = { 2001.0f, 2.0f, 1500.0f };
+		sphereDesc.motionType = MotionType::Dynamic;
+		const BodyHandle sphere{ Physics::CreateBody(sphereDesc) };
+
+		const auto startTime{ std::chrono::steady_clock::now() };
+		for (int i{ 0 }; i < STEP_COUNT; i++) Physics::Step(Time::FixedDeltaTime());
+		const std::chrono::duration<double, std::milli> elapsed{ std::chrono::steady_clock::now() - startTime };
+		result.largeFieldStepMilliseconds = elapsed.count() / static_cast<double>(STEP_COUNT);
+
+		check("large field: sphere rests", std::abs(Physics::GetPosition(sphere).y - 0.5f) < POSITION_TOLERANCE);
+
+		Physics::DestroyBody(sphere);
+		Physics::DestroyBody(fieldBody);
+		check("large field: destroyed", Physics::DestroyHeightField(field));
+	}
+
 	return result;
 }
 
@@ -333,6 +464,36 @@ std::vector<TestBody> MakeTestBodies()
 	meshBoxDesc.motionType = MotionType::Dynamic;
 	bodies.push_back({ "Box on mesh", meshBoxDesc, { 1.0f, 0.9f, 0.3f, 1.0f } });
 
+
+	// 高さの格子で作った動かない坂
+	BodyDesc fieldDesc{};
+	fieldDesc.shapeData = HeightFieldShape{ Physics::CreateHeightField(FIELD_COUNT_X, FIELD_COUNT_Z, FIELD_CELL_SIZE, FIELD_HEIGHTS) };
+	fieldDesc.position = FIELD_POSITION;
+	fieldDesc.motionType = MotionType::Static;
+	fieldDesc.friction = 0.6f;
+	bodies.push_back({ "Static Height Field", fieldDesc, { 0.5f, 0.9f, 0.6f, 1.0f } });
+
+	// 坂の上へ落ちる球
+	BodyDesc fieldSphereDesc{};
+	fieldSphereDesc.shapeData = Sphere{ Vector3::Zero, 0.4f };
+	fieldSphereDesc.position = { FIELD_POSITION.x + 3.0f, 4.0f, FIELD_POSITION.z + 6.5f };
+	fieldSphereDesc.motionType = MotionType::Dynamic;
+	bodies.push_back({ "Sphere on field", fieldSphereDesc, { 0.4f, 1.0f, 0.6f, 1.0f } });
+
+	// 坂の上へ落ちるカプセル
+	BodyDesc fieldCapsuleDesc{};
+	fieldCapsuleDesc.shapeData = Capsule{ { 0.0f, -0.5f, 0.0f }, { 0.0f, 0.5f, 0.0f }, 0.3f };
+	fieldCapsuleDesc.position = { FIELD_POSITION.x + 5.0f, 4.0f, FIELD_POSITION.z + 5.0f };
+	fieldCapsuleDesc.motionType = MotionType::Dynamic;
+	bodies.push_back({ "Capsule on field", fieldCapsuleDesc, { 0.3f, 0.8f, 1.0f, 1.0f } });
+
+	// 平らな所へ落ちる箱
+	BodyDesc fieldBoxDesc{};
+	fieldBoxDesc.shapeData = Box{ Vector3::Zero, { 0.4f, 0.4f, 0.4f } };
+	fieldBoxDesc.position = { FIELD_POSITION.x + 6.9f, 4.0f, FIELD_POSITION.z + 1.0f };
+	fieldBoxDesc.motionType = MotionType::Dynamic;
+	bodies.push_back({ "Box on field", fieldBoxDesc, { 1.0f, 0.9f, 0.3f, 1.0f } });
+
 	return bodies;
 }
 
@@ -390,6 +551,114 @@ void DrawShape(const TriangleMeshShape& _mesh, const BodyState& _state, Vector4 
 	}
 }
 
+void DrawShape(const HeightFieldShape& _heightField, const BodyState& _state, Vector4 _color)
+{
+	// 登録した中身はPhysicsから取り出せないのでテスト側で覚えている高さから升の辺と対角線を線で描く
+	const auto corner = [&_state](int _x, int _z)
+		{
+			const Vector3 local{ static_cast<float>(_x) * FIELD_CELL_SIZE, FIELD_HEIGHTS[_z * FIELD_COUNT_X + _x], static_cast<float>(_z) * FIELD_CELL_SIZE };
+			return _state.position + _state.rotation.RotateVector(local);
+		};
+	for (int z = 0; z < FIELD_COUNT_Z; z++)
+	{
+		for (int x = 0; x < FIELD_COUNT_X; x++)
+		{
+			if (x + 1 < FIELD_COUNT_X) Gfx::DrawLine3D(corner(x, z), corner(x + 1, z), _color);
+			if (z + 1 < FIELD_COUNT_Z) Gfx::DrawLine3D(corner(x, z), corner(x, z + 1), _color);
+			if (x + 1 < FIELD_COUNT_X && z + 1 < FIELD_COUNT_Z) Gfx::DrawLine3D(corner(x, z), corner(x + 1, z + 1), _color);
+		}
+	}
+}
+
+// 形がXとZの向きに占める範囲(F7の升の表示で使う ライブラリの中と同じ計算をテスト側でやり直している)
+struct TestRangeXZ
+{
+	bool isValid{ false }; // 範囲を持つ形か(動かない形は持たない)
+	float minX{ 0.0f }; // Xの最小
+	float maxX{ 0.0f }; // Xの最大
+	float minZ{ 0.0f }; // Zの最小
+	float maxZ{ 0.0f }; // Zの最大
+};
+
+TestRangeXZ GetTestRangeXZ(const Sphere& _sphere, const BodyState& _state)
+{
+	const Vector3 center{ _state.position + _state.rotation.RotateVector(_sphere.center) };
+	return TestRangeXZ{ true, center.x - _sphere.radius, center.x + _sphere.radius, center.z - _sphere.radius, center.z + _sphere.radius };
+}
+
+TestRangeXZ GetTestRangeXZ(const Capsule& _capsule, const BodyState& _state)
+{
+	const Vector3 start{ _state.position + _state.rotation.RotateVector(_capsule.startPos) };
+	const Vector3 end{ _state.position + _state.rotation.RotateVector(_capsule.endPos) };
+	return TestRangeXZ{ true,
+		(std::min)(start.x, end.x) - _capsule.radius, (std::max)(start.x, end.x) + _capsule.radius,
+		(std::min)(start.z, end.z) - _capsule.radius, (std::max)(start.z, end.z) + _capsule.radius };
+}
+
+TestRangeXZ GetTestRangeXZ(const Box& _box, const BodyState& _state)
+{
+	const Vector3 center{ _state.position + _state.rotation.RotateVector(_box.center) };
+	const Quaternion rotation{ _state.rotation * _box.rotation };
+	const Vector3 axisX{ rotation.RotateVector(Vector3::Right) };
+	const Vector3 axisY{ rotation.RotateVector(Vector3::Up) };
+	const Vector3 axisZ{ rotation.RotateVector(Vector3::Forward) };
+	const float radiusX{ _box.halfSize.x * std::abs(axisX.x) + _box.halfSize.y * std::abs(axisY.x) + _box.halfSize.z * std::abs(axisZ.x) };
+	const float radiusZ{ _box.halfSize.x * std::abs(axisX.z) + _box.halfSize.y * std::abs(axisY.z) + _box.halfSize.z * std::abs(axisZ.z) };
+	return TestRangeXZ{ true, center.x - radiusX, center.x + radiusX, center.z - radiusZ, center.z + radiusZ };
+}
+
+TestRangeXZ GetTestRangeXZ(const TriangleMeshShape& _mesh, const BodyState& _state)
+{
+	return TestRangeXZ{};
+}
+
+TestRangeXZ GetTestRangeXZ(const HeightFieldShape& _heightField, const BodyState& _state)
+{
+	return TestRangeXZ{};
+}
+
+// 画面の高さの格子の上で 形の範囲が重なっている升を枠と対角線で描く(格子は回転させずに置いている前提)
+void DrawOverlappedFieldCells(const TestRangeXZ& _range, Vector4 _color)
+{
+	if (!_range.isValid) return;
+
+	// ワールドの範囲を格子の角からの位置へ直す
+	const float minX{ _range.minX - FIELD_POSITION.x };
+	const float maxX{ _range.maxX - FIELD_POSITION.x };
+	const float minZ{ _range.minZ - FIELD_POSITION.z };
+	const float maxZ{ _range.maxZ - FIELD_POSITION.z };
+	const float fieldSizeX{ static_cast<float>(FIELD_COUNT_X - 1) * FIELD_CELL_SIZE };
+	const float fieldSizeZ{ static_cast<float>(FIELD_COUNT_Z - 1) * FIELD_CELL_SIZE };
+	if (maxX < 0.0f || minX > fieldSizeX || maxZ < 0.0f || minZ > fieldSizeZ) return; // 格子の外
+
+	// 位置を升の大きさで割って切り捨てると升の番号になる
+	const int cellMinX{ std::clamp(static_cast<int>(std::floor(minX / FIELD_CELL_SIZE)), 0, FIELD_COUNT_X - 2) };
+	const int cellMaxX{ std::clamp(static_cast<int>(std::floor(maxX / FIELD_CELL_SIZE)), 0, FIELD_COUNT_X - 2) };
+	const int cellMinZ{ std::clamp(static_cast<int>(std::floor(minZ / FIELD_CELL_SIZE)), 0, FIELD_COUNT_Z - 2) };
+	const int cellMaxZ{ std::clamp(static_cast<int>(std::floor(maxZ / FIELD_CELL_SIZE)), 0, FIELD_COUNT_Z - 2) };
+
+	constexpr float LIFT{ 0.03f }; // 格子の線と重ならないよう少し浮かせる
+	const auto corner = [LIFT](int _x, int _z)
+		{
+			return FIELD_POSITION + Vector3{ static_cast<float>(_x) * FIELD_CELL_SIZE, FIELD_HEIGHTS[_z * FIELD_COUNT_X + _x] + LIFT, static_cast<float>(_z) * FIELD_CELL_SIZE };
+		};
+	for (int z = cellMinZ; z <= cellMaxZ; z++)
+	{
+		for (int x = cellMinX; x <= cellMaxX; x++)
+		{
+			const Vector3 corner00{ corner(x, z) };
+			const Vector3 corner10{ corner(x + 1, z) };
+			const Vector3 corner01{ corner(x, z + 1) };
+			const Vector3 corner11{ corner(x + 1, z + 1) };
+			Gfx::DrawLine3D(corner00, corner10, _color);
+			Gfx::DrawLine3D(corner10, corner11, _color);
+			Gfx::DrawLine3D(corner11, corner01, _color);
+			Gfx::DrawLine3D(corner01, corner00, _color);
+			Gfx::DrawLine3D(corner00, corner11, _color); // 三角形2枚に割る対角線
+		}
+	}
+}
+
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
 	if (!TSLib::Initialize(L"PhysicsTest", 1280, 720)) return -1;
@@ -407,6 +676,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	CreateBodies(bodies);
 
 	bool isPaused{ false }; // Stepを止めているか
+	bool isFieldCellVisible{ false }; // 高さの格子で調べている升を描くか
 	int stepCount{ 0 }; // 作り直してからStepを呼んだ回数
 	double lastStepMilliseconds{ 0.0 }; // 直近のStep一回の時間
 	double maxStepMilliseconds{ 0.0 }; // 作り直してからの最大
@@ -414,12 +684,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	constexpr float CONTACT_POINT_RADIUS{ 0.06f }; // 接触の点を表す球の半径
 	constexpr float CONTACT_NORMAL_LENGTH{ 0.6f }; // 法線を表す線の長さ
 
-	// 注視点の周りを回るカメラ
+	// 注視点の周りを回るカメラ(注視点はキーで動かせる)
 	Camera camera{};
 	float cameraYaw{ 0.0f };
 	float cameraPitch{ 15.0f * Math::DEG_TO_RAD };
-	const Vector3 cameraTarget{ 0.0f, 2.0f, 0.0f };
+	Vector3 cameraTarget{ 0.0f, 2.0f, 0.0f };
 	constexpr float CAMERA_DISTANCE{ 14.0f };
+	constexpr float CAMERA_MOVE_SPEED{ 8.0f }; // 注視点を動かす速さ(1秒あたり)
+	constexpr float CAMERA_FAST_MOVE_SPEED{ 24.0f }; // Shiftを押している間の速さ
 	constexpr float MOUSE_SENSITIVITY{ 0.2f * Math::DEG_TO_RAD };
 	constexpr float MIN_PITCH{ -30.0f * Math::DEG_TO_RAD };
 	constexpr float MAX_PITCH{ 75.0f * Math::DEG_TO_RAD };
@@ -436,12 +708,33 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			cameraPitch = std::clamp(cameraPitch + static_cast<float>(delta.y) * MOUSE_SENSITIVITY, MIN_PITCH, MAX_PITCH);
 		}
 
+		// W A S D : 注視点を水平に動かす  E Q : 上下に動かす  Shift : 速く動かす
+		{
+			// カメラの左右の向きだけを使い 見上げていても水平に進むようにする
+			const Quaternion yawRotation{ Quaternion::FromEuler(0.0f, cameraYaw, 0.0f) };
+			const Vector3 moveForward{ yawRotation.RotateVector(Vector3::Forward) };
+			const Vector3 moveRight{ yawRotation.RotateVector(Vector3::Right) };
+
+			Vector3 moveDirection{ Vector3::Zero };
+			if (Input::IsKeyPress(KeyCode::Button::W)) moveDirection += moveForward;
+			if (Input::IsKeyPress(KeyCode::Button::S)) moveDirection -= moveForward;
+			if (Input::IsKeyPress(KeyCode::Button::D)) moveDirection += moveRight;
+			if (Input::IsKeyPress(KeyCode::Button::A)) moveDirection -= moveRight;
+			if (Input::IsKeyPress(KeyCode::Button::E)) moveDirection += Vector3::Up;
+			if (Input::IsKeyPress(KeyCode::Button::Q)) moveDirection -= Vector3::Up;
+
+			const float moveSpeed{ Input::IsKeyPress(KeyCode::Button::SHIFT) ? CAMERA_FAST_MOVE_SPEED : CAMERA_MOVE_SPEED };
+			cameraTarget += moveDirection * (moveSpeed * Time::DeltaTime());
+		}
+
 		// Space : 一時停止の切り替え
 		if (Input::IsKeyPushed(KeyCode::Button::SPACE)) isPaused = !isPaused;
 		// N : 一時停止中に一回だけ進める
 		bool isStepOnceRequested{ isPaused && Input::IsKeyPushed(KeyCode::Button::N) };
 		// F1 : Debug Overlayの切り替え
 		if (Input::IsKeyPushed(KeyCode::Button::F1)) Debug::SetOverlayVisible(!Debug::IsOverlayVisible());
+		// F7 : 高さの格子で調べている升の表示の切り替え
+		if (Input::IsKeyPushed(KeyCode::Button::F7)) isFieldCellVisible = !isFieldCellVisible;
 		// R : 全て破棄して作り直す(破棄と番号の再利用も通る)
 		if (Input::IsKeyPushed(KeyCode::Button::R))
 		{
@@ -487,6 +780,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			std::visit([&state, color](const auto& _shape) { DrawShape(_shape, state, color); }, body.desc.shapeData);
 		}
 
+		// F7 : 形の範囲が重なっている升(高さの格子が実際に調べる升)を赤い枠で描く
+		if (isFieldCellVisible)
+		{
+			for (const TestBody& body : bodies)
+			{
+				const BodyState state{ Physics::GetState(body.handle) };
+				const TestRangeXZ range{ std::visit([&state](const auto& _shape) { return GetTestRangeXZ(_shape, state); }, body.desc.shapeData) };
+				DrawOverlappedFieldCells(range, { 1.0f, 0.2f, 0.2f, 1.0f });
+			}
+		}
+
 		// 接触の点(赤い球)と法線(黄色い線 A->B)の描画 Stepの後に一覧を読む
 		const std::span<const BodyToBodyResult> contacts{ Physics::GetContacts() };
 		for (const BodyToBodyResult& contact : contacts)
@@ -521,7 +825,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		char text[256]{};
 		float textY{ 20.0f };
 		constexpr float LINE_HEIGHT{ 30.0f };
-		Gfx::DrawString("Space: pause  N: step once  R: recreate  F1: overlay  Right drag: camera  ESC: exit", { 20.0f, textY });
+		Gfx::DrawString("Space: pause  N: step once  R: recreate  F1: overlay  Right drag: rotate  WASD/QE: move  Shift: fast  F7: field cells  ESC: exit", { 20.0f, textY });
 		textY += LINE_HEIGHT;
 
 		const double simulatedSeconds{ static_cast<double>(stepCount) * static_cast<double>(Time::FixedDeltaTime()) };
@@ -550,6 +854,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		// 起動時の数値テストの結果
 		const std::string testText{ tests.failedCount == 0 ? "STARTUP TESTS: PASS" : "STARTUP TESTS: FAIL - " + tests.firstFailure };
 		Gfx::DrawString(testText.c_str(), { 20.0f, textY });
+		textY += LINE_HEIGHT;
+
+		// 広い高さの格子の上でのStep一回の平均時間(起動時に測った値)
+		std::snprintf(text, sizeof(text), "Large height field (129x129)  Step avg: %.4f ms", tests.largeFieldStepMilliseconds);
+		Gfx::DrawString(text, { 20.0f, textY });
 
 		TSLib::EndFrame();
 	}
