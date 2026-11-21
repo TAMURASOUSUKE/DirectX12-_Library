@@ -456,6 +456,9 @@
     <ClInclude Include="Src\Core\Handle\TriangleMeshHandle.h">
       <Filter>Src\Core\Handle</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Core\Handle\HeightFieldHandle.h">
+      <Filter>Src\Core\Handle</Filter>
+    </ClInclude>
     <ClInclude Include="Src\Physics\PhysicsType.h">
       <Filter>Src\Physics</Filter>
     </ClInclude>

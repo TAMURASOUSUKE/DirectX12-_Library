@@ -5,6 +5,7 @@
 #include "../Collision/CollisionType.h"
 #include "../Core/Handle/BodyHandle.h"
 #include "../Core/Handle/TriangleMeshHandle.h"
+#include "../Core/Handle/HeightFieldHandle.h"
 #include "../Math/Vector/Vector3.h"
 #include "../Math/Quaternion/Quaternion.h"
 
@@ -35,8 +36,17 @@ struct TriangleMeshShape
 	TriangleMeshHandle mesh{}; // 登録した三角形の集まり
 };
 
-// 形状の並び 箱=0 カプセル=1 球=2 三角形の集まり=3
-using Shape = std::variant<Box, Capsule, Sphere, TriangleMeshShape>;
+// 登録済みの高さの格子を指す形状(Static専用 中身はPhysics::CreateHeightFieldで登録する Bodyの位置が格子の角になる)
+struct HeightFieldShape
+{
+	// 登録済みのハンドルを持っているか確認
+	bool IsValid() const { return heightField.IsValid(); }
+
+	HeightFieldHandle heightField{}; // 登録した高さの格子
+};
+
+// 形状の並び 箱=0 カプセル=1 球=2 三角形の集まり=3 高さの格子=4
+using Shape = std::variant<Box, Capsule, Sphere, TriangleMeshShape, HeightFieldShape>;
 // BodyHandleを作成するための設定データ(形状の中に入っている位置はDesc内で設定した値からの相対的な位置になります)
 struct BodyDesc
 {

@@ -90,6 +90,12 @@ namespace
 		return _mesh;
 	}
 
+	// 高さの格子はハンドルを持つだけなのでそのまま返す
+	HeightFieldShape ToWorldShape(const HeightFieldShape& _heightField, const BodyData& _body)
+	{
+		return _heightField;
+	}
+
 	// ワールドの位置を相手のBodyのローカルへ移す(位置を引いてから逆回転)
 	Vector3 ToLocalPoint(const Vector3& _worldPoint, const BodyData& _body)
 	{
@@ -144,6 +150,62 @@ namespace
 	bool ComputeTriangleContact(CollisionSystem& _collisionSystem, const TriangleMeshShape& _mesh, const Triangle& _triangle, ShapeToShapeResult& _result)
 	{
 		return false;
+	}
+
+	// 動かない形同士は調べないので呼ばれない(std::visitが全ての型を求めるので置く)
+	Shape ToMeshLocalShape(const HeightFieldShape& _heightField, const BodyData& _owner, const BodyData& _meshBody)
+	{
+		return Shape{ _heightField };
+	}
+
+	bool ComputeTriangleContact(CollisionSystem& _collisionSystem, const HeightFieldShape& _heightField, const Triangle& _triangle, ShapeToShapeResult& _result)
+	{
+		return false;
+	}
+
+	// 形がXの向きとZの向きに占める範囲
+	struct ShapeRangeXZ
+	{
+		float minX{ 0.0f }; // Xの最小
+		float maxX{ 0.0f }; // Xの最大
+		float minZ{ 0.0f }; // Zの最小
+		float maxZ{ 0.0f }; // Zの最大
+	};
+
+	// 形ごとにXとZの範囲を求める(高さの格子のどの升と重なるかを調べるのに使う)
+	ShapeRangeXZ GetRangeXZ(const Sphere& _sphere)
+	{
+		return ShapeRangeXZ{ _sphere.center.x - _sphere.radius, _sphere.center.x + _sphere.radius, _sphere.center.z - _sphere.radius, _sphere.center.z + _sphere.radius };
+	}
+
+	ShapeRangeXZ GetRangeXZ(const Capsule& _capsule)
+	{
+		// 両端の小さい方から半径を引き 大きい方へ半径を足す
+		return ShapeRangeXZ{
+			(std::min)(_capsule.startPos.x, _capsule.endPos.x) - _capsule.radius, (std::max)(_capsule.startPos.x, _capsule.endPos.x) + _capsule.radius,
+			(std::min)(_capsule.startPos.z, _capsule.endPos.z) - _capsule.radius, (std::max)(_capsule.startPos.z, _capsule.endPos.z) + _capsule.radius };
+	}
+
+	ShapeRangeXZ GetRangeXZ(const Box& _box)
+	{
+		// 箱の3本の軸をXとZへ投影した長さの合計が その向きの半径になる
+		const Vector3 axisX{ _box.rotation.RotateVector(Vector3::Right) };
+		const Vector3 axisY{ _box.rotation.RotateVector(Vector3::Up) };
+		const Vector3 axisZ{ _box.rotation.RotateVector(Vector3::Forward) };
+		const float radiusX{ _box.halfSize.x * std::abs(axisX.x) + _box.halfSize.y * std::abs(axisY.x) + _box.halfSize.z * std::abs(axisZ.x) };
+		const float radiusZ{ _box.halfSize.x * std::abs(axisX.z) + _box.halfSize.y * std::abs(axisY.z) + _box.halfSize.z * std::abs(axisZ.z) };
+		return ShapeRangeXZ{ _box.center.x - radiusX, _box.center.x + radiusX, _box.center.z - radiusZ, _box.center.z + radiusZ };
+	}
+
+	// 動かない形同士は調べないので呼ばれない(std::visitが全ての型を求めるので置く)
+	ShapeRangeXZ GetRangeXZ(const TriangleMeshShape& _mesh)
+	{
+		return ShapeRangeXZ{};
+	}
+
+	ShapeRangeXZ GetRangeXZ(const HeightFieldShape& _heightField)
+	{
+		return ShapeRangeXZ{};
 	}
 
 	// Bodyが持っている形(variant)をワールドへ直して返す
@@ -206,6 +268,7 @@ void PhysicsSystem::Setup()
 	Shutdown(); // 再初期化対策
 	slots.reserve(MAX_BODY_COUNT); // 最大容量をあらかじめ確保(作成時に再確保させない)
 	triangleMeshSlots.reserve(MAX_TRIANGLE_MESH_COUNT);
+	heightFieldSlots.reserve(MAX_HEIGHT_FIELD_COUNT);
 	contacts.reserve(MAX_CONTACT_COUNT); 
 	contactSolveData.reserve(MAX_CONTACT_COUNT);
 }
@@ -218,6 +281,11 @@ void PhysicsSystem::Shutdown()
 	while (!triangleMeshFreeList.empty())
 	{
 		triangleMeshFreeList.pop();
+	}
+	heightFieldSlots.clear();
+	while (!heightFieldFreeList.empty())
+	{
+		heightFieldFreeList.pop();
 	}
 	contactSolveData.clear();
 	while (!freeList.empty())
@@ -241,6 +309,17 @@ BodyHandle PhysicsSystem::CreateBody(const BodyDesc& _desc)
 		if (!Lookup(meshShape.mesh) || _desc.motionType != MotionType::Static)
 		{
 			DEBUG_LOG_ERROR("三角形の集まりの設定が無効です\n");
+			return BodyHandle{};
+		}
+	}
+
+	// 高さの格子も登録済みでStaticのときだけ使える
+	if (_desc.shapeData.index() == HEIGHT_FIELD_SHAPE_INDEX)
+	{
+		const HeightFieldShape& fieldShape{ std::get<HeightFieldShape>(_desc.shapeData) };
+		if (!Lookup(fieldShape.heightField) || _desc.motionType != MotionType::Static)
+		{
+			DEBUG_LOG_ERROR("高さの格子の設定が無効です\n");
 			return BodyHandle{};
 		}
 	}
@@ -357,6 +436,78 @@ bool PhysicsSystem::DestroyTriangleMesh(TriangleMeshHandle _handle)
 	triangleMeshSlots[index].generation++;
 	triangleMeshSlots[index].isAlive = false;
 	triangleMeshFreeList.push(index); // この位置を使えるようにする
+	return true;
+}
+
+HeightFieldHandle PhysicsSystem::CreateHeightField(int _countX, int _countZ, float _cellSize, std::span<const float> _heights)
+{
+	// 升を1つ作るにはXとZそれぞれ2点以上が要る 升の大きさは正の有限値だけ
+	const bool isValidSize{ _countX >= 2 && _countZ >= 2 && std::isfinite(_cellSize) && _cellSize > 0.0f };
+	if (!isValidSize || _heights.size() != static_cast<std::size_t>(_countX) * static_cast<std::size_t>(_countZ))
+	{
+		DEBUG_LOG_ERROR("高さの格子の大きさが無効です\n");
+		return HeightFieldHandle{};
+	}
+	for (const float height : _heights)
+	{
+		if (std::isfinite(height)) continue;
+		DEBUG_LOG_ERROR("高さの格子に有限でない高さが含まれています\n");
+		return HeightFieldHandle{};
+	}
+
+	// 新しく確保できるか再利用できるか
+	const bool canRegister{ !heightFieldFreeList.empty() || static_cast<int>(heightFieldSlots.size()) < MAX_HEIGHT_FIELD_COUNT };
+	if (!canRegister)
+	{
+		DEBUG_LOG_ERROR("高さの格子の登録上限に達しました\n");
+		return HeightFieldHandle{};
+	}
+
+	HeightFieldData data{};
+	data.countX = _countX;
+	data.countZ = _countZ;
+	data.cellSize = _cellSize;
+	data.heights.assign(_heights.begin(), _heights.end());
+
+	int index{ 0 };
+	if (!heightFieldFreeList.empty())
+	{
+		index = heightFieldFreeList.top(); // Destroyされたところから持ってくる
+		heightFieldFreeList.pop();
+		heightFieldSlots[index].data = data;
+		heightFieldSlots[index].isAlive = true; // 世代はDestroyで上げてあるのでそのまま
+	}
+	else
+	{
+		index = static_cast<int>(heightFieldSlots.size()); // 空きがないなら新しく作る
+		heightFieldSlots.push_back({ data, 0, true }); // 新しく確保したので世代は0
+	}
+	const int pack{ Pack(index, static_cast<int>(heightFieldSlots[index].generation)) };
+	return HeightFieldHandle{ PassKey{}, pack };
+}
+
+bool PhysicsSystem::DestroyHeightField(HeightFieldHandle _handle)
+{
+	HeightFieldData* data{ Lookup(_handle) };
+	if (!data) return false;
+
+	// Bodyが使っている間は断る
+	for (const BodySlot& slot : slots)
+	{
+		if (!slot.isAlive) continue;
+		if (slot.data.shape.index() != HEIGHT_FIELD_SHAPE_INDEX) continue;
+		if (std::get<HeightFieldShape>(slot.data.shape).heightField == _handle)
+		{
+			DEBUG_LOG_ERROR("Bodyが使っている高さの格子は削除できません\n");
+			return false;
+		}
+	}
+
+	const int index{ UnpackIndex(_handle.GetRaw(PassKey{})) };
+	heightFieldSlots[index].data = {};
+	heightFieldSlots[index].generation++;
+	heightFieldSlots[index].isAlive = false;
+	heightFieldFreeList.push(index); // この位置を使えるようにする
 	return true;
 }
 
@@ -509,6 +660,35 @@ TriangleMeshData* PhysicsSystem::Lookup(TriangleMeshHandle _handle)
 	return &slot.data;
 }
 
+HeightFieldData* PhysicsSystem::Lookup(HeightFieldHandle _handle)
+{
+	if (!_handle.IsValid())
+	{
+		DEBUG_LOG_ERROR("無効なハンドルです\n");
+		return nullptr;
+	}
+	const int packed{ _handle.GetRaw(PassKey{}) };
+	const int index{ UnpackIndex(packed) };
+	if (index < 0 || index >= static_cast<int>(heightFieldSlots.size()))
+	{
+		DEBUG_LOG_ERROR("ハンドルに範囲外のサイズが渡されました\n");
+		return nullptr;
+	}
+
+	HeightFieldSlot& slot{ heightFieldSlots[index] };
+	if (UnpackGen(packed) != static_cast<int>(slot.generation))
+	{
+		DEBUG_LOG_WARNING("世代が異なります\n");
+		return nullptr; // 世代チェック
+	}
+	if (!slot.isAlive)
+	{
+		DEBUG_LOG_WARNING("有効でない高さの格子です\n");
+		return nullptr; // 生存チェック
+	}
+	return &slot.data;
+}
+
 bool PhysicsSystem::ComputeBodyContact(const BodyData& _bodyA, const BodyData& _bodyB, ShapeToShapeResult& _result)
 {
 	const Shape shapeA{ ToWorldShape(_bodyA) };
@@ -535,6 +715,13 @@ void PhysicsSystem::UpdateContacts()
 			if (slotA.data.motionType != MotionType::Dynamic && slotB.data.motionType != MotionType::Dynamic) continue;
 			// 上限に達したらこのStepはここまで
 			if (static_cast<int>(contacts.size()) >= MAX_CONTACT_COUNT) return;
+
+			// 高さの格子は表を通さず 形が重なる升の三角形を調べる
+			if (slotA.data.shape.index() == HEIGHT_FIELD_SHAPE_INDEX || slotB.data.shape.index() == HEIGHT_FIELD_SHAPE_INDEX)
+			{
+				AddHeightFieldContacts(indexA, indexB);
+				continue;
+			}
 
 			// 三角形の集まりは表を通さず三角形を一枚ずつ調べる
 			if (slotA.data.shape.index() == TRIANGLE_MESH_SHAPE_INDEX || slotB.data.shape.index() == TRIANGLE_MESH_SHAPE_INDEX)
@@ -602,6 +789,82 @@ void PhysicsSystem::AddTriangleMeshContacts(int _indexA, int _indexB)
 		if (isMeshA) result.normal = -result.normal;
 
 		PushContact(_indexA, _indexB, result);
+	}
+}
+
+void PhysicsSystem::AddHeightFieldContacts(int _indexA, int _indexB)
+{
+	const BodyData& bodyA{ slots[_indexA].data };
+	const BodyData& bodyB{ slots[_indexB].data };
+	const bool isFieldA{ bodyA.shape.index() == HEIGHT_FIELD_SHAPE_INDEX };
+	const bool isFieldB{ bodyB.shape.index() == HEIGHT_FIELD_SHAPE_INDEX };
+	if (isFieldA && isFieldB) return; // 高さの格子同士は調べない
+
+	const BodyData& fieldBody{ isFieldA ? bodyA : bodyB };
+	const BodyData& otherBody{ isFieldA ? bodyB : bodyA };
+	if (otherBody.shape.index() == TRIANGLE_MESH_SHAPE_INDEX) return; // 動かない形同士は調べない
+
+	// ハンドルから高さの格子を引く(CreateBodyで検証済みなのでStepの中ではログを出さずに調べる)
+	const int packed{ std::get<HeightFieldShape>(fieldBody.shape).heightField.GetRaw(PassKey{}) };
+	const int fieldIndex{ UnpackIndex(packed) };
+	if (fieldIndex < 0 || fieldIndex >= static_cast<int>(heightFieldSlots.size())) return;
+	const HeightFieldSlot& fieldSlot{ heightFieldSlots[fieldIndex] };
+	if (!fieldSlot.isAlive || UnpackGen(packed) != static_cast<int>(fieldSlot.generation)) return;
+	const HeightFieldData& field{ fieldSlot.data };
+
+	// 相手の形を高さの格子のBodyのローカルへ移す(格子の角が原点になる)
+	const Shape localShape{ std::visit([&otherBody, &fieldBody](const auto& _shape) { return ToMeshLocalShape(_shape, otherBody, fieldBody); }, otherBody.shape) };
+
+	// 形がXとZに占める範囲から 重なる升の番号の範囲を出す 格子の外なら接触しない
+	const ShapeRangeXZ range{ std::visit([](const auto& _shape) { return GetRangeXZ(_shape); }, localShape) };
+	const float fieldSizeX{ static_cast<float>(field.countX - 1) * field.cellSize };
+	const float fieldSizeZ{ static_cast<float>(field.countZ - 1) * field.cellSize };
+	if (range.maxX < 0.0f || range.minX > fieldSizeX || range.maxZ < 0.0f || range.minZ > fieldSizeZ) return;
+
+	// 位置を升の大きさで割って切り捨てると升の番号になる 端は最後の升へ収める
+	const int cellMinX{ std::clamp(static_cast<int>(std::floor(range.minX / field.cellSize)), 0, field.countX - 2) };
+	const int cellMaxX{ std::clamp(static_cast<int>(std::floor(range.maxX / field.cellSize)), 0, field.countX - 2) };
+	const int cellMinZ{ std::clamp(static_cast<int>(std::floor(range.minZ / field.cellSize)), 0, field.countZ - 2) };
+	const int cellMaxZ{ std::clamp(static_cast<int>(std::floor(range.maxZ / field.cellSize)), 0, field.countZ - 2) };
+
+	for (int cellZ = cellMinZ; cellZ <= cellMaxZ; cellZ++)
+	{
+		for (int cellX = cellMinX; cellX <= cellMaxX; cellX++)
+		{
+			// 升の4つの角(名前の2つの数字は Xの番号とZの番号を 0=手前 1=次 で表す)
+			const float x0{ static_cast<float>(cellX) * field.cellSize };
+			const float x1{ static_cast<float>(cellX + 1) * field.cellSize };
+			const float z0{ static_cast<float>(cellZ) * field.cellSize };
+			const float z1{ static_cast<float>(cellZ + 1) * field.cellSize };
+			const Vector3 corner00{ x0, field.heights[cellZ * field.countX + cellX], z0 };
+			const Vector3 corner10{ x1, field.heights[cellZ * field.countX + cellX + 1], z0 };
+			const Vector3 corner01{ x0, field.heights[(cellZ + 1) * field.countX + cellX], z1 };
+			const Vector3 corner11{ x1, field.heights[(cellZ + 1) * field.countX + cellX + 1], z1 };
+
+			// 升を corner00 と corner11 を結ぶ対角線で三角形2枚に割る(法線が上を向く順に並べる)
+			const std::array<Triangle, 2> triangles{ Triangle{ corner00, corner01, corner11 }, Triangle{ corner00, corner11, corner10 } };
+			for (const Triangle& triangle : triangles)
+			{
+				// 上限に達したらこのStepはここまで
+				if (static_cast<int>(contacts.size()) >= MAX_CONTACT_COUNT) return;
+
+				ShapeToShapeResult result{};
+				CollisionSystem& system{ collisionSystem };
+				const bool isHit{ std::visit([&system, &triangle, &result](const auto& _shape) { return ComputeTriangleContact(system, _shape, triangle, result); }, localShape) };
+				if (!isHit) continue;
+
+				// 結果をワールドへ戻す(法線は回転だけ 点は回転してから位置を足す)
+				result.normal = fieldBody.rotation.RotateVector(result.normal);
+				for (int i = 0; i < result.pointCount; i++)
+				{
+					result.points[i].worldPosition = ToWorldPoint(result.points[i].worldPosition, fieldBody);
+				}
+				// 計算した法線は相手の形->三角形なので高さの格子がA側なら反転してA->Bにそろえる
+				if (isFieldA) result.normal = -result.normal;
+
+				PushContact(_indexA, _indexB, result);
+			}
+		}
 	}
 }
 

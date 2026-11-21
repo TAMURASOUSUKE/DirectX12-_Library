@@ -37,6 +37,16 @@ bool Physics::DestroyTriangleMesh(TriangleMeshHandle _handle)
 	return physicsSystem.DestroyTriangleMesh(_handle);
 }
 
+HeightFieldHandle Physics::CreateHeightField(int _countX, int _countZ, float _cellSize, std::span<const float> _heights)
+{
+	return physicsSystem.CreateHeightField(_countX, _countZ, _cellSize, _heights);
+}
+
+bool Physics::DestroyHeightField(HeightFieldHandle _handle)
+{
+	return physicsSystem.DestroyHeightField(_handle);
+}
+
 void Physics::Step(float _deltaTime)
 {
 	physicsSystem.Step(_deltaTime);

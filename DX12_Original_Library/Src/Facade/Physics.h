@@ -18,6 +18,11 @@ namespace Physics
 	// 三角形の集まりを削除する(Bodyが使っている間は断ってfalseを返す)
 	bool DestroyTriangleMesh(TriangleMeshHandle _handle);
 
+	// 高さの並びから高さの格子を登録する(点の数はXとZそれぞれ2以上 高さは heights[z * countX + x] の順 HeightFieldShapeに入れてStaticのBodyで使う)
+	HeightFieldHandle CreateHeightField(int _countX, int _countZ, float _cellSize, std::span<const float> _heights);
+	// 高さの格子を削除する(Bodyが使っている間は断ってfalseを返す)
+	bool DestroyHeightField(HeightFieldHandle _handle);
+
 	// 固定更新の中で1回呼ぶ(Time::FixedDeltaTimeを渡す)
 	void Step(float _deltaTime);
 
