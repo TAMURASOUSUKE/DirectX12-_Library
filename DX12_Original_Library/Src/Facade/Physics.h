@@ -13,6 +13,11 @@ namespace Physics
 	// 指定ハンドルの削除
 	bool DestroyBody(BodyHandle _handle);
 
+	// 頂点と番号の並びから三角形の集まりを登録する(番号は3つで三角形1枚 TriangleMeshShapeに入れてStaticのBodyで使う)
+	TriangleMeshHandle CreateTriangleMesh(std::span<const Vector3> _vertices, std::span<const std::uint32_t> _indices);
+	// 三角形の集まりを削除する(Bodyが使っている間は断ってfalseを返す)
+	bool DestroyTriangleMesh(TriangleMeshHandle _handle);
+
 	// 固定更新の中で1回呼ぶ(Time::FixedDeltaTimeを渡す)
 	void Step(float _deltaTime);
 

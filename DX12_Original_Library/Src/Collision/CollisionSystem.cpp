@@ -117,6 +117,130 @@ namespace
 		// 割合sとtから、各線分上の最近点を復元して返す。
 		return { a + u * static_cast<float>(s), c + v * static_cast<float>(t) };
 	}
+
+	// 三角形の上の最近点がどこにあったか
+	enum class TriangleRegion
+	{
+		VertexA, // 頂点A
+		VertexB, // 頂点B
+		VertexC, // 頂点C
+		EdgeAB, // 辺AB
+		EdgeBC, // 辺BC
+		EdgeCA, // 辺CA
+		Face, // 面
+	};
+
+	// 三角形の上の最近点とその場所
+	struct TriangleClosestPoint
+	{
+		Vector3 point{ Vector3::Zero }; // 最近点
+		TriangleRegion region{ TriangleRegion::Face }; // 最近点があった場所
+	};
+
+	// 三角形上の最近点を出す
+	TriangleClosestPoint ClosestPointOnTriangle(const Vector3& _point, const Vector3& _a, const Vector3& _b, const Vector3& _c)
+	{
+		// 逆方向は逆ベクトルで対応するためこの三つを基本的には使う
+		const Vector3 AB{ _b - _a }; // A->B
+		const Vector3 AC{ _c - _a }; // A->C
+		const Vector3 BC{ _c - _b }; // B->C
+
+		// 頂点の検査
+
+		// 頂点A
+		const Vector3 AP{ _point - _a }; // A->P
+		const float APdotAB{ Vector3::Dot(AP, AB) };
+		const float APdotAC{ Vector3::Dot(AP, AC) };
+		// どちらの内積も負の値ならABACどちらの辺の逆ベクトル方向に交差した空間内にあるということなので頂点Aを最近点とする
+		if (APdotAB <= 0 && APdotAC <= 0) return TriangleClosestPoint{ _a, TriangleRegion::VertexA };
+
+		// 頂点B
+		const Vector3 BP{ _point - _b }; // B->P
+		const float BPdotBA{ Vector3::Dot(BP, -AB) };
+		const float BPdotBC{ Vector3::Dot(BP, BC) };
+		// どちらの内積も負の値ならBABCどちらの辺の逆ベクトル方向に交差した空間内にあるということなので頂点Bを最近点とする
+		if (BPdotBA <= 0 && BPdotBC <= 0) return TriangleClosestPoint{ _b, TriangleRegion::VertexB };
+
+		// 頂点C
+		const Vector3 CP{ _point - _c }; // C->P
+		const float CPdotCA{ Vector3::Dot(CP, -AC) };
+		const float CPdotCB{ Vector3::Dot(CP, -BC) };
+		// どちらの内積も負の値ならCACBどちらの辺の逆ベクトル方向に交差した空間内にあるということなので頂点Cを最近点とする
+		if (CPdotCA <= 0 && CPdotCB <= 0) return TriangleClosestPoint{ _c, TriangleRegion::VertexC };
+
+		// 辺のチェック
+		const Vector3 n{ Vector3::Cross(AB, AC) }; // 法線
+		// AB
+		const Vector3 nCrossAB{ Vector3::Cross(n, AB) }; // 法線と調べる軸での外積で点が外側にあるか調べるベクトルを出す
+		const float sideAB{ Vector3::Dot(nCrossAB, AP) }; // 調べる軸の内側か外側かを見る
+		// 外側だったときはAB上に最近点があるとみるのでClosestPointOnSegmentで最近点を出す
+		if (sideAB <= 0 && APdotAB >= 0 && BPdotBA >= 0) return TriangleClosestPoint{ ClosestPointOnSegment(_point, _a, _b), TriangleRegion::EdgeAB };
+
+		// BC
+		const Vector3 nCrossBC{ Vector3::Cross(n, BC) }; // 法線と調べる軸での外積で点が外側にあるか調べるベクトルを出す
+		const float sideBC{ Vector3::Dot(nCrossBC, BP) }; // 調べる軸の内側か外側かを見る
+		// 外側だったときはBC上に最近点があるとみるのでClosestPointOnSegmentで最近点を出す
+		if (sideBC <= 0 && BPdotBC >= 0 && CPdotCB >= 0) return TriangleClosestPoint{ ClosestPointOnSegment(_point, _b, _c), TriangleRegion::EdgeBC };
+
+		// CA
+		const Vector3 nCrossCA{ Vector3::Cross(n, -AC) }; // 法線と調べる軸での外積で点が外側にあるか調べるベクトルを出す
+		const float sideCA{ Vector3::Dot(nCrossCA, CP) }; // 調べる軸の内側か外側かを見る
+		// 外側だったときはCA上に最近点があるとみるのでClosestPointOnSegmentで最近点を出す
+		if (sideCA <= 0 && CPdotCA >= 0 && APdotAC >= 0) return TriangleClosestPoint{ ClosestPointOnSegment(_point, _c, _a), TriangleRegion::EdgeCA };
+
+		// ここまで来たら面を探索する
+		const float nLengthSqr{ n.LengthSquared() };
+		const float k{ Vector3::Dot(AP, n) / nLengthSqr }; // n方向にAPを投影した長さがnの長さのうちどのくらいの割合を占めているか
+		return TriangleClosestPoint{ _point - n * k, TriangleRegion::Face }; // 位置から高さだけ引いて面に引き込む
+	}
+
+	// 線分の上で三角形に最も近い点を返す(カプセルの軸と三角形の距離計算で使う)
+	Vector3 ClosestPointOnSegmentToTriangle(const Vector3& _start, const Vector3& _end, const Triangle& _triangle)
+	{
+		const Vector3& a{ _triangle.a };
+		const Vector3& b{ _triangle.b };
+		const Vector3& c{ _triangle.c };
+
+		// 線分が三角形を貫いているなら交点が最近点(距離0)
+		const Vector3 n{ Vector3::Cross(b - a, c - a) }; // 面の法線
+		const float startSide{ Vector3::Dot(_start - a, n) }; // 始点が面のどちら側か
+		const float endSide{ Vector3::Dot(_end - a, n) }; // 終点が面のどちら側か
+		if (startSide * endSide < 0.0f)
+		{
+			// 符号が逆なら線分は面をまたいでいる startSideが0になる割合が面との交点
+			const float t{ startSide / (startSide - endSide) };
+			const Vector3 crossing{ _start + (_end - _start) * t };
+			// 交点が三角形の中にあれば面の領域で返る
+			if (ClosestPointOnTriangle(crossing, a, b, c).region == TriangleRegion::Face) return crossing;
+		}
+
+		// 貫いていないなら最近点の組は「線分の端と三角形」か「線分と三角形の辺」のどれか
+		Vector3 nearestOnSegment{ _start };
+		float minDistanceSquared{ std::numeric_limits<float>::infinity() };
+		const auto consider = [&nearestOnSegment, &minDistanceSquared](const Vector3& _onSegment, const Vector3& _onTriangle)
+			{
+				const float distanceSquared{ Vector3::DistanceSquared(_onSegment, _onTriangle) };
+				if (distanceSquared < minDistanceSquared)
+				{
+					minDistanceSquared = distanceSquared;
+					nearestOnSegment = _onSegment;
+				}
+			};
+
+		// 線分の両端と三角形
+		consider(_start, ClosestPointOnTriangle(_start, a, b, c).point);
+		consider(_end, ClosestPointOnTriangle(_end, a, b, c).point);
+
+		// 線分と三角形の3辺
+		const SegmentPair pairAB{ ClosestSegmentPair(_start, _end, a, b) };
+		consider(pairAB.first, pairAB.second);
+		const SegmentPair pairBC{ ClosestSegmentPair(_start, _end, b, c) };
+		consider(pairBC.first, pairBC.second);
+		const SegmentPair pairCA{ ClosestSegmentPair(_start, _end, c, a) };
+		consider(pairCA.first, pairCA.second);
+
+		return nearestOnSegment;
+	}
 }
 
 bool CollisionSystem::Intersect(Rect _rect01, Rect _rect02)
@@ -1149,6 +1273,147 @@ bool CollisionSystem::ComputeShapeContact(Box _boxA, Box _boxB, ShapeToShapeResu
 	}
 
 	// 角はAの表面なので、深さの半分だけ戻すと2つの表面の真ん中になる
+	const Vector3 pointPosition{ deepestCorner - normal * (depth * 0.5f) };
+	_result.normal = normal;
+	_result.points[0] = CollisionPoint{ pointPosition, depth };
+	_result.pointCount = 1;
+	return true;
+}
+
+bool CollisionSystem::ComputeShapeContact(Sphere _sphereA, Triangle _triangleB, ShapeToShapeResult& _result)
+{
+	if (!_sphereA.IsValid() || !_triangleB.IsValid()) return false;
+
+	TriangleClosestPoint closestPoint{ ClosestPointOnTriangle(_sphereA.center, _triangleB.a, _triangleB.b, _triangleB.c) };
+	const Vector3 difference{ closestPoint.point - _sphereA.center };
+
+	// 中心と最近点が重なっている場合
+	if (difference.LengthSquared() <= Math::EPSILON * Math::EPSILON)
+	{
+		// 法線を出して正規化して逆ベクトルにする
+		Vector3 normal{ Vector3::Cross(_triangleB.b - _triangleB.a, _triangleB.c - _triangleB.a) };
+		normal.Normalize();
+		const float depth{ _sphereA.radius };
+		_result.normal = -normal;
+		_result.pointCount = 1;
+		_result.points[0] = CollisionPoint{ _sphereA.center + _result.normal * (_sphereA.radius - depth * 0.5f), depth };
+		return true;
+	}
+
+	// 半径が0の球にして既存関数で判定を行う
+	Sphere closestSphere{ closestPoint.point, 0.0f };
+	return ComputeShapeContact(_sphereA, closestSphere, _result);
+}
+
+bool CollisionSystem::ComputeShapeContact(Capsule _capsuleA, Triangle _triangleB, ShapeToShapeResult& _result)
+{
+	if (!_capsuleA.IsValid() || !_triangleB.IsValid()) return false;
+
+	// 軸の上で三角形に最も近い点に球を置き 球と三角形の判定へ渡す(カプセルと箱と同じ形)
+	const Vector3 axisPoint{ ClosestPointOnSegmentToTriangle(_capsuleA.startPos, _capsuleA.endPos, _triangleB) };
+	const Sphere nearestSphere{ axisPoint, _capsuleA.radius };
+	return ComputeShapeContact(nearestSphere, _triangleB, _result);
+}
+
+bool CollisionSystem::ComputeShapeContact(Box _boxA, Triangle _triangleB, ShapeToShapeResult& _result)
+{
+	if (!_boxA.IsValid() || !_triangleB.IsValid()) return false;
+
+	// BoxのローカルX・Y・Z軸を回転させ、ワールド空間での向きを求める
+	const std::array<Vector3, 3> axesA{
+		_boxA.rotation.RotateVector(Vector3::Right),
+		_boxA.rotation.RotateVector(Vector3::Up),
+		_boxA.rotation.RotateVector(Vector3::Forward)
+	};
+	const std::array<float, 3> halfA{ _boxA.halfSize.x, _boxA.halfSize.y, _boxA.halfSize.z };
+	const std::array<Vector3, 3> vertices{ _triangleB.a, _triangleB.b, _triangleB.c };
+	const std::array<Vector3, 3> edges{ _triangleB.b - _triangleB.a, _triangleB.c - _triangleB.b, _triangleB.a - _triangleB.c };
+
+	// 全候補軸のうち、最も浅い重なりとそのときの法線(A->B)を保持する
+	float smallestOverlap{ std::numeric_limits<float>::infinity() };
+	Vector3 normal{ Vector3::Up };
+	bool isSeparated{ false }; // 重ならない軸が一つでもあれば非接触
+
+	// 一つの分離軸候補へBoxと三角形を投影し、その軸上の重なり量を調べる
+	const auto consider = [&](Vector3 axis)
+		{
+			if (isSeparated) return;
+			const float lengthSquared{ axis.LengthSquared() };
+			if (lengthSquared <= Math::EPSILON * Math::EPSILON) return; // 平行軸の外積は無効
+			axis /= std::sqrt(lengthSquared); // 異なる軸の深さを比較できるよう単位化
+
+			// Boxを軸へ投影した中心と半径
+			const float centerA{ Vector3::Dot(_boxA.center, axis) };
+			float radiusA{ 0.0f };
+			for (int i = 0; i < 3; i++)
+			{
+				radiusA += halfA[i] * std::abs(Vector3::Dot(axesA[i], axis));
+			}
+
+			// 三角形を軸へ投影した範囲(頂点3つの最小と最大)
+			float minB{ Vector3::Dot(vertices[0], axis) };
+			float maxB{ minB };
+			for (int i = 1; i < 3; i++)
+			{
+				const float projected{ Vector3::Dot(vertices[i], axis) };
+				minB = std::min(minB, projected);
+				maxB = std::max(maxB, projected);
+			}
+
+			// 三角形がBoxの+axis側にあるとみたときの重なりと -axis側にあるとみたときの重なり
+			const float overlapPlus{ (centerA + radiusA) - minB };
+			const float overlapMinus{ maxB - (centerA - radiusA) };
+			if (overlapPlus < 0.0f || overlapMinus < 0.0f)
+			{
+				isSeparated = true;
+				return;
+			}
+			// 浅い方がこの軸で離すのに必要な量 法線はBoxから三角形へ向かう向き
+			if (overlapPlus < smallestOverlap)
+			{
+				smallestOverlap = overlapPlus;
+				normal = axis;
+			}
+			if (overlapMinus < smallestOverlap)
+			{
+				smallestOverlap = overlapMinus;
+				normal = -axis;
+			}
+		};
+
+	// Boxと三角形のSATで必要な13軸を調べる
+	// Boxの面法線3軸 三角形の面法線1軸 Boxの軸と三角形の辺の外積9軸
+	for (const Vector3& axis : axesA)
+	{
+		consider(axis);
+	}
+
+	consider(Vector3::Cross(edges[0], _triangleB.c - _triangleB.a));
+
+	for (const Vector3& axis : axesA)
+	{
+		for (const Vector3& edge : edges)
+		{
+			consider(Vector3::Cross(axis, edge));
+		}
+	}
+
+	if (isSeparated) return false;
+
+	const float depth{ smallestOverlap };
+
+	// Boxの中心から法線の向きに一番突き出た角まで進む
+	Vector3 deepestCorner{ _boxA.center };
+	for (int i = 0; i < 3; i++)
+	{
+		// この軸が法線の向きにどれだけ向いているか
+		const float facing{ Vector3::Dot(axesA[i], normal) };
+		// 向いているなら足す逆を向いているなら引く(半分の長さだけ軸の向きへ進む)
+		if (facing >= 0.0f) deepestCorner += axesA[i] * halfA[i];
+		else deepestCorner -= axesA[i] * halfA[i];
+	}
+
+	// 角はBoxの表面なので、深さの半分だけ戻すと2つの表面の真ん中になる
 	const Vector3 pointPosition{ deepestCorner - normal * (depth * 0.5f) };
 	_result.normal = normal;
 	_result.points[0] = CollisionPoint{ pointPosition, depth };

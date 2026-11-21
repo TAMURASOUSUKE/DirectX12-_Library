@@ -27,6 +27,16 @@ bool Physics::DestroyBody(BodyHandle _handle)
 	return physicsSystem.DestroyBody(_handle);
 }
 
+TriangleMeshHandle Physics::CreateTriangleMesh(std::span<const Vector3> _vertices, std::span<const std::uint32_t> _indices)
+{
+	return physicsSystem.CreateTriangleMesh(_vertices, _indices);
+}
+
+bool Physics::DestroyTriangleMesh(TriangleMeshHandle _handle)
+{
+	return physicsSystem.DestroyTriangleMesh(_handle);
+}
+
 void Physics::Step(float _deltaTime)
 {
 	physicsSystem.Step(_deltaTime);

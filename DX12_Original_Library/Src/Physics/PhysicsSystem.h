@@ -6,6 +6,7 @@
 #include "PhysicsInternalType.h"
 #include "../Collision/CollisionSystem.h"
 #include "../Core/Handle/BodyHandle.h"
+#include "../Core/Handle/TriangleMeshHandle.h"
 
 // Bodyの台帳を持ち、物理のシミュレーションを進める
 class PhysicsSystem
@@ -27,6 +28,11 @@ public:
 	// 指定ハンドルの削除
 	bool DestroyBody(BodyHandle _handle);
 
+	// 頂点と番号の並びから三角形の集まりを登録する(番号は3つで三角形1枚)
+	TriangleMeshHandle CreateTriangleMesh(std::span<const Vector3> _vertices, std::span<const std::uint32_t> _indices);
+	// 三角形の集まりを削除する(Bodyが使っている間は断る)
+	bool DestroyTriangleMesh(TriangleMeshHandle _handle);
+
 	// 固定の刻み一回分だけ進める(重力->速度->位置)
 	void Step(float _deltaTime);
 
@@ -47,12 +53,20 @@ public:
 private:
 	// ハンドルを検証してBodyを一つ返す
 	BodyData* Lookup(BodyHandle _handle);
+	// ハンドルを検証して三角形の集まりを一つ返す
+	TriangleMeshData* Lookup(TriangleMeshHandle _handle);
 
 	// Body2つの形をワールドへ直し表から関数を選んで接触を計算する
 	bool ComputeBodyContact(const BodyData& _bodyA, const BodyData& _bodyB, ShapeToShapeResult& _result);
 
 	// 全ての組を調べて接触の一覧を作り直す
 	void UpdateContacts();
+
+	// 片方が三角形の集まりの組を三角形ごとに調べて接触を足す
+	void AddTriangleMeshContacts(int _indexA, int _indexB);
+
+	// 接触を一つ一覧へ足す
+	void PushContact(int _indexA, int _indexB, const ShapeToShapeResult& _result);
 
 	// 接触している組の速度を直す
 	void SolveVelocities();
@@ -63,6 +77,9 @@ private:
 private:
 	std::vector<BodySlot> slots{}; // bodyの台帳
 	std::stack<int> freeList{}; // 再利用できる番号
+
+	std::vector<TriangleMeshSlot> triangleMeshSlots{}; // 三角形の集まりの台帳
+	std::stack<int> triangleMeshFreeList{}; // 再利用できる三角形の集まりの番号
 
 	std::vector<BodyToBodyResult> contacts{}; // 直近のStepの接触の一覧
 	CollisionSystem collisionSystem{}; // 形どうしの接触を計算する
