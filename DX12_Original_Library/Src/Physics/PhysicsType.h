@@ -4,6 +4,7 @@
 #include "../Collision/Collider.h"
 #include "../Collision/CollisionType.h"
 #include "../Core/Handle/BodyHandle.h"
+#include "../Core/Handle/TriangleMeshHandle.h"
 #include "../Math/Vector/Vector3.h"
 #include "../Math/Quaternion/Quaternion.h"
 
@@ -25,7 +26,17 @@ struct BodyState
 	Vector3 velocity{ Vector3::Zero }; // 速度
 };
 
-using Shape = std::variant<Box, Capsule, Sphere>;
+// 登録済みの三角形の集まりを指す形状(Static専用 中身はPhysics::CreateTriangleMeshで登録する)
+struct TriangleMeshShape
+{
+	// 登録済みのハンドルを持っているか確認
+	bool IsValid() const { return mesh.IsValid(); }
+
+	TriangleMeshHandle mesh{}; // 登録した三角形の集まり
+};
+
+// 形状の並び 箱=0 カプセル=1 球=2 三角形の集まり=3
+using Shape = std::variant<Box, Capsule, Sphere, TriangleMeshShape>;
 // BodyHandleを作成するための設定データ(形状の中に入っている位置はDesc内で設定した値からの相対的な位置になります)
 struct BodyDesc
 {

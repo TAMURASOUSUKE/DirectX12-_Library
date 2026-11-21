@@ -1,4 +1,6 @@
 #pragma once
+#include <cstddef>
+#include <vector>
 #include "../Math/Vector/Vector3.h"
 #include "PhysicsType.h"
 #include "../Math/Quaternion/Quaternion.h"
@@ -27,6 +29,23 @@ struct BodyData
 struct BodySlot
 {
 	BodyData data{}; // 実データ
+	std::uint32_t generation{ 0 }; // 世代
+	bool isAlive{ false }; // 生存フラグ
+};
+
+// Shapeの並びの中のTriangleMeshShapeの番号(shape.index()と比べる)
+constexpr std::size_t TRIANGLE_MESH_SHAPE_INDEX{ 3 };
+
+// 三角形の集まり一つ分のデータ
+struct TriangleMeshData
+{
+	std::vector<Triangle> triangles{}; // Bodyのローカル空間の三角形
+};
+
+// 三角形の集まり一つ分のスロット
+struct TriangleMeshSlot
+{
+	TriangleMeshData data{}; // 実データ
 	std::uint32_t generation{ 0 }; // 世代
 	bool isAlive{ false }; // 生存フラグ
 };

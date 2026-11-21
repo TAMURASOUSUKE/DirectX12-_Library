@@ -239,6 +239,7 @@
     <ClInclude Include="Src\Component\Transform.h" />
     <ClInclude Include="Src\Core\Handle\AnimInstanceHandle.h" />
     <ClInclude Include="Src\Core\Handle\BodyHandle.h" />
+    <ClInclude Include="Src\Core\Handle\TriangleMeshHandle.h" />
     <ClInclude Include="Src\Core\Handle\ComputePipelineHandle.h" />
     <ClInclude Include="Src\Core\Handle\GPUBufferHandle.h" />
     <ClInclude Include="Src\Core\Handle\HandlePacking.h" />

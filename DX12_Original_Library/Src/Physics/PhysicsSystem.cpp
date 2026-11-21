@@ -84,6 +84,68 @@ namespace
 		return Box{ ToWorldPoint(_box.center, _body), _box.halfSize, _body.rotation * _box.rotation };
 	}
 
+	// 三角形の集まりはハンドルを持つだけなのでそのまま返す(三角形は調べる側でローカルのまま使う)
+	TriangleMeshShape ToWorldShape(const TriangleMeshShape& _mesh, const BodyData& _body)
+	{
+		return _mesh;
+	}
+
+	// ワールドの位置を相手のBodyのローカルへ移す(位置を引いてから逆回転)
+	Vector3 ToLocalPoint(const Vector3& _worldPoint, const BodyData& _body)
+	{
+		const Quaternion inverseRotation{ Vector4{ -_body.rotation.x, -_body.rotation.y, -_body.rotation.z, _body.rotation.w } };
+		return inverseRotation.RotateVector(_worldPoint - _body.position);
+	}
+
+	// 形をワールドへ直してから三角形の集まりのBodyのローカルへ移す
+	Shape ToMeshLocalShape(const Sphere& _sphere, const BodyData& _owner, const BodyData& _meshBody)
+	{
+		const Sphere world{ ToWorldShape(_sphere, _owner) };
+		return Shape{ Sphere{ ToLocalPoint(world.center, _meshBody), world.radius } };
+	}
+
+	Shape ToMeshLocalShape(const Capsule& _capsule, const BodyData& _owner, const BodyData& _meshBody)
+	{
+		const Capsule world{ ToWorldShape(_capsule, _owner) };
+		return Shape{ Capsule{ ToLocalPoint(world.startPos, _meshBody), ToLocalPoint(world.endPos, _meshBody), world.radius } };
+	}
+
+	Shape ToMeshLocalShape(const Box& _box, const BodyData& _owner, const BodyData& _meshBody)
+	{
+		const Box world{ ToWorldShape(_box, _owner) };
+		// 回転は相手の逆回転を後から掛ける
+		const Quaternion inverseRotation{ Vector4{ -_meshBody.rotation.x, -_meshBody.rotation.y, -_meshBody.rotation.z, _meshBody.rotation.w } };
+		return Shape{ Box{ ToLocalPoint(world.center, _meshBody), world.halfSize, inverseRotation * world.rotation } };
+	}
+
+	// 三角形の集まり同士は調べないので呼ばれない(std::visitが全ての型を求めるので置く)
+	Shape ToMeshLocalShape(const TriangleMeshShape& _mesh, const BodyData& _owner, const BodyData& _meshBody)
+	{
+		return Shape{ _mesh };
+	}
+
+	// 形と三角形1枚の接触を計算する(形の型ごとに用意した関数を呼び分ける)
+	bool ComputeTriangleContact(CollisionSystem& _collisionSystem, const Sphere& _sphere, const Triangle& _triangle, ShapeToShapeResult& _result)
+	{
+		return _collisionSystem.ComputeShapeContact(_sphere, _triangle, _result);
+	}
+
+	bool ComputeTriangleContact(CollisionSystem& _collisionSystem, const Capsule& _capsule, const Triangle& _triangle, ShapeToShapeResult& _result)
+	{
+		return _collisionSystem.ComputeShapeContact(_capsule, _triangle, _result);
+	}
+
+	bool ComputeTriangleContact(CollisionSystem& _collisionSystem, const Box& _box, const Triangle& _triangle, ShapeToShapeResult& _result)
+	{
+		return _collisionSystem.ComputeShapeContact(_box, _triangle, _result);
+	}
+
+	// 三角形の集まり同士は調べないので呼ばれない(std::visitが全ての型を求めるので置く)
+	bool ComputeTriangleContact(CollisionSystem& _collisionSystem, const TriangleMeshShape& _mesh, const Triangle& _triangle, ShapeToShapeResult& _result)
+	{
+		return false;
+	}
+
 	// Bodyが持っている形(variant)をワールドへ直して返す
 	Shape ToWorldShape(const BodyData& _body)
 	{
@@ -143,6 +205,7 @@ void PhysicsSystem::Setup()
 {
 	Shutdown(); // 再初期化対策
 	slots.reserve(MAX_BODY_COUNT); // 最大容量をあらかじめ確保(作成時に再確保させない)
+	triangleMeshSlots.reserve(MAX_TRIANGLE_MESH_COUNT);
 	contacts.reserve(MAX_CONTACT_COUNT); 
 	contactSolveData.reserve(MAX_CONTACT_COUNT);
 }
@@ -151,6 +214,11 @@ void PhysicsSystem::Shutdown()
 {
 	slots.clear();
 	contacts.clear();
+	triangleMeshSlots.clear();
+	while (!triangleMeshFreeList.empty())
+	{
+		triangleMeshFreeList.pop();
+	}
 	contactSolveData.clear();
 	while (!freeList.empty())
 	{
@@ -164,6 +232,17 @@ BodyHandle PhysicsSystem::CreateBody(const BodyDesc& _desc)
 	{
 		DEBUG_LOG_ERROR("不正な設定構造体が渡されました\n");
 		return BodyHandle{};
+	}
+
+	// 三角形の集まりは登録済みでStaticのときだけ使える
+	if (_desc.shapeData.index() == TRIANGLE_MESH_SHAPE_INDEX)
+	{
+		const TriangleMeshShape& meshShape{ std::get<TriangleMeshShape>(_desc.shapeData) };
+		if (!Lookup(meshShape.mesh) || _desc.motionType != MotionType::Static)
+		{
+			DEBUG_LOG_ERROR("三角形の集まりの設定が無効です\n");
+			return BodyHandle{};
+		}
 	}
 
 	// 新しく確保できるか再利用できるか
@@ -198,6 +277,86 @@ bool PhysicsSystem::DestroyBody(BodyHandle _handle)
 	slots[index].generation++;
 	slots[index].isAlive = false;
 	freeList.push(index); // この位置を使えるようにする
+	return true;
+}
+
+TriangleMeshHandle PhysicsSystem::CreateTriangleMesh(std::span<const Vector3> _vertices, std::span<const std::uint32_t> _indices)
+{
+	if (_indices.empty() || _indices.size() % 3 != 0)
+	{
+		DEBUG_LOG_ERROR("三角形の番号の数が無効です\n");
+		return TriangleMeshHandle{};
+	}
+
+	// 新しく確保できるか再利用できるか
+	const bool canRegister{ !triangleMeshFreeList.empty() || static_cast<int>(triangleMeshSlots.size()) < MAX_TRIANGLE_MESH_COUNT };
+	if (!canRegister)
+	{
+		DEBUG_LOG_ERROR("三角形の集まりの登録上限に達しました\n");
+		return TriangleMeshHandle{};
+	}
+
+	TriangleMeshData data{};
+	data.triangles.reserve(_indices.size() / 3);
+	for (std::size_t i = 0; i + 2 < _indices.size(); i += 3)
+	{
+		const std::uint32_t indexA{ _indices[i] };
+		const std::uint32_t indexB{ _indices[i + 1] };
+		const std::uint32_t indexC{ _indices[i + 2] };
+		if (indexA >= _vertices.size() || indexB >= _vertices.size() || indexC >= _vertices.size())
+		{
+			DEBUG_LOG_ERROR("三角形の番号が頂点の数を超えています\n");
+			return TriangleMeshHandle{};
+		}
+		const Triangle triangle{ _vertices[indexA], _vertices[indexB], _vertices[indexC] };
+		// 面積が0の三角形や有限でない頂点が一つでもあれば登録しない
+		if (!triangle.IsValid())
+		{
+			DEBUG_LOG_ERROR("面積が0または不正な三角形が含まれています\n");
+			return TriangleMeshHandle{};
+		}
+		data.triangles.push_back(triangle);
+	}
+
+	int index{ 0 };
+	if (!triangleMeshFreeList.empty())
+	{
+		index = triangleMeshFreeList.top(); // Destroyされたところから持ってくる
+		triangleMeshFreeList.pop();
+		triangleMeshSlots[index].data = data;
+		triangleMeshSlots[index].isAlive = true; // 世代はDestroyで上げてあるのでそのまま
+	}
+	else
+	{
+		index = static_cast<int>(triangleMeshSlots.size()); // 空きがないなら新しく作る
+		triangleMeshSlots.push_back({ data, 0, true }); // 新しく確保したので世代は0
+	}
+	const int pack{ Pack(index, static_cast<int>(triangleMeshSlots[index].generation)) };
+	return TriangleMeshHandle{ PassKey{}, pack };
+}
+
+bool PhysicsSystem::DestroyTriangleMesh(TriangleMeshHandle _handle)
+{
+	TriangleMeshData* data{ Lookup(_handle) };
+	if (!data) return false;
+
+	// Bodyが使っている間は断る
+	for (const BodySlot& slot : slots)
+	{
+		if (!slot.isAlive) continue;
+		if (slot.data.shape.index() != TRIANGLE_MESH_SHAPE_INDEX) continue;
+		if (std::get<TriangleMeshShape>(slot.data.shape).mesh == _handle)
+		{
+			DEBUG_LOG_ERROR("Bodyが使っている三角形の集まりは削除できません\n");
+			return false;
+		}
+	}
+
+	const int index{ UnpackIndex(_handle.GetRaw(PassKey{})) };
+	triangleMeshSlots[index].data = {};
+	triangleMeshSlots[index].generation++;
+	triangleMeshSlots[index].isAlive = false;
+	triangleMeshFreeList.push(index); // この位置を使えるようにする
 	return true;
 }
 
@@ -321,6 +480,35 @@ BodyData* PhysicsSystem::Lookup(BodyHandle _handle)
 	return &slot.data;
 }
 
+TriangleMeshData* PhysicsSystem::Lookup(TriangleMeshHandle _handle)
+{
+	if (!_handle.IsValid())
+	{
+		DEBUG_LOG_ERROR("無効なハンドルです\n");
+		return nullptr;
+	}
+	const int packed{ _handle.GetRaw(PassKey{}) };
+	const int index{ UnpackIndex(packed) };
+	if (index < 0 || index >= static_cast<int>(triangleMeshSlots.size()))
+	{
+		DEBUG_LOG_ERROR("ハンドルに範囲外のサイズが渡されました\n");
+		return nullptr;
+	}
+
+	TriangleMeshSlot& slot{ triangleMeshSlots[index] };
+	if (UnpackGen(packed) != static_cast<int>(slot.generation))
+	{
+		DEBUG_LOG_WARNING("世代が異なります\n");
+		return nullptr; // 世代チェック
+	}
+	if (!slot.isAlive)
+	{
+		DEBUG_LOG_WARNING("有効でない三角形の集まりです\n");
+		return nullptr; // 生存チェック
+	}
+	return &slot.data;
+}
+
 bool PhysicsSystem::ComputeBodyContact(const BodyData& _bodyA, const BodyData& _bodyB, ShapeToShapeResult& _result)
 {
 	const Shape shapeA{ ToWorldShape(_bodyA) };
@@ -348,6 +536,13 @@ void PhysicsSystem::UpdateContacts()
 			// 上限に達したらこのStepはここまで
 			if (static_cast<int>(contacts.size()) >= MAX_CONTACT_COUNT) return;
 
+			// 三角形の集まりは表を通さず三角形を一枚ずつ調べる
+			if (slotA.data.shape.index() == TRIANGLE_MESH_SHAPE_INDEX || slotB.data.shape.index() == TRIANGLE_MESH_SHAPE_INDEX)
+			{
+				AddTriangleMeshContacts(indexA, indexB);
+				continue;
+			}
+
 			BodyToBodyResult contact{};
 			if (!ComputeBodyContact(slotA.data, slotB.data, contact.shapeToShapeResult)) continue;
 			contact.bodyA = BodyHandle{ PassKey{}, Pack(indexA, static_cast<int>(slotA.generation)) };
@@ -364,6 +559,71 @@ void PhysicsSystem::UpdateContacts()
 			contactSolveData.push_back(solve);
 		}
 	}
+}
+
+void PhysicsSystem::AddTriangleMeshContacts(int _indexA, int _indexB)
+{
+	const BodyData& bodyA{ slots[_indexA].data };
+	const BodyData& bodyB{ slots[_indexB].data };
+	const bool isMeshA{ bodyA.shape.index() == TRIANGLE_MESH_SHAPE_INDEX };
+	const bool isMeshB{ bodyB.shape.index() == TRIANGLE_MESH_SHAPE_INDEX };
+	if (isMeshA && isMeshB) return; // 三角形の集まり同士は調べない
+
+	const BodyData& meshBody{ isMeshA ? bodyA : bodyB };
+	const BodyData& otherBody{ isMeshA ? bodyB : bodyA };
+
+	// ハンドルから三角形の集まりを引く(CreateBodyで検証済みなのでStepの中ではログを出さずに調べる)
+	const int packed{ std::get<TriangleMeshShape>(meshBody.shape).mesh.GetRaw(PassKey{}) };
+	const int meshIndex{ UnpackIndex(packed) };
+	if (meshIndex < 0 || meshIndex >= static_cast<int>(triangleMeshSlots.size())) return;
+	const TriangleMeshSlot& meshSlot{ triangleMeshSlots[meshIndex] };
+	if (!meshSlot.isAlive || UnpackGen(packed) != static_cast<int>(meshSlot.generation)) return;
+
+	// 相手の形を三角形の集まりのBodyのローカルへ移す(三角形を毎Stepワールドへ直すより形1つを移す方が安い)
+	const Shape localShape{ std::visit([&otherBody, &meshBody](const auto& _shape) { return ToMeshLocalShape(_shape, otherBody, meshBody); }, otherBody.shape) };
+
+	for (const Triangle& triangle : meshSlot.data.triangles)
+	{
+		// 上限に達したらこのStepはここまで
+		if (static_cast<int>(contacts.size()) >= MAX_CONTACT_COUNT) return;
+
+		ShapeToShapeResult result{};
+		CollisionSystem& system{ collisionSystem };
+		const bool isHit{ std::visit([&system, &triangle, &result](const auto& _shape) { return ComputeTriangleContact(system, _shape, triangle, result); }, localShape) };
+		if (!isHit) continue;
+
+		// 結果をワールドへ戻す(法線は回転だけ 点は回転してから位置を足す)
+		result.normal = meshBody.rotation.RotateVector(result.normal);
+		for (int i = 0; i < result.pointCount; i++)
+		{
+			result.points[i].worldPosition = ToWorldPoint(result.points[i].worldPosition, meshBody);
+		}
+		// 計算した法線は相手の形->三角形なので三角形の集まりがA側なら反転してA->Bにそろえる
+		if (isMeshA) result.normal = -result.normal;
+
+		PushContact(_indexA, _indexB, result);
+	}
+}
+
+void PhysicsSystem::PushContact(int _indexA, int _indexB, const ShapeToShapeResult& _result)
+{
+	const BodySlot& slotA{ slots[_indexA] };
+	const BodySlot& slotB{ slots[_indexB] };
+
+	BodyToBodyResult contact{};
+	contact.shapeToShapeResult = _result;
+	contact.bodyA = BodyHandle{ PassKey{}, Pack(_indexA, static_cast<int>(slotA.generation)) };
+	contact.bodyB = BodyHandle{ PassKey{}, Pack(_indexB, static_cast<int>(slotB.generation)) };
+	contacts.push_back(contact);
+
+	ContactSolveData solve{};
+	solve.indexA = _indexA;
+	solve.indexB = _indexB;
+	solve.inverseMassSum = slotA.data.massInverse + slotB.data.massInverse;
+	solve.friction = std::sqrt(slotA.data.friction * slotB.data.friction);
+	solve.isSolved = !slotA.data.isTrigger && !slotB.data.isTrigger && solve.inverseMassSum > 0.0f;
+	MakeTangents(_result.normal, solve.tangent1, solve.tangent2);
+	contactSolveData.push_back(solve);
 }
 
 void PhysicsSystem::SolveVelocities()
