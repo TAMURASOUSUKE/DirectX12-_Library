@@ -341,6 +341,150 @@ TestResult RunPhysicsTests()
 		check("large field: destroyed", Physics::DestroyHeightField(field));
 	}
 
+	// レイヤーであたり判定の相手を絞る(#162)
+	// 項目は本人が決めた4つ : 外した組は接触の一覧に出ない / 片方だけ外しても出ない / 何も設定しない同士は今まで通り当たる / 三角形の集まりと高さの格子でも効く
+	// 組み立てはAIが書いた 床の上へ球を落とし Stepごとの接触の数の最大と 最後の高さを見る(当たるなら止まる 当たらないならすり抜けて落ち続ける)
+	{
+		constexpr int STEP_COUNT{ 180 }; // 3秒分進める
+		constexpr float POSITION_TOLERANCE{ 0.03f }; // 止まる高さの許す誤差
+		constexpr float REST_HEIGHT{ 0.5f }; // 半径0.5の球が y=0 の面で止まる高さ
+		constexpr float FALLEN_HEIGHT{ -1.0f }; // これより下ならすり抜けたとみなす
+		constexpr std::uint32_t LAYER_GROUND{ 1u << 1 }; // 床に付けるレイヤー
+		constexpr std::uint32_t LAYER_BALL{ 1u << 2 }; // 球に付けるレイヤー
+		constexpr std::uint32_t MASK_ALL{ 0xFFFFFFFF }; // 全てのレイヤーを相手にする
+
+		// 球を落とした結果
+		struct DropOutcome
+		{
+			int maxContactCount{ 0 }; // Stepごとの接触の数の最大(一度も当たらなければ0)
+			float finalHeight{ 0.0f }; // 最後の球の高さ
+		};
+		// 床を一つ作り その上へ球を一つ落として結果を返す(作ったBodyはここで消す)
+		const auto dropSphere = [STEP_COUNT](const BodyDesc& _floorDesc, Vector3 _spherePosition, std::uint32_t _sphereLayer, std::uint32_t _sphereMask)
+			{
+				const BodyHandle floorBody{ Physics::CreateBody(_floorDesc) };
+
+				BodyDesc sphereDesc{};
+				sphereDesc.shapeData = Sphere{ Vector3::Zero, 0.5f };
+				sphereDesc.position = _spherePosition;
+				sphereDesc.motionType = MotionType::Dynamic;
+				sphereDesc.layer = _sphereLayer;
+				sphereDesc.collisionMask = _sphereMask;
+				const BodyHandle sphere{ Physics::CreateBody(sphereDesc) };
+
+				DropOutcome outcome{};
+				for (int i{ 0 }; i < STEP_COUNT; i++)
+				{
+					Physics::Step(Time::FixedDeltaTime());
+					outcome.maxContactCount = (std::max)(outcome.maxContactCount, static_cast<int>(Physics::GetContacts().size()));
+				}
+				outcome.finalHeight = Physics::GetPosition(sphere).y;
+
+				Physics::DestroyBody(sphere);
+				Physics::DestroyBody(floorBody);
+				return outcome;
+			};
+
+		// 箱の床(上面は y=0)
+		BodyDesc boxFloorDesc{};
+		boxFloorDesc.shapeData = Box{ Vector3::Zero, { 10.0f, 0.5f, 10.0f } };
+		boxFloorDesc.position = { 0.0f, -0.5f, 0.0f };
+		boxFloorDesc.motionType = MotionType::Static;
+		const Vector3 boxDropPosition{ 0.0f, 2.0f, 0.0f };
+
+		// 何も設定しない同士は今まで通り当たる(layerもcollisionMaskも初期値のまま)
+		{
+			const BodyDesc defaultSphere{};
+			const DropOutcome outcome{ dropSphere(boxFloorDesc, boxDropPosition, defaultSphere.layer, defaultSphere.collisionMask) };
+			check("layer: default pair has contact", outcome.maxContactCount > 0);
+			check("layer: default pair rests", std::abs(outcome.finalHeight - REST_HEIGHT) < POSITION_TOLERANCE);
+		}
+
+		// レイヤーを付けても 互いに相手を含んでいれば当たる
+		{
+			BodyDesc floorDesc{ boxFloorDesc };
+			floorDesc.layer = LAYER_GROUND;
+			floorDesc.collisionMask = LAYER_BALL;
+			const DropOutcome outcome{ dropSphere(floorDesc, boxDropPosition, LAYER_BALL, LAYER_GROUND) };
+			check("layer: matched pair has contact", outcome.maxContactCount > 0);
+			check("layer: matched pair rests", std::abs(outcome.finalHeight - REST_HEIGHT) < POSITION_TOLERANCE);
+		}
+
+		// 両方が相手のレイヤーを外した組は接触の一覧に出ない
+		{
+			BodyDesc floorDesc{ boxFloorDesc };
+			floorDesc.layer = LAYER_GROUND;
+			floorDesc.collisionMask = MASK_ALL & ~LAYER_BALL;
+			const DropOutcome outcome{ dropSphere(floorDesc, boxDropPosition, LAYER_BALL, MASK_ALL & ~LAYER_GROUND) };
+			check("layer: both excluded has no contact", outcome.maxContactCount == 0);
+			check("layer: both excluded falls through", outcome.finalHeight < FALLEN_HEIGHT);
+		}
+
+		// 球だけが床のレイヤーを外しても出ない(床は全てを相手にしている)
+		{
+			BodyDesc floorDesc{ boxFloorDesc };
+			floorDesc.layer = LAYER_GROUND;
+			floorDesc.collisionMask = MASK_ALL;
+			const DropOutcome outcome{ dropSphere(floorDesc, boxDropPosition, LAYER_BALL, MASK_ALL & ~LAYER_GROUND) };
+			check("layer: only sphere excludes has no contact", outcome.maxContactCount == 0);
+			check("layer: only sphere excludes falls through", outcome.finalHeight < FALLEN_HEIGHT);
+		}
+
+		// 床だけが球のレイヤーを外しても出ない(球は全てを相手にしている)
+		{
+			BodyDesc floorDesc{ boxFloorDesc };
+			floorDesc.layer = LAYER_GROUND;
+			floorDesc.collisionMask = MASK_ALL & ~LAYER_BALL;
+			const DropOutcome outcome{ dropSphere(floorDesc, boxDropPosition, LAYER_BALL, MASK_ALL) };
+			check("layer: only floor excludes has no contact", outcome.maxContactCount == 0);
+			check("layer: only floor excludes falls through", outcome.finalHeight < FALLEN_HEIGHT);
+		}
+
+		// 三角形の集まりでも効く(一辺20の平らな四角 面は y=0 対角線から離れた位置へ落とす)
+		{
+			const std::vector<Vector3> vertices{ { -10.0f, 0.0f, -10.0f }, { -10.0f, 0.0f, 10.0f }, { 10.0f, 0.0f, 10.0f }, { 10.0f, 0.0f, -10.0f } };
+			const std::vector<std::uint32_t> indices{ 0, 1, 2,  0, 2, 3 };
+			const TriangleMeshHandle mesh{ Physics::CreateTriangleMesh(vertices, indices) };
+			BodyDesc meshDesc{};
+			meshDesc.shapeData = TriangleMeshShape{ mesh };
+			meshDesc.motionType = MotionType::Static;
+			meshDesc.layer = LAYER_GROUND;
+			const Vector3 meshDropPosition{ 3.0f, 2.0f, -3.0f };
+
+			const DropOutcome matched{ dropSphere(meshDesc, meshDropPosition, LAYER_BALL, MASK_ALL) };
+			check("layer: mesh matched has contact", matched.maxContactCount > 0);
+			check("layer: mesh matched rests", std::abs(matched.finalHeight - REST_HEIGHT) < POSITION_TOLERANCE);
+
+			const DropOutcome excluded{ dropSphere(meshDesc, meshDropPosition, LAYER_BALL, MASK_ALL & ~LAYER_GROUND) };
+			check("layer: mesh excluded has no contact", excluded.maxContactCount == 0);
+			check("layer: mesh excluded falls through", excluded.finalHeight < FALLEN_HEIGHT);
+
+			check("layer: mesh destroyed", Physics::DestroyTriangleMesh(mesh));
+		}
+
+		// 高さの格子でも効く(点は3x3 升は一辺4 高さは全部0 升の境目と対角線から離れた位置へ落とす)
+		{
+			const std::vector<float> heights(9, 0.0f);
+			const HeightFieldHandle field{ Physics::CreateHeightField(3, 3, 4.0f, heights) };
+			BodyDesc fieldDesc{};
+			fieldDesc.shapeData = HeightFieldShape{ field };
+			fieldDesc.position = { 20.0f, 0.0f, 20.0f }; // 格子の角
+			fieldDesc.motionType = MotionType::Static;
+			fieldDesc.layer = LAYER_GROUND;
+			const Vector3 fieldDropPosition{ 26.5f, 2.0f, 21.0f };
+
+			const DropOutcome matched{ dropSphere(fieldDesc, fieldDropPosition, LAYER_BALL, MASK_ALL) };
+			check("layer: field matched has contact", matched.maxContactCount > 0);
+			check("layer: field matched rests", std::abs(matched.finalHeight - REST_HEIGHT) < POSITION_TOLERANCE);
+
+			const DropOutcome excluded{ dropSphere(fieldDesc, fieldDropPosition, LAYER_BALL, MASK_ALL & ~LAYER_GROUND) };
+			check("layer: field excluded has no contact", excluded.maxContactCount == 0);
+			check("layer: field excluded falls through", excluded.finalHeight < FALLEN_HEIGHT);
+
+			check("layer: field destroyed", Physics::DestroyHeightField(field));
+		}
+	}
+
 	return result;
 }
 
