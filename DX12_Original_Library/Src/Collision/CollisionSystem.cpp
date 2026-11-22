@@ -58,9 +58,9 @@ namespace
 		const Vector3 w{ a - c };
 
 		// ほぼ平行な線分でも計算が崩れにくいよう、割合はdoubleで計算
-		const auto dot = [](const Vector3& lhs, const Vector3& rhs)
+		const auto dot = [](const Vector3& _lhs, const Vector3& _rhs)
 			{
-				return static_cast<double>(lhs.x) * rhs.x + static_cast<double>(lhs.y) * rhs.y + static_cast<double>(lhs.z) * rhs.z;
+				return static_cast<double>(_lhs.x) * _rhs.x + static_cast<double>(_lhs.y) * _rhs.y + static_cast<double>(_lhs.z) * _rhs.z;
 			};
 
 		// 1本目の線分の長さの二乗
@@ -401,9 +401,9 @@ bool CollisionSystem::Intersect(Capsule _capsule01, Capsule _capsule02)
 	const Vector3 w{ A - C };
 
 	// ほぼ平行な線分でも計算が崩れにくいよう、割合はdoubleで計算
-	const auto dotD = [](const Vector3& lhs, const Vector3& rhs)
+	const auto dotD = [](const Vector3& _lhs, const Vector3& _rhs)
 		{
-			return static_cast<double>(lhs.x) * rhs.x + static_cast<double>(lhs.y) * rhs.y + static_cast<double>(lhs.z) * rhs.z;
+			return static_cast<double>(_lhs.x) * _rhs.x + static_cast<double>(_lhs.y) * _rhs.y + static_cast<double>(_lhs.z) * _rhs.z;
 		};
 
 	const double a{ dotD(u, u) };
@@ -442,9 +442,9 @@ bool CollisionSystem::Intersect(Capsule _capsule, Box _box)
 	const std::array<float, 3> half{ _box.halfSize.x, _box.halfSize.y, _box.halfSize.z };
 
 	// 軸線分上の点 P(t) とBoxとの距離の二乗  t=0始点 t=1終点
-	const auto distanceSquaredAt = [&](float t)
+	const auto distanceSquaredAt = [&](float _t)
 		{
-			const Vector3 point{ a + direction * t };
+			const Vector3 point{ a + direction * _t };
 			const Vector3 nearest{
 				std::clamp(point.x, -_box.halfSize.x, _box.halfSize.x),
 				std::clamp(point.y, -_box.halfSize.y, _box.halfSize.y),
@@ -736,19 +736,19 @@ bool CollisionSystem::ComputePushOut(Box _movable, Box _obstacle, Vector3& _outM
 	Vector3 moveDirection{ Vector3::Right };
 
 	// 一つの分離軸候補へ両Boxを投影し、その軸上の重なり量を調べる。
-	const auto consider = [&](Vector3 axis)
+	const auto consider = [&](Vector3 _axis)
 		{
-			const float lengthSquared{ axis.LengthSquared() };
+			const float lengthSquared{ _axis.LengthSquared() };
 			if (lengthSquared <= Math::EPSILON * Math::EPSILON) return; // 平行軸の外積は無効
-			axis /= std::sqrt(lengthSquared); // 異なる軸の深さを比較できるよう単位化
-			const float signedDistance{ Vector3::Dot(centerDelta, axis) }; // 候補軸上の符号付き中心間距離
+			_axis /= std::sqrt(lengthSquared); // 異なる軸の深さを比較できるよう単位化
+			const float signedDistance{ Vector3::Dot(centerDelta, _axis) }; // 候補軸上の符号付き中心間距離
 			float radiusA{ 0.0f };
 			float radiusB{ 0.0f };
 			// Boxの3本の半辺を候補軸へ投影し、絶対値の合計から投影半径を求める。
 			for (int i = 0; i < 3; i++)
 			{
-				radiusA += halfA[i] * std::abs(Vector3::Dot(axesA[i], axis));
-				radiusB += halfB[i] * std::abs(Vector3::Dot(axesB[i], axis));
+				radiusA += halfA[i] * std::abs(Vector3::Dot(axesA[i], _axis));
+				radiusB += halfB[i] * std::abs(Vector3::Dot(axesB[i], _axis));
 			}
 			// 投影半径の合計から中心間距離を引いた値が、この軸上の重なり量。
 			const float overlap{ std::max(0.0f, radiusA + radiusB - std::abs(signedDistance)) };
@@ -756,7 +756,7 @@ bool CollisionSystem::ComputePushOut(Box _movable, Box _obstacle, Vector3& _outM
 			if (overlap < smallestOverlap)
 			{
 				smallestOverlap = overlap;
-				moveDirection = signedDistance > 0.0f ? -axis : axis; // 障害物とは反対側を選ぶ
+				moveDirection = signedDistance > 0.0f ? -_axis : _axis; // 障害物とは反対側を選ぶ
 			}
 		};
 
@@ -802,9 +802,9 @@ bool CollisionSystem::ComputePushOut(Capsule _movable, Box _obstacle, Vector3& _
 
 	// 線分上の割合tにある点とAABBとの距離の二乗を求める。t=0が始点、t=1が終点。
 	// 座標をBox範囲へclampすると、その点に最も近いBox上の点になる。
-	const auto distanceSquaredAt = [&](float t)
+	const auto distanceSquaredAt = [&](float _t)
 		{
-			const Vector3 point{ a + direction * t };
+			const Vector3 point{ a + direction * _t };
 			const Vector3 nearest{
 				std::clamp(point.x, -half[0], half[0]),
 				std::clamp(point.y, -half[1], half[1]),
@@ -840,13 +840,13 @@ bool CollisionSystem::ComputePushOut(Capsule _movable, Box _obstacle, Vector3& _
 	float nearestT{ cuts[0] };
 	float minDistanceSquared{ distanceSquaredAt(nearestT) };
 
-	const auto consider = [&](float t)
+	const auto consider = [&](float _t)
 		{
-			const float distanceSquared{ distanceSquaredAt(t) };
+			const float distanceSquared{ distanceSquaredAt(_t) };
 			if (distanceSquared < minDistanceSquared)
 			{
 				minDistanceSquared = distanceSquared;
-				nearestT = t;
+				nearestT = _t;
 			}
 		};
 
@@ -1093,9 +1093,9 @@ bool CollisionSystem::ComputeShapeContact(Capsule _capsuleA, Box _boxB, ShapeToS
 
 	// 線分上の割合tにある点とAABBとの距離の二乗を求める t=0が始点、t=1が終点
 	// 座標をBox範囲へclampすると その点に最も近いBox上の点になる
-	const auto distanceSquaredAt = [&](float t)
+	const auto distanceSquaredAt = [&](float _t)
 		{
-			const Vector3 point{ a + direction * t };
+			const Vector3 point{ a + direction * _t };
 			const Vector3 nearest{
 				std::clamp(point.x, -half[0], half[0]),
 				std::clamp(point.y, -half[1], half[1]),
@@ -1131,13 +1131,13 @@ bool CollisionSystem::ComputeShapeContact(Capsule _capsuleA, Box _boxB, ShapeToS
 	float nearestT{ cuts[0] };
 	float minDistanceSquared{ distanceSquaredAt(nearestT) };
 
-	const auto consider = [&](float t)
+	const auto consider = [&](float _t)
 		{
-			const float distanceSquared{ distanceSquaredAt(t) };
+			const float distanceSquared{ distanceSquaredAt(_t) };
 			if (distanceSquared < minDistanceSquared)
 			{
 				minDistanceSquared = distanceSquared;
-				nearestT = t;
+				nearestT = _t;
 			}
 		};
 
@@ -1214,19 +1214,19 @@ bool CollisionSystem::ComputeShapeContact(Box _boxA, Box _boxB, ShapeToShapeResu
 	Vector3 moveDirection{ Vector3::Right };
 
 	// 一つの分離軸候補へ両Boxを投影し、その軸上の重なり量を調べる。
-	const auto consider = [&](Vector3 axis)
+	const auto consider = [&](Vector3 _axis)
 		{
-			const float lengthSquared{ axis.LengthSquared() };
+			const float lengthSquared{ _axis.LengthSquared() };
 			if (lengthSquared <= Math::EPSILON * Math::EPSILON) return; // 平行軸の外積は無効
-			axis /= std::sqrt(lengthSquared); // 異なる軸の深さを比較できるよう単位化
-			const float signedDistance{ Vector3::Dot(centerDelta, axis) }; // 候補軸上の符号付き中心間距離
+			_axis /= std::sqrt(lengthSquared); // 異なる軸の深さを比較できるよう単位化
+			const float signedDistance{ Vector3::Dot(centerDelta, _axis) }; // 候補軸上の符号付き中心間距離
 			float radiusA{ 0.0f };
 			float radiusB{ 0.0f };
 			// Boxの3本の半辺を候補軸へ投影し、絶対値の合計から投影半径を求める。
 			for (int i = 0; i < 3; i++)
 			{
-				radiusA += halfA[i] * std::abs(Vector3::Dot(axesA[i], axis));
-				radiusB += halfB[i] * std::abs(Vector3::Dot(axesB[i], axis));
+				radiusA += halfA[i] * std::abs(Vector3::Dot(axesA[i], _axis));
+				radiusB += halfB[i] * std::abs(Vector3::Dot(axesB[i], _axis));
 			}
 			// 投影半径の合計から中心間距離を引いた値が、この軸上の重なり量。
 			const float overlap{ std::max(0.0f, radiusA + radiusB - std::abs(signedDistance)) };
@@ -1234,7 +1234,7 @@ bool CollisionSystem::ComputeShapeContact(Box _boxA, Box _boxB, ShapeToShapeResu
 			if (overlap < smallestOverlap)
 			{
 				smallestOverlap = overlap;
-				moveDirection = signedDistance > 0.0f ? -axis : axis; // 障害物とは反対側を選ぶ
+				moveDirection = signedDistance > 0.0f ? -_axis : _axis; // 障害物とは反対側を選ぶ
 			}
 		};
 
@@ -1335,27 +1335,27 @@ bool CollisionSystem::ComputeShapeContact(Box _boxA, Triangle _triangleB, ShapeT
 	bool isSeparated{ false }; // 重ならない軸が一つでもあれば非接触
 
 	// 一つの分離軸候補へBoxと三角形を投影し、その軸上の重なり量を調べる
-	const auto consider = [&](Vector3 axis)
+	const auto consider = [&](Vector3 _axis)
 		{
 			if (isSeparated) return;
-			const float lengthSquared{ axis.LengthSquared() };
+			const float lengthSquared{ _axis.LengthSquared() };
 			if (lengthSquared <= Math::EPSILON * Math::EPSILON) return; // 平行軸の外積は無効
-			axis /= std::sqrt(lengthSquared); // 異なる軸の深さを比較できるよう単位化
+			_axis /= std::sqrt(lengthSquared); // 異なる軸の深さを比較できるよう単位化
 
 			// Boxを軸へ投影した中心と半径
-			const float centerA{ Vector3::Dot(_boxA.center, axis) };
+			const float centerA{ Vector3::Dot(_boxA.center, _axis) };
 			float radiusA{ 0.0f };
 			for (int i = 0; i < 3; i++)
 			{
-				radiusA += halfA[i] * std::abs(Vector3::Dot(axesA[i], axis));
+				radiusA += halfA[i] * std::abs(Vector3::Dot(axesA[i], _axis));
 			}
 
 			// 三角形を軸へ投影した範囲(頂点3つの最小と最大)
-			float minB{ Vector3::Dot(vertices[0], axis) };
+			float minB{ Vector3::Dot(vertices[0], _axis) };
 			float maxB{ minB };
 			for (int i = 1; i < 3; i++)
 			{
-				const float projected{ Vector3::Dot(vertices[i], axis) };
+				const float projected{ Vector3::Dot(vertices[i], _axis) };
 				minB = std::min(minB, projected);
 				maxB = std::max(maxB, projected);
 			}
@@ -1372,12 +1372,12 @@ bool CollisionSystem::ComputeShapeContact(Box _boxA, Triangle _triangleB, ShapeT
 			if (overlapPlus < smallestOverlap)
 			{
 				smallestOverlap = overlapPlus;
-				normal = axis;
+				normal = _axis;
 			}
 			if (overlapMinus < smallestOverlap)
 			{
 				smallestOverlap = overlapMinus;
-				normal = -axis;
+				normal = -_axis;
 			}
 		};
 
