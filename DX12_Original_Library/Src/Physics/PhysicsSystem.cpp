@@ -724,6 +724,9 @@ void PhysicsSystem::UpdateContacts()
 			// 上限に達したらこのStepはここまで
 			if (static_cast<int>(contacts.size()) >= MAX_CONTACT_COUNT) return;
 
+			// データのレイヤーを見て双方向で判定する
+			if (!IsLayerMatched(slotA.data.layer, slotB.data.collisionMask) || !IsLayerMatched(slotB.data.layer, slotA.data.collisionMask)) continue;
+
 			// 高さの格子は表を通さず 形が重なる升の三角形を調べる
 			if (slotA.data.shape.index() == HEIGHT_FIELD_SHAPE_INDEX || slotB.data.shape.index() == HEIGHT_FIELD_SHAPE_INDEX)
 			{
