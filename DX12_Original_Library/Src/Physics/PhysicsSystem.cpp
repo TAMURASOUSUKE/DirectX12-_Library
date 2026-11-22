@@ -103,6 +103,13 @@ namespace
 		return inverseRotation.RotateVector(_worldPoint - _body.position);
 	}
 
+	// 一つのレイヤーが一つのCollisionMaskに入っているかを返す
+	bool IsLayerMatched(std::uint32_t _layer, std::uint32_t _collisionMask)
+	{
+		// 渡されたMaskの中に自分が入っているか
+		return (_layer & _collisionMask) != 0;
+	}
+
 	// 形をワールドへ直してから三角形の集まりのBodyのローカルへ移す
 	Shape ToMeshLocalShape(const Sphere& _sphere, const BodyData& _owner, const BodyData& _meshBody)
 	{
@@ -387,6 +394,7 @@ TriangleMeshHandle PhysicsSystem::CreateTriangleMesh(std::span<const Vector3> _v
 			DEBUG_LOG_ERROR("三角形の番号が頂点の数を超えています\n");
 			return TriangleMeshHandle{};
 		}
+
 		const Triangle triangle{ _vertices[indexA], _vertices[indexB], _vertices[indexC] };
 		// 面積が0の三角形や有限でない頂点が一つでもあれば登録しない
 		if (!triangle.IsValid())
