@@ -881,12 +881,6 @@ void PhysicsSystem::AddHeightFieldContacts(int _indexA, int _indexB)
 
 bool PhysicsSystem::Raycast(Vector3 _origin, Vector3 _direction, float _maxDistance, RaycastResult& _result, std::uint32_t _collisionMask, BodyHandle _ignoreBody)
 {
-	if (!_ignoreBody.IsValid())
-	{
-		DEBUG_LOG_ERROR("不正なIgnoreBodyのHandleが渡されました\n");
-		return false;
-	}
-
 	if (_maxDistance <= 0.0f)
 	{
 		DEBUG_LOG_ERROR("最大距離には0より大きい値を入れてください\n");
@@ -903,9 +897,10 @@ bool PhysicsSystem::Raycast(Vector3 _origin, Vector3 _direction, float _maxDista
 	for (std::size_t slotIndex = 0; slotIndex < slots.size(); slotIndex++)
 	{
 		BodySlot& slot{ slots[slotIndex] };
+		if (!slot.isAlive) continue;
 		
 		// 無視するBodyかをHandleを作ってチェック
-		BodyHandle currentHandle{ PassKey{}, Pack(slotIndex, static_cast<int>(slot.generation)) }; // 世代とindexでハンドルを作る
+		BodyHandle currentHandle{ PassKey{}, Pack(static_cast<int>(slotIndex), static_cast<int>(slot.generation)) }; // 世代とindexでハンドルを作る
 		if (currentHandle == _ignoreBody) continue; // 無視するハンドルだった場合は弾く
 
 		if (!IsLayerMatched(slot.data.layer, _collisionMask)) continue; // レイヤーに入っていなければ無視
