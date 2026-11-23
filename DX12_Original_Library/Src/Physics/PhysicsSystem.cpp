@@ -909,7 +909,14 @@ bool PhysicsSystem::Raycast(Vector3 _origin, Vector3 _direction, float _maxDista
 		if (const Sphere * sphere{ std::get_if<Sphere>(&slot.data.shape) })
 		{
 			const Sphere worldSphere{ ToWorldShape(*sphere, slot.data) };
-			// CollisionSystemでのあたり判定に渡す
+			RayToShapeResult result{};
+			if (!collisionSystem.ComputeRayContact(_origin, _direction, _maxDistance, *sphere, result)) continue;
+			_result.body = currentHandle;
+			_result.distance = result.distance;
+			_result.normal = result.normal;
+			_result.worldPosition = result.worldPosition;
+			_result.userData = slot.data.userData;
+			return true; // 最初に当たったデータを返す
 		}
 
 	}
