@@ -20,7 +20,7 @@ struct ShapeToShapeResult
 	int pointCount{ 0 }; // 入っている点の数
 };
 
-// Ryaと形状のあたり判定
+// Rayと形状のあたり判定
 struct RayToShapeResult
 {
 	Vector3 worldPosition{ Vector3::Zero }; // 当たった時の位置

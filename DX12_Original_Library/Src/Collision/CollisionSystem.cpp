@@ -1420,3 +1420,38 @@ bool CollisionSystem::ComputeShapeContact(Box _boxA, Triangle _triangleB, ShapeT
 	_result.pointCount = 1;
 	return true;
 }
+
+bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, float _maxDistance, Sphere	_sphere, RayToShapeResult& _result)
+{
+	if (!_sphere.IsValid()) return false;
+	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+
+	const Vector3 difference{ _sphere.center - _origin };
+	const float radiusSqr{ _sphere.radius * _sphere.radius };
+
+	// 原点がかぶっている場合
+	if (difference.LengthSquared() > radiusSqr)
+	{
+		_result.worldPosition = _origin;
+		_result.normal = -_direction;
+		_result.distance = 0;
+		return true;
+	}
+
+	const float projection{ Vector3::Dot(difference, _direction) };
+	if (projection < 0) return false;
+
+	// 対辺^2 = 斜辺^2 - 隣辺^2より球の中心から投影位置までの距離の二乗を出している
+	const float lengthSqr{ difference.LengthSquared() - projection * projection };
+	if (lengthSqr > radiusSqr) return false;
+
+	// 球の半径の二乗から球の中心から投影位置までの距離の二乗を引く
+	const float halfChordLength{ std::sqrtf(radiusSqr - lengthSqr) };
+	const float t{ projection - halfChordLength }; // Rayの始点位置から球に入るまでの距離
+	if (_maxDistance < t) return false; // 最大距離より遠くにいる
+
+	_result.worldPosition = _origin + _direction * t;
+	_result.normal = (_result.worldPosition - _sphere.center) / _sphere.radius;
+	_result.distance = t;
+	return true;
+}
