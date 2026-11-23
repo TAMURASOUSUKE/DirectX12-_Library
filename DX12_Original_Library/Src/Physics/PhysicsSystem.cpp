@@ -879,6 +879,47 @@ void PhysicsSystem::AddHeightFieldContacts(int _indexA, int _indexB)
 	}
 }
 
+bool PhysicsSystem::Raycast(Vector3 _origin, Vector3 _direction, float _maxDistance, RaycastResult& _result, std::uint32_t _collisionMask, BodyHandle _ignoreBody)
+{
+	if (!_ignoreBody.IsValid())
+	{
+		DEBUG_LOG_ERROR("不正なIgnoreBodyのHandleが渡されました\n");
+		return false;
+	}
+
+	if (_maxDistance <= 0.0f)
+	{
+		DEBUG_LOG_ERROR("最大距離には0より大きい値を入れてください\n");
+		return false;
+	}
+
+	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON)
+	{
+		DEBUG_LOG_ERROR("Directionの長さがほぼ0です\n");
+		return false;
+	}
+
+	// 全Bodyを見る
+	for (std::size_t slotIndex = 0; slotIndex < slots.size(); slotIndex++)
+	{
+		BodySlot& slot{ slots[slotIndex] };
+		
+		// 無視するBodyかをHandleを作ってチェック
+		BodyHandle currentHandle{ PassKey{}, Pack(slotIndex, static_cast<int>(slot.generation)) }; // 世代とindexでハンドルを作る
+		if (currentHandle == _ignoreBody) continue; // 無視するハンドルだった場合は弾く
+
+		if (!IsLayerMatched(slot.data.layer, _collisionMask)) continue; // レイヤーに入っていなければ無視
+
+		// 各形状をget_ifで見て行う
+		if (const Sphere * sphere{ std::get_if<Sphere>(&slot.data.shape) })
+		{
+			const Sphere worldSphere{ ToWorldShape(*sphere, slot.data) };
+			// CollisionSystemでのあたり判定に渡す
+		}
+
+	}
+}
+
 void PhysicsSystem::PushContact(int _indexA, int _indexB, const ShapeToShapeResult& _result)
 {
 	const BodySlot& slotA{ slots[_indexA] };
