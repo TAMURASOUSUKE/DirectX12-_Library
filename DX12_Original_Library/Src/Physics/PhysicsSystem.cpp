@@ -893,6 +893,10 @@ bool PhysicsSystem::Raycast(Vector3 _origin, Vector3 _direction, float _maxDista
 		return false;
 	}
 
+	const Vector3 direction{ Vector3::Normalized(_direction) };
+	bool isHit{ false };
+	float nearestDistance{ _maxDistance };
+
 	// 全Bodyを見る
 	for (std::size_t slotIndex = 0; slotIndex < slots.size(); slotIndex++)
 	{
@@ -910,16 +914,19 @@ bool PhysicsSystem::Raycast(Vector3 _origin, Vector3 _direction, float _maxDista
 		{
 			const Sphere worldSphere{ ToWorldShape(*sphere, slot.data) };
 			RayToShapeResult result{};
-			if (!collisionSystem.ComputeRayContact(_origin, _direction, _maxDistance, *sphere, result)) continue;
+			if (!collisionSystem.ComputeRayContact(_origin, direction, nearestDistance, worldSphere, result)) continue;
 			_result.body = currentHandle;
 			_result.distance = result.distance;
 			_result.normal = result.normal;
 			_result.worldPosition = result.worldPosition;
 			_result.userData = slot.data.userData;
-			return true; // 最初に当たったデータを返す
+			nearestDistance = result.distance;
+			isHit = true;
 		}
 
 	}
+
+	return isHit;
 }
 
 void PhysicsSystem::PushContact(int _indexA, int _indexB, const ShapeToShapeResult& _result)

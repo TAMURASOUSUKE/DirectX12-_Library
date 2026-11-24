@@ -37,6 +37,8 @@ public:
 
 	// Rayでのあたり判定
 	bool ComputeRayContact(Vector3 _origin, Vector3 _direction, float _maxDistance, Sphere	_sphere, RayToShapeResult& _result);
+	bool ComputeRayContact(Vector3 _origin, Vector3 _direction, float _maxDistance, Capsule _capsule, RayToShapeResult& _result);
+	bool ComputeRayContact(Vector3 _origin, Vector3 _direction, float _maxDistance, Box _box, RayToShapeResult& _result);
 
 private:
 

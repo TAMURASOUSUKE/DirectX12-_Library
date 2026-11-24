@@ -1430,7 +1430,7 @@ bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, flo
 	const float radiusSqr{ _sphere.radius * _sphere.radius };
 
 	// 原点がかぶっている場合
-	if (difference.LengthSquared() > radiusSqr)
+	if (difference.LengthSquared() <= radiusSqr)
 	{
 		_result.worldPosition = _origin;
 		_result.normal = -_direction;
@@ -1453,5 +1453,81 @@ bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, flo
 	_result.worldPosition = _origin + _direction * t;
 	_result.normal = (_result.worldPosition - _sphere.center) / _sphere.radius;
 	_result.distance = t;
+	return true;
+}
+
+bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, float _maxDistance, Capsule _capsule, RayToShapeResult& _result)
+{
+	if (!_capsule.IsValid()) return false;
+	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+}
+
+bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, float _maxDistance, Box _box, RayToShapeResult& _result)
+{
+	if (!_box.IsValid()) return false;
+	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+
+	// Boxの回転を打ち消しRayの軸線分をBoxのローカル空間へ移す
+	const Quaternion inverseRotation{ Vector4{ -_box.rotation.x, -_box.rotation.y, -_box.rotation.z, _box.rotation.w } };
+	const Vector3 a{ inverseRotation.RotateVector(_origin - _box.center)};
+	const Vector3 b{ inverseRotation.RotateVector(_direction) };
+
+	const std::array<float, 3> half{ _box.halfSize.x, _box.halfSize.y, _box.halfSize.z };
+	const std::array<float, 3> start{ a.x, a.y, a.z };
+	const std::array<float, 3> dir{ b.x, b.y, b.z };
+
+	float tEnter{ -std::numeric_limits<float>::max() }; // 入る-の中で一番大きい
+	float tExit{ std::numeric_limits<float>::max() }; // 出るtで一番小さい
+	std::size_t enterAxis{ 0 }; // tEnterを出した軸
+	for (std::size_t i = 0; i < 3; i++)
+	{
+		// 割り算ができないため向きがほぼ0の軸から行う
+		if (std::abs(dir[i]) <= Math::EPSILON)
+		{
+			// 向きが0の時に始点が探索軸方向に半サイズより大きく出ていれば当たることはないのでfalseを返す
+			if (std::abs(start[i]) > half[i]) return false;
+			else continue;
+		}
+
+		// Start + dir * t = ±halfをtについて解く 
+		const float t1{ (- half[i] - start[i]) / dir[i]};
+		const float t2{ (half[i] - start[i]) / dir[i] };
+
+		// 小さいほうをnear遠いほうをfarにする
+		const float tNear{ std::min(t1, t2) };
+		const float tFar{ std::max(t1, t2) };
+
+		// 入る位置が遠いものと出る位置が一番近いところを選ぶ
+		if (tNear > tEnter)
+		{
+			tEnter = tNear; 
+			enterAxis = i; // 入るところの軸の面を見る
+		}
+		if (tFar < tExit)
+		{
+			tExit = tFar;
+		}
+	}
+
+	if (tEnter > tExit) return false; // 入ったところが出たところの奥にあるのはBoxの外を通っている時なのでfalse
+	if (tExit < 0.0f) return false; // 箱が後ろにある場合
+
+	// 始点が箱の中なのでtrue
+	if (tEnter <= 0.0f)
+	{
+		_result.worldPosition = _origin;
+		_result.normal = -_direction;
+		_result.distance = 0;
+		return true;
+	}
+
+	if (tEnter > _maxDistance) return false; // 最大距離よりも遠いので届かない
+
+	// 法線の作成
+	std::array<float, 3> localNormal{ 0.0f, 0.0f, 0.0f };
+	localNormal[enterAxis] = dir[enterAxis] > 0.0f ? -1.0f : 1.0f; // 入った面がどちらかを方向から判断する
+	_result.normal = _box.rotation.RotateVector(Vector3{ localNormal[0], localNormal[1], localNormal[2] });
+	_result.worldPosition = _origin + _direction * tEnter;
+	_result.distance = tEnter;
 	return true;
 }
