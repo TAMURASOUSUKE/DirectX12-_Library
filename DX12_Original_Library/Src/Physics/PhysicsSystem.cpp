@@ -894,7 +894,7 @@ bool PhysicsSystem::Raycast(Vector3 _origin, Vector3 _direction, float _maxDista
 	}
 
 	const Vector3 direction{ Vector3::Normalized(_direction) };
-	bool isHit{ false };
+	bool isHit{ false }; // 今までのbodyでどれかに当たったか
 	float nearestDistance{ _maxDistance };
 
 	// 全Bodyを見る
@@ -908,24 +908,32 @@ bool PhysicsSystem::Raycast(Vector3 _origin, Vector3 _direction, float _maxDista
 		if (currentHandle == _ignoreBody) continue; // 無視するハンドルだった場合は弾く
 
 		if (!IsLayerMatched(slot.data.layer, _collisionMask)) continue; // レイヤーに入っていなければ無視
-
+		RayToShapeResult result{};
+		bool isShapeHit{ false }; // このループの形状に当たったか
 		// 各形状をget_ifで見て行う
+
+		// 球
 		if (const Sphere * sphere{ std::get_if<Sphere>(&slot.data.shape) })
 		{
 			const Sphere worldSphere{ ToWorldShape(*sphere, slot.data) };
-			RayToShapeResult result{};
-			if (!collisionSystem.ComputeRayContact(_origin, direction, nearestDistance, worldSphere, result)) continue;
-			_result.body = currentHandle;
-			_result.distance = result.distance;
-			_result.normal = result.normal;
-			_result.worldPosition = result.worldPosition;
-			_result.userData = slot.data.userData;
-			nearestDistance = result.distance;
-			isHit = true;
+			isShapeHit = collisionSystem.ComputeRayContact(_origin, direction, nearestDistance, worldSphere, result);
+		}
+		// 箱
+		if (const Box * box{ std::get_if<Box>(&slot.data.shape) })
+		{
+			const Box worldBox{ ToWorldShape(*box, slot.data) };
+			isShapeHit = collisionSystem.ComputeRayContact(_origin, direction, nearestDistance, worldBox, result);
 		}
 
+		if (!isShapeHit) continue;
+		_result.body = currentHandle;
+		_result.distance = result.distance;
+		_result.normal = result.normal;
+		_result.worldPosition = result.worldPosition;
+		_result.userData = slot.data.userData;
+		nearestDistance = result.distance;
+		isHit = true;
 	}
-
 	return isHit;
 }
 

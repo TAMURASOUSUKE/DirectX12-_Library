@@ -1434,7 +1434,7 @@ bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, flo
 	{
 		_result.worldPosition = _origin;
 		_result.normal = -_direction;
-		_result.distance = 0;
+		_result.distance = 0.0f;
 		return true;
 	}
 
@@ -1460,6 +1460,8 @@ bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, flo
 {
 	if (!_capsule.IsValid()) return false;
 	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+
+
 }
 
 bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, float _maxDistance, Box _box, RayToShapeResult& _result)
@@ -1467,16 +1469,16 @@ bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, flo
 	if (!_box.IsValid()) return false;
 	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
 
-	// Boxの回転を打ち消しRayの軸線分をBoxのローカル空間へ移す
+	// Boxの回転を打ち消しRayをBoxのローカル空間へ移す
 	const Quaternion inverseRotation{ Vector4{ -_box.rotation.x, -_box.rotation.y, -_box.rotation.z, _box.rotation.w } };
-	const Vector3 a{ inverseRotation.RotateVector(_origin - _box.center)};
-	const Vector3 b{ inverseRotation.RotateVector(_direction) };
+	const Vector3 localOrigin{ inverseRotation.RotateVector(_origin - _box.center)};
+	const Vector3 localDirection{ inverseRotation.RotateVector(_direction) };
 
 	const std::array<float, 3> half{ _box.halfSize.x, _box.halfSize.y, _box.halfSize.z };
-	const std::array<float, 3> start{ a.x, a.y, a.z };
-	const std::array<float, 3> dir{ b.x, b.y, b.z };
+	const std::array<float, 3> start{ localOrigin.x, localOrigin.y, localOrigin.z };
+	const std::array<float, 3> dir{ localDirection.x, localDirection.y, localDirection.z };
 
-	float tEnter{ -std::numeric_limits<float>::max() }; // 入る-の中で一番大きい
+	float tEnter{ -std::numeric_limits<float>::max() }; // 入るtの中で一番大きい
 	float tExit{ std::numeric_limits<float>::max() }; // 出るtで一番小さい
 	std::size_t enterAxis{ 0 }; // tEnterを出した軸
 	for (std::size_t i = 0; i < 3; i++)
@@ -1517,7 +1519,7 @@ bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, flo
 	{
 		_result.worldPosition = _origin;
 		_result.normal = -_direction;
-		_result.distance = 0;
+		_result.distance = 0.0f;
 		return true;
 	}
 
