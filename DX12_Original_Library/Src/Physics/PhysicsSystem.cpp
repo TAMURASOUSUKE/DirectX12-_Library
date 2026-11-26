@@ -919,10 +919,16 @@ bool PhysicsSystem::Raycast(Vector3 _origin, Vector3 _direction, float _maxDista
 			isShapeHit = collisionSystem.ComputeRayContact(_origin, direction, nearestDistance, worldSphere, result);
 		}
 		// 箱
-		if (const Box * box{ std::get_if<Box>(&slot.data.shape) })
+		else if (const Box * box{ std::get_if<Box>(&slot.data.shape) })
 		{
 			const Box worldBox{ ToWorldShape(*box, slot.data) };
 			isShapeHit = collisionSystem.ComputeRayContact(_origin, direction, nearestDistance, worldBox, result);
+		}
+		// カプセル
+		else if (const Capsule * capsule{ std::get_if<Capsule>(&slot.data.shape) })
+		{
+			const Capsule worldCapsule{ ToWorldShape(*capsule, slot.data) };
+			isShapeHit = collisionSystem.ComputeRayContact(_origin, direction, nearestDistance, worldCapsule, result);
 		}
 
 		if (!isShapeHit) continue;

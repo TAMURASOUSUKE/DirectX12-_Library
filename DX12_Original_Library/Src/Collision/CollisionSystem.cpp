@@ -1461,7 +1461,69 @@ bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, flo
 	if (!_capsule.IsValid()) return false;
 	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
 
+	// 始点がカプセルの中かを見る
+	const Vector3 nearestOnAxis{ ClosestPointOnSegment(_origin, _capsule.startPos, _capsule.endPos) };
+	const float radiusSqr{ _capsule.radius * _capsule.radius };
+	if ((nearestOnAxis - _origin).LengthSquared() <= radiusSqr)
+	{
+		_result.worldPosition = _origin;
+		_result.normal = -_direction;
+		_result.distance = 0.0f;
+		return true;
+	}
 
+	// 両端の球
+	bool isHit{ false }; // 当たったか
+	float nearestDistance{ _maxDistance }; // 一番近いところまでの距離
+	RayToShapeResult candidate{};
+	if (ComputeRayContact(_origin, _direction, nearestDistance, Sphere{ _capsule.startPos, _capsule.radius }, candidate))
+	{
+		_result = candidate;
+		nearestDistance = candidate.distance;
+		isHit = true;
+	}
+	if (ComputeRayContact(_origin, _direction, nearestDistance, Sphere{ _capsule.endPos, _capsule.radius }, candidate))
+	{
+		_result = candidate;
+		nearestDistance = candidate.distance;
+		isHit = true;
+	}
+
+	// 側面の筒
+	const Vector3 axisVector{ _capsule.endPos - _capsule.startPos };
+	const float axisLength{ axisVector.Length() };
+	if (axisLength <= Math::EPSILON) return false;
+
+	const Vector3 axis{ axisVector / axisLength }; // 軸を単位化する
+
+	// 軸の成分を消す
+	const Vector3 toStart{ _capsule.startPos - _origin };
+	const Vector3 prepDirection{ _direction - axis * Vector3::Dot(_direction, axis) }; // 軸に沿ったDirectionの長さ分のベクトルから軸に垂直な線分をDirectionまで伸ばす
+	const Vector3 prepToStart{ toStart - axis * Vector3::Dot(toStart, axis) }; // Rayの始点 → 軸の直線上の一番近い点（toStartの軸に垂直な成分）
+	const float prepLength{ prepDirection.Length() };
+	// Rayが軸と平行なら当たらないので弾く
+	if (prepLength <= Math::EPSILON) return false;
+
+	// 球と同じロジックで三平方の定理を用いて対辺を出してそこを半径比較して中なら縁へ戻す
+	const float projection{ Vector3::Dot(prepToStart, prepDirection) / prepLength };
+	const float distanceSqr{ prepToStart.LengthSquared() - (projection * projection) };
+	if (distanceSqr <= radiusSqr)
+	{
+		const float halfChord{ std::sqrtf(radiusSqr - distanceSqr) };
+		const float t{ (projection - halfChord) / prepLength };
+		if (t >= 0.0f && t <= nearestDistance)
+		{
+			const Vector3 point{ _origin + _direction * t };
+			const float s{ Vector3::Dot(point - _capsule.startPos, axis) };
+			_result.worldPosition = point;
+			_result.distance = t;
+			_result.normal = (point - (_capsule.startPos + axis * s)) / _capsule.radius;
+			isHit = true;
+		}
+	}
+
+
+	return isHit;
 }
 
 bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, float _maxDistance, Box _box, RayToShapeResult& _result)
