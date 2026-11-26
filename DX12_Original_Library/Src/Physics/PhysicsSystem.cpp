@@ -930,6 +930,102 @@ bool PhysicsSystem::Raycast(Vector3 _origin, Vector3 _direction, float _maxDista
 			const Capsule worldCapsule{ ToWorldShape(*capsule, slot.data) };
 			isShapeHit = collisionSystem.ComputeRayContact(_origin, direction, nearestDistance, worldCapsule, result);
 		}
+		// 三角形
+		else if (const Triangle * triangle{ std::get_if<Triangle>(&slot.data.shape) })
+		{
+			// ハンドルから三角形の集まりを引く(CreateBodyで検証済みなのでStepの中ではログを出さずに調べる)
+			const int packed{ std::get<TriangleMeshShape>(slot.data.shape).mesh.GetRaw(PassKey{}) };
+			const int meshIndex{ UnpackIndex(packed) };
+			if (meshIndex < 0 || meshIndex >= static_cast<int>(triangleMeshSlots.size())) continue;
+			const TriangleMeshSlot& meshSlot{ triangleMeshSlots[meshIndex] };
+			if (!meshSlot.isAlive || UnpackGen(packed) != static_cast<int>(meshSlot.generation)) continue;
+
+			// 三角形を全て動かすと重いのでRay側をBodyのローカルへ移す(向きは位置を引かず逆回転だけ)
+			const Quaternion inverseRotation{ Vector4{ -slot.data.rotation.x, -slot.data.rotation.y, -slot.data.rotation.z, slot.data.rotation.w } };
+			const Vector3 localOrigin{ ToLocalPoint(_origin, slot.data) };
+			const Vector3 localDirection{ inverseRotation.RotateVector(direction) };
+
+			float shapeNearestDistance{ nearestDistance }; // この形の中で一番近い距離
+			for (const Triangle& triangle : meshSlot.data.triangles)
+			{
+				// resultは当たった時だけ書き換わるので使い回す
+				if (!collisionSystem.ComputeRayContact(localOrigin, localDirection, shapeNearestDistance, triangle, result)) continue;
+				shapeNearestDistance = result.distance;
+				isShapeHit = true;
+			}
+
+			// 結果をワールドへ戻す(法線は回転だけ 点は回転してから位置を足す)
+			if (isShapeHit)
+			{
+				result.normal = slot.data.rotation.RotateVector(result.normal);
+				result.worldPosition = ToWorldPoint(result.worldPosition, slot.data);
+			}
+		}
+		// 高さの格子
+		else if (const HeightFieldShape * fieldShape{ std::get_if<HeightFieldShape>(&slot.data.shape) })
+		{
+			// ハンドルから高さの格子を引く
+			const int packed{ fieldShape->heightField.GetRaw(PassKey{}) };
+			const int fieldIndex{ UnpackIndex(packed) };
+			if (fieldIndex < 0 || fieldIndex >= static_cast<int>(heightFieldSlots.size())) continue;
+			const HeightFieldSlot& fieldSlot{ heightFieldSlots[fieldIndex] };
+			if (!fieldSlot.isAlive || UnpackGen(packed) != static_cast<int>(fieldSlot.generation)) continue;
+			const HeightFieldData& field{ fieldSlot.data };
+
+			// Ray側をBodyのローカルへ移す格子の角を原点に移す
+			const Quaternion inverseRotation{ Vector4{ -slot.data.rotation.x, -slot.data.rotation.y, -slot.data.rotation.z, slot.data.rotation.w } };
+			const Vector3 localOrigin{ ToLocalPoint(_origin, slot.data) };
+			const Vector3 localDirection{ inverseRotation.RotateVector(direction) };
+
+			// Rayの始点と届く端がXとZに占める範囲を出す
+			const Vector3 localEnd{ localOrigin + localDirection * nearestDistance };
+			const float margin{ field.cellSize * 0.001f }; // 升の境目の真上を通るRayが丸めで隣の升へ落ちても拾えるよう少し広げる
+			const ShapeRangeXZ range{
+				(std::min)(localOrigin.x, localEnd.x) - margin, (std::max)(localOrigin.x, localEnd.x) + margin,
+				(std::min)(localOrigin.z, localEnd.z) - margin, (std::max)(localOrigin.z, localEnd.z) + margin };
+			const float fieldSizeX{ static_cast<float>(field.countX - 1) * field.cellSize };
+			const float fieldSizeZ{ static_cast<float>(field.countZ - 1) * field.cellSize };
+			if (range.maxX < 0.0f || range.minX > fieldSizeX || range.maxZ < 0.0f || range.minZ > fieldSizeZ) continue;
+
+			// 位置を升の大きさで割って切り捨てると升の番号になる 端は最後の升へ収める
+			const int cellMinX{ std::clamp(static_cast<int>(std::floor(range.minX / field.cellSize)), 0, field.countX - 2) };
+			const int cellMaxX{ std::clamp(static_cast<int>(std::floor(range.maxX / field.cellSize)), 0, field.countX - 2) };
+			const int cellMinZ{ std::clamp(static_cast<int>(std::floor(range.minZ / field.cellSize)), 0, field.countZ - 2) };
+			const int cellMaxZ{ std::clamp(static_cast<int>(std::floor(range.maxZ / field.cellSize)), 0, field.countZ - 2) };
+
+			float shapeNearestDistance{ nearestDistance }; // この形の中で一番近い距離
+			for (int cellZ = cellMinZ; cellZ <= cellMaxZ; cellZ++)
+			{
+				for (int cellX = cellMinX; cellX <= cellMaxX; cellX++)
+				{
+					// 升の4つの角(名前の2つの数字は Xの番号とZの番号を 0=手前 1=次 で表す)
+					const float x0{ static_cast<float>(cellX) * field.cellSize };
+					const float x1{ static_cast<float>(cellX + 1) * field.cellSize };
+					const float z0{ static_cast<float>(cellZ) * field.cellSize };
+					const float z1{ static_cast<float>(cellZ + 1) * field.cellSize };
+					const Vector3 corner00{ x0, field.heights[cellZ * field.countX + cellX], z0 };
+					const Vector3 corner10{ x1, field.heights[cellZ * field.countX + cellX + 1], z0 };
+					const Vector3 corner01{ x0, field.heights[(cellZ + 1) * field.countX + cellX], z1 };
+					const Vector3 corner11{ x1, field.heights[(cellZ + 1) * field.countX + cellX + 1], z1 };
+
+					// 升を corner00 と corner11 を結ぶ対角線で三角形2枚に割る(法線が上を向く順に並べる)
+					const std::array<Triangle, 2> triangles{ Triangle{ corner00, corner01, corner11 }, Triangle{ corner00, corner11, corner10 } };
+					for (const Triangle& triangle : triangles)
+					{
+						if (!collisionSystem.ComputeRayContact(localOrigin, localDirection, shapeNearestDistance, triangle, result)) continue;
+						shapeNearestDistance = result.distance;
+						isShapeHit = true;
+					}
+				}
+			}
+
+			// 結果をワールドへ戻す(法線は回転だけ 点は回転してから位置を足す)
+			if (isShapeHit)
+			{
+				result.normal = slot.data.rotation.RotateVector(result.normal);
+				result.worldPosition = ToWorldPoint(result.worldPosition, slot.data);
+			}
+		}
 
 		if (!isShapeHit) continue;
 		_result.body = currentHandle;
