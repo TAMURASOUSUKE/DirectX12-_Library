@@ -1517,7 +1517,6 @@ bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, flo
 	// 入る距離が負なら始点は筒の中なので0にしてsの確認へ進める
 	const float t{ std::max((projection - halfChord) / prepLength, 0.0f) };
 	if (t > nearestDistance) return isHit;
-	if (t < 0.0f || t > nearestDistance) return isHit;
 
 	const Vector3 point{ _origin + _direction * t };
 	const float s{ Vector3::Dot(point - _capsule.startPos, axis) };

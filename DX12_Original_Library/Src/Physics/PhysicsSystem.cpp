@@ -931,7 +931,7 @@ bool PhysicsSystem::Raycast(Vector3 _origin, Vector3 _direction, float _maxDista
 			isShapeHit = collisionSystem.ComputeRayContact(_origin, direction, nearestDistance, worldCapsule, result);
 		}
 		// 三角形
-		else if (const Triangle * triangle{ std::get_if<Triangle>(&slot.data.shape) })
+		else if (const TriangleMeshShape * meshShape{ std::get_if<TriangleMeshShape>(&slot.data.shape) })
 		{
 			// ハンドルから三角形の集まりを引く(CreateBodyで検証済みなのでStepの中ではログを出さずに調べる)
 			const int packed{ std::get<TriangleMeshShape>(slot.data.shape).mesh.GetRaw(PassKey{}) };
