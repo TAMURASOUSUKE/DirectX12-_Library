@@ -1171,6 +1171,27 @@ std::vector<TestBody> MakeTestBodies()
 	fieldBoxDesc.motionType = MotionType::Dynamic;
 	bodies.push_back({ "Box on field", fieldBoxDesc, { 1.0f, 0.9f, 0.3f, 1.0f } });
 
+	// 床に立てかけた急な板(傾き55度 奥へ向かって上がる キャラクターが登れる角度45度では登れず60度では登れる)
+	constexpr float BOARD_ANGLE{ 55.0f * Math::DEG_TO_RAD };
+	constexpr float BOARD_HALF_LENGTH{ 1.5f }; // 坂に沿った長さの半分
+	constexpr float BOARD_HALF_THICKNESS{ 0.1f }; // 厚みの半分
+	BodyDesc boardDesc{};
+	boardDesc.shapeData = Box{ Vector3::Zero, { 1.0f, BOARD_HALF_THICKNESS, BOARD_HALF_LENGTH } };
+	// 板の上の面の法線を 真上から手前へ55度倒した向きへ合わせる(手前から歩くと上り坂になる)
+	boardDesc.rotation = Quaternion::FromToRotation(Vector3::Up, { 0.0f, std::cos(BOARD_ANGLE), -std::sin(BOARD_ANGLE) });
+	// 板の下の端が床(y=0)に着く高さへ置く
+	boardDesc.position = { 3.5f, BOARD_HALF_LENGTH * std::sin(BOARD_ANGLE) + BOARD_HALF_THICKNESS * std::cos(BOARD_ANGLE), 4.0f };
+	boardDesc.motionType = MotionType::Static;
+	boardDesc.friction = 0.6f;
+	bodies.push_back({ "Static Board (55 deg)", boardDesc, { 1.0f, 0.5f, 0.2f, 1.0f } });
+
+	// 床の上に浮かせた天井の板(下の面 y=2.5 立ったキャラクターの頭 y=1.82 との間は0.68 跳ぶと当たる)
+	BodyDesc ceilingDesc{};
+	ceilingDesc.shapeData = Box{ Vector3::Zero, { 1.0f, 0.1f, 1.0f } };
+	ceilingDesc.position = { 4.0f, 2.6f, 0.0f };
+	ceilingDesc.motionType = MotionType::Static;
+	bodies.push_back({ "Static Ceiling", ceilingDesc, { 0.8f, 0.4f, 1.0f, 1.0f } });
+
 	return bodies;
 }
 
@@ -1414,6 +1435,26 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	constexpr float SWEEP_SHAPE_MAX_DISTANCE{ 8.0f }; // 進める最大距離
 	constexpr float SWEEP_SHAPE_MOVE_SPEED{ 3.0f }; // キーで動かす速さ(1秒あたり)
 
+	// 画面で動かせるキャラクター(MoveCharacterで動かす ゲーム側がやる事をここで再現する)
+	const Vector3 CHARACTER_START_POSITION{ 4.0f, 2.0f, 1.5f }; // 最初の位置(Rキーでここへ戻す)
+	constexpr float CHARACTER_RADIUS{ 0.4f }; // カプセルの半径
+	constexpr float CHARACTER_HALF_HEIGHT{ 0.5f }; // カプセルの中心から端点までの長さ
+	constexpr float CHARACTER_MOVE_SPEED{ 3.0f }; // 歩く速さと飛ぶ速さ(1秒あたり)
+	constexpr float CHARACTER_JUMP_SPEED{ 6.0f }; // 跳んだ瞬間の上向きの速さ
+	constexpr float CHARACTER_MAX_DELTA_TIME{ 1.0f / 30.0f }; // 1フレームで進める時間の上限(止まった後に飛びすぎないため)
+	const std::vector<float> CHARACTER_SLOPE_LIMIT_DEGREES{ 45.0f, 60.0f, 30.0f }; // Bキーで順に切り替える登れる角度
+	Vector3 characterPosition{ CHARACTER_START_POSITION }; // カプセルの中心
+	float characterUpVelocity{ 0.0f }; // 上向きの速さ(重力と跳ぶ力はゲーム側が持つ)
+	bool isCharacterFlying{ false }; // 飛行中か(飛行中は重力を掛けない)
+	int characterSlopeLimitIndex{ 0 }; // CHARACTER_SLOPE_LIMIT_DEGREESの番号
+	CharacterMoveSetting characterSetting{}; // キャラクターごとに持つ設定
+	CharacterMoveResult characterResult{}; // 直近のMoveCharacterの結果
+	constexpr float CHARACTER_CEILING_COLOR_TIME{ 0.5f }; // 天井に当たった後に赤く描く時間(一瞬だと見えないので残す)
+	float characterCeilingTimer{ 0.0f }; // 赤く描く残り時間
+	bool wasCharacterGrounded{ false }; // 前のフレームで接地していたか(変わったときだけログへ出す)
+	bool wasSweepHit{ false }; // 前のフレームでSweepが当たっていたか(変わったときだけログへ出す)
+	BodyHandle lastSweepBody{}; // 前のフレームでSweepが当たった相手
+
 	// 注視点の周りを回るカメラ(注視点はキーで動かせる)
 	Camera camera{};
 	float cameraYaw{ 0.0f };
@@ -1477,6 +1518,87 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			if (Input::IsKeyPushed(KeyCode::Button::G)) sweepDirectionIndex = (sweepDirectionIndex + 1) % static_cast<int>(TEST_SWEEP_DIRECTIONS.size());
 		}
 
+		// I J K L : キャラクターを水平に動かす  M : 跳ぶ  F : 飛行の切り替え(飛行中は Y H で上下)
+		// B : 登れる角度の切り替え  V : 坂の制限を使うかの切り替え
+		{
+			// カメラの左右の向きに合わせて 画面の奥と右へ動くようにする
+			const Quaternion yawRotation{ Quaternion::FromEuler(0.0f, cameraYaw, 0.0f) };
+			const Vector3 moveForward{ yawRotation.RotateVector(Vector3::Forward) };
+			const Vector3 moveRight{ yawRotation.RotateVector(Vector3::Right) };
+			const float deltaTime{ (std::min)(Time::DeltaTime(), CHARACTER_MAX_DELTA_TIME) };
+
+			const bool isSettingKeyPushed{ Input::IsKeyPushed(KeyCode::Button::F) || Input::IsKeyPushed(KeyCode::Button::V) || Input::IsKeyPushed(KeyCode::Button::B) };
+			if (Input::IsKeyPushed(KeyCode::Button::F))
+			{
+				isCharacterFlying = !isCharacterFlying;
+				characterUpVelocity = 0.0f;
+			}
+			if (Input::IsKeyPushed(KeyCode::Button::V)) characterSetting.isSlopeLimitEnabled = !characterSetting.isSlopeLimitEnabled;
+			if (Input::IsKeyPushed(KeyCode::Button::B))
+			{
+				characterSlopeLimitIndex = (characterSlopeLimitIndex + 1) % static_cast<int>(CHARACTER_SLOPE_LIMIT_DEGREES.size());
+				characterSetting.slopeLimit = CHARACTER_SLOPE_LIMIT_DEGREES[characterSlopeLimitIndex] * Math::DEG_TO_RAD;
+			}
+			// 設定を変えたときだけ今の設定をログへ出す(画面の文字は描ける量を超えるので使わない)
+			if (isSettingKeyPushed)
+			{
+				DEBUG_LOG("Character 設定 : {}  登れる角度 {} 度  坂の制限 {}\n", isCharacterFlying ? "FLY" : "WALK",
+					CHARACTER_SLOPE_LIMIT_DEGREES[characterSlopeLimitIndex], characterSetting.isSlopeLimitEnabled ? "ON" : "OFF");
+			}
+
+			Vector3 moveDirection{ Vector3::Zero };
+			if (Input::IsKeyPress(KeyCode::Button::I)) moveDirection += moveForward;
+			if (Input::IsKeyPress(KeyCode::Button::K)) moveDirection -= moveForward;
+			if (Input::IsKeyPress(KeyCode::Button::L)) moveDirection += moveRight;
+			if (Input::IsKeyPress(KeyCode::Button::J)) moveDirection -= moveRight;
+
+			if (isCharacterFlying)
+			{
+				// 飛行中は重力を掛けず キーで上下に動く
+				if (Input::IsKeyPress(KeyCode::Button::Y)) moveDirection += Vector3::Up;
+				if (Input::IsKeyPress(KeyCode::Button::H)) moveDirection -= Vector3::Up;
+			}
+			else
+			{
+				// 接地している時だけ跳べる 重力はMoveCharacterが掛けないのでここで速さへ足す
+				if (characterResult.isGrounded && Input::IsKeyPushed(KeyCode::Button::M)) characterUpVelocity = CHARACTER_JUMP_SPEED;
+				characterUpVelocity += Physics::GetGravity().y * deltaTime;
+			}
+
+			// このフレームで動きたい量(水平の移動と 上向きの速さの分)
+			Vector3 characterMove{ moveDirection * (CHARACTER_MOVE_SPEED * deltaTime) };
+			if (!isCharacterFlying) characterMove += Vector3::Up * (characterUpVelocity * deltaTime);
+
+			// 今の位置のカプセルと動きたい量を渡し 返ってきた動けた量だけ位置を進める
+			const Vector3 characterHalfAxis{ 0.0f, CHARACTER_HALF_HEIGHT, 0.0f };
+			const Capsule characterCapsule{ characterPosition - characterHalfAxis, characterPosition + characterHalfAxis, CHARACTER_RADIUS };
+			if (Physics::MoveCharacter(characterCapsule, characterMove, characterSetting, characterResult)) characterPosition += characterResult.movement;
+
+			// 接地したら落ちる速さを0へ戻す(戻さないと立っている間も速さが増え続ける)
+			if (characterResult.isGrounded && characterUpVelocity < 0.0f) characterUpVelocity = 0.0f;
+
+			// 天井に当たったら上向きの速さを0へ戻す(戻さないと重力で速さが尽きるまで天井に張り付く)
+			characterCeilingTimer = (std::max)(characterCeilingTimer - deltaTime, 0.0f);
+			if (characterResult.isCeilingHit)
+			{
+				if (characterUpVelocity > 0.0f)
+				{
+					DEBUG_LOG("Character : 天井に当たった  上向きの速さ {} を0へ戻す\n", characterUpVelocity);
+					characterUpVelocity = 0.0f;
+				}
+				characterCeilingTimer = CHARACTER_CEILING_COLOR_TIME;
+			}
+
+			// 接地が変わったときだけログへ出す
+			if (characterResult.isGrounded != wasCharacterGrounded)
+			{
+				DEBUG_LOG("Character : {}  位置({}, {}, {})  地面の法線({}, {}, {})\n", characterResult.isGrounded ? "接地" : "空中",
+					characterPosition.x, characterPosition.y, characterPosition.z,
+					characterResult.groundNormal.x, characterResult.groundNormal.y, characterResult.groundNormal.z);
+				wasCharacterGrounded = characterResult.isGrounded;
+			}
+		}
+
 		// Space : 一時停止の切り替え
 		if (Input::IsKeyPushed(KeyCode::Button::SPACE)) isPaused = !isPaused;
 		// N : 一時停止中に一回だけ進める
@@ -1493,6 +1615,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			stepCount = 0;
 			lastStepMilliseconds = 0.0;
 			maxStepMilliseconds = 0.0;
+			// キャラクターも最初の位置へ戻す
+			characterPosition = CHARACTER_START_POSITION;
+			characterUpVelocity = 0.0f;
 		}
 
 		// 固定更新(ゲーム側がStepを呼ぶ形をそのまま再現する)
@@ -1607,6 +1732,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			}
 		}
 
+		// キャラクターの描画 天井に当たった後しばらくは赤 接地している時は緑 空中は水色 接地している時は足元に地面の法線(黄色い線)
+		{
+			const Vector3 characterHalfAxis{ 0.0f, CHARACTER_HALF_HEIGHT, 0.0f };
+			Vector4 characterColor{ characterResult.isGrounded ? Vector4{ 0.2f, 1.0f, 0.2f, 1.0f } : Vector4{ 0.3f, 0.8f, 1.0f, 1.0f } };
+			if (characterCeilingTimer > 0.0f) characterColor = { 1.0f, 0.2f, 0.2f, 1.0f };
+			Gfx::DrawCapsule3D(characterPosition - characterHalfAxis, characterPosition + characterHalfAxis, CHARACTER_RADIUS, characterColor, Primitive3DStyle::DebugLine);
+			if (characterResult.isGrounded)
+			{
+				// カプセルの一番下の点
+				const Vector3 characterFoot{ characterPosition - characterHalfAxis - Vector3::Up * CHARACTER_RADIUS };
+				Gfx::DrawLine3D(characterFoot, characterFoot + characterResult.groundNormal * CONTACT_NORMAL_LENGTH, { 1.0f, 1.0f, 0.2f, 1.0f });
+			}
+		}
+
 		// 接触の数が変わったときだけログへ出す(毎フレームは出さない)
 		const int contactCount{ static_cast<int>(contacts.size()) };
 		if (contactCount != lastContactCount)
@@ -1644,22 +1783,27 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Gfx::DrawString(text, { 20.0f, textY });
 		textY += LINE_HEIGHT;
 
-		// Sweepの操作と結果(当たった相手の名前は画面に置いたBodyから探す)
-		Gfx::DrawString("Sweep  Arrows: move  U/O: up down  T: sphere/capsule  G: direction", { 20.0f, textY });
-		textY += LINE_HEIGHT;
-		const char* sweepBodyName{ "-" };
-		if (isSweepHit)
+		// Sweepの結果は 当たったかと相手が変わったときだけログへ出す(画面の文字は描ける量を超えるので使わない)
+		if (isSweepHit != wasSweepHit || sweepHit.body != lastSweepBody)
 		{
+			// 当たった相手の名前は画面に置いたBodyから探す
+			const char* sweepBodyName{ "-" };
 			for (const TestBody& body : bodies)
 			{
-				if (body.handle == sweepHit.body) sweepBodyName = body.name;
+				if (isSweepHit && body.handle == sweepHit.body) sweepBodyName = body.name;
 			}
+			if (isSweepHit)
+			{
+				DEBUG_LOG("Sweep {} 向き {} : HIT  距離 {}  法線({}, {}, {})  相手 {}\n", isSweepCapsule ? "capsule" : "sphere", sweepDirection.name,
+					sweepHit.distance, sweepHit.normal.x, sweepHit.normal.y, sweepHit.normal.z, sweepBodyName);
+			}
+			else
+			{
+				DEBUG_LOG("Sweep {} 向き {} : MISS\n", isSweepCapsule ? "capsule" : "sphere", sweepDirection.name);
+			}
+			wasSweepHit = isSweepHit;
+			lastSweepBody = sweepHit.body;
 		}
-		std::snprintf(text, sizeof(text), "Sweep %s  dir %s  %s  distance %.3f  normal(%.2f, %.2f, %.2f)  body: %s",
-			isSweepCapsule ? "capsule" : "sphere", sweepDirection.name, isSweepHit ? "HIT" : "MISS",
-			sweepHit.distance, sweepHit.normal.x, sweepHit.normal.y, sweepHit.normal.z, sweepBodyName);
-		Gfx::DrawString(text, { 20.0f, textY }, 1.0f, isSweepHit ? Vector4{ 0.2f, 1.0f, 0.2f, 1.0f } : Vector4{ 0.5f, 0.5f, 0.5f, 1.0f });
-		textY += LINE_HEIGHT;
 
 		// Bodyごとの位置と速度
 		for (const TestBody& body : bodies)

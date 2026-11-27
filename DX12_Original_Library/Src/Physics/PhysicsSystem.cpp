@@ -1427,15 +1427,25 @@ bool PhysicsSystem::MoveCharacter(const Capsule& _capsule, Vector3 _move, const 
 		}
 
 		// 当たった距離まで進む
-		moved += remaining * hit.distance;
-		const Vector3 rest{ direction * (remainingLength - hit.distance) }; // 当たった後に残った動き
+		moved += direction * hit.distance;
+		Vector3 rest{ direction * (remainingLength - hit.distance) }; // 当たった後に残った動き
+		const float normalUp{ Vector3::Dot(hit.normal, up) }; // 法線が上へ向いている量
+
+		// 下を向いた面に当たったことを覚える
+		if (normalUp <= -groundNormalUp) _result.isCeilingHit = true;
+
+		// 歩ける地面は下向きの分を支える(坂などに立っている時のずり落ち防止)
+		if (normalUp >= groundNormalUp)
+		{
+			const float restUp{ Vector3::Dot(rest, up) }; // 残りが上に向いている量
+			if (restUp < 0.0f) rest -= up * restUp;
+		}
 
 		// 残りから面へ向かう成分を引いて面に沿う成分だけ残す
 		Vector3 slideNormal{ hit.normal }; // 沿わせる面の法線
 		remaining = rest - slideNormal * Vector3::Dot(rest, slideNormal);
 
 		// 急な坂を登る向きになったら法線を水平に倒して壁として扱う
-		const float normalUp{ Vector3::Dot(hit.normal, up) }; // 法線が上へ向いている量
 		if (_setting.isSlopeLimitEnabled && normalUp > 0.0f && normalUp < groundNormalUp && Vector3::Dot(remaining, up) > 0.0f)
 		{
 			const Vector3 flatNormal{ hit.normal - up * normalUp }; // 上へ向いている分を引くと水平の成分だけ残る
@@ -1458,7 +1468,6 @@ bool PhysicsSystem::MoveCharacter(const Capsule& _capsule, Vector3 _move, const 
 		previousNormal = slideNormal;
 		hasPreviousNormal = true;
 	}
-	_result.movement = moved;
 
 	// 動いたあとの位置から下へ短く調べる
 	const Capsule movedCapsule{ _capsule.startPos + moved, _capsule.endPos + moved, _capsule.radius };
@@ -1467,7 +1476,10 @@ bool PhysicsSystem::MoveCharacter(const Capsule& _capsule, Vector3 _move, const 
 	{
 		_result.isGrounded = true;
 		_result.groundNormal = ground.normal;
+		// 下へ動こうとしている時は地面との間を隙間の分まで詰める
+		if (Vector3::Dot(_move, up) < 0.0f && ground.distance > _setting.skinWidth) moved -= up * (ground.distance - _setting.skinWidth);
 	}
+	_result.movement = moved;
 	return true;
 }
 

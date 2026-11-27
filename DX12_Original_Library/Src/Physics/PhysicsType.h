@@ -111,4 +111,5 @@ struct CharacterMoveResult
 	Vector3 movement{ Vector3::Zero }; // 実際に動けた量
 	Vector3 groundNormal{ Vector3::Zero }; // 地面の法線(接地していない時は0)
 	bool isGrounded{ false }; // 接地しているか
+	bool isCeilingHit{ false }; // 天井(下を向いた面)に当たったか
 };
