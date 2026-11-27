@@ -532,7 +532,7 @@ void PhysicsSystem::Step(float _deltaTime)
 	{
 		if (!slot.isAlive) continue;
 		BodyData& data{ slot.data };
-		if (data.motionType == MotionType::Dynamic && data.isGravityEnabled) data.velocity.y += GRAVITY_Y * _deltaTime;
+		if (data.motionType == MotionType::Dynamic && data.isGravityEnabled) data.velocity += gravity * _deltaTime;
 	}
 
 	// 今の位置で接触を調べる
@@ -1471,9 +1471,21 @@ bool PhysicsSystem::MoveCharacter(const Capsule& _capsule, Vector3 _move, const 
 	return true;
 }
 
-void SetGravity(Vector3 _gravity);
+void PhysicsSystem::SetGravity(Vector3 _gravity)
+{
+	if (!std::isfinite(_gravity.x) || !std::isfinite(_gravity.y) || !std::isfinite(_gravity.z))
+	{
+		DEBUG_LOG_ERROR("SetGravityに不正な値が渡されました\n");
+		return;
+	}
 
-Vector3 GetGravity() const;
+	gravity = _gravity;
+}
+
+Vector3 PhysicsSystem::GetGravity() const
+{
+	return gravity;
+}
 
 void PhysicsSystem::CorrectPositions()
 {

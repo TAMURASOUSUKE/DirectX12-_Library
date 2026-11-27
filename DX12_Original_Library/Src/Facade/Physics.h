@@ -57,4 +57,10 @@ namespace Physics
 	// カプセルを動かしたい量だけ動かし 面に当たったら沿って進めた結果を引数で受け取る
 	bool MoveCharacter(const Capsule& _capsule, Vector3 _move, const CharacterMoveSetting& _setting, CharacterMoveResult& _result);
 
+	// Dynamicへ掛ける重力加速度を設定する(向きと大きさ 初期値は下へ9.8)
+	void SetGravity(Vector3 _gravity);
+
+	// Dynamicへ掛ける重力加速度を取得する
+	Vector3 GetGravity();
+
 }

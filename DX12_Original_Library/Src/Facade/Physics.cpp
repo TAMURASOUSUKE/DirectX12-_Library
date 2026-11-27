@@ -111,3 +111,13 @@ bool Physics::MoveCharacter(const Capsule& _capsule, Vector3 _move, const Charac
 {
 	return physicsSystem.MoveCharacter(_capsule, _move, _setting, _result);
 }
+
+void Physics::SetGravity(Vector3 _gravity)
+{
+	physicsSystem.SetGravity(_gravity);
+}
+
+Vector3 Physics::GetGravity()
+{
+	return physicsSystem.GetGravity();
+}
