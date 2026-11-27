@@ -1469,10 +1469,19 @@ bool PhysicsSystem::MoveCharacter(const Capsule& _capsule, Vector3 _move, const 
 		hasPreviousNormal = true;
 	}
 
+	// 下へ行こうとしている時はこのフレームの横の移動で足元が下がる分まで調べる距離を伸ばす
+	float probeDistance{ _setting.groundProbeDistance };
+	if (Vector3::Dot(_move, up) < 0.0f && groundNormalUp > Math::EPSILON)
+	{
+		const Vector3 lateral{ moved - up * Vector3::Dot(moved, up) }; // 動いた量から上下を引いた横の移動
+		const float neededDistance{ lateral.Length() * std::tan(_setting.slopeLimit) + _setting.skinWidth / groundNormalUp }; // 登れる一番急な坂で足元が下がる量
+		probeDistance = (std::max)(probeDistance, (std::min)(neededDistance, _setting.maxGroundProbeDistance));
+	}
+
 	// 動いたあとの位置から下へ短く調べる
 	const Capsule movedCapsule{ _capsule.startPos + moved, _capsule.endPos + moved, _capsule.radius };
 	RaycastResult ground{};
-	if (Sweep(movedCapsule, -up, _setting.groundProbeDistance, ground, _setting.collisionMask, _setting.ignoreBody) && Vector3::Dot(ground.normal, up) >= groundNormalUp)
+	if (Sweep(movedCapsule, -up, probeDistance, ground, _setting.collisionMask, _setting.ignoreBody) && Vector3::Dot(ground.normal, up) >= groundNormalUp)
 	{
 		_result.isGrounded = true;
 		_result.groundNormal = ground.normal;

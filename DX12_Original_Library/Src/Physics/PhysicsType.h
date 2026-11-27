@@ -101,6 +101,7 @@ struct CharacterMoveSetting
 	bool isSlopeLimitEnabled{ true }; // 急な坂を壁として扱うか
 	float skinWidth{ 0.02f }; // 面との間に空けておく隙間
 	float groundProbeDistance{ 0.05f }; // 接地を調べる時に下へ進める距離(skinWidthより大きくする)
+	float maxGroundProbeDistance{ 0.3f }; // 下る時に自動で伸ばす距離の上限(これを超える速さで下ると地面を離れて浮く)
 	std::uint32_t collisionMask{ 0xFFFFFFFF }; // 調べる相手のレイヤー
 	BodyHandle ignoreBody{}; // 調べないBody(自分のBodyを入れる)
 };
