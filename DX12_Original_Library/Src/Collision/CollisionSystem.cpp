@@ -1665,3 +1665,27 @@ bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, flo
 	if (denominator > 0.0f) _result.normal = -_result.normal;
 	return true;
 }
+
+bool CollisionSystem::ComputeSweepContact(Capsule _moving, Vector3 _direction, float _maxDistance, Sphere _sphere, RayToShapeResult& _result)
+{
+	if (!_moving.IsValid() || !_sphere.IsValid()) return false;
+	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+}
+
+bool CollisionSystem::ComputeSweepContact(Capsule _moving, Vector3 _direction, float _maxDistance, Capsule _capsule, RayToShapeResult& _result)
+{
+	if (!_moving.IsValid() || !_capsule.IsValid()) return false;
+	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+}
+
+bool CollisionSystem::ComputeSweepContact(Capsule _moving, Vector3 _direction, float _maxDistance, Box _box, RayToShapeResult& _result)
+{
+	if (!_moving.IsValid() || !_box.IsValid()) return false;
+	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+}
+
+bool CollisionSystem::ComputeSweepContact(Capsule _moving, Vector3 _direction, float _maxDistance, Triangle _triangle, RayToShapeResult& _result)
+{
+	if (!_moving.IsValid() || !_triangle.IsValid()) return false;
+	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+}
