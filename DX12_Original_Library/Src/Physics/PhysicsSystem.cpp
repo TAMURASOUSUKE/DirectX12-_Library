@@ -1389,6 +1389,92 @@ bool PhysicsSystem::Sweep(const Shape& _shape, Vector3 _direction, float _maxDis
 	return isHit;
 }
 
+bool PhysicsSystem::MoveCharacter(const Capsule& _capsule, Vector3 _move, const CharacterMoveSetting& _setting, CharacterMoveResult& _result)
+{
+	_result = CharacterMoveResult{};
+	if (!_capsule.IsValid())
+	{
+		DEBUG_LOG_ERROR("MoveCharacterに渡す形状が不正です\n");
+		return false;
+	}
+	if (_setting.skinWidth < 0.0f || _setting.groundProbeDistance <= 0.0f || _setting.upDirection.LengthSquared() <= Math::EPSILON * Math::EPSILON)
+	{
+		DEBUG_LOG_ERROR("MoveCharacterに渡す設定が不正です\n");
+		return false;
+	}
+
+	const Vector3 up{ Vector3::Normalized(_setting.upDirection) };
+	const float groundNormalUp{ std::cos(_setting.slopeLimit) }; // 地面とみなす法線が上へ向く量の下限
+	Vector3 moved{ Vector3::Zero }; // ここまで動いた量
+	Vector3 remaining{ _move }; // まだ動いていない量
+	Vector3 previousNormal{ Vector3::Zero }; // 一つ前に沿わせた面の法線
+	bool hasPreviousNormal{ false }; // 一つ前に沿わせた面があるか
+
+	for (int i = 0; i < CHARACTER_SLIDE_COUNT; i++)
+	{
+		const float remainingLength{ remaining.Length() };
+		if (remainingLength <= Math::EPSILON) break; // 残りの量がほぼ0になったら抜ける
+		const Vector3 direction{ remaining / remainingLength };
+
+		// 隙間の分だけ太らせた形で調べる ここで触れた位置で止めると本体は隙間を保ったまま止まる
+		const Capsule inflated{ _capsule.startPos + moved, _capsule.endPos + moved, _capsule.radius + _setting.skinWidth };
+		RaycastResult hit{};
+		if (!Sweep(inflated, direction, remainingLength, hit, _setting.collisionMask, _setting.ignoreBody))
+		{
+			// 何にも当たらなければすすめる
+			moved += remaining;
+			break;
+		}
+
+		// 当たった距離まで進む
+		moved += remaining * hit.distance;
+		const Vector3 rest{ direction * (remainingLength - hit.distance) }; // 当たった後に残った動き
+
+		// 残りから面へ向かう成分を引いて面に沿う成分だけ残す
+		Vector3 slideNormal{ hit.normal }; // 沿わせる面の法線
+		remaining = rest - slideNormal * Vector3::Dot(rest, slideNormal);
+
+		// 急な坂を登る向きになったら法線を水平に倒して壁として扱う
+		const float normalUp{ Vector3::Dot(hit.normal, up) }; // 法線が上へ向いている量
+		if (_setting.isSlopeLimitEnabled && normalUp > 0.0f && normalUp < groundNormalUp && Vector3::Dot(remaining, up) > 0.0f)
+		{
+			const Vector3 flatNormal{ hit.normal - up * normalUp }; // 上へ向いている分を引くと水平の成分だけ残る
+			const float flatLength{ flatNormal.Length() };
+			if (flatLength > Math::EPSILON)
+			{
+				slideNormal = flatNormal / flatLength;
+				remaining = rest - slideNormal * Vector3::Dot(rest, slideNormal);
+			}
+		}
+
+		// 残りが一つ前の面へ入る向きなら2つめの面の境界の線に沿う部分だけ残す
+		if (hasPreviousNormal && Vector3::Dot(remaining, previousNormal) < 0.0f)
+		{
+			const Vector3 crease{ Vector3::Cross(previousNormal, slideNormal) }; // 二つの境界の境目の向き
+			const float creaseLengthSquared{ crease.LengthSquared() };
+			if (creaseLengthSquared <= Math::EPSILON * Math::EPSILON) break; // 二つの面が同じか真逆で面を作れない
+			remaining = crease * (Vector3::Dot(remaining, crease) / creaseLengthSquared);
+		}
+		previousNormal = slideNormal;
+		hasPreviousNormal = true;
+	}
+	_result.movement = moved;
+
+	// 動いたあとの位置から下へ短く調べる
+	const Capsule movedCapsule{ _capsule.startPos + moved, _capsule.endPos + moved, _capsule.radius };
+	RaycastResult ground{};
+	if (Sweep(movedCapsule, -up, _setting.groundProbeDistance, ground, _setting.collisionMask, _setting.ignoreBody) && Vector3::Dot(ground.normal, up) >= groundNormalUp)
+	{
+		_result.isGrounded = true;
+		_result.groundNormal = ground.normal;
+	}
+	return true;
+}
+
+void SetGravity(Vector3 _gravity);
+
+Vector3 GetGravity() const;
+
 void PhysicsSystem::CorrectPositions()
 {
 	const int contactCount{ static_cast<int>(contacts.size()) };
@@ -1406,9 +1492,4 @@ void PhysicsSystem::CorrectPositions()
 		bodyA.position -= result.normal * (correction * bodyA.massInverse);
 		bodyB.position += result.normal * (correction * bodyB.massInverse);
 	}
-}
-
-bool PhysicsSystem::MoveCharacter(const Capsule& _capsule, Vector3 _move, const CharacterMoveSetting& _setting, CharacterMoveResult& _result)
-{
-
 }

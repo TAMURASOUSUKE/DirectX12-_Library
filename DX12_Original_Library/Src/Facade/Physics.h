@@ -54,4 +54,7 @@ namespace Physics
 	// 球かカプセルを動かした時に最初に触れるBodyを調べ結果を引数で受け取る
 	bool Sweep(const Shape& _shape, Vector3 _direction, float _maxDistance, RaycastResult& _result, std::uint32_t _collisionMask = 0xFFFFFFFF, BodyHandle _ignoreBody = {});
 
+	// カプセルを動かしたい量だけ動かし 面に当たったら沿って進めた結果を引数で受け取る
+	bool MoveCharacter(const Capsule& _capsule, Vector3 _move, const CharacterMoveSetting& _setting, CharacterMoveResult& _result);
+
 }

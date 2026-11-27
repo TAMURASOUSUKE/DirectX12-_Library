@@ -106,3 +106,8 @@ bool Physics::Sweep(const Shape& _shape, Vector3 _direction, float _maxDistance,
 {
 	return physicsSystem.Sweep(_shape, _direction, _maxDistance, _result, _collisionMask, _ignoreBody);
 }
+
+bool Physics::MoveCharacter(const Capsule& _capsule, Vector3 _move, const CharacterMoveSetting& _setting, CharacterMoveResult& _result)
+{
+	return physicsSystem.MoveCharacter(_capsule, _move, _setting, _result);
+}
