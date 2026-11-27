@@ -101,3 +101,8 @@ bool Physics::Overlap(const Shape& _shape, OverlapResult& _result, std::uint32_t
 {
 	return physicsSystem.Overlap(_shape, _result, _collisionMask, _ignoreBody);
 }
+
+bool Physics::Sweep(const Shape& _shape, Vector3 _direction, float _maxDistance, RaycastResult& _result, std::uint32_t _collisionMask, BodyHandle _ignoreBody)
+{
+	return physicsSystem.Sweep(_shape, _direction, _maxDistance, _result, _collisionMask, _ignoreBody);
+}

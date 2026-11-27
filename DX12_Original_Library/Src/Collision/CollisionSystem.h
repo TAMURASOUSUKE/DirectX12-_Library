@@ -41,6 +41,12 @@ public:
 	bool ComputeRayContact(Vector3 _origin, Vector3 _direction, float _maxDistance, Box _box, RayToShapeResult& _result);
 	bool ComputeRayContact(Vector3 _origin, Vector3 _direction, float _maxDistance, Triangle _triangle, RayToShapeResult& _result);
 
+	// Sweep 球やカプセルを動かしたときに最初に触れる位置を求める(球は長さ0のcapsuleとして扱う)
+	bool ComputeSweepContact(Capsule _moving, Vector3 _direction, float _maxDistance, Sphere _sphere, RayToShapeResult& _result);
+	bool ComputeSweepContact(Capsule _moving, Vector3 _direction, float _maxDistance, Capsule _capsule, RayToShapeResult& _result);
+	bool ComputeSweepContact(Capsule _moving, Vector3 _direction, float _maxDistance, Box _box, RayToShapeResult& _result);
+	bool ComputeSweepContact(Capsule _moving, Vector3 _direction, float _maxDistance, Triangle _triangle, RayToShapeResult& _result);
+
 private:
 
 };

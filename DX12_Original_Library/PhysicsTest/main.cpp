@@ -66,6 +66,22 @@ const std::vector<TestRay> TEST_RAYS{
 	{ { -7.0f, 0.6f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 20.0f },
 };
 
+// 画面で動かすSweepの進む向き一つ分
+struct TestSweepDirection
+{
+	const char* name{ "" }; // 画面に出す名前
+	Vector3 direction{ 1.0f, 0.0f, 0.0f }; // 進む向き
+};
+// Gキーで順に切り替える向き 軸に沿う5つと斜め下
+const std::vector<TestSweepDirection> TEST_SWEEP_DIRECTIONS{
+	{ "+X", { 1.0f, 0.0f, 0.0f } },
+	{ "-X", { -1.0f, 0.0f, 0.0f } },
+	{ "+Z", { 0.0f, 0.0f, 1.0f } },
+	{ "-Z", { 0.0f, 0.0f, -1.0f } },
+	{ "-Y", { 0.0f, -1.0f, 0.0f } },
+	{ "+X-Y", { 1.0f, -1.0f, 0.0f } },
+};
+
 // 起動時に一回だけ走る数値テスト 確かめる項目と期待値はここへ書く
 TestResult RunPhysicsTests()
 {
@@ -923,6 +939,85 @@ TestResult RunPhysicsTests()
 		}
 	}
 
+	// Sweep 動かした球とカプセルが最初に触れる相手と距離(数は形の大きさと置いた位置から決まる)
+	{
+		constexpr std::uint32_t LAYER_NEAR{ 1u << 1 }; // 手前の球だけに付けるレイヤー
+		constexpr std::uint32_t MASK_ALL{ 0xFFFFFFFF };
+		constexpr float TOLERANCE{ 0.002f }; // 触れたとみなす隙間(0.0001)と原点から遠い位置での誤差を見込む
+		const auto isNear = [TOLERANCE](const Vector3& _a, const Vector3& _b) { return (_a - _b).Length() < TOLERANCE; };
+
+		// 項目1 球から球(動く球 中心(80,0,60) 半径0.5 +Xへ  相手 中心(83,0,60) 半径0.5)
+		{
+			BodyDesc desc{};
+			desc.shapeData = Sphere{ Vector3::Zero, 0.5f };
+			desc.position = { 83.0f, 0.0f, 60.0f };
+			const BodyHandle body{ Physics::CreateBody(desc) };
+
+			// 中心同士の距離3から半径の合計1を引いた2だけ進んで触れる 点は相手の表面で動く球の側
+			RaycastResult hit{};
+			check("sweep: sphere hit", Physics::Sweep(Sphere{ { 80.0f, 0.0f, 60.0f }, 0.5f }, { 1.0f, 0.0f, 0.0f }, 10.0f, hit));
+			check("sweep: sphere body", hit.body == body);
+			check("sweep: sphere distance", std::abs(hit.distance - 2.0f) < TOLERANCE);
+			check("sweep: sphere normal", isNear(hit.normal, { -1.0f, 0.0f, 0.0f }));
+			check("sweep: sphere point", isNear(hit.worldPosition, { 82.5f, 0.0f, 60.0f }));
+
+			check("sweep: sphere destroyed", Physics::DestroyBody(body));
+		}
+
+		// 項目2 床に触れたまま真横へ動かすと外れ(床 上の面 y=0  カプセル 下の端点の高さ0.4 半径0.4)
+		{
+			BodyDesc desc{};
+			desc.shapeData = Box{ Vector3::Zero, { 5.0f, 0.5f, 5.0f } };
+			desc.position = { 80.0f, -0.5f, 80.0f };
+			desc.motionType = MotionType::Static;
+			const BodyHandle body{ Physics::CreateBody(desc) };
+
+			const Capsule capsule{ { 80.0f, 0.4f, 80.0f }, { 80.0f, 1.4f, 80.0f }, 0.4f };
+			RaycastResult hit{};
+			check("sweep: touching and parallel misses", !Physics::Sweep(capsule, { 1.0f, 0.0f, 0.0f }, 3.0f, hit));
+
+			check("sweep: floor destroyed", Physics::DestroyBody(body));
+		}
+
+		// 項目3と4 手前と奥に球を2つ並べる(中心(83,0,95)と(86,0,95) 半径0.5 手前だけLAYER_NEAR  動く球 中心(80,0,95) 半径0.5 +Xへ)
+		{
+			// 作った順で決まっていない事を見るために奥を先に作る
+			BodyDesc farDesc{};
+			farDesc.shapeData = Sphere{ Vector3::Zero, 0.5f };
+			farDesc.position = { 86.0f, 0.0f, 95.0f };
+			const BodyHandle farBody{ Physics::CreateBody(farDesc) };
+
+			BodyDesc nearDesc{};
+			nearDesc.shapeData = Sphere{ Vector3::Zero, 0.5f };
+			nearDesc.position = { 83.0f, 0.0f, 95.0f };
+			nearDesc.layer = LAYER_NEAR;
+			const BodyHandle nearBody{ Physics::CreateBody(nearDesc) };
+
+			const Sphere moving{ { 80.0f, 0.0f, 95.0f }, 0.5f };
+			const Vector3 direction{ 1.0f, 0.0f, 0.0f };
+
+			// 何も絞らなければ手前(距離 3 - 1 = 2)
+			RaycastResult nearest{};
+			check("sweep: nearest hit", Physics::Sweep(moving, direction, 20.0f, nearest));
+			check("sweep: nearest is near", nearest.body == nearBody);
+			check("sweep: nearest distance", std::abs(nearest.distance - 2.0f) < TOLERANCE);
+
+			// 手前を無視すると奥(距離 6 - 1 = 5)
+			RaycastResult ignored{};
+			check("sweep: ignore hit", Physics::Sweep(moving, direction, 20.0f, ignored, MASK_ALL, nearBody));
+			check("sweep: ignore is far", ignored.body == farBody);
+			check("sweep: ignore distance", std::abs(ignored.distance - 5.0f) < TOLERANCE);
+
+			// 手前のレイヤーを外すと奥
+			RaycastResult masked{};
+			check("sweep: mask hit", Physics::Sweep(moving, direction, 20.0f, masked, MASK_ALL & ~LAYER_NEAR));
+			check("sweep: mask is far", masked.body == farBody);
+
+			check("sweep: near destroyed", Physics::DestroyBody(nearBody));
+			check("sweep: far destroyed", Physics::DestroyBody(farBody));
+		}
+	}
+
 	return result;
 }
 
@@ -1310,6 +1405,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	constexpr float CONTACT_POINT_RADIUS{ 0.06f }; // 接触の点を表す球の半径
 	constexpr float CONTACT_NORMAL_LENGTH{ 0.6f }; // 法線を表す線の長さ
 
+	// 画面で動かせるSweepの形(矢印とU Oで動かす Tで球とカプセルを切り替える Gで進む向きを切り替える)
+	Vector3 sweepPosition{ -3.0f, 1.5f, 3.5f }; // 動かす形の中心
+	bool isSweepCapsule{ true }; // 動かす形がカプセルか(falseなら球)
+	int sweepDirectionIndex{ 0 }; // TEST_SWEEP_DIRECTIONSの番号
+	constexpr float SWEEP_SHAPE_RADIUS{ 0.4f }; // 動かす形の半径
+	constexpr float SWEEP_SHAPE_HALF_HEIGHT{ 0.5f }; // カプセルの中心から端点までの長さ
+	constexpr float SWEEP_SHAPE_MAX_DISTANCE{ 8.0f }; // 進める最大距離
+	constexpr float SWEEP_SHAPE_MOVE_SPEED{ 3.0f }; // キーで動かす速さ(1秒あたり)
+
 	// 注視点の周りを回るカメラ(注視点はキーで動かせる)
 	Camera camera{};
 	float cameraYaw{ 0.0f };
@@ -1351,6 +1455,26 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 			const float moveSpeed{ Input::IsKeyPress(KeyCode::Button::SHIFT) ? CAMERA_FAST_MOVE_SPEED : CAMERA_MOVE_SPEED };
 			cameraTarget += moveDirection * (moveSpeed * Time::DeltaTime());
+		}
+
+		// 矢印 : Sweepの形を水平に動かす  U O : 上下に動かす  T : 球とカプセルの切り替え  G : 進む向きの切り替え
+		{
+			// カメラの左右の向きに合わせて 画面の奥と右へ動くようにする
+			const Quaternion yawRotation{ Quaternion::FromEuler(0.0f, cameraYaw, 0.0f) };
+			const Vector3 moveForward{ yawRotation.RotateVector(Vector3::Forward) };
+			const Vector3 moveRight{ yawRotation.RotateVector(Vector3::Right) };
+
+			Vector3 moveDirection{ Vector3::Zero };
+			if (Input::IsKeyPress(KeyCode::Button::UP)) moveDirection += moveForward;
+			if (Input::IsKeyPress(KeyCode::Button::DOWN)) moveDirection -= moveForward;
+			if (Input::IsKeyPress(KeyCode::Button::RIGHT)) moveDirection += moveRight;
+			if (Input::IsKeyPress(KeyCode::Button::LEFT)) moveDirection -= moveRight;
+			if (Input::IsKeyPress(KeyCode::Button::U)) moveDirection += Vector3::Up;
+			if (Input::IsKeyPress(KeyCode::Button::O)) moveDirection -= Vector3::Up;
+			sweepPosition += moveDirection * (SWEEP_SHAPE_MOVE_SPEED * Time::DeltaTime());
+
+			if (Input::IsKeyPushed(KeyCode::Button::T)) isSweepCapsule = !isSweepCapsule;
+			if (Input::IsKeyPushed(KeyCode::Button::G)) sweepDirectionIndex = (sweepDirectionIndex + 1) % static_cast<int>(TEST_SWEEP_DIRECTIONS.size());
 		}
 
 		// Space : 一時停止の切り替え
@@ -1460,6 +1584,29 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			}
 		}
 
+		// Sweepの描画 動かす前の形は白 当たれば触れた位置の形を緑 外れたら最大距離の位置の形を灰色 当たった点に赤い球と法線(黄色い線)
+		const TestSweepDirection& sweepDirection{ TEST_SWEEP_DIRECTIONS[sweepDirectionIndex] };
+		const Vector3 sweepHalfAxis{ 0.0f, isSweepCapsule ? SWEEP_SHAPE_HALF_HEIGHT : 0.0f, 0.0f }; // 球は端点を中心に重ねる
+		const Capsule sweepCapsule{ sweepPosition - sweepHalfAxis, sweepPosition + sweepHalfAxis, SWEEP_SHAPE_RADIUS };
+		RaycastResult sweepHit{};
+		bool isSweepHit{ false };
+		if (isSweepCapsule) isSweepHit = Physics::Sweep(sweepCapsule, sweepDirection.direction, SWEEP_SHAPE_MAX_DISTANCE, sweepHit);
+		else isSweepHit = Physics::Sweep(Sphere{ sweepPosition, SWEEP_SHAPE_RADIUS }, sweepDirection.direction, SWEEP_SHAPE_MAX_DISTANCE, sweepHit);
+		{
+			// 当たれば触れた距離まで 外れたら最大距離まで進めた位置
+			const Vector3 sweepOffset{ Vector3::Normalized(sweepDirection.direction) * (isSweepHit ? sweepHit.distance : SWEEP_SHAPE_MAX_DISTANCE) };
+			const Vector4 sweepColor{ isSweepHit ? Vector4{ 0.2f, 1.0f, 0.2f, 1.0f } : Vector4{ 0.5f, 0.5f, 0.5f, 1.0f } };
+
+			Gfx::DrawCapsule3D(sweepCapsule.startPos, sweepCapsule.endPos, SWEEP_SHAPE_RADIUS, { 1.0f, 1.0f, 1.0f, 1.0f }, Primitive3DStyle::DebugLine);
+			Gfx::DrawCapsule3D(sweepCapsule.startPos + sweepOffset, sweepCapsule.endPos + sweepOffset, SWEEP_SHAPE_RADIUS, sweepColor, Primitive3DStyle::DebugLine);
+			Gfx::DrawLine3D(sweepPosition, sweepPosition + sweepOffset, sweepColor);
+			if (isSweepHit)
+			{
+				Gfx::DrawCapsule3D(sweepHit.worldPosition, sweepHit.worldPosition, CONTACT_POINT_RADIUS, { 1.0f, 0.2f, 0.2f, 1.0f }, Primitive3DStyle::Fill);
+				Gfx::DrawLine3D(sweepHit.worldPosition, sweepHit.worldPosition + sweepHit.normal * CONTACT_NORMAL_LENGTH, { 1.0f, 1.0f, 0.2f, 1.0f });
+			}
+		}
+
 		// 接触の数が変わったときだけログへ出す(毎フレームは出さない)
 		const int contactCount{ static_cast<int>(contacts.size()) };
 		if (contactCount != lastContactCount)
@@ -1495,6 +1642,23 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 		std::snprintf(text, sizeof(text), "contacts: %d", contactCount);
 		Gfx::DrawString(text, { 20.0f, textY });
+		textY += LINE_HEIGHT;
+
+		// Sweepの操作と結果(当たった相手の名前は画面に置いたBodyから探す)
+		Gfx::DrawString("Sweep  Arrows: move  U/O: up down  T: sphere/capsule  G: direction", { 20.0f, textY });
+		textY += LINE_HEIGHT;
+		const char* sweepBodyName{ "-" };
+		if (isSweepHit)
+		{
+			for (const TestBody& body : bodies)
+			{
+				if (body.handle == sweepHit.body) sweepBodyName = body.name;
+			}
+		}
+		std::snprintf(text, sizeof(text), "Sweep %s  dir %s  %s  distance %.3f  normal(%.2f, %.2f, %.2f)  body: %s",
+			isSweepCapsule ? "capsule" : "sphere", sweepDirection.name, isSweepHit ? "HIT" : "MISS",
+			sweepHit.distance, sweepHit.normal.x, sweepHit.normal.y, sweepHit.normal.z, sweepBodyName);
+		Gfx::DrawString(text, { 20.0f, textY }, 1.0f, isSweepHit ? Vector4{ 0.2f, 1.0f, 0.2f, 1.0f } : Vector4{ 0.5f, 0.5f, 0.5f, 1.0f });
 		textY += LINE_HEIGHT;
 
 		// Bodyごとの位置と速度
