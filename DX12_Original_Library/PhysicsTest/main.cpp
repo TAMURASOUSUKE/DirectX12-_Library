@@ -52,6 +52,20 @@ const std::vector<float> FIELD_HEIGHTS{
 // 高さの格子を置く位置(格子の角)
 const Vector3 FIELD_POSITION{ -15.5f, 0.0f, -4.0f };
 
+// 画面に置くRay一本分(動かさない)
+struct TestRay
+{
+	Vector3 origin{ Vector3::Zero }; // 始点
+	Vector3 direction{ 0.0f, -1.0f, 0.0f }; // 向き
+	float maxDistance{ 10.0f }; // 最大距離
+};
+// 画面に置くRay 坂の格子へ下向き 山の左の斜面へ下向き 床の上を横切る水平
+const std::vector<TestRay> TEST_RAYS{
+	{ { FIELD_POSITION.x + 1.0f, 6.0f, FIELD_POSITION.z + 5.5f }, { 0.0f, -1.0f, 0.0f }, 10.0f },
+	{ { TENT_POSITION.x - 1.0f, 6.0f, 1.0f }, { 0.0f, -1.0f, 0.0f }, 10.0f },
+	{ { -7.0f, 0.6f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 20.0f },
+};
+
 // 起動時に一回だけ走る数値テスト 確かめる項目と期待値はここへ書く
 TestResult RunPhysicsTests()
 {
@@ -485,6 +499,212 @@ TestResult RunPhysicsTests()
 		}
 	}
 
+	// Raycast 形ごとに距離と位置と法線が合うこと と 最大距離 無視するBody レイヤー 引数の誤りが効くこと
+	// 項目と期待値は本人が決めた案のもの(数は形の大きさと置いた位置から決まる)
+	{
+		constexpr float TOLERANCE{ 0.001f }; // 距離と位置と法線の許す誤差
+		constexpr float MAX_DISTANCE{ 10.0f }; // Rayの最大距離
+		constexpr std::uint32_t LAYER_NEAR{ 1u << 1 }; // 手前の球だけに付けるレイヤー
+		constexpr std::uint32_t MASK_ALL{ 0xFFFFFFFF };
+		const Vector3 down{ 0.0f, -1.0f, 0.0f };
+		const Vector3 forward{ 0.0f, 0.0f, 1.0f };
+		// 2つのベクトルが許す誤差の中で同じか
+		const auto isNear = [TOLERANCE](const Vector3& _a, const Vector3& _b) { return (_a - _b).Length() < TOLERANCE; };
+
+		// 球(中心(40,0,0) 半径1)
+		{
+			BodyDesc desc{};
+			desc.shapeData = Sphere{ Vector3::Zero, 1.0f };
+			desc.position = { 40.0f, 0.0f, 0.0f };
+			const BodyHandle body{ Physics::CreateBody(desc) };
+			const Vector3 origin{ 40.0f, 5.0f, 0.0f };
+
+			// 真上から下へ 距離は 5 - 半径1 = 4
+			RaycastResult hit{};
+			check("ray: sphere hit", Physics::Raycast(origin, down, MAX_DISTANCE, hit));
+			check("ray: sphere body", hit.body == body);
+			check("ray: sphere distance", std::abs(hit.distance - 4.0f) < TOLERANCE);
+			check("ray: sphere position", isNear(hit.worldPosition, { 40.0f, 1.0f, 0.0f }));
+			check("ray: sphere normal", isNear(hit.normal, { 0.0f, 1.0f, 0.0f }));
+
+			// 最大距離ちょうどは当たり 少し短いと外れ
+			check("ray: max distance exact hits", Physics::Raycast(origin, down, 4.0f, hit));
+			check("ray: max distance short misses", !Physics::Raycast(origin, down, 3.99f, hit));
+
+			// 始点が中なら距離0で法線は向きの逆
+			RaycastResult insideHit{};
+			check("ray: inside hit", Physics::Raycast({ 40.0f, 0.5f, 0.0f }, down, MAX_DISTANCE, insideHit));
+			check("ray: inside distance zero", insideHit.distance == 0.0f);
+			check("ray: inside normal", isNear(insideHit.normal, { 0.0f, 1.0f, 0.0f }));
+
+			// 長さが1でない向きを渡しても中で単位化されて同じ距離になる
+			RaycastResult scaledHit{};
+			check("ray: long direction hit", Physics::Raycast(origin, { 0.0f, -2.0f, 0.0f }, MAX_DISTANCE, scaledHit));
+			check("ray: long direction distance", std::abs(scaledHit.distance - 4.0f) < TOLERANCE);
+
+			check("ray: sphere destroyed", Physics::DestroyBody(body));
+		}
+
+		// 箱(中心(44,0,0) 半分の大きさ(2,1,1)) 回転なしは距離4 Y軸に90度回すと長い辺がZを向くので距離3
+		{
+			BodyDesc desc{};
+			desc.shapeData = Box{ Vector3::Zero, { 2.0f, 1.0f, 1.0f } };
+			desc.position = { 44.0f, 0.0f, 0.0f };
+			const Vector3 origin{ 44.0f, 0.0f, -5.0f };
+
+			const BodyHandle body{ Physics::CreateBody(desc) };
+			RaycastResult hit{};
+			check("ray: box hit", Physics::Raycast(origin, forward, MAX_DISTANCE, hit));
+			check("ray: box distance", std::abs(hit.distance - 4.0f) < TOLERANCE);
+			check("ray: box normal", isNear(hit.normal, { 0.0f, 0.0f, -1.0f }));
+			check("ray: box destroyed", Physics::DestroyBody(body));
+
+			desc.rotation = Quaternion::FromEuler(0.0f, 90.0f * Math::DEG_TO_RAD, 0.0f);
+			const BodyHandle rotatedBody{ Physics::CreateBody(desc) };
+			RaycastResult rotatedHit{};
+			check("ray: rotated box hit", Physics::Raycast(origin, forward, MAX_DISTANCE, rotatedHit));
+			check("ray: rotated box distance", std::abs(rotatedHit.distance - 3.0f) < TOLERANCE);
+			check("ray: rotated box position", isNear(rotatedHit.worldPosition, { 44.0f, 0.0f, -2.0f }));
+			check("ray: rotated box destroyed", Physics::DestroyBody(rotatedBody));
+		}
+
+		// カプセル(軸は(48,-1,0)から(48,1,0) 半径0.5) 側面は距離 3 - 0.5 = 2.5 端の球は距離 5 - 1.5 = 3.5
+		{
+			BodyDesc desc{};
+			desc.shapeData = Capsule{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 0.5f };
+			desc.position = { 48.0f, 0.0f, 0.0f };
+			const BodyHandle body{ Physics::CreateBody(desc) };
+
+			RaycastResult sideHit{};
+			check("ray: capsule side hit", Physics::Raycast({ 45.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, MAX_DISTANCE, sideHit));
+			check("ray: capsule side distance", std::abs(sideHit.distance - 2.5f) < TOLERANCE);
+			check("ray: capsule side normal", isNear(sideHit.normal, { -1.0f, 0.0f, 0.0f }));
+
+			RaycastResult endHit{};
+			check("ray: capsule end hit", Physics::Raycast({ 48.0f, 5.0f, 0.0f }, down, MAX_DISTANCE, endHit));
+			check("ray: capsule end distance", std::abs(endHit.distance - 3.5f) < TOLERANCE);
+			check("ray: capsule end normal", isNear(endHit.normal, { 0.0f, 1.0f, 0.0f }));
+
+			check("ray: capsule destroyed", Physics::DestroyBody(body));
+		}
+
+		// 三角形の集まり(一辺2の平らな四角を三角形2枚で 位置(52,0,0) 面は y=0)
+		{
+			const std::vector<Vector3> vertices{ { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 2.0f }, { 2.0f, 0.0f, 2.0f }, { 2.0f, 0.0f, 0.0f } };
+			const std::vector<std::uint32_t> indices{ 0, 1, 2,  0, 2, 3 };
+			const TriangleMeshHandle mesh{ Physics::CreateTriangleMesh(vertices, indices) };
+			BodyDesc desc{};
+			desc.shapeData = TriangleMeshShape{ mesh };
+			desc.position = { 52.0f, 0.0f, 0.0f };
+			const BodyHandle body{ Physics::CreateBody(desc) };
+
+			RaycastResult hit{};
+			check("ray: mesh hit", Physics::Raycast({ 52.5f, 5.0f, 1.5f }, down, MAX_DISTANCE, hit));
+			check("ray: mesh distance", std::abs(hit.distance - 5.0f) < TOLERANCE);
+			check("ray: mesh position", isNear(hit.worldPosition, { 52.5f, 0.0f, 1.5f }));
+			check("ray: mesh normal", isNear(hit.normal, { 0.0f, 1.0f, 0.0f }));
+			check("ray: mesh body destroyed", Physics::DestroyBody(body));
+
+			// 案に無い追加 Bodyを Y軸に180度回すと四角は反対側(xは50から52 zは-2から0)へ移る Rayをローカルへ移す所の確認
+			desc.rotation = Quaternion::FromEuler(0.0f, 180.0f * Math::DEG_TO_RAD, 0.0f);
+			const BodyHandle rotatedBody{ Physics::CreateBody(desc) };
+			RaycastResult rotatedHit{};
+			check("ray: rotated mesh hit", Physics::Raycast({ 51.0f, 5.0f, -1.0f }, down, MAX_DISTANCE, rotatedHit));
+			check("ray: rotated mesh distance", std::abs(rotatedHit.distance - 5.0f) < TOLERANCE);
+			check("ray: rotated mesh old place misses", !Physics::Raycast({ 52.5f, 5.0f, 1.5f }, down, MAX_DISTANCE, rotatedHit));
+			check("ray: rotated mesh body destroyed", Physics::DestroyBody(rotatedBody));
+
+			check("ray: mesh destroyed", Physics::DestroyTriangleMesh(mesh));
+		}
+
+		// 高さの格子 平ら(点は3x3 升は一辺4 高さは全部0 位置(20,0,20))
+		{
+			const std::vector<float> heights(9, 0.0f);
+			const HeightFieldHandle field{ Physics::CreateHeightField(3, 3, 4.0f, heights) };
+			BodyDesc desc{};
+			desc.shapeData = HeightFieldShape{ field };
+			desc.position = { 20.0f, 0.0f, 20.0f }; // 格子の角
+			const BodyHandle body{ Physics::CreateBody(desc) };
+
+			RaycastResult hit{};
+			check("ray: field hit", Physics::Raycast({ 26.5f, 5.0f, 21.0f }, down, MAX_DISTANCE, hit));
+			check("ray: field distance", std::abs(hit.distance - 5.0f) < TOLERANCE);
+			check("ray: field normal", isNear(hit.normal, { 0.0f, 1.0f, 0.0f }));
+
+			// 升の交点の真上(升の境目と対角線の上)でも取りこぼさない
+			RaycastResult gridPointHit{};
+			check("ray: field grid point hit", Physics::Raycast({ 24.0f, 5.0f, 24.0f }, down, MAX_DISTANCE, gridPointHit));
+			check("ray: field grid point distance", std::abs(gridPointHit.distance - 5.0f) < TOLERANCE);
+
+			// 格子の外は当たらない
+			check("ray: field outside misses", !Physics::Raycast({ 19.0f, 5.0f, 21.0f }, down, MAX_DISTANCE, hit));
+
+			check("ray: field body destroyed", Physics::DestroyBody(body));
+			check("ray: field destroyed", Physics::DestroyHeightField(field));
+		}
+
+		// 高さの格子 坂(点は2x2 升は一辺2 xが0の側は高さ0 xが2の側は高さ1 位置(56,0,0))
+		// 升の真ん中は高さ0.5なので距離は 5 - 0.5 = 4.5 法線は坂に直角で (-1, 2, 0) を長さ1にした向き
+		{
+			const std::vector<float> heights{ 0.0f, 1.0f, 0.0f, 1.0f };
+			const HeightFieldHandle field{ Physics::CreateHeightField(2, 2, 2.0f, heights) };
+			BodyDesc desc{};
+			desc.shapeData = HeightFieldShape{ field };
+			desc.position = { 56.0f, 0.0f, 0.0f }; // 格子の角
+			const BodyHandle body{ Physics::CreateBody(desc) };
+
+			RaycastResult hit{};
+			check("ray: slope hit", Physics::Raycast({ 57.0f, 5.0f, 1.0f }, down, MAX_DISTANCE, hit));
+			check("ray: slope distance", std::abs(hit.distance - 4.5f) < TOLERANCE);
+			check("ray: slope position", isNear(hit.worldPosition, { 57.0f, 0.5f, 1.0f }));
+			check("ray: slope normal", isNear(hit.normal, { -0.4472136f, 0.8944272f, 0.0f }));
+
+			check("ray: slope body destroyed", Physics::DestroyBody(body));
+			check("ray: slope destroyed", Physics::DestroyHeightField(field));
+		}
+
+		// 一番近い1つを返すこと と 無視するBody と レイヤー(球2つ 中心(40,0,10)と(40,0,14) 半径1)
+		{
+			BodyDesc nearDesc{};
+			nearDesc.shapeData = Sphere{ Vector3::Zero, 1.0f };
+			nearDesc.position = { 40.0f, 0.0f, 10.0f };
+			nearDesc.layer = LAYER_NEAR;
+			const BodyHandle nearBody{ Physics::CreateBody(nearDesc) };
+
+			BodyDesc farDesc{};
+			farDesc.shapeData = Sphere{ Vector3::Zero, 1.0f };
+			farDesc.position = { 40.0f, 0.0f, 14.0f };
+			const BodyHandle farBody{ Physics::CreateBody(farDesc) };
+
+			const Vector3 origin{ 40.0f, 0.0f, 5.0f };
+
+			// 手前の球に当たる 距離は 5 - 1 = 4
+			RaycastResult hit{};
+			check("ray: nearest hit", Physics::Raycast(origin, forward, MAX_DISTANCE, hit));
+			check("ray: nearest body", hit.body == nearBody);
+			check("ray: nearest distance", std::abs(hit.distance - 4.0f) < TOLERANCE);
+
+			// 手前を無視すると奥の球に当たる 距離は 9 - 1 = 8
+			RaycastResult ignoredHit{};
+			check("ray: ignore hit", Physics::Raycast(origin, forward, MAX_DISTANCE, ignoredHit, MASK_ALL, nearBody));
+			check("ray: ignore body", ignoredHit.body == farBody);
+			check("ray: ignore distance", std::abs(ignoredHit.distance - 8.0f) < TOLERANCE);
+
+			// 手前のレイヤーを外しても奥の球に当たる
+			RaycastResult maskedHit{};
+			check("ray: mask hit", Physics::Raycast(origin, forward, MAX_DISTANCE, maskedHit, MASK_ALL & ~LAYER_NEAR));
+			check("ray: mask body", maskedHit.body == farBody);
+			check("ray: mask distance", std::abs(maskedHit.distance - 8.0f) < TOLERANCE);
+
+			// 引数の誤りは断る(エラーログが1行ずつ出るのは正しい動き)
+			check("ray: zero max distance rejected", !Physics::Raycast(origin, forward, 0.0f, hit));
+			check("ray: zero direction rejected", !Physics::Raycast(origin, Vector3::Zero, MAX_DISTANCE, hit));
+
+			check("ray: near destroyed", Physics::DestroyBody(nearBody));
+			check("ray: far destroyed", Physics::DestroyBody(farBody));
+		}
+	}
+
 	return result;
 }
 
@@ -803,6 +1023,50 @@ void DrawOverlappedFieldCells(const TestRangeXZ& _range, Vector4 _color)
 	}
 }
 
+// 画面の高さの格子の上で 渡した点が乗っている三角形の3辺を描く(格子は回転させずに置いている前提 点が格子の面から離れていれば描かない)
+void DrawHitFieldTriangle(const Vector3& _worldPosition, Vector4 _color)
+{
+	// ワールドの点を格子の角からの位置へ直す
+	const Vector3 local{ _worldPosition - FIELD_POSITION };
+	const float fieldSizeX{ static_cast<float>(FIELD_COUNT_X - 1) * FIELD_CELL_SIZE };
+	const float fieldSizeZ{ static_cast<float>(FIELD_COUNT_Z - 1) * FIELD_CELL_SIZE };
+	if (local.x < 0.0f || local.x > fieldSizeX || local.z < 0.0f || local.z > fieldSizeZ) return; // 格子の外
+
+	// 位置を升の大きさで割って切り捨てると升の番号になる
+	const int cellX{ std::clamp(static_cast<int>(std::floor(local.x / FIELD_CELL_SIZE)), 0, FIELD_COUNT_X - 2) };
+	const int cellZ{ std::clamp(static_cast<int>(std::floor(local.z / FIELD_CELL_SIZE)), 0, FIELD_COUNT_Z - 2) };
+	const float x0{ static_cast<float>(cellX) * FIELD_CELL_SIZE };
+	const float x1{ static_cast<float>(cellX + 1) * FIELD_CELL_SIZE };
+	const float z0{ static_cast<float>(cellZ) * FIELD_CELL_SIZE };
+	const float z1{ static_cast<float>(cellZ + 1) * FIELD_CELL_SIZE };
+	const float height00{ FIELD_HEIGHTS[cellZ * FIELD_COUNT_X + cellX] };
+	const float height10{ FIELD_HEIGHTS[cellZ * FIELD_COUNT_X + cellX + 1] };
+	const float height01{ FIELD_HEIGHTS[(cellZ + 1) * FIELD_COUNT_X + cellX] };
+	const float height11{ FIELD_HEIGHTS[(cellZ + 1) * FIELD_COUNT_X + cellX + 1] };
+
+	// 升の中での位置を0から1で表す 対角線のどちら側かで三角形が決まる(ライブラリの中と同じ割り方)
+	const float rateX{ (local.x - x0) / FIELD_CELL_SIZE };
+	const float rateZ{ (local.z - z0) / FIELD_CELL_SIZE };
+	const bool isFirstTriangle{ rateZ >= rateX }; // corner00 corner01 corner11 の側か
+
+	// 点の真下の面の高さ(三角形の上では高さが位置に比例して変わる)
+	const float surfaceHeight{ isFirstTriangle
+		? height00 + (height01 - height00) * rateZ + (height11 - height01) * rateX
+		: height00 + (height10 - height00) * rateX + (height11 - height10) * rateZ };
+	constexpr float SURFACE_TOLERANCE{ 0.05f }; // 面の上とみなす高さの差
+	if (std::abs(local.y - surfaceHeight) > SURFACE_TOLERANCE) return; // 格子の上にある別の形に当たっている
+
+	constexpr float LIFT{ 0.05f }; // 格子の線と赤い枠に重ならないよう少し浮かせる
+	const Vector3 corner00{ FIELD_POSITION + Vector3{ x0, height00 + LIFT, z0 } };
+	const Vector3 corner11{ FIELD_POSITION + Vector3{ x1, height11 + LIFT, z1 } };
+	const Vector3 corner01{ FIELD_POSITION + Vector3{ x0, height01 + LIFT, z1 } };
+	const Vector3 corner10{ FIELD_POSITION + Vector3{ x1, height10 + LIFT, z0 } };
+	const Vector3 thirdCorner{ isFirstTriangle ? corner01 : corner10 };
+	Gfx::DrawLine3D(corner00, corner11, _color);
+	Gfx::DrawLine3D(corner11, thirdCorner, _color);
+	Gfx::DrawLine3D(thirdCorner, corner00, _color);
+}
+
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
 	if (!TSLib::Initialize(L"PhysicsTest", 1280, 720)) return -1;
@@ -945,6 +1209,36 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 				const Vector3 point{ shapeResult.points[i].worldPosition };
 				Gfx::DrawCapsule3D(point, point, CONTACT_POINT_RADIUS, { 1.0f, 0.2f, 0.2f, 1.0f }, Primitive3DStyle::Fill);
 				Gfx::DrawLine3D(point, point + shapeResult.normal * CONTACT_NORMAL_LENGTH, { 1.0f, 1.0f, 0.2f, 1.0f });
+			}
+		}
+
+		// Rayの描画 当たれば始点から当たった点まで緑 外れたら最大距離まで灰色 当たった点に球と法線(黄色い線)
+		for (const TestRay& ray : TEST_RAYS)
+		{
+			const Vector3 rayDirection{ Vector3::Normalized(ray.direction) };
+			const Vector3 rayEnd{ ray.origin + rayDirection * ray.maxDistance };
+			RaycastResult rayHit{};
+			const bool isRayHit{ Physics::Raycast(ray.origin, ray.direction, ray.maxDistance, rayHit) };
+			if (isRayHit)
+			{
+				Gfx::DrawLine3D(ray.origin, rayHit.worldPosition, { 0.2f, 1.0f, 0.2f, 1.0f });
+				Gfx::DrawCapsule3D(rayHit.worldPosition, rayHit.worldPosition, CONTACT_POINT_RADIUS, { 0.2f, 1.0f, 0.2f, 1.0f }, Primitive3DStyle::Fill);
+				Gfx::DrawLine3D(rayHit.worldPosition, rayHit.worldPosition + rayHit.normal * CONTACT_NORMAL_LENGTH, { 1.0f, 1.0f, 0.2f, 1.0f });
+			}
+			else
+			{
+				Gfx::DrawLine3D(ray.origin, rayEnd, { 0.5f, 0.5f, 0.5f, 1.0f });
+			}
+
+			// F7 : Rayが最大距離まで進む間に調べる升を赤い枠で 当たった三角形を黄色で描く
+			if (isFieldCellVisible)
+			{
+				constexpr float RANGE_MARGIN{ FIELD_CELL_SIZE * 0.001f }; // ライブラリの中と同じ広げ方
+				const TestRangeXZ rayRange{ true,
+					(std::min)(ray.origin.x, rayEnd.x) - RANGE_MARGIN, (std::max)(ray.origin.x, rayEnd.x) + RANGE_MARGIN,
+					(std::min)(ray.origin.z, rayEnd.z) - RANGE_MARGIN, (std::max)(ray.origin.z, rayEnd.z) + RANGE_MARGIN };
+				DrawOverlappedFieldCells(rayRange, { 1.0f, 0.2f, 0.2f, 1.0f });
+				if (isRayHit) DrawHitFieldTriangle(rayHit.worldPosition, { 1.0f, 1.0f, 0.2f, 1.0f });
 			}
 		}
 
