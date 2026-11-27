@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
 #include <variant>
+#include <array>
+#include "PhysicsConstant.h"
 #include "../Collision/Collider.h"
 #include "../Collision/CollisionType.h"
 #include "../Core/Handle/BodyHandle.h"
@@ -81,4 +83,11 @@ struct RaycastResult
 	Vector3 normal{ Vector3::Zero }; // 法線
 	float distance{ 0.0f }; // 距離
 	std::uint64_t userData{ 0 }; // 誰に当たったかを返す際に使うユーザーが定義する値(ID)
+};
+
+// Overlapの結果
+struct OverlapResult
+{
+	std::array<BodyHandle, MAX_OVERLAP_RESULT_COUNT> bodies{}; // 重なったBody
+	int bodyCount{ 0 }; // 入っている数
 };

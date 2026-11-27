@@ -705,6 +705,224 @@ TestResult RunPhysicsTests()
 		}
 	}
 
+	// Overlap 5つの形の相手との重なり 複数を全部返すこと レイヤーと無視するBodyが効くこと
+	// 項目はIssue166の完了条件3つ(数は形の大きさと置いた位置から決まる)
+	{
+		constexpr std::uint32_t LAYER_NEAR{ 1u << 1 }; // 片方の球だけに付けるレイヤー
+		constexpr std::uint32_t MASK_ALL{ 0xFFFFFFFF };
+		// 結果の中にそのBodyが入っているか
+		const auto contains = [](const OverlapResult& _overlap, BodyHandle _body)
+			{
+				for (int i = 0; i < _overlap.bodyCount; i++)
+				{
+					if (_overlap.bodies[i] == _body) return true;
+				}
+				return false;
+			};
+
+		// 条件1 球(中心(80,0,0) 半径1)
+		{
+			BodyDesc desc{};
+			desc.shapeData = Sphere{ Vector3::Zero, 1.0f };
+			desc.position = { 80.0f, 0.0f, 0.0f };
+			const BodyHandle body{ Physics::CreateBody(desc) };
+
+			// 中心の間は1.5 半径の和は2 なので重なる
+			OverlapResult overlap{};
+			check("overlap: sphere hit", Physics::Overlap(Sphere{ { 81.5f, 0.0f, 0.0f }, 1.0f }, overlap));
+			check("overlap: sphere count", overlap.bodyCount == 1);
+			check("overlap: sphere body", contains(overlap, body));
+
+			// 中心の間は3 半径の和は1.9 なので重ならない 前の結果の数は残らない
+			check("overlap: sphere miss", !Physics::Overlap(Sphere{ { 83.0f, 0.0f, 0.0f }, 0.9f }, overlap));
+			check("overlap: sphere miss count zero", overlap.bodyCount == 0);
+
+			check("overlap: sphere destroyed", Physics::DestroyBody(body));
+		}
+
+		// 条件1 箱(中心(80,0,0) 半分の大きさ(2,1,1)) 球は中心(80,0,2.5) 半径0.6
+		// 回転なしはZへ1までなので隙間1.5で外れ Y軸に90度回すとZへ2まで伸びるので隙間0.5で重なる
+		{
+			BodyDesc desc{};
+			desc.shapeData = Box{ Vector3::Zero, { 2.0f, 1.0f, 1.0f } };
+			desc.position = { 80.0f, 0.0f, 0.0f };
+			const Sphere query{ { 80.0f, 0.0f, 2.5f }, 0.6f };
+			OverlapResult overlap{};
+
+			const BodyHandle body{ Physics::CreateBody(desc) };
+			check("overlap: box miss", !Physics::Overlap(query, overlap));
+			check("overlap: box destroyed", Physics::DestroyBody(body));
+
+			desc.rotation = Quaternion::FromEuler(0.0f, 90.0f * Math::DEG_TO_RAD, 0.0f);
+			const BodyHandle rotatedBody{ Physics::CreateBody(desc) };
+			check("overlap: rotated box hit", Physics::Overlap(query, overlap));
+			check("overlap: rotated box body", contains(overlap, rotatedBody));
+			check("overlap: rotated box destroyed", Physics::DestroyBody(rotatedBody));
+		}
+
+		// 条件1 カプセル(軸は(80,-1,0)から(80,1,0) 半径0.5) 調べる側は箱とカプセル
+		{
+			BodyDesc desc{};
+			desc.shapeData = Capsule{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 0.5f };
+			desc.position = { 80.0f, 0.0f, 0.0f };
+			const BodyHandle body{ Physics::CreateBody(desc) };
+			OverlapResult overlap{};
+
+			// 箱の左の面は 81 - 0.6 = 80.4 カプセルの右の端は80.5 なので0.1重なる
+			check("overlap: capsule box hit", Physics::Overlap(Box{ { 81.0f, 0.0f, 0.0f }, { 0.6f, 0.5f, 0.5f } }, overlap));
+			check("overlap: capsule box body", contains(overlap, body));
+			// 箱の左の面は 81.2 - 0.6 = 80.6 なので0.1離れる
+			check("overlap: capsule box miss", !Physics::Overlap(Box{ { 81.2f, 0.0f, 0.0f }, { 0.6f, 0.5f, 0.5f } }, overlap));
+			// 軸の間は0.8 半径の和は1 なので重なる
+			check("overlap: capsule capsule hit", Physics::Overlap(Capsule{ { 80.8f, -1.0f, 0.0f }, { 80.8f, 1.0f, 0.0f }, 0.5f }, overlap));
+
+			check("overlap: capsule destroyed", Physics::DestroyBody(body));
+		}
+
+		// 条件1 三角形の集まり(一辺2の平らな四角を三角形2枚で 位置(80,0,0) 面は y=0)
+		{
+			const std::vector<Vector3> vertices{ { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 2.0f }, { 2.0f, 0.0f, 2.0f }, { 2.0f, 0.0f, 0.0f } };
+			const std::vector<std::uint32_t> indices{ 0, 1, 2,  0, 2, 3 };
+			const TriangleMeshHandle mesh{ Physics::CreateTriangleMesh(vertices, indices) };
+			BodyDesc desc{};
+			desc.shapeData = TriangleMeshShape{ mesh };
+			desc.position = { 80.0f, 0.0f, 0.0f };
+			const BodyHandle body{ Physics::CreateBody(desc) };
+			OverlapResult overlap{};
+
+			// 面からの高さ0.5 半径1 なので重なる
+			check("overlap: mesh hit", Physics::Overlap(Sphere{ { 81.0f, 0.5f, 1.0f }, 1.0f }, overlap));
+			check("overlap: mesh body", contains(overlap, body));
+			// 面からの高さ2 半径1 なので重ならない
+			check("overlap: mesh above misses", !Physics::Overlap(Sphere{ { 81.0f, 2.0f, 1.0f }, 1.0f }, overlap));
+			// 四角の端は x=82 そこから3離れているので重ならない
+			check("overlap: mesh outside misses", !Physics::Overlap(Sphere{ { 85.0f, 0.5f, 1.0f }, 1.0f }, overlap));
+
+			check("overlap: mesh body destroyed", Physics::DestroyBody(body));
+			check("overlap: mesh destroyed", Physics::DestroyTriangleMesh(mesh));
+		}
+
+		// 条件1 高さの格子 平ら(点は3x3 升は一辺4 高さは全部0 位置(80,0,10) xは80から88 zは10から18)
+		{
+			const std::vector<float> heights(9, 0.0f);
+			const HeightFieldHandle field{ Physics::CreateHeightField(3, 3, 4.0f, heights) };
+			BodyDesc desc{};
+			desc.shapeData = HeightFieldShape{ field };
+			desc.position = { 80.0f, 0.0f, 10.0f }; // 格子の角
+			const BodyHandle body{ Physics::CreateBody(desc) };
+			OverlapResult overlap{};
+
+			// 面からの高さ0.5 半径1 なので重なる
+			check("overlap: field hit", Physics::Overlap(Sphere{ { 86.5f, 0.5f, 11.0f }, 1.0f }, overlap));
+			check("overlap: field body", contains(overlap, body));
+			// 升の交点の真上でも取りこぼさない
+			check("overlap: field grid point hit", Physics::Overlap(Sphere{ { 84.0f, 0.5f, 14.0f }, 1.0f }, overlap));
+			// 箱の底は 0.3 - 0.5 = -0.2 で面より下なので重なる
+			check("overlap: field box hit", Physics::Overlap(Box{ { 82.0f, 0.3f, 12.0f }, { 0.5f, 0.5f, 0.5f } }, overlap));
+			// 面からの高さ3 半径1 なので重ならない
+			check("overlap: field above misses", !Physics::Overlap(Sphere{ { 86.5f, 3.0f, 11.0f }, 1.0f }, overlap));
+			// 格子の端は x=80 そこから2離れているので重ならない
+			check("overlap: field outside misses", !Physics::Overlap(Sphere{ { 78.0f, 0.5f, 11.0f }, 1.0f }, overlap));
+
+			check("overlap: field body destroyed", Physics::DestroyBody(body));
+			check("overlap: field destroyed", Physics::DestroyHeightField(field));
+		}
+
+		// 条件2 球3つ(中心(80,0,30) (81,0,30) (90,0,30) 半径1) 調べる球は中心(80.5,0,30) 半径1
+		// 手前の2つとは中心の間が0.5で重なり 3つ目とは9.5で重ならない
+		{
+			BodyDesc desc{};
+			desc.shapeData = Sphere{ Vector3::Zero, 1.0f };
+			desc.position = { 80.0f, 0.0f, 30.0f };
+			const BodyHandle bodyA{ Physics::CreateBody(desc) };
+			desc.position = { 81.0f, 0.0f, 30.0f };
+			const BodyHandle bodyB{ Physics::CreateBody(desc) };
+			desc.position = { 90.0f, 0.0f, 30.0f };
+			const BodyHandle bodyC{ Physics::CreateBody(desc) };
+
+			OverlapResult overlap{};
+			check("overlap: multiple hit", Physics::Overlap(Sphere{ { 80.5f, 0.0f, 30.0f }, 1.0f }, overlap));
+			check("overlap: multiple count", overlap.bodyCount == 2);
+			check("overlap: multiple has A", contains(overlap, bodyA));
+			check("overlap: multiple has B", contains(overlap, bodyB));
+			check("overlap: multiple no C", !contains(overlap, bodyC));
+
+			check("overlap: A destroyed", Physics::DestroyBody(bodyA));
+			check("overlap: B destroyed", Physics::DestroyBody(bodyB));
+			check("overlap: C destroyed", Physics::DestroyBody(bodyC));
+		}
+
+		// 案に無い追加 上限より1つ多く重ねると 上限の数で止まり trueを返す
+		{
+			BodyDesc desc{};
+			desc.shapeData = Sphere{ Vector3::Zero, 0.5f };
+			desc.position = { 80.0f, 0.0f, 40.0f };
+			std::vector<BodyHandle> bodies{};
+			for (int i = 0; i < MAX_OVERLAP_RESULT_COUNT + 1; i++)
+			{
+				bodies.push_back(Physics::CreateBody(desc));
+			}
+
+			OverlapResult overlap{};
+			check("overlap: full hit", Physics::Overlap(Sphere{ { 80.0f, 0.0f, 40.0f }, 0.5f }, overlap));
+			check("overlap: full count is max", overlap.bodyCount == MAX_OVERLAP_RESULT_COUNT);
+
+			bool isAllDestroyed{ true };
+			for (const BodyHandle& body : bodies)
+			{
+				if (!Physics::DestroyBody(body)) isAllDestroyed = false;
+			}
+			check("overlap: full destroyed", isAllDestroyed);
+		}
+
+		// 条件3 無視するBody と レイヤー(球2つ 中心(80,0,50)と(81,0,50) 半径1 手前だけLAYER_NEAR)
+		{
+			BodyDesc nearDesc{};
+			nearDesc.shapeData = Sphere{ Vector3::Zero, 1.0f };
+			nearDesc.position = { 80.0f, 0.0f, 50.0f };
+			nearDesc.layer = LAYER_NEAR;
+			const BodyHandle nearBody{ Physics::CreateBody(nearDesc) };
+
+			BodyDesc farDesc{};
+			farDesc.shapeData = Sphere{ Vector3::Zero, 1.0f };
+			farDesc.position = { 81.0f, 0.0f, 50.0f };
+			const BodyHandle farBody{ Physics::CreateBody(farDesc) };
+
+			const Sphere query{ { 80.5f, 0.0f, 50.0f }, 1.0f };
+
+			// 何も絞らなければ2つ
+			OverlapResult overlap{};
+			check("overlap: both hit", Physics::Overlap(query, overlap));
+			check("overlap: both count", overlap.bodyCount == 2);
+
+			// 手前を無視すると奥だけ
+			OverlapResult ignored{};
+			check("overlap: ignore hit", Physics::Overlap(query, ignored, MASK_ALL, nearBody));
+			check("overlap: ignore count", ignored.bodyCount == 1);
+			check("overlap: ignore has far", contains(ignored, farBody));
+			check("overlap: ignore no near", !contains(ignored, nearBody));
+
+			// 手前のレイヤーを外すと奥だけ
+			OverlapResult masked{};
+			check("overlap: mask hit", Physics::Overlap(query, masked, MASK_ALL & ~LAYER_NEAR));
+			check("overlap: mask count", masked.bodyCount == 1);
+			check("overlap: mask has far", contains(masked, farBody));
+
+			// 手前のレイヤーだけにすると手前だけ
+			OverlapResult nearOnly{};
+			check("overlap: near only hit", Physics::Overlap(query, nearOnly, LAYER_NEAR));
+			check("overlap: near only count", nearOnly.bodyCount == 1);
+			check("overlap: near only has near", contains(nearOnly, nearBody));
+
+			// 不正な形は断る(エラーログが1行出るのは正しい動き)
+			check("overlap: negative radius rejected", !Physics::Overlap(Sphere{ { 80.5f, 0.0f, 50.0f }, -1.0f }, overlap));
+			check("overlap: rejected count zero", overlap.bodyCount == 0);
+
+			check("overlap: near destroyed", Physics::DestroyBody(nearBody));
+			check("overlap: far destroyed", Physics::DestroyBody(farBody));
+		}
+	}
+
 	return result;
 }
 
