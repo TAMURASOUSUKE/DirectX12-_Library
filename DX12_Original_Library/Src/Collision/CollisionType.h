@@ -19,3 +19,11 @@ struct ShapeToShapeResult
 	std::array<CollisionPoint, MAX_CONTACT_POINT_COUNT> points{}; // 点の配列
 	int pointCount{ 0 }; // 入っている点の数
 };
+
+// Rayと形状のあたり判定
+struct RayToShapeResult
+{
+	Vector3 worldPosition{ Vector3::Zero }; // 当たった時の位置
+	Vector3 normal{ Vector3::Zero }; // 当たった面の向き
+	float distance{ 0.0f }; // 視点からの距離
+};

@@ -91,3 +91,8 @@ std::span<const BodyToBodyResult> Physics::GetContacts()
 {
 	return physicsSystem.GetContacts();
 }
+
+bool Physics::Raycast(Vector3 _origin, Vector3 _direction, float _maxDistance, RaycastResult& _result, std::uint32_t _collisionMask, BodyHandle _ignoreBody)
+{
+	return physicsSystem.Raycast(_origin, _direction, _maxDistance, _result, _collisionMask, _ignoreBody);
+}

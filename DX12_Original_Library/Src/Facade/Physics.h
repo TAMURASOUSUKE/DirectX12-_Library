@@ -44,4 +44,8 @@ namespace Physics
 
 	// 直近のStepで見つかった接触の一覧を取得する(次のStepまで有効)
 	std::span<const BodyToBodyResult> GetContacts();
+
+	// Raycastを行い結果を引数で受け取る
+	bool Raycast(Vector3 _origin, Vector3 _direction, float _maxDistance, RaycastResult& _result, std::uint32_t _collisionMask = 0xFFFFFFFF, BodyHandle _ignoreBody = {});
+
 }

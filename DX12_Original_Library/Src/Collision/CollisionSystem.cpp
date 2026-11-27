@@ -6,8 +6,7 @@
 #include "../Math/TSMath.h"
 #include "CollisionSystem.h"
 
-namespace
-{
+namespace {
 	// 指定した点に最も近い、線分上の点を求める。
 	// CapsuleとSphereなど「線分を中心軸に持つ形状」の距離計算で使用する。
 	Vector3 ClosestPointOnSegment(const Vector3& point, const Vector3& start, const Vector3& end)
@@ -37,7 +36,7 @@ namespace
 		normal.Normalize();
 		return normal;
 	}
-	
+
 	// 2本の線分について、それぞれの線分上にある最近点を保持する。
 	struct SegmentPair
 	{
@@ -247,7 +246,7 @@ bool CollisionSystem::Intersect(Rect _rect01, Rect _rect02)
 {
 	if (!_rect01.IsValid() || !_rect02.IsValid()) return false;
 
-	const Vector2 min01{_rect01.GetMinPos()}; // 一つめの最小
+	const Vector2 min01{ _rect01.GetMinPos() }; // 一つめの最小
 	const Vector2 max01{ _rect01.GetMaxPos() }; // 一つめの最大
 	const Vector2 min02{ _rect02.GetMinPos() }; // 二つめの最小
 	const Vector2 max02{ _rect02.GetMaxPos() }; // 二つ目の最大
@@ -265,7 +264,7 @@ bool CollisionSystem::Intersect(Box _box01, Box _box02)
 	if (_box01.rotation == Quaternion::Identity && _box02.rotation == Quaternion::Identity)
 	{
 		const Vector3 min01{ _box01.center - _box01.halfSize }; // 一つめの最小
-		const Vector3 max01{ _box01.center +_box01.halfSize }; // 一つめの最大
+		const Vector3 max01{ _box01.center + _box01.halfSize }; // 一つめの最大
 		const Vector3 min02{ _box02.center - _box02.halfSize }; // 二つめの最小
 		const Vector3 max02{ _box02.center + _box02.halfSize }; // 二つ目の最大
 		// 判定を行う どれか一つでも重なっていなければ当たっていない
@@ -279,12 +278,12 @@ bool CollisionSystem::Intersect(Box _box01, Box _box02)
 	const Vector3 dir{ Vector3::FromTo(_box01.center, _box02.center) }; // 中心間
 
 	// 各軸をRotatevectorで回してワールド空間の方向を出す
-	const Vector3 axisX01{ _box01.rotation.RotateVector({1.0f, 0.0f, 0.0f}) };
-	const Vector3 axisY01{ _box01.rotation.RotateVector({0.0f, 1.0f, 0.0f}) };
-	const Vector3 axisZ01{ _box01.rotation.RotateVector({0.0f, 0.0f, 1.0f}) };
-	const Vector3 axisX02{ _box02.rotation.RotateVector({1.0f, 0.0f, 0.0f}) };
-	const Vector3 axisY02{ _box02.rotation.RotateVector({0.0f, 1.0f, 0.0f}) };
-	const Vector3 axisZ02{ _box02.rotation.RotateVector({0.0f, 0.0f, 1.0f}) };
+	const Vector3 axisX01{ _box01.rotation.RotateVector({ 1.0f, 0.0f, 0.0f }) };
+	const Vector3 axisY01{ _box01.rotation.RotateVector({ 0.0f, 1.0f, 0.0f }) };
+	const Vector3 axisZ01{ _box01.rotation.RotateVector({ 0.0f, 0.0f, 1.0f }) };
+	const Vector3 axisX02{ _box02.rotation.RotateVector({ 1.0f, 0.0f, 0.0f }) };
+	const Vector3 axisY02{ _box02.rotation.RotateVector({ 0.0f, 1.0f, 0.0f }) };
+	const Vector3 axisZ02{ _box02.rotation.RotateVector({ 0.0f, 0.0f, 1.0f }) };
 
 	// 中心から面までのベクトル
 	const Vector3 halfEdgeX01{ axisX01 * _box01.halfSize.x };
@@ -343,8 +342,8 @@ bool CollisionSystem::Intersect(Sphere _sphere, Box  _box)
 	if (!_sphere.IsValid() || !_box.IsValid()) return false; // 不正な値ならfalse
 
 	const Vector3 dir{ Vector3::FromTo(_box.center, _sphere.center) }; // 中心同士のベクトル(差分)
-	const Quaternion reverseRot{ Vector4{-_box.rotation.x, -_box.rotation.y, -_box.rotation.z, _box.rotation.w} }; // 箱の逆回転
-	const Vector3 localCenter{reverseRot.RotateVector(dir)}; // 箱基準の球の中心座標
+	const Quaternion reverseRot{ Vector4{ -_box.rotation.x, -_box.rotation.y, -_box.rotation.z, _box.rotation.w } }; // 箱の逆回転
+	const Vector3 localCenter{ reverseRot.RotateVector(dir) }; // 箱基準の球の中心座標
 
 	// 最近点を求める
 	const Vector3 nearestPosition{ std::clamp(localCenter.x, -_box.halfSize.x, _box.halfSize.x),
@@ -432,7 +431,7 @@ bool CollisionSystem::Intersect(Capsule _capsule, Box _box)
 {
 	if (!_capsule.IsValid() || !_box.IsValid()) return false;
 	// Boxの回転を打ち消しカプセルの軸線分をBoxのローカル空間へ移す
-	const Quaternion inverseRotation{ Vector4{-_box.rotation.x, -_box.rotation.y, -_box.rotation.z, _box.rotation.w} };
+	const Quaternion inverseRotation{ Vector4{ -_box.rotation.x, -_box.rotation.y, -_box.rotation.z, _box.rotation.w } };
 	const Vector3 a{ inverseRotation.RotateVector(_capsule.startPos - _box.center) };
 	const Vector3 b{ inverseRotation.RotateVector(_capsule.endPos - _box.center) };
 	const Vector3 direction{ b - a };
@@ -525,8 +524,8 @@ bool CollisionSystem::Intersect(Capsule _capsule, Sphere _sphere)
 
 	const Vector3 A{ _capsule.startPos };
 	const Vector3 B{ _capsule.endPos };
-	const Vector3 P{ _sphere.center }; 
-	Vector3 Q{Vector3::Zero}; // 最近点
+	const Vector3 P{ _sphere.center };
+	Vector3 Q{ Vector3::Zero }; // 最近点
 	Vector3 dir{ Vector3::FromTo(A, B) }; // capsule間のベクトル
 
 	// 0除算を避けるために長さがない場合は始点とする
@@ -601,7 +600,7 @@ bool CollisionSystem::ComputePushOut(Sphere _movable, Box _obstacle, Vector3& _o
 	if (!Intersect(_movable, _obstacle)) return false;
 
 	// Boxの逆回転で球中心をBoxローカル空間へ移し、回転のないAABBとして計算する。
-	const Quaternion inverse{ Vector4{-_obstacle.rotation.x, -_obstacle.rotation.y, -_obstacle.rotation.z, _obstacle.rotation.w } };
+	const Quaternion inverse{ Vector4{ -_obstacle.rotation.x, -_obstacle.rotation.y, -_obstacle.rotation.z, _obstacle.rotation.w } };
 	const Vector3 center{ inverse.RotateVector(_movable.center - _obstacle.center) };
 
 	// 球中心の各座標をBox範囲へ収め、Box上で球に最も近い点を求める。
@@ -634,14 +633,14 @@ bool CollisionSystem::ComputePushOut(Sphere _movable, Box _obstacle, Vector3& _o
 			// 正負それぞれの面を越え、球の反対側までBox外へ出す移動量。
 			const float positive{ h[axis] + _movable.radius - p[axis] };
 			const float negative{ -h[axis] - _movable.radius - p[axis] };
-			if (std::abs(positive) < std::abs(best)) 
+			if (std::abs(positive) < std::abs(best))
 			{
-				best = positive; 
+				best = positive;
 				bestAxis = axis;
 			}
 			if (std::abs(negative) < std::abs(best))
 			{
-				best = negative; 
+				best = negative;
 				bestAxis = axis;
 			}
 		}
@@ -774,7 +773,7 @@ bool CollisionSystem::ComputePushOut(Box _movable, Box _obstacle, Vector3& _outM
 
 	for (const Vector3& a : axesA)
 	{
-		for (const Vector3& b : axesB) 
+		for (const Vector3& b : axesB)
 		{
 			consider(Vector3::Cross(a, b));
 		}
@@ -791,7 +790,7 @@ bool CollisionSystem::ComputePushOut(Capsule _movable, Box _obstacle, Vector3& _
 
 	// Boxの逆回転でカプセル中心軸をBoxローカル空間へ移す。
 	// 回転したOBBを、軸に沿ったAABBとして計算できるようにする。
-	const Quaternion inverse{ Vector4{-_obstacle.rotation.x, -_obstacle.rotation.y, -_obstacle.rotation.z, _obstacle.rotation.w } };
+	const Quaternion inverse{ Vector4{ -_obstacle.rotation.x, -_obstacle.rotation.y, -_obstacle.rotation.z, _obstacle.rotation.w } };
 	const Vector3 a{ inverse.RotateVector(_movable.startPos - _obstacle.center) };
 	const Vector3 b{ inverse.RotateVector(_movable.endPos - _obstacle.center) };
 	const Vector3 direction{ b - a }; // Boxローカル空間でのカプセル中心軸方向
@@ -1006,7 +1005,7 @@ bool CollisionSystem::ComputeShapeContact(Capsule _capsuleA, Capsule _capsuleB, 
 		_result.pointCount = 1;
 		return true;
 	}
-		
+
 	return ComputeShapeContact(sphereA, sphereB, _result);
 }
 
@@ -1053,7 +1052,7 @@ bool CollisionSystem::ComputeShapeContact(Sphere _sphereA, Box _boxB, ShapeToSha
 				bestAxis = axis;
 			}
 		}
-		
+
 		// bestAxisの結果を見て該当する軸に値を代入する A->Bへ法線が向くので押し戻す方向の逆にする
 		if (bestAxis == 0) localNormal.x = best >= 0 ? -1.0f : 1.0f;
 		else if (bestAxis == 1) localNormal.y = best >= 0 ? -1.0f : 1.0f;
@@ -1070,7 +1069,7 @@ bool CollisionSystem::ComputeShapeContact(Sphere _sphereA, Box _boxB, ShapeToSha
 
 	const Vector3 localPoint{ center + localNormal * (_sphereA.radius - depth * 0.5f) };
 	// ワールドに戻す
-	_result.normal = _boxB.rotation.RotateVector(localNormal); 
+	_result.normal = _boxB.rotation.RotateVector(localNormal);
 	_result.points[0] = CollisionPoint{ _boxB.center + _boxB.rotation.RotateVector(localPoint), depth };
 	_result.pointCount = 1;
 	return true;
@@ -1259,7 +1258,7 @@ bool CollisionSystem::ComputeShapeContact(Box _boxA, Box _boxB, ShapeToShapeResu
 	}
 
 	const Vector3 normal{ -moveDirection }; // 動く方向の逆方向が法線になる
-	const float depth{ smallestOverlap }; 
+	const float depth{ smallestOverlap };
 
 	// Aの中心から法線の向きに一番突き出た角まで進む
 	Vector3 deepestCorner{ _boxA.center };
@@ -1418,5 +1417,209 @@ bool CollisionSystem::ComputeShapeContact(Box _boxA, Triangle _triangleB, ShapeT
 	_result.normal = normal;
 	_result.points[0] = CollisionPoint{ pointPosition, depth };
 	_result.pointCount = 1;
+	return true;
+}
+
+bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, float _maxDistance, Sphere	_sphere, RayToShapeResult& _result)
+{
+	if (!_sphere.IsValid()) return false;
+	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+
+	const Vector3 difference{ _sphere.center - _origin };
+	const float radiusSqr{ _sphere.radius * _sphere.radius };
+
+	// 原点がかぶっている場合
+	if (difference.LengthSquared() <= radiusSqr)
+	{
+		_result.worldPosition = _origin;
+		_result.normal = -_direction;
+		_result.distance = 0.0f;
+		return true;
+	}
+
+	const float projection{ Vector3::Dot(difference, _direction) };
+	if (projection < 0) return false;
+
+	// Rayの直線から球の中心へ下ろした垂線を直接作りその長さの二乗を出す
+	const Vector3 perpendicular{ difference - _direction * projection };
+	const float lengthSqr{ perpendicular.LengthSquared() };
+	if (lengthSqr > radiusSqr) return false;
+
+	// 球の半径の二乗から球の中心から投影位置までの距離の二乗を引く
+	const float halfChordLength{ std::sqrtf(radiusSqr - lengthSqr) };
+	const float t{ projection - halfChordLength }; // Rayの始点位置から球に入るまでの距離
+	if (_maxDistance < t) return false; // 最大距離より遠くにいる
+
+	_result.worldPosition = _origin + _direction * t;
+	_result.normal = (_result.worldPosition - _sphere.center) / _sphere.radius;
+	_result.distance = t;
+	return true;
+}
+
+bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, float _maxDistance, Capsule _capsule, RayToShapeResult& _result)
+{
+	if (!_capsule.IsValid()) return false;
+	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+
+	// 始点がカプセルの中かを見る
+	const Vector3 nearestOnAxis{ ClosestPointOnSegment(_origin, _capsule.startPos, _capsule.endPos) };
+	const float radiusSqr{ _capsule.radius * _capsule.radius };
+	if ((nearestOnAxis - _origin).LengthSquared() <= radiusSqr)
+	{
+		_result.worldPosition = _origin;
+		_result.normal = -_direction;
+		_result.distance = 0.0f;
+		return true;
+	}
+
+	// 両端の球
+	bool isHit{ false }; // 当たったか
+	float nearestDistance{ _maxDistance }; // 一番近いところまでの距離
+	RayToShapeResult candidate{};
+	if (ComputeRayContact(_origin, _direction, nearestDistance, Sphere{ _capsule.startPos, _capsule.radius }, candidate))
+	{
+		_result = candidate;
+		nearestDistance = candidate.distance;
+		isHit = true;
+	}
+	if (ComputeRayContact(_origin, _direction, nearestDistance, Sphere{ _capsule.endPos, _capsule.radius }, candidate))
+	{
+		_result = candidate;
+		nearestDistance = candidate.distance;
+		isHit = true;
+	}
+
+	// 側面の筒
+	const Vector3 axisVector{ _capsule.endPos - _capsule.startPos };
+	const float axisLength{ axisVector.Length() };
+	if (axisLength <= Math::EPSILON) return isHit;
+
+	const Vector3 axis{ axisVector / axisLength }; // 軸を単位化する
+
+	// 軸の成分を消す
+	const Vector3 toStart{ _capsule.startPos - _origin };
+	const Vector3 prepDirection{ _direction - axis * Vector3::Dot(_direction, axis) }; // 軸に沿ったDirectionの長さ分のベクトルから軸に垂直な線分をDirectionまで伸ばす
+	const Vector3 prepToStart{ toStart - axis * Vector3::Dot(toStart, axis) }; // Rayの始点 → 軸の直線上の一番近い点（toStartの軸に垂直な成分）
+	const float prepLength{ prepDirection.Length() };
+	// Rayが軸と平行なら当たらないので弾く
+	if (prepLength <= Math::EPSILON) return isHit;
+
+	// 球と同じロジックで垂線を直接作りその長さの二乗を半径と比べる
+	const float projection{ Vector3::Dot(prepToStart, prepDirection) / prepLength };
+	const Vector3 perpendicular{ prepToStart - prepDirection * (projection / prepLength) };
+	const float distanceSqr{ perpendicular.LengthSquared() };
+	if (distanceSqr > radiusSqr) return isHit;
+
+	const float halfChord{ std::sqrtf(radiusSqr - distanceSqr) };
+	const float tExit{ (projection + halfChord) / prepLength }; // 筒から出るまでの距離
+	if (tExit < 0.0f) return isHit; // 筒が後ろにある
+
+	// 入る距離が負なら始点は筒の中なので0にしてsの確認へ進める
+	const float t{ std::max((projection - halfChord) / prepLength, 0.0f) };
+	if (t > nearestDistance) return isHit;
+
+	const Vector3 point{ _origin + _direction * t };
+	const float s{ Vector3::Dot(point - _capsule.startPos, axis) };
+	if (s < 0.0f || s > axisLength) return isHit;
+	_result.worldPosition = point;
+	_result.distance = t;
+	_result.normal = (point - (_capsule.startPos + axis * s)) / _capsule.radius;
+	isHit = true;
+
+	return isHit;
+}
+
+bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, float _maxDistance, Box _box, RayToShapeResult& _result)
+{
+	if (!_box.IsValid()) return false;
+	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+
+	// Boxの回転を打ち消しRayをBoxのローカル空間へ移す
+	const Quaternion inverseRotation{ Vector4{ -_box.rotation.x, -_box.rotation.y, -_box.rotation.z, _box.rotation.w } };
+	const Vector3 localOrigin{ inverseRotation.RotateVector(_origin - _box.center) };
+	const Vector3 localDirection{ inverseRotation.RotateVector(_direction) };
+
+	const std::array<float, 3> half{ _box.halfSize.x, _box.halfSize.y, _box.halfSize.z };
+	const std::array<float, 3> start{ localOrigin.x, localOrigin.y, localOrigin.z };
+	const std::array<float, 3> dir{ localDirection.x, localDirection.y, localDirection.z };
+
+	float tEnter{ -std::numeric_limits<float>::max() }; // 入るtの中で一番大きい
+	float tExit{ std::numeric_limits<float>::max() }; // 出るtで一番小さい
+	std::size_t enterAxis{ 0 }; // tEnterを出した軸
+	for (std::size_t i = 0; i < 3; i++)
+	{
+		// 割り算ができないため向きがほぼ0の軸から行う
+		if (std::abs(dir[i]) <= Math::EPSILON)
+		{
+			// 向きが0の時に始点が探索軸方向に半サイズより大きく出ていれば当たることはないのでfalseを返す
+			if (std::abs(start[i]) > half[i]) return false;
+			else continue;
+		}
+
+		// Start + dir * t = ±halfをtについて解く 
+		const float t1{ (-half[i] - start[i]) / dir[i] };
+		const float t2{ (half[i] - start[i]) / dir[i] };
+
+		// 小さいほうをnear遠いほうをfarにする
+		const float tNear{ std::min(t1, t2) };
+		const float tFar{ std::max(t1, t2) };
+
+		// 入る位置が遠いものと出る位置が一番近いところを選ぶ
+		if (tNear > tEnter)
+		{
+			tEnter = tNear;
+			enterAxis = i; // 入るところの軸の面を見る
+		}
+		if (tFar < tExit)
+		{
+			tExit = tFar;
+		}
+	}
+
+	if (tEnter > tExit) return false; // 入ったところが出たところの奥にあるのはBoxの外を通っている時なのでfalse
+	if (tExit < 0.0f) return false; // 箱が後ろにある場合
+
+	// 始点が箱の中なのでtrue
+	if (tEnter <= 0.0f)
+	{
+		_result.worldPosition = _origin;
+		_result.normal = -_direction;
+		_result.distance = 0.0f;
+		return true;
+	}
+
+	if (tEnter > _maxDistance) return false; // 最大距離よりも遠いので届かない
+
+	// 法線の作成
+	std::array<float, 3> localNormal{ 0.0f, 0.0f, 0.0f };
+	localNormal[enterAxis] = dir[enterAxis] > 0.0f ? -1.0f : 1.0f; // 入った面がどちらかを方向から判断する
+	_result.normal = _box.rotation.RotateVector(Vector3{ localNormal[0], localNormal[1], localNormal[2] });
+	_result.worldPosition = _origin + _direction * tEnter;
+	_result.distance = tEnter;
+	return true;
+}
+
+bool CollisionSystem::ComputeRayContact(Vector3 _origin, Vector3 _direction, float _maxDistance, Triangle _triangle, RayToShapeResult& _result)
+{
+	if (!_triangle.IsValid()) return false;
+
+	// 面の向きを出してどれくらい向かっているかを出す
+	const Vector3 normal{ Vector3::Cross(_triangle.b - _triangle.a, _triangle.c - _triangle.a) };
+	const float denominator{ Vector3::Dot(normal, _direction) };
+	if (denominator * denominator <= Math::EPSILON * Math::EPSILON * normal.LengthSquared()) return false;
+
+	// 平面に当たるまでの距離
+	const float t{ Vector3::Dot(normal, _triangle.a - _origin) / denominator };
+	if (t < 0.0f || t > _maxDistance) return false;
+
+	// 当たった点が三角形の中か
+	const Vector3 point{ _origin + _direction * t };
+	if (Vector3::Dot(Vector3::Cross(_triangle.b - _triangle.a, point - _triangle.a), normal) < 0.0f) return false;
+	if (Vector3::Dot(Vector3::Cross(_triangle.c - _triangle.b, point - _triangle.b), normal) < 0.0f) return false;
+	if (Vector3::Dot(Vector3::Cross(_triangle.a - _triangle.c, point - _triangle.c), normal) < 0.0f) return false;
+	_result.worldPosition = point;
+	_result.distance = t;
+	_result.normal = Vector3::Normalized(normal);
+	if (denominator > 0.0f) _result.normal = -_result.normal;
 	return true;
 }
