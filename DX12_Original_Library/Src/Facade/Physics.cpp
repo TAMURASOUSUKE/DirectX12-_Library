@@ -96,3 +96,8 @@ bool Physics::Raycast(Vector3 _origin, Vector3 _direction, float _maxDistance, R
 {
 	return physicsSystem.Raycast(_origin, _direction, _maxDistance, _result, _collisionMask, _ignoreBody);
 }
+
+bool Physics::Overlap(const Shape& _shape, OverlapResult& _result, std::uint32_t _collisionMask, BodyHandle _ignoreBody)
+{
+	return physicsSystem.Overlap(_shape, _result, _collisionMask, _ignoreBody);
+}

@@ -20,7 +20,7 @@ namespace
 	{
 		const bool isValidVector{ std::isfinite(_rotation.x) && std::isfinite(_rotation.y) && std::isfinite(_rotation.z) && std::isfinite(_rotation.w) }; // 4成分部分の有限値確認
 		const bool isValidLength{ std::abs(_rotation.LengthSquared() - 1.0f) <= Math::EPSILON }; // 長さが1か確認
-		return isValidVector && isValidLength; 
+		return isValidVector && isValidLength;
 	}
 
 	// 作成に使える設定か
@@ -259,8 +259,7 @@ namespace
 	}
 }
 
-namespace
-{
+namespace {
 	// 形の番号2つで関数を選ぶ表 [Aの番号][Bの番号]  番号はShapeの並び 箱=0 カプセル=1 球=2
 	const std::array<std::array<ContactFunction, 3>, 3> contactFunctionTable{ {
 		{ &CallContact<Box, Box>,     &CallContactSwapped<Box, Capsule>,    &CallContactSwapped<Box, Sphere> },
@@ -276,7 +275,7 @@ void PhysicsSystem::Setup()
 	slots.reserve(MAX_BODY_COUNT); // 最大容量をあらかじめ確保(作成時に再確保させない)
 	triangleMeshSlots.reserve(MAX_TRIANGLE_MESH_COUNT);
 	heightFieldSlots.reserve(MAX_HEIGHT_FIELD_COUNT);
-	contacts.reserve(MAX_CONTACT_COUNT); 
+	contacts.reserve(MAX_CONTACT_COUNT);
 	contactSolveData.reserve(MAX_CONTACT_COUNT);
 }
 
@@ -522,7 +521,7 @@ bool PhysicsSystem::DestroyHeightField(HeightFieldHandle _handle)
 void PhysicsSystem::Step(float _deltaTime)
 {
 	// 刻む際の検査はループ外で一度だけ
-	if(!(std::isfinite(_deltaTime) && _deltaTime > 0.0f))
+	if (!(std::isfinite(_deltaTime) && _deltaTime > 0.0f))
 	{
 		DEBUG_LOG_ERROR("Stepに不正な時間が渡されました\n");
 		return;
@@ -622,7 +621,7 @@ BodyData* PhysicsSystem::Lookup(BodyHandle _handle)
 	if (index < 0 || index >= static_cast<int>(slots.size()))
 	{
 		DEBUG_LOG_ERROR("ハンドルに範囲外のサイズが渡されました\n");
-		return nullptr; 
+		return nullptr;
 	}
 
 	BodySlot& slot{ slots[index] };
@@ -902,7 +901,7 @@ bool PhysicsSystem::Raycast(Vector3 _origin, Vector3 _direction, float _maxDista
 	{
 		BodySlot& slot{ slots[slotIndex] };
 		if (!slot.isAlive) continue;
-		
+
 		// 無視するBodyかをHandleを作ってチェック
 		BodyHandle currentHandle{ PassKey{}, Pack(static_cast<int>(slotIndex), static_cast<int>(slot.generation)) }; // 世代とindexでハンドルを作る
 		if (currentHandle == _ignoreBody) continue; // 無視するハンドルだった場合は弾く
@@ -1100,6 +1099,122 @@ void PhysicsSystem::SolveVelocities()
 			solveTangent(solve.tangent2, solve.tangentImpulse2);
 		}
 	}
+}
+
+bool PhysicsSystem::Overlap(const Shape& _shape, OverlapResult& _result, std::uint32_t _collisionMask, BodyHandle _ignoreBody)
+{
+	_result.bodyCount = 0; // 前の呼び出しの中身を残さない
+
+	// 調べる側の形は箱とカプセルと球
+	const bool isTableShape{ _shape.index() != TRIANGLE_MESH_SHAPE_INDEX && _shape.index() != HEIGHT_FIELD_SHAPE_INDEX };
+	// 入力された形状のIsValidを呼び出すvisit
+	const bool isValidShape{ std::visit([](const auto& _queryShape) { return _queryShape.IsValid(); }, _shape) };
+	if (!isTableShape || !isValidShape)
+	{
+		DEBUG_LOG_ERROR("Overlapに渡す形状が不正です\n");
+		return false;
+	}
+
+	const BodyData identityBody{}; // 調べる形はワールドで渡されるので位置0回転なしにする
+	CollisionSystem& system{ collisionSystem };
+
+	// 全Bodyを見る
+	for (std::size_t slotIndex = 0; slotIndex < slots.size(); slotIndex++)
+	{
+		if (_result.bodyCount >= MAX_OVERLAP_RESULT_COUNT) break;
+		const BodySlot& slot{ slots[slotIndex] };
+		if (!slot.isAlive) continue;
+
+		const BodyHandle currentHandle{ PassKey{}, Pack(static_cast<int>(slotIndex), static_cast<int>(slot.generation)) }; // 世代とindexでハンドルを作る
+		if (currentHandle == _ignoreBody) continue; // 無視するハンドルだった場合は弾く
+		if (!IsLayerMatched(slot.data.layer, _collisionMask)) continue; // レイヤーに入っていなければ無視
+
+		bool isOverlapped{ false }; // このBodyと重なっているか
+		ShapeToShapeResult contactResult{}; // 関数が書き込む先
+
+		// 高さの格子 形が重なるマスの三角形を調べる
+		if (slot.data.shape.index() == HEIGHT_FIELD_SHAPE_INDEX)
+		{
+			// ハンドルから高さの格子を引く
+			const int packed{ std::get<HeightFieldShape>(slot.data.shape).heightField.GetRaw(PassKey{}) };
+			const int fieldIndex{ UnpackIndex(packed) };
+			if (fieldIndex < 0 || fieldIndex >= static_cast<int>(heightFieldSlots.size())) continue;
+			const HeightFieldSlot& fieldSlot{ heightFieldSlots[fieldIndex] };
+			if (!fieldSlot.isAlive || UnpackGen(packed) != static_cast<int>(fieldSlot.generation)) continue;
+			const HeightFieldData& field{ fieldSlot.data };
+
+			// 調べる形を高さの格子のBodyのローカルへ移す
+			const BodyData& fieldBody{ slot.data };
+			const Shape localShape{ std::visit([&identityBody, &fieldBody](const auto& _queryShape) { return ToMeshLocalShape(_queryShape, identityBody, fieldBody); }, _shape) };
+
+			// 形がXとZに占める範囲から重なるマスの番号の範囲をだす 格子の外なら重ならない
+			const ShapeRangeXZ range{ std::visit([](const auto& _localShape) { return GetRangeXZ(_localShape); }, localShape) };
+			const float fieldSizeX{ static_cast<float>(field.countX - 1) * field.cellSize };
+			const float fieldSizeZ{ static_cast<float>(field.countZ - 1) * field.cellSize };
+			if (range.maxX < 0.0f || range.minX > fieldSizeX || range.maxZ < 0.0f || range.minZ > fieldSizeZ) continue;
+
+			// 位置をマスの大きさで割って切り捨てるとマスの番号になる端は最後のマスへ納める
+			const int cellMinX{ std::clamp(static_cast<int>(std::floor(range.minX / field.cellSize)), 0, field.countX - 2) };
+			const int cellMaxX{ std::clamp(static_cast<int>(std::floor(range.maxX / field.cellSize)), 0, field.countX - 2) };
+			const int cellMinZ{ std::clamp(static_cast<int>(std::floor(range.minZ / field.cellSize)), 0, field.countZ - 2) };
+			const int cellMaxZ{ std::clamp(static_cast<int>(std::floor(range.maxZ / field.cellSize)), 0, field.countZ - 2) };
+
+			// 一枚でも重なっていればのこりは調べないので重なっていたら全てのループを抜ける
+			for (int cellZ = cellMinZ; cellZ <= cellMaxZ && !isOverlapped; cellZ++)
+			{
+				for (int cellX = cellMinX; cellX <= cellMaxX && !isOverlapped; cellX++)
+				{
+					// マスの四つの角
+					const float x0{ static_cast<float>(cellX) * field.cellSize };
+					const float x1{ static_cast<float>(cellX + 1) * field.cellSize };
+					const float z0{ static_cast<float>(cellZ) * field.cellSize };
+					const float z1{ static_cast<float>(cellZ + 1) * field.cellSize };
+					const Vector3 corner00{ x0, field.heights[cellZ * field.countX + cellX], z0 };
+					const Vector3 corner10{ x1, field.heights[cellZ * field.countX + cellX + 1], z0 };
+					const Vector3 corner01{ x0, field.heights[(cellZ + 1) * field.countX + cellX], z1 };
+					const Vector3 corner11{ x1, field.heights[(cellZ + 1) * field.countX + cellX + 1], z1 };
+
+					// マスをcorner00とcorner11を結ぶ対角線を引いて三角形2枚にする
+					const std::array<Triangle, 2> triangles{ Triangle{ corner00, corner01, corner11 }, Triangle{ corner00, corner11, corner10 } };
+					for (const Triangle& triangle : triangles)
+					{
+						isOverlapped = std::visit([&system, &triangle, &contactResult](const auto& _localShape) { return ComputeTriangleContact(system, _localShape, triangle, contactResult); }, localShape);
+						if (isOverlapped) break;
+					}
+				}
+			}
+		}
+		// 三角形の集まり
+		else if (slot.data.shape.index() == TRIANGLE_MESH_SHAPE_INDEX)
+		{
+			// ハンドルから三角形の集まりを引く
+			const int packed{ std::get<TriangleMeshShape>(slot.data.shape).mesh.GetRaw(PassKey{}) };
+			const int meshIndex{ UnpackIndex(packed) };
+			if (meshIndex < 0 || meshIndex >= static_cast<int>(triangleMeshSlots.size())) continue;
+			const TriangleMeshSlot& meshSlot{ triangleMeshSlots[meshIndex] };
+			if (!meshSlot.isAlive || UnpackGen(packed) != static_cast<int>(meshSlot.generation)) continue;
+
+			// 調べる形を三角形の集まりのBodyのローカルへ移す
+			const BodyData& meshBody{ slot.data };
+			const Shape localShape{ std::visit([&identityBody, &meshBody](const auto& _queryShape) { return ToMeshLocalShape(_queryShape, identityBody, meshBody); }, _shape) };
+
+			for (const Triangle& triangle : meshSlot.data.triangles)
+			{
+				isOverlapped = std::visit([&system, &triangle, &contactResult](const auto& _localShape) { return ComputeTriangleContact(system, _localShape, triangle, contactResult); }, localShape);
+				if (isOverlapped) break; // 1枚でも重なっていれば残りは調べない
+			}
+		}
+		// 箱とカプセルと球はワールドへ直してから表から関数を選ぶ
+		else
+		{
+			const Shape bodyShape{ ToWorldShape(slot.data) };
+			isOverlapped = contactFunctionTable[_shape.index()][bodyShape.index()](collisionSystem, _shape, bodyShape, contactResult);
+		}
+		if (!isOverlapped) continue;
+		_result.bodies[_result.bodyCount] = currentHandle;
+		_result.bodyCount++;
+	}
+	return _result.bodyCount > 0;
 }
 
 void PhysicsSystem::CorrectPositions()

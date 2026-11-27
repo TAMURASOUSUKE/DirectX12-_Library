@@ -48,4 +48,7 @@ namespace Physics
 	// Raycastを行い結果を引数で受け取る
 	bool Raycast(Vector3 _origin, Vector3 _direction, float _maxDistance, RaycastResult& _result, std::uint32_t _collisionMask = 0xFFFFFFFF, BodyHandle _ignoreBody = {});
 
+	// 形と重なっているBodyを全て調べて結果を引数で受け取る
+	bool Overlap(const Shape& _shape, OverlapResult& _result, std::uint32_t _collisionMask = 0xFFFFFFFF, BodyHandle _ignoreBody = {});
+
 }
