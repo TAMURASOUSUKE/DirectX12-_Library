@@ -1670,22 +1670,54 @@ bool CollisionSystem::ComputeSweepContact(Capsule _moving, Vector3 _direction, f
 {
 	if (!_moving.IsValid() || !_sphere.IsValid()) return false;
 	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+
+	// 軸の上での球の中心に最も近い点と球の中心の組
+	const auto closestPair{ [&_sphere](const Vector3& _start, const Vector3& _end) { return SegmentPair{ ClosestPointOnSegment(_sphere.center, _start, _end), _sphere.center }; } };
+	return AdvanceUntilContact(_moving, _direction, _maxDistance, _sphere.radius, closestPair, _result);
 }
 
 bool CollisionSystem::ComputeSweepContact(Capsule _moving, Vector3 _direction, float _maxDistance, Capsule _capsule, RayToShapeResult& _result)
 {
 	if (!_moving.IsValid() || !_capsule.IsValid()) return false;
 	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+
+	// 2本の軸の最近点の組
+	const auto closestPair{ [&_capsule](const Vector3& _start, const Vector3& _end) { return ClosestSegmentPair(_start, _end, _capsule.startPos, _capsule.endPos); } };
+	return AdvanceUntilContact(_moving, _direction, _maxDistance, _capsule.radius, closestPair, _result);
 }
 
 bool CollisionSystem::ComputeSweepContact(Capsule _moving, Vector3 _direction, float _maxDistance, Box _box, RayToShapeResult& _result)
 {
 	if (!_moving.IsValid() || !_box.IsValid()) return false;
 	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+
+	// 逆回転を作る
+	const Quaternion inverse{ Vector4{ -_box.rotation.x, -_box.rotation.y, -_box.rotation.z, _box.rotation.w } };
+	// 軸の上で箱に最も近い点とその点に最も近い箱の上の点の組
+	const auto closestPair{ [&_box, &inverse](const Vector3& _start, const Vector3& _end)
+	{
+			const float ratio{ ClosestRatioOnSegmentToBox(_start, _end, _box) };
+			const Vector3 onSegment{ _start + (_end - _start) * ratio };
+			// 箱のローカルへ移して大きさの中へ収めると箱の上の最近点になる
+			const Vector3 local{ inverse.RotateVector(onSegment - _box.center) };
+			const Vector3 clamped{
+				std::clamp(local.x, -_box.halfSize.x, _box.halfSize.x),
+				std::clamp(local.y, -_box.halfSize.y, _box.halfSize.y),
+				std::clamp(local.z, -_box.halfSize.z, _box.halfSize.z) };
+			return SegmentPair{ onSegment, _box.center + _box.rotation.RotateVector(clamped) };
+	} };
+	return AdvanceUntilContact(_moving, _direction, _maxDistance, 0.0f, closestPair, _result); // 箱は半径を持たない
 }
 
 bool CollisionSystem::ComputeSweepContact(Capsule _moving, Vector3 _direction, float _maxDistance, Triangle _triangle, RayToShapeResult& _result)
 {
 	if (!_moving.IsValid() || !_triangle.IsValid()) return false;
 	if (_direction.LengthSquared() <= Math::EPSILON * Math::EPSILON) return false;
+	// 軸の上で三角形に最も近い点と その点に最も近い三角形の上の点の組
+	const auto closestPair = [&_triangle](const Vector3& _start, const Vector3& _end)
+		{
+			const Vector3 onSegment{ ClosestPointOnSegmentToTriangle(_start, _end, _triangle) };
+			return SegmentPair{ onSegment, ClosestPointOnTriangle(onSegment, _triangle.a, _triangle.b, _triangle.c).point };
+		};
+	return AdvanceUntilContact(_moving, _direction, _maxDistance, 0.0f, closestPair, _result); // 三角形は半径を持たない
 }

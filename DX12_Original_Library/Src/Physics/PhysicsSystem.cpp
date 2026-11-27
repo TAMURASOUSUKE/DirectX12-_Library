@@ -1217,6 +1217,11 @@ bool PhysicsSystem::Overlap(const Shape& _shape, OverlapResult& _result, std::ui
 	return _result.bodyCount > 0;
 }
 
+bool PhysicsSystem::Sweep(const Shape& _shape, Vector3 _direction, float _maxDistance, RaycastResult& _result, std::uint32_t _collisionMask, BodyHandle _ignoreBody)
+{
+
+}
+
 void PhysicsSystem::CorrectPositions()
 {
 	const int contactCount{ static_cast<int>(contacts.size()) };

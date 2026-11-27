@@ -62,6 +62,9 @@ public:
 	// 形と重なっているBodyを全て調べて結果を引数で受け取る
 	bool Overlap(const Shape& _shape, OverlapResult& _result, std::uint32_t _collisionMask, BodyHandle _ignoreBody);
 
+	// 球かカプセルを動かした時に最初に触れるBodyを調べ結果を引数で受け取る
+	bool Sweep(const Shape& _shape, Vector3 _direction, float _maxDistance, RaycastResult& _result, std::uint32_t _collisionMask, BodyHandle _ignoreBody);
+
 private:
 	// ハンドルを検証してBodyを一つ返す
 	BodyData* Lookup(BodyHandle _handle);
