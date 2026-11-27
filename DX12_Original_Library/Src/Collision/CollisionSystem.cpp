@@ -374,6 +374,7 @@ namespace {
 				_result.distance = traveled;
 				_result.normal = normal;
 				_result.worldPosition = pair.second + normal * _targetRadius; // 相手の表面上の点
+				return true;
 			}
 
 			traveled += gap / closingSpeed; // 今の近づく速さで隙間が0になる分だけすすめる
