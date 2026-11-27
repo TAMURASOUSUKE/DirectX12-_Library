@@ -11,3 +11,4 @@ constexpr float GRAVITY_Y{ -9.8f };  // 重力加速度
 constexpr int SOLVER_ITERATION_COUNT{ 8 }; // 速度の解決をくり返す回数
 constexpr float PENETRATION_SLOP{ 0.005f }; // この深さまでは戻さない(震えを防ぐ)
 constexpr float PENETRATION_CORRECTION_RATE{ 0.8f }; // 1回のStepで戻すめり込みの割合
+constexpr int CHARACTER_SLIDE_COUNT{ 4 }; // キャラクターの移動で面に沿って進み直す回数の上限

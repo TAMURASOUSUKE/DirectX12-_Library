@@ -1407,3 +1407,8 @@ void PhysicsSystem::CorrectPositions()
 		bodyB.position += result.normal * (correction * bodyB.massInverse);
 	}
 }
+
+bool PhysicsSystem::MoveCharacter(const Capsule& _capsule, Vector3 _move, const CharacterMoveSetting& _setting, CharacterMoveResult& _result)
+{
+
+}
