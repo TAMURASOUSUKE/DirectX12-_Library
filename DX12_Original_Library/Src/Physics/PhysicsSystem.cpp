@@ -532,7 +532,7 @@ void PhysicsSystem::Step(float _deltaTime)
 	{
 		if (!slot.isAlive) continue;
 		BodyData& data{ slot.data };
-		if (data.motionType == MotionType::Dynamic && data.isGravityEnabled) data.velocity.y += GRAVITY_Y * _deltaTime;
+		if (data.motionType == MotionType::Dynamic && data.isGravityEnabled) data.velocity += gravity * _deltaTime;
 	}
 
 	// 今の位置で接触を調べる
@@ -1387,6 +1387,125 @@ bool PhysicsSystem::Sweep(const Shape& _shape, Vector3 _direction, float _maxDis
 		isHit = true;
 	}
 	return isHit;
+}
+
+bool PhysicsSystem::MoveCharacter(const Capsule& _capsule, Vector3 _move, const CharacterMoveSetting& _setting, CharacterMoveResult& _result)
+{
+	_result = CharacterMoveResult{};
+	if (!_capsule.IsValid())
+	{
+		DEBUG_LOG_ERROR("MoveCharacterに渡す形状が不正です\n");
+		return false;
+	}
+	if (_setting.skinWidth < 0.0f || _setting.groundProbeDistance <= 0.0f || _setting.upDirection.LengthSquared() <= Math::EPSILON * Math::EPSILON)
+	{
+		DEBUG_LOG_ERROR("MoveCharacterに渡す設定が不正です\n");
+		return false;
+	}
+
+	const Vector3 up{ Vector3::Normalized(_setting.upDirection) };
+	const float groundNormalUp{ std::cos(_setting.slopeLimit) }; // 地面とみなす法線が上へ向く量の下限
+	Vector3 moved{ Vector3::Zero }; // ここまで動いた量
+	Vector3 remaining{ _move }; // まだ動いていない量
+	Vector3 previousNormal{ Vector3::Zero }; // 一つ前に沿わせた面の法線
+	bool hasPreviousNormal{ false }; // 一つ前に沿わせた面があるか
+
+	for (int i = 0; i < CHARACTER_SLIDE_COUNT; i++)
+	{
+		const float remainingLength{ remaining.Length() };
+		if (remainingLength <= Math::EPSILON) break; // 残りの量がほぼ0になったら抜ける
+		const Vector3 direction{ remaining / remainingLength };
+
+		// 隙間の分だけ太らせた形で調べる ここで触れた位置で止めると本体は隙間を保ったまま止まる
+		const Capsule inflated{ _capsule.startPos + moved, _capsule.endPos + moved, _capsule.radius + _setting.skinWidth };
+		RaycastResult hit{};
+		if (!Sweep(inflated, direction, remainingLength, hit, _setting.collisionMask, _setting.ignoreBody))
+		{
+			// 何にも当たらなければすすめる
+			moved += remaining;
+			break;
+		}
+
+		// 当たった距離まで進む
+		moved += direction * hit.distance;
+		Vector3 rest{ direction * (remainingLength - hit.distance) }; // 当たった後に残った動き
+		const float normalUp{ Vector3::Dot(hit.normal, up) }; // 法線が上へ向いている量
+
+		// 下を向いた面に当たったことを覚える
+		if (normalUp <= -groundNormalUp) _result.isCeilingHit = true;
+
+		// 歩ける地面は下向きの分を支える(坂などに立っている時のずり落ち防止)
+		if (normalUp >= groundNormalUp)
+		{
+			const float restUp{ Vector3::Dot(rest, up) }; // 残りが上に向いている量
+			if (restUp < 0.0f) rest -= up * restUp;
+		}
+
+		// 残りから面へ向かう成分を引いて面に沿う成分だけ残す
+		Vector3 slideNormal{ hit.normal }; // 沿わせる面の法線
+		remaining = rest - slideNormal * Vector3::Dot(rest, slideNormal);
+
+		// 急な坂を登る向きになったら法線を水平に倒して壁として扱う
+		if (_setting.isSlopeLimitEnabled && normalUp > 0.0f && normalUp < groundNormalUp && Vector3::Dot(remaining, up) > 0.0f)
+		{
+			const Vector3 flatNormal{ hit.normal - up * normalUp }; // 上へ向いている分を引くと水平の成分だけ残る
+			const float flatLength{ flatNormal.Length() };
+			if (flatLength > Math::EPSILON)
+			{
+				slideNormal = flatNormal / flatLength;
+				remaining = rest - slideNormal * Vector3::Dot(rest, slideNormal);
+			}
+		}
+
+		// 残りが一つ前の面へ入る向きなら2つめの面の境界の線に沿う部分だけ残す
+		if (hasPreviousNormal && Vector3::Dot(remaining, previousNormal) < 0.0f)
+		{
+			const Vector3 crease{ Vector3::Cross(previousNormal, slideNormal) }; // 二つの境界の境目の向き
+			const float creaseLengthSquared{ crease.LengthSquared() };
+			if (creaseLengthSquared <= Math::EPSILON * Math::EPSILON) break; // 二つの面が同じか真逆で面を作れない
+			remaining = crease * (Vector3::Dot(remaining, crease) / creaseLengthSquared);
+		}
+		previousNormal = slideNormal;
+		hasPreviousNormal = true;
+	}
+
+	// 下へ行こうとしている時はこのフレームの横の移動で足元が下がる分まで調べる距離を伸ばす
+	float probeDistance{ _setting.groundProbeDistance };
+	if (Vector3::Dot(_move, up) < 0.0f && groundNormalUp > Math::EPSILON)
+	{
+		const Vector3 lateral{ moved - up * Vector3::Dot(moved, up) }; // 動いた量から上下を引いた横の移動
+		const float neededDistance{ lateral.Length() * std::tan(_setting.slopeLimit) + _setting.skinWidth / groundNormalUp }; // 登れる一番急な坂で足元が下がる量
+		probeDistance = (std::max)(probeDistance, (std::min)(neededDistance, _setting.maxGroundProbeDistance));
+	}
+
+	// 動いたあとの位置から下へ短く調べる
+	const Capsule movedCapsule{ _capsule.startPos + moved, _capsule.endPos + moved, _capsule.radius };
+	RaycastResult ground{};
+	if (Sweep(movedCapsule, -up, probeDistance, ground, _setting.collisionMask, _setting.ignoreBody) && Vector3::Dot(ground.normal, up) >= groundNormalUp)
+	{
+		_result.isGrounded = true;
+		_result.groundNormal = ground.normal;
+		// 下へ動こうとしている時は地面との間を隙間の分まで詰める
+		if (Vector3::Dot(_move, up) < 0.0f && ground.distance > _setting.skinWidth) moved -= up * (ground.distance - _setting.skinWidth);
+	}
+	_result.movement = moved;
+	return true;
+}
+
+void PhysicsSystem::SetGravity(Vector3 _gravity)
+{
+	if (!std::isfinite(_gravity.x) || !std::isfinite(_gravity.y) || !std::isfinite(_gravity.z))
+	{
+		DEBUG_LOG_ERROR("SetGravityに不正な値が渡されました\n");
+		return;
+	}
+
+	gravity = _gravity;
+}
+
+Vector3 PhysicsSystem::GetGravity() const
+{
+	return gravity;
 }
 
 void PhysicsSystem::CorrectPositions()

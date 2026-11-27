@@ -65,6 +65,15 @@ public:
 	// 球かカプセルを動かした時に最初に触れるBodyを調べ結果を引数で受け取る
 	bool Sweep(const Shape& _shape, Vector3 _direction, float _maxDistance, RaycastResult& _result, std::uint32_t _collisionMask, BodyHandle _ignoreBody);
 
+	// カプセルを動かしたい量だけ動かし 面に当たったら沿って進めた結果を引数で受け取る
+	bool MoveCharacter(const Capsule& _capsule, Vector3 _move, const CharacterMoveSetting& _setting, CharacterMoveResult& _result);
+
+	// Dynamicへ掛ける重力加速度を設定する(向きと大きさ)
+	void SetGravity(Vector3 _gravity);
+
+	// Dynamicへ掛ける重力加速度を取得する
+	Vector3 GetGravity() const;
+
 private:
 	// ハンドルを検証してBodyを一つ返す
 	BodyData* Lookup(BodyHandle _handle);
@@ -106,6 +115,7 @@ private:
 
 	std::vector<BodyToBodyResult> contacts{}; // 直近のStepの接触の一覧
 	CollisionSystem collisionSystem{}; // 形どうしの接触を計算する
+	Vector3 gravity{ 0.0f, GRAVITY_Y, 0.0f }; // Dynamicへ掛ける重力加速度(向きと大きさ)
 
 	std::vector<ContactSolveData> contactSolveData{}; // contactsと同じ並びの解決用データ
 

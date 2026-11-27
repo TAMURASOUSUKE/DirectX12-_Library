@@ -9,6 +9,7 @@
 #include "../Core/Handle/TriangleMeshHandle.h"
 #include "../Core/Handle/HeightFieldHandle.h"
 #include "../Math/Vector/Vector3.h"
+#include "../Math/MathConstant.h"
 #include "../Math/Quaternion/Quaternion.h"
 
 // 物理に関係するユーザーに公開する型などを定義する
@@ -90,4 +91,26 @@ struct OverlapResult
 {
 	std::array<BodyHandle, MAX_OVERLAP_RESULT_COUNT> bodies{}; // 重なったBody
 	int bodyCount{ 0 }; // 入っている数
+};
+
+// キャラクターを動かす時の設定
+struct CharacterMoveSetting
+{
+	Vector3 upDirection{ Vector3::Up }; // 上の向き(重力の逆) 長さは1でなくてよい
+	float slopeLimit{ 45.0f * Math::DEG_TO_RAD }; // 登れる坂の角度の上限(ラジアン) 接地の判定にも使う
+	bool isSlopeLimitEnabled{ true }; // 急な坂を壁として扱うか
+	float skinWidth{ 0.02f }; // 面との間に空けておく隙間
+	float groundProbeDistance{ 0.05f }; // 接地を調べる時に下へ進める距離(skinWidthより大きくする)
+	float maxGroundProbeDistance{ 0.3f }; // 下る時に自動で伸ばす距離の上限(これを超える速さで下ると地面を離れて浮く)
+	std::uint32_t collisionMask{ 0xFFFFFFFF }; // 調べる相手のレイヤー
+	BodyHandle ignoreBody{}; // 調べないBody(自分のBodyを入れる)
+};
+
+// キャラクターを動かした結果
+struct CharacterMoveResult
+{
+	Vector3 movement{ Vector3::Zero }; // 実際に動けた量
+	Vector3 groundNormal{ Vector3::Zero }; // 地面の法線(接地していない時は0)
+	bool isGrounded{ false }; // 接地しているか
+	bool isCeilingHit{ false }; // 天井(下を向いた面)に当たったか
 };
