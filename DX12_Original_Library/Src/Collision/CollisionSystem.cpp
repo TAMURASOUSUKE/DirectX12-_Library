@@ -240,6 +240,147 @@ namespace {
 
 		return nearestOnSegment;
 	}
+
+	// 線分の上で箱に最も近い点を始点0終点1の割合で返す
+	float ClosestRatioOnSegmentToBox(const Vector3& _start, const Vector3& _end, const Box& _box)
+	{
+		// Boxの逆回転でカプセル中心軸をBoxローカル空間へ移す 回転したOBBを、軸に沿ったAABBとして計算できるようにする
+		const Quaternion inverse{ Vector4{ -_box.rotation.x, -_box.rotation.y, -_box.rotation.z, _box.rotation.w } };
+		const Vector3 a{ inverse.RotateVector(_start - _box.center) };
+		const Vector3 b{ inverse.RotateVector(_end - _box.center) };
+		const Vector3 direction{ b - a }; // Boxローカル空間でのカプセル中心軸方向
+
+		// X・Y・Zを同じループで処理できるよう配列化する
+		const std::array<float, 3> start{ a.x, a.y, a.z };
+		const std::array<float, 3> dir{ direction.x, direction.y, direction.z };
+		const std::array<float, 3> half{ _box.halfSize.x, _box.halfSize.y, _box.halfSize.z };
+
+		// 線分上の割合tにある点とAABBとの距離の二乗を求める t=0が始点、t=1が終点
+		// 座標をBox範囲へclampすると その点に最も近いBox上の点になる
+		const auto distanceSquaredAt = [&](float _t)
+			{
+				const Vector3 point{ a + direction * _t };
+				const Vector3 nearest{
+					std::clamp(point.x, -half[0], half[0]),
+					std::clamp(point.y, -half[1], half[1]),
+					std::clamp(point.z, -half[2], half[2])
+				};
+				return (point - nearest).LengthSquared();
+			};
+
+		// 線分上で「最も近いBoxの面」が変わる境界tを保存する
+		// Boxの6面と線分の両端を合わせ、境界は最大8個になる
+		std::array<float, 8> cuts{};
+		int cutCount{ 2 };
+		// 線分の始点t=0と終点t=1は必ず調査対象に含める
+		cuts[0] = 0.0f;
+		cuts[1] = 1.0f;
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			// この軸方向へ動かない線分は面を横切らず、除算もできないため飛ばす。
+			if (std::abs(dir[axis]) <= Math::EPSILON) continue;
+			// 各軸について、Boxのマイナス側とプラス側の面を調べる。
+			for (const int sign : { -1, 1 })
+			{
+				// start+dir*t=sign*halfをtについて解き線分が面を横切る割合を求める。
+				const float t{ (static_cast<float>(sign) * half[axis] - start[axis]) / dir[axis] };
+				// 線分内の境界だけ追加する。両端の0と1は登録済み。
+				if (t > 0.0f && t < 1.0f) cuts[cutCount++] = t;
+			}
+		}
+		// 始点から終点へ向かう順に並べ、隣り合う値を一つの計算区間として扱う。
+		std::sort(cuts.begin(), cuts.begin() + cutCount);
+
+		// 始点を最初の候補としよりBoxに近いtが見つかるたびに更新する
+		float nearestT{ cuts[0] };
+		float minDistanceSquared{ distanceSquaredAt(nearestT) };
+
+		const auto consider = [&](float _t)
+			{
+				const float distanceSquared{ distanceSquaredAt(_t) };
+				if (distanceSquared < minDistanceSquared)
+				{
+					minDistanceSquared = distanceSquared;
+					nearestT = _t;
+				}
+			};
+
+		// 面を横切る境界そのものも最短位置になる可能性があるため調べる。
+		for (int i = 1; i < cutCount; i++)
+		{
+			consider(cuts[i]);
+		}
+
+		// 各区間の内部に存在する最短位置を調べる。
+		// 区間内では各軸がBoxの内側か外側かが変わらず、距離二乗は二次式になる。
+		for (int i = 0; i + 1 < cutCount; i++)
+		{
+			const float left{ cuts[i] };
+			const float right{ cuts[i + 1] };
+
+			// 角を同時に横切ると境界が重複するため、幅のない区間は飛ばす。
+			if (right <= left) continue;
+
+			// 区間中央を代表点にし、各軸がBoxのどの面より外側かを判定する。
+			const float middle{ (left + right) * 0.5f };
+			float numerator{ 0.0f };
+			float denominator{ 0.0f };
+
+			for (int axis = 0; axis < 3; axis++)
+			{
+				const float value{ start[axis] + dir[axis] * middle };
+				float face{};
+
+				// Box外にある軸だけ距離へ寄与する。内側の軸は最近点と同じなので無視する。
+				if (value < -half[axis]) face = -half[axis];
+				else if (value > half[axis]) face = half[axis];
+				else continue;
+
+				// 距離二乗D(t)^2を微分した式の係数を集める。
+				// 最小位置はt=-numerator/denominatorで求められる。
+				numerator += dir[axis] * (start[axis] - face);
+				denominator += dir[axis] * dir[axis];
+			}
+
+			// 求めた最小位置を現在の区間内へ制限して比較する。
+			if (denominator > 0.0f) consider(std::clamp(-numerator / denominator, left, right));
+		}
+		return nearestT;
+	}
+
+	// 動くカプセルを触れない分だけすすめることを繰り返して最初に触れるところを探す
+	template<typename ClosestPairFunction>
+	bool AdvanceUntilContact(const Capsule& _moving, const Vector3& _direction, float _maxDistance, float _targetRadius, ClosestPairFunction _closestPair, RayToShapeResult& _result)
+	{
+		const float radiusSum{ _moving.radius + _targetRadius };
+		float traveled{ 0.0f }; // ここまで進んだ距離
+
+		for (int i = 0; i < SWEEP_ITERATION_COUNT; i++)
+		{
+			const Vector3 offset{ _direction * traveled };
+			const SegmentPair pair{ _closestPair(_moving.startPos + offset, _moving.endPos + offset) }; // 動かした位置で見る
+			const Vector3 toMoving{ pair.first - pair.second }; // 相手から動く形へ向かうベクトル
+			const float distance{ toMoving.Length() };
+			const float gap{ distance - radiusSum }; // 表面上の隙間
+
+			// 最近点が重なって向きを作れない場合は進む向きの逆を法線とする
+			const Vector3 normal{ distance > Math::EPSILON ? toMoving / distance : -_direction };
+			const float closingSpeed{ -Vector3::Dot(_direction, normal) }; // 進む向きのうち相手に近づく成分
+			if (closingSpeed <= Math::EPSILON) return false; // 離れていくか並んで動いている
+
+			// 近づいていて隙間が許す誤差以下なら触れたとみなす
+			if (gap <= SWEEP_TOLERANCE)
+			{
+				_result.distance = traveled;
+				_result.normal = normal;
+				_result.worldPosition = pair.second + normal * _targetRadius; // 相手の表面上の点
+			}
+
+			traveled += gap / closingSpeed; // 今の近づく速さで隙間が0になる分だけすすめる
+			if (traveled > _maxDistance) return false;
+		}
+		return false; // 回数の上限まで触れなかった
+	}
 }
 
 bool CollisionSystem::Intersect(Rect _rect01, Rect _rect02)
@@ -1079,107 +1220,8 @@ bool CollisionSystem::ComputeShapeContact(Capsule _capsuleA, Box _boxB, ShapeToS
 {
 	if (!_capsuleA.IsValid() || !_boxB.IsValid()) return false;
 
-	// Boxの逆回転でカプセル中心軸をBoxローカル空間へ移す 回転したOBBを、軸に沿ったAABBとして計算できるようにする
-	const Quaternion inverse{ Vector4{ -_boxB.rotation.x, -_boxB.rotation.y, -_boxB.rotation.z, _boxB.rotation.w } };
-	const Vector3 a{ inverse.RotateVector(_capsuleA.startPos - _boxB.center) };
-	const Vector3 b{ inverse.RotateVector(_capsuleA.endPos - _boxB.center) };
-	const Vector3 direction{ b - a }; // Boxローカル空間でのカプセル中心軸方向
-
-	// X・Y・Zを同じループで処理できるよう配列化する
-	const std::array<float, 3> start{ a.x, a.y, a.z };
-	const std::array<float, 3> dir{ direction.x, direction.y, direction.z };
-	const std::array<float, 3> half{ _boxB.halfSize.x, _boxB.halfSize.y, _boxB.halfSize.z };
-
-	// 線分上の割合tにある点とAABBとの距離の二乗を求める t=0が始点、t=1が終点
-	// 座標をBox範囲へclampすると その点に最も近いBox上の点になる
-	const auto distanceSquaredAt = [&](float _t)
-		{
-			const Vector3 point{ a + direction * _t };
-			const Vector3 nearest{
-				std::clamp(point.x, -half[0], half[0]),
-				std::clamp(point.y, -half[1], half[1]),
-				std::clamp(point.z, -half[2], half[2])
-			};
-			return (point - nearest).LengthSquared();
-		};
-
-	// 線分上で「最も近いBoxの面」が変わる境界tを保存する
-	// Boxの6面と線分の両端を合わせ、境界は最大8個になる
-	std::array<float, 8> cuts{};
-	int cutCount{ 2 };
-	// 線分の始点t=0と終点t=1は必ず調査対象に含める
-	cuts[0] = 0.0f;
-	cuts[1] = 1.0f;
-	for (int axis = 0; axis < 3; ++axis)
-	{
-		// この軸方向へ動かない線分は面を横切らず、除算もできないため飛ばす。
-		if (std::abs(dir[axis]) <= Math::EPSILON) continue;
-		// 各軸について、Boxのマイナス側とプラス側の面を調べる。
-		for (const int sign : { -1, 1 })
-		{
-			// start+dir*t=sign*halfをtについて解き線分が面を横切る割合を求める。
-			const float t{ (static_cast<float>(sign) * half[axis] - start[axis]) / dir[axis] };
-			// 線分内の境界だけ追加する。両端の0と1は登録済み。
-			if (t > 0.0f && t < 1.0f) cuts[cutCount++] = t;
-		}
-	}
-	// 始点から終点へ向かう順に並べ、隣り合う値を一つの計算区間として扱う。
-	std::sort(cuts.begin(), cuts.begin() + cutCount);
-
-	// 始点を最初の候補としよりBoxに近いtが見つかるたびに更新する
-	float nearestT{ cuts[0] };
-	float minDistanceSquared{ distanceSquaredAt(nearestT) };
-
-	const auto consider = [&](float _t)
-		{
-			const float distanceSquared{ distanceSquaredAt(_t) };
-			if (distanceSquared < minDistanceSquared)
-			{
-				minDistanceSquared = distanceSquared;
-				nearestT = _t;
-			}
-		};
-
-	// 面を横切る境界そのものも最短位置になる可能性があるため調べる。
-	for (int i = 1; i < cutCount; i++)
-	{
-		consider(cuts[i]);
-	}
-
-	// 各区間の内部に存在する最短位置を調べる。
-	// 区間内では各軸がBoxの内側か外側かが変わらず、距離二乗は二次式になる。
-	for (int i = 0; i + 1 < cutCount; i++)
-	{
-		const float left{ cuts[i] };
-		const float right{ cuts[i + 1] };
-
-		// 角を同時に横切ると境界が重複するため、幅のない区間は飛ばす。
-		if (right <= left) continue;
-
-		// 区間中央を代表点にし、各軸がBoxのどの面より外側かを判定する。
-		const float middle{ (left + right) * 0.5f };
-		float numerator{ 0.0f };
-		float denominator{ 0.0f };
-
-		for (int axis = 0; axis < 3; axis++)
-		{
-			const float value{ start[axis] + dir[axis] * middle };
-			float face{};
-
-			// Box外にある軸だけ距離へ寄与する。内側の軸は最近点と同じなので無視する。
-			if (value < -half[axis]) face = -half[axis];
-			else if (value > half[axis]) face = half[axis];
-			else continue;
-
-			// 距離二乗D(t)^2を微分した式の係数を集める。
-			// 最小位置はt=-numerator/denominatorで求められる。
-			numerator += dir[axis] * (start[axis] - face);
-			denominator += dir[axis] * dir[axis];
-		}
-
-		// 求めた最小位置を現在の区間内へ制限して比較する。
-		if (denominator > 0.0f) consider(std::clamp(-numerator / denominator, left, right));
-	}
+	// 軸の上で箱に最も近い点を探す
+	const float nearestT{ ClosestRatioOnSegmentToBox(_capsuleA.startPos, _capsuleA.endPos, _boxB) };
 
 	// 軸上の点
 	Vector3 axisPoint{ _capsuleA.startPos + (_capsuleA.endPos - _capsuleA.startPos) * nearestT };
