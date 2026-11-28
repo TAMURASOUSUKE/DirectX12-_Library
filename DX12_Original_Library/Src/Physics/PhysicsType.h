@@ -114,3 +114,21 @@ struct CharacterMoveResult
 	bool isGrounded{ false }; // 接地しているか
 	bool isCeilingHit{ false }; // 天井(下を向いた面)に当たったか
 };
+
+// 接触の通知の種類
+enum class ContactEventType
+{
+	Begin, // 触れ始めた
+	Stay, // 触れている
+	End, // 触れた
+};
+
+// 接触一つ分の構造体
+struct ContacctEvent
+{
+	ContactEventType type{ ContactEventType::Begin }; // 通知の種類
+	BodyHandle bodyA{}; // 組の片方(Endの時は削除済みのことがある)
+	BodyHandle bodyB{}; // 組のもう一方(Endの時は削除済みのことがある)
+	std::uint64_t userDataA{}; // bodyAのuserData
+	std::uint64_t userDataB{}; // bodyBのuserData
+};

@@ -12,3 +12,4 @@ constexpr int SOLVER_ITERATION_COUNT{ 8 }; // 速度の解決をくり返す回�
 constexpr float PENETRATION_SLOP{ 0.005f }; // この深さまでは戻さない(震えを防ぐ)
 constexpr float PENETRATION_CORRECTION_RATE{ 0.8f }; // 1回のStepで戻すめり込みの割合
 constexpr int CHARACTER_SLIDE_COUNT{ 4 }; // キャラクターの移動で面に沿って進み直す回数の上限
+constexpr int MAX_CONTACT_EVENT_COUNT{ 4096 }; // 読まれるまで溜めておく接触の通知の上限
