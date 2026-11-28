@@ -68,6 +68,15 @@ public:
 	// カプセルを動かしたい量だけ動かし 面に当たったら沿って進めた結果を引数で受け取る
 	bool MoveCharacter(const Capsule& _capsule, Vector3 _move, const CharacterMoveSetting& _setting, CharacterMoveResult& _result);
 
+	// 溜まっている接触の通知の一覧(次のStepかClearContactEventsまで有効)
+	std::span<const ContactEvent> GetContactEvents() const;
+
+	// 溜まっている接触の通知を空にする
+	void ClearContactEvents();
+
+	// 触れ続けている通知を出すかを設定する
+	void SetContactStayEventEnabled(bool _isEnabled);
+
 	// Dynamicへ掛ける重力加速度を設定する(向きと大きさ)
 	void SetGravity(Vector3 _gravity);
 
@@ -103,6 +112,12 @@ private:
 	// 残っためり込みを位置で戻す
 	void CorrectPositions();
 
+	// 前のStepの組と今のStepの組を比べて通知を溜める
+	void UpdateContactEvents();
+
+	// 通知を一つ一覧へ足す
+	void PushContactEvent(ContactEventType _type, const ContactPair& _pair);
+
 private:
 	std::vector<BodySlot> slots{}; // bodyの台帳
 	std::stack<int> freeList{}; // 再利用できる番号
@@ -119,4 +134,8 @@ private:
 
 	std::vector<ContactSolveData> contactSolveData{}; // contactsと同じ並びの解決用データ
 
+	std::vector<ContactEvent> contactEvents{}; // 接触の通知
+	std::vector<ContactPair> previousPairs{}; // 前のStepで触れていた組
+	std::vector<ContactPair> currentPairs{}; // 今のStepで触れていた組
+	bool isContactStayEventEnabled{ true }; // 触れ続けている通知を出すか
 };

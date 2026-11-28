@@ -124,7 +124,7 @@ enum class ContactEventType
 };
 
 // 接触一つ分の構造体
-struct ContacctEvent
+struct ContactEvent
 {
 	ContactEventType type{ ContactEventType::Begin }; // 通知の種類
 	BodyHandle bodyA{}; // 組の片方(Endの時は削除済みのことがある)

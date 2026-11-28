@@ -2,264 +2,32 @@
 #include <variant>
 #include <array>
 #include <algorithm>
+#include "PhysicsContactDispatch.h"
+#include "PhysicsShapeTransform.h"
+#include "PhysicsSolver.h"
+#include "PhysicsValidation.h"
 #include "../Core/Handle/HandlePacking.h"
 #include "../Debug/DebugLogs.h"
 #include "PhysicsConstant.h"
 #include "PhysicsSystem.h"
 
+using  namespace::PhysicsContactDispatch;
+using namespace::PhysicsShapeTransform;
+using namespace::PhysicsSolver;
+using namespace::PhysicsValidation;
+
 namespace
 {
-	// 有限値かをVector3で直接調べるヘルパー
-	bool IsFinite(const Vector3& _value)
-	{
-		return std::isfinite(_value.x) && std::isfinite(_value.y) && std::isfinite(_value.z);
-	}
-
-	// 有限で長さ1の回転か
-	bool IsValidRotation(const Quaternion& _rotation)
-	{
-		const bool isValidVector{ std::isfinite(_rotation.x) && std::isfinite(_rotation.y) && std::isfinite(_rotation.z) && std::isfinite(_rotation.w) }; // 4成分部分の有限値確認
-		const bool isValidLength{ std::abs(_rotation.LengthSquared() - 1.0f) <= Math::EPSILON }; // 長さが1か確認
-		return isValidVector && isValidLength;
-	}
-
-	// 作成に使える設定か
-	bool IsValidDesc(const BodyDesc& _desc)
-	{
-		// 入力された形状のIsValid関数を呼び出すvisit
-		const bool isValidShape{ std::visit([](const auto& _shape) { return _shape.IsValid(); }, _desc.shapeData) };
-		if (!isValidShape) return false;
-
-		if (!IsFinite(_desc.position) || !IsValidRotation(_desc.rotation)) return false;
-		if (!IsFinite(_desc.velocity) || !IsFinite(_desc.angularVelocity)) return false;
-		if (!std::isfinite(_desc.friction) || _desc.friction < 0.0f) return  false; // 摩擦は0未満になってはならない
-
-		// 逆数を取るので質量は正の値だけ
-		const bool isDynamic{ _desc.motionType == MotionType::Dynamic };
-		if (isDynamic && !(std::isfinite(_desc.mass) && _desc.mass > 0.0f)) return false;
-		return true;
-	}
-
-	// 設定から内部データを作る
-	BodyData MakeBodyData(const BodyDesc& _desc)
-	{
-		const bool isStatic{ _desc.motionType == MotionType::Static };
-		const bool isDynamic{ _desc.motionType == MotionType::Dynamic };
-		BodyData data{};
-		data.shape = _desc.shapeData;
-		data.position = _desc.position;
-		data.rotation = _desc.rotation;
-		data.velocity = isStatic ? Vector3::Zero : _desc.velocity; // Staticは速度を持たない
-		data.massInverse = isDynamic ? 1.0f / _desc.mass : 0.0f; // 0は力では動かないことを表す
-		data.angularVelocity = _desc.angularVelocity;
-		data.friction = _desc.friction;
-		data.motionType = _desc.motionType;
-		data.isTrigger = _desc.isTrigger;
-		data.isGravityEnabled = _desc.isGravityEnabled;
-		data.layer = _desc.layer;
-		data.collisionMask = _desc.collisionMask;
-		data.userData = _desc.userData;
-		return data;
-	}
-
-	// 形の中の相対位置をBodyの位置と回転でワールドへ直す
-	Vector3 ToWorldPoint(const Vector3& _localPoint, const BodyData& _body)
-	{
-		return _body.position + _body.rotation.RotateVector(_localPoint);
-	}
-
-	Sphere ToWorldShape(const Sphere& _sphere, const BodyData& _body)
-	{
-		return Sphere{ ToWorldPoint(_sphere.center, _body), _sphere.radius };
-	}
-
-	Capsule ToWorldShape(const Capsule& _capsule, const BodyData& _body)
-	{
-		return Capsule{ ToWorldPoint(_capsule.startPos, _body), ToWorldPoint(_capsule.endPos, _body), _capsule.radius };
-	}
-
-	Box ToWorldShape(const Box& _box, const BodyData& _body)
-	{
-		// 箱自身の回転を先に掛け、その後にBodyの回転を掛ける
-		return Box{ ToWorldPoint(_box.center, _body), _box.halfSize, _body.rotation * _box.rotation };
-	}
-
-	// 三角形の集まりはハンドルを持つだけなのでそのまま返す(三角形は調べる側でローカルのまま使う)
-	TriangleMeshShape ToWorldShape(const TriangleMeshShape& _mesh, const BodyData& _body)
-	{
-		return _mesh;
-	}
-
-	// 高さの格子はハンドルを持つだけなのでそのまま返す
-	HeightFieldShape ToWorldShape(const HeightFieldShape& _heightField, const BodyData& _body)
-	{
-		return _heightField;
-	}
-
-	// ワールドの位置を相手のBodyのローカルへ移す(位置を引いてから逆回転)
-	Vector3 ToLocalPoint(const Vector3& _worldPoint, const BodyData& _body)
-	{
-		const Quaternion inverseRotation{ Vector4{ -_body.rotation.x, -_body.rotation.y, -_body.rotation.z, _body.rotation.w } };
-		return inverseRotation.RotateVector(_worldPoint - _body.position);
-	}
-
 	// 一つのレイヤーが一つのCollisionMaskに入っているかを返す
 	bool IsLayerMatched(std::uint32_t _layer, std::uint32_t _collisionMask)
 	{
 		// 渡されたMaskの中に自分が入っているか
 		return (_layer & _collisionMask) != 0;
 	}
-
-	// 形をワールドへ直してから三角形の集まりのBodyのローカルへ移す
-	Shape ToMeshLocalShape(const Sphere& _sphere, const BodyData& _owner, const BodyData& _meshBody)
-	{
-		const Sphere world{ ToWorldShape(_sphere, _owner) };
-		return Shape{ Sphere{ ToLocalPoint(world.center, _meshBody), world.radius } };
-	}
-
-	Shape ToMeshLocalShape(const Capsule& _capsule, const BodyData& _owner, const BodyData& _meshBody)
-	{
-		const Capsule world{ ToWorldShape(_capsule, _owner) };
-		return Shape{ Capsule{ ToLocalPoint(world.startPos, _meshBody), ToLocalPoint(world.endPos, _meshBody), world.radius } };
-	}
-
-	Shape ToMeshLocalShape(const Box& _box, const BodyData& _owner, const BodyData& _meshBody)
-	{
-		const Box world{ ToWorldShape(_box, _owner) };
-		// 回転は相手の逆回転を後から掛ける
-		const Quaternion inverseRotation{ Vector4{ -_meshBody.rotation.x, -_meshBody.rotation.y, -_meshBody.rotation.z, _meshBody.rotation.w } };
-		return Shape{ Box{ ToLocalPoint(world.center, _meshBody), world.halfSize, inverseRotation * world.rotation } };
-	}
-
-	// 三角形の集まり同士は調べないので呼ばれない(std::visitが全ての型を求めるので置く)
-	Shape ToMeshLocalShape(const TriangleMeshShape& _mesh, const BodyData& _owner, const BodyData& _meshBody)
-	{
-		return Shape{ _mesh };
-	}
-
-	// 形と三角形1枚の接触を計算する(形の型ごとに用意した関数を呼び分ける)
-	bool ComputeTriangleContact(CollisionSystem& _collisionSystem, const Sphere& _sphere, const Triangle& _triangle, ShapeToShapeResult& _result)
-	{
-		return _collisionSystem.ComputeShapeContact(_sphere, _triangle, _result);
-	}
-
-	bool ComputeTriangleContact(CollisionSystem& _collisionSystem, const Capsule& _capsule, const Triangle& _triangle, ShapeToShapeResult& _result)
-	{
-		return _collisionSystem.ComputeShapeContact(_capsule, _triangle, _result);
-	}
-
-	bool ComputeTriangleContact(CollisionSystem& _collisionSystem, const Box& _box, const Triangle& _triangle, ShapeToShapeResult& _result)
-	{
-		return _collisionSystem.ComputeShapeContact(_box, _triangle, _result);
-	}
-
-	// 三角形の集まり同士は調べないので呼ばれない(std::visitが全ての型を求めるので置く)
-	bool ComputeTriangleContact(CollisionSystem& _collisionSystem, const TriangleMeshShape& _mesh, const Triangle& _triangle, ShapeToShapeResult& _result)
-	{
-		return false;
-	}
-
-	// 動かない形同士は調べないので呼ばれない(std::visitが全ての型を求めるので置く)
-	Shape ToMeshLocalShape(const HeightFieldShape& _heightField, const BodyData& _owner, const BodyData& _meshBody)
-	{
-		return Shape{ _heightField };
-	}
-
-	bool ComputeTriangleContact(CollisionSystem& _collisionSystem, const HeightFieldShape& _heightField, const Triangle& _triangle, ShapeToShapeResult& _result)
-	{
-		return false;
-	}
-
-	// 形がXの向きとZの向きに占める範囲
-	struct ShapeRangeXZ
-	{
-		float minX{ 0.0f }; // Xの最小
-		float maxX{ 0.0f }; // Xの最大
-		float minZ{ 0.0f }; // Zの最小
-		float maxZ{ 0.0f }; // Zの最大
-	};
-
-	// 形ごとにXとZの範囲を求める(高さの格子のどの升と重なるかを調べるのに使う)
-	ShapeRangeXZ GetRangeXZ(const Sphere& _sphere)
-	{
-		return ShapeRangeXZ{ _sphere.center.x - _sphere.radius, _sphere.center.x + _sphere.radius, _sphere.center.z - _sphere.radius, _sphere.center.z + _sphere.radius };
-	}
-
-	ShapeRangeXZ GetRangeXZ(const Capsule& _capsule)
-	{
-		// 両端の小さい方から半径を引き 大きい方へ半径を足す
-		return ShapeRangeXZ{
-			(std::min)(_capsule.startPos.x, _capsule.endPos.x) - _capsule.radius, (std::max)(_capsule.startPos.x, _capsule.endPos.x) + _capsule.radius,
-			(std::min)(_capsule.startPos.z, _capsule.endPos.z) - _capsule.radius, (std::max)(_capsule.startPos.z, _capsule.endPos.z) + _capsule.radius };
-	}
-
-	ShapeRangeXZ GetRangeXZ(const Box& _box)
-	{
-		// 箱の3本の軸をXとZへ投影した長さの合計が その向きの半径になる
-		const Vector3 axisX{ _box.rotation.RotateVector(Vector3::Right) };
-		const Vector3 axisY{ _box.rotation.RotateVector(Vector3::Up) };
-		const Vector3 axisZ{ _box.rotation.RotateVector(Vector3::Forward) };
-		const float radiusX{ _box.halfSize.x * std::abs(axisX.x) + _box.halfSize.y * std::abs(axisY.x) + _box.halfSize.z * std::abs(axisZ.x) };
-		const float radiusZ{ _box.halfSize.x * std::abs(axisX.z) + _box.halfSize.y * std::abs(axisY.z) + _box.halfSize.z * std::abs(axisZ.z) };
-		return ShapeRangeXZ{ _box.center.x - radiusX, _box.center.x + radiusX, _box.center.z - radiusZ, _box.center.z + radiusZ };
-	}
-
-	// 動かない形同士は調べないので呼ばれない(std::visitが全ての型を求めるので置く)
-	ShapeRangeXZ GetRangeXZ(const TriangleMeshShape& _mesh)
-	{
-		return ShapeRangeXZ{};
-	}
-
-	ShapeRangeXZ GetRangeXZ(const HeightFieldShape& _heightField)
-	{
-		return ShapeRangeXZ{};
-	}
-
-	// Bodyが持っている形(variant)をワールドへ直して返す
-	Shape ToWorldShape(const BodyData& _body)
-	{
-		return std::visit([&_body](const auto& _shape) { return Shape{ ToWorldShape(_shape, _body) }; }, _body.shape);
-	}
-
-	// 表に入れる関数の型(9個とも同じ形にそろえる)
-	using ContactFunction = bool(*)(CollisionSystem& _collisionSystem, const Shape& _shapeA, const Shape& _shapeB, ShapeToShapeResult& _result);
-
-	// そのまま呼ぶ : variantからAの型とBの型を取り出して計算する
-	template<typename ShapeTypeA, typename ShapeTypeB>
-	bool CallContact(CollisionSystem& _collisionSystem, const Shape& _shapeA, const Shape& _shapeB, ShapeToShapeResult& _result)
-	{
-		return _collisionSystem.ComputeShapeContact(std::get<ShapeTypeA>(_shapeA), std::get<ShapeTypeB>(_shapeB), _result);
-	}
-
-	// 入れ替えて呼ぶ : 用意してある関数は(B, A)の並びなので逆にして呼び、法線の符号を反転する
-	template<typename ShapeTypeA, typename ShapeTypeB>
-	bool CallContactSwapped(CollisionSystem& _collisionSystem, const Shape& _shapeA, const Shape& _shapeB, ShapeToShapeResult& _result)
-	{
-		if (!_collisionSystem.ComputeShapeContact(std::get<ShapeTypeB>(_shapeB), std::get<ShapeTypeA>(_shapeA), _result)) return false;
-		_result.normal = -_result.normal; // 法線はA->B 点は2つの表面の真ん中なので動かない
-		return true;
-	}
-
-	// AとBへ逆向きに同じ力積を与える(速度の変化 = 力積 × 質量の逆数)
-	void ApplyImpulse(BodyData& _bodyA, BodyData& _bodyB, const Vector3& _impulse)
-	{
-		_bodyA.velocity -= _impulse * _bodyA.massInverse;
-		_bodyB.velocity += _impulse * _bodyB.massInverse;
-	}
-
-	// 法線に垂直な向きを2つ作る(摩擦をかける向き)
-	void MakeTangents(const Vector3& _normal, Vector3& _outTangent1, Vector3& _outTangent2)
-	{
-		Vector3 tangent{ Vector3::Cross(_normal, Vector3::Up) };
-		// 法線が上下を向いていると外積が0になるので別の軸を使う
-		if (tangent.LengthSquared() <= Math::EPSILON) tangent = Vector3::Cross(_normal, Vector3::Right);
-		tangent.Normalize();
-		_outTangent1 = tangent;
-		_outTangent2 = Vector3::Cross(_normal, tangent);
-	}
 }
 
-namespace {
+namespace
+{
 	// 形の番号2つで関数を選ぶ表 [Aの番号][Bの番号]  番号はShapeの並び 箱=0 カプセル=1 球=2
 	const std::array<std::array<ContactFunction, 3>, 3> contactFunctionTable{ {
 		{ &CallContact<Box, Box>,     &CallContactSwapped<Box, Capsule>,    &CallContactSwapped<Box, Sphere> },
@@ -1492,6 +1260,21 @@ bool PhysicsSystem::MoveCharacter(const Capsule& _capsule, Vector3 _move, const 
 	return true;
 }
 
+std::span<const ContactEvent> PhysicsSystem::GetContactEvents() const
+{
+
+}
+
+void PhysicsSystem::ClearContactEvents()
+{
+
+}
+
+void PhysicsSystem::SetContactStayEventEnabled(bool _isEnabled)
+{
+
+}
+
 void PhysicsSystem::SetGravity(Vector3 _gravity)
 {
 	if (!std::isfinite(_gravity.x) || !std::isfinite(_gravity.y) || !std::isfinite(_gravity.z))
@@ -1525,4 +1308,14 @@ void PhysicsSystem::CorrectPositions()
 		bodyA.position -= result.normal * (correction * bodyA.massInverse);
 		bodyB.position += result.normal * (correction * bodyB.massInverse);
 	}
+}
+
+void PhysicsSystem::UpdateContactEvents()
+{
+
+}
+
+void PhysicsSystem::PushContactEvent(ContactEventType _type, const ContactPair& _pair)
+{
+
 }

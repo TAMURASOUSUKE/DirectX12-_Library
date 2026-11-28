@@ -85,3 +85,14 @@ struct ContactSolveData
 	bool isSolved{ false }; // 押し戻す組か(トリガーはfalse)
 };
 
+// 触れている組一つ分(前のStepと比べるために持つ)
+struct ContactPair
+{
+	int indexA{ 0 }; // slotsの中のAの番号
+	int indexB{ 0 }; // slotsの中のBの番号
+	std::uint32_t generationA{ 0 }; // Aの世代
+	std::uint32_t generationB{ 0 }; // Bの世代
+	std::uint64_t userDataA{ 0 }; // AのuserData
+	std::uint64_t userDataB{ 0 }; // BのuserData
+};
+
