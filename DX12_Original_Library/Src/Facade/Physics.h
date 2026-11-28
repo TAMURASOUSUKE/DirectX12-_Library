@@ -63,4 +63,13 @@ namespace Physics
 	// Dynamicへ掛ける重力加速度を取得する
 	Vector3 GetGravity();
 
+	// 溜まっている接触の通知の一覧を取得する(次のStepかClearContactEventsまで有効)
+	std::span<const ContactEvent> GetContactEvents();
+
+	// 溜まっている接触の通知を空にする(読み終わったら呼ぶ)
+	void ClearContactEvents();
+
+	// 触れ続けている通知を出すかを設定する(初期値は出す)
+	void SetContactStayEventEnabled(bool _isEnabled);
+
 }

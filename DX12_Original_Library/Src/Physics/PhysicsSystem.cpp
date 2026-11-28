@@ -24,6 +24,13 @@ namespace
 		// 渡されたMaskの中に自分が入っているか
 		return (_layer & _collisionMask) != 0;
 	}
+
+	// 組の並び順で左が先か(Aの番号 同じならBの番号で比べる)
+	bool IsPairBefore(const ContactPair& _left, const ContactPair& _right)
+	{
+		if (_left.indexA != _right.indexA) return _left.indexA < _right.indexA;
+		return _left.indexB < _right.indexB;
+	}
 }
 
 namespace
@@ -34,17 +41,21 @@ namespace
 		{ &CallContact<Capsule, Box>, &CallContact<Capsule, Capsule>,       &CallContact<Capsule, Sphere> },
 		{ &CallContact<Sphere, Box>,  &CallContactSwapped<Sphere, Capsule>, &CallContact<Sphere, Sphere> },
 	} };
-
 }
 
 void PhysicsSystem::Setup()
 {
 	Shutdown(); // 再初期化対策
-	slots.reserve(MAX_BODY_COUNT); // 最大容量をあらかじめ確保(作成時に再確保させない)
+
+	// 最大容量をあらかじめ確保(作成時に再確保させない)
+	slots.reserve(MAX_BODY_COUNT); 
 	triangleMeshSlots.reserve(MAX_TRIANGLE_MESH_COUNT);
 	heightFieldSlots.reserve(MAX_HEIGHT_FIELD_COUNT);
 	contacts.reserve(MAX_CONTACT_COUNT);
 	contactSolveData.reserve(MAX_CONTACT_COUNT);
+	contactEvents.reserve(MAX_CONTACT_EVENT_COUNT);
+	previousPairs.reserve(MAX_CONTACT_COUNT);
+	currentPairs.reserve(MAX_CONTACT_COUNT);
 }
 
 void PhysicsSystem::Shutdown()
@@ -52,6 +63,9 @@ void PhysicsSystem::Shutdown()
 	slots.clear();
 	contacts.clear();
 	triangleMeshSlots.clear();
+	contactEvents.clear();
+	previousPairs.clear();
+	currentPairs.clear();
 	while (!triangleMeshFreeList.empty())
 	{
 		triangleMeshFreeList.pop();
@@ -306,6 +320,9 @@ void PhysicsSystem::Step(float _deltaTime)
 	// 今の位置で接触を調べる
 	UpdateContacts();
 
+	// 前のStepの組と比べて通知を溜める
+	UpdateContactEvents();
+
 	// 接触している組の速度を直す
 	SolveVelocities();
 
@@ -486,8 +503,13 @@ void PhysicsSystem::UpdateContacts()
 		{
 			const BodySlot& slotB{ slots[indexB] };
 			if (!slotB.isAlive) continue;
-			// どちらもDynamicでない組は押し合わないので調べない
-			if (slotA.data.motionType != MotionType::Dynamic && slotB.data.motionType != MotionType::Dynamic) continue;
+
+			// Dynamicを含む組は押し合うので調べる トリガーを含む組は通知の溜めに調べる(両方staticの組は動かないので除く)
+			const bool hasDynamic{ slotA.data.motionType == MotionType::Dynamic || slotB.data.motionType == MotionType::Dynamic };
+			const bool hasTrigger{ slotA.data.isTrigger || slotB.data.isTrigger };
+			const bool isBothStatic{ slotA.data.motionType == MotionType::Kinematic || slotB.data.motionType == MotionType::Kinematic };
+			if (!hasDynamic && (!hasTrigger || isBothStatic)) continue;
+
 			// 上限に達したらこのStepはここまで
 			if (static_cast<int>(contacts.size()) >= MAX_CONTACT_COUNT) return;
 
@@ -1262,17 +1284,17 @@ bool PhysicsSystem::MoveCharacter(const Capsule& _capsule, Vector3 _move, const 
 
 std::span<const ContactEvent> PhysicsSystem::GetContactEvents() const
 {
-
+	return contactEvents;
 }
 
 void PhysicsSystem::ClearContactEvents()
 {
-
+	contactEvents.clear();
 }
 
 void PhysicsSystem::SetContactStayEventEnabled(bool _isEnabled)
 {
-
+	isContactStayEventEnabled = _isEnabled;
 }
 
 void PhysicsSystem::SetGravity(Vector3 _gravity)
@@ -1312,10 +1334,81 @@ void PhysicsSystem::CorrectPositions()
 
 void PhysicsSystem::UpdateContactEvents()
 {
+	// 今のSetupの組を前のStepの組として残す
+	previousPairs = currentPairs;
+	currentPairs.clear();
 
+	// contactSolverDataは組の小さい番号順にする 同じ組は隣合うので直前と同じ組は足さない
+	for (const ContactSolveData& solve : contactSolveData)
+	{
+		if (!currentPairs.empty() && currentPairs.back().indexA == solve.indexA && currentPairs.back().indexB == solve.indexB) continue;
+
+		const BodySlot& slotA{ slots[solve.indexA] };
+		const BodySlot& slotB{ slots[solve.indexB] };
+		ContactPair pair{};
+		pair.indexA = solve.indexA;
+		pair.indexB = solve.indexB;
+		pair.generationA = slotA.generation;
+		pair.generationB = slotB.generation;
+		pair.userDataA = slotA.data.userData;
+		pair.userDataB = slotB.data.userData;
+		currentPairs.push_back(pair);
+	}
+
+	// 2つの一覧を先頭から順に比べる
+	std::size_t previousIndex{ 0 };
+	std::size_t currentIndex{ 0 };
+	while (previousIndex < previousPairs.size() || currentIndex < currentPairs.size())
+	{
+		// 相手の一覧が終わっているか自分の組の方が先ならその組は自分の一覧にしかない
+		const bool isPreviousOnly{ currentIndex >= currentPairs.size() || (previousIndex < previousPairs.size() && IsPairBefore(previousPairs[previousIndex], currentPairs[currentIndex])) };
+		const bool isCurrentOnly{ previousIndex >= previousPairs.size() || (currentIndex < currentPairs.size() && IsPairBefore(currentPairs[currentIndex], previousPairs[previousIndex])) };
+		
+		// 前のStepにしかない組は離れた
+		if (isPreviousOnly)
+		{
+			PushContactEvent(ContactEventType::End, previousPairs[previousIndex]);
+			previousIndex++;
+			continue;
+		}
+
+		// 今のStepにしかない組は触れ始めた
+		if (isCurrentOnly)
+		{
+			PushContactEvent(ContactEventType::Begin, currentPairs[currentIndex]);
+			currentIndex++;
+			continue;
+		}
+
+		// 両方にある組 世代が同じなら触れ続けている
+		const ContactPair& previous{ previousPairs[previousIndex] };
+		const ContactPair& current{ currentPairs[currentIndex] };
+		if (previous.generationA == current.generationA && previous.generationB == current.generationB)
+		{
+			if (isContactStayEventEnabled) PushContactEvent(ContactEventType::Stay, current);
+		}
+		else
+		{
+			// 番号が同じでも世代が違えば別のBodyなので 離れたと触れ始めたの両方を出す
+			PushContactEvent(ContactEventType::End, previous);
+			PushContactEvent(ContactEventType::Begin, current);
+		}
+		previousIndex++;
+		currentIndex++;
+	}
+
+	if (static_cast<int>(contactEvents.size()) >= MAX_CONTACT_EVENT_COUNT) DEBUG_LOG_ERROR("接触の通知が上限に達しました ClearContactEventsを呼んでください\n");
 }
 
 void PhysicsSystem::PushContactEvent(ContactEventType _type, const ContactPair& _pair)
 {
-
+	// 上限に達したら足さない
+	if (static_cast<int>(contactEvents.size()) >= MAX_CONTACT_EVENT_COUNT) return;
+	ContactEvent contactEvent{};
+	contactEvent.type = _type;
+	contactEvent.bodyA = BodyHandle{ PassKey{}, Pack(_pair.indexA, static_cast<int>(_pair.generationA)) };
+	contactEvent.bodyB = BodyHandle{ PassKey{}, Pack(_pair.indexB, static_cast<int>(_pair.generationB)) };
+	contactEvent.userDataA = _pair.userDataA;
+	contactEvent.userDataB = _pair.userDataB;
+	contactEvents.push_back(contactEvent);
 }

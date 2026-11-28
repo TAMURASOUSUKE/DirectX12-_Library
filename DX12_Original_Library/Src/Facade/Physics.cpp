@@ -121,3 +121,18 @@ Vector3 Physics::GetGravity()
 {
 	return physicsSystem.GetGravity();
 }
+
+std::span<const ContactEvent> Physics::GetContactEvents()
+{
+	return physicsSystem.GetContactEvents();
+}
+
+void Physics::ClearContactEvents()
+{
+	physicsSystem.ClearContactEvents();
+}
+
+void Physics::SetContactStayEventEnabled(bool _isEnabled)
+{
+	physicsSystem.SetContactStayEventEnabled(_isEnabled);
+}

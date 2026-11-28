@@ -120,7 +120,7 @@ enum class ContactEventType
 {
 	Begin, // 触れ始めた
 	Stay, // 触れている
-	End, // 触れた
+	End, // 離れた
 };
 
 // 接触一つ分の構造体
