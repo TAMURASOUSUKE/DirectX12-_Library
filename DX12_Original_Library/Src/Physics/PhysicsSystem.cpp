@@ -1334,11 +1334,11 @@ void PhysicsSystem::CorrectPositions()
 
 void PhysicsSystem::UpdateContactEvents()
 {
-	// 今のSetupの組を前のStepの組として残す
+	// 今のStepの組を前のStepの組として残す
 	previousPairs = currentPairs;
 	currentPairs.clear();
 
-	// contactSolverDataは組の小さい番号順にする 同じ組は隣合うので直前と同じ組は足さない
+	// contactSolverDataは組の小さい番号順に並び 同じ組は隣合うので直前と同じ組は足さない
 	for (const ContactSolveData& solve : contactSolveData)
 	{
 		if (!currentPairs.empty() && currentPairs.back().indexA == solve.indexA && currentPairs.back().indexB == solve.indexB) continue;
